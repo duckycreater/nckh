@@ -8,6 +8,7 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { google } from "googleapis";
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { resolveGacha, generateServerCard } from "./server/lib/cards.js";
@@ -104,13 +105,7 @@ async function getAdminStats(): Promise<AdminStats> {
 
 app.use(express.json({ limit: "50mb" }));
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS, // App password
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendPurchaseEmail(user: any, itemId: string) {
   try {
@@ -134,17 +129,17 @@ async function sendPurchaseEmail(user: any, itemId: string) {
        </div>
     `;
 
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-       console.warn("[Email] Bỏ qua vì chưa có SMTP_USER / SMTP_PASS.");
+    if (!process.env.RESEND_API_KEY) {
+       console.warn("[Email] Bỏ qua vì chưa có RESEND_API_KEY.");
        return;
     }
 
-    await transporter.sendMail({
-       from: `"EcoQuest Game" <${process.env.SMTP_USER}>`,
-       to: "ducnguyenminh0804@gmail.com",
-       subject: `EcoQuest: ${user.name} vừa mua ${itemName}!`,
-       text: textBody,
-       html: htmlBody
+    await resend.emails.send({
+      from: "EcoQuest <onboarding@resend.dev>",
+      to: "ducnguyenminh0804@gmail.com",
+      subject: `EcoQuest: ${user.name} vừa mua ${itemName}!`,
+      text: textBody,
+      html: htmlBody,
     });
     console.log(`[Email] Purchase notification sent for ${itemName}`);
   } catch (e) {
@@ -182,17 +177,17 @@ async function sendCraftEmail(user: any, craftedItemId: any, redeemInfo?: { full
      }
      htmlBody += "</div>";
      
-     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.warn("[Email] Bỏ qua vì chưa có SMTP_USER / SMTP_PASS.");
+     if (!process.env.RESEND_API_KEY) {
+        console.warn("[Email] Bỏ qua vì chưa có RESEND_API_KEY.");
         return;
      }
 
-     await transporter.sendMail({
-        from: `"EcoQuest Game" <${process.env.SMTP_USER}>`,
+     await resend.emails.send({
+        from: "EcoQuest <onboarding@resend.dev>",
         to: "ducnguyenminh0804@gmail.com",
         subject: `EcoQuest: ${user.name} vừa đổi quà ${itemName}!`,
         text: textBody,
-        html: htmlBody
+        html: htmlBody,
      });
      console.log(`[Email] Notification sent for reward ${itemName}`);
   } catch (e) {
