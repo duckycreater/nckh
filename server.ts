@@ -136,7 +136,7 @@ async function sendPurchaseEmail(user: any, itemId: string) {
 
     const { data, error } = await resend.emails.send({
       from: "EcoQuest <onboarding@resend.dev>",
-      to: "ducnguyenminh0804@gmail.com",
+      to: "leoxkas280@gmail.com",
       subject: `EcoQuest: ${user.name} vừa mua ${itemName}!`,
       text: textBody,
       html: htmlBody,
@@ -188,7 +188,7 @@ async function sendCraftEmail(user: any, craftedItemId: any, redeemInfo?: { full
 
     const { data, error } = await resend.emails.send({
        from: "EcoQuest <onboarding@resend.dev>",
-       to: "ducnguyenminh0804@gmail.com",
+       to: "leoxkas280@gmail.com",
        subject: `EcoQuest: ${user.name} vừa đổi quà ${itemName}!`,
        text: textBody,
        html: htmlBody,
