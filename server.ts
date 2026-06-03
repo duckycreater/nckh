@@ -134,14 +134,18 @@ async function sendPurchaseEmail(user: any, itemId: string) {
        return;
     }
 
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: "EcoQuest <onboarding@resend.dev>",
       to: "ducnguyenminh0804@gmail.com",
       subject: `EcoQuest: ${user.name} vừa mua ${itemName}!`,
       text: textBody,
       html: htmlBody,
     });
-    console.log(`[Email] Purchase notification sent for ${itemName}`);
+    if (error) {
+      console.error("[Email] Resend error:", error);
+    } else {
+      console.log(`[Email] Purchase notification sent, ID: ${data?.id}`);
+    }
   } catch (e) {
     console.error("[Email] Failed to send purchase notification:", e);
   }
@@ -182,14 +186,18 @@ async function sendCraftEmail(user: any, craftedItemId: any, redeemInfo?: { full
         return;
      }
 
-     await resend.emails.send({
-        from: "EcoQuest <onboarding@resend.dev>",
-        to: "ducnguyenminh0804@gmail.com",
-        subject: `EcoQuest: ${user.name} vừa đổi quà ${itemName}!`,
-        text: textBody,
-        html: htmlBody,
-     });
-     console.log(`[Email] Notification sent for reward ${itemName}`);
+    const { data, error } = await resend.emails.send({
+       from: "EcoQuest <onboarding@resend.dev>",
+       to: "ducnguyenminh0804@gmail.com",
+       subject: `EcoQuest: ${user.name} vừa đổi quà ${itemName}!`,
+       text: textBody,
+       html: htmlBody,
+    });
+    if (error) {
+       console.error("[Email] Resend error:", error);
+    } else {
+       console.log(`[Email] Notification sent, ID: ${data?.id}`);
+    }
   } catch (e) {
      console.error("[Email] Failed to send notification:", e);
   }
