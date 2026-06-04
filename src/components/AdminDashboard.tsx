@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, AlertTriangle, RefreshCw, UserCog, FlaskConical, Eye, Trash2, Ban, Zap, Activity } from 'lucide-react';
 import { User, RewardItem } from '../types';
-import { ResearchDashboard } from './ResearchDashboard';
 
 interface Props {
   user: User;
@@ -66,14 +65,11 @@ export function AdminDashboard({ user, onLogout }: Props) {
     fetchExperiments();
   }, []);
 
-  const getAuthHeaders = (extra?: Record<string, string>) => ({
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(extra || {}),
-  });
+  const authHeaders = () => ({ headers: { Authorization: `Bearer ${token}` } });
 
   const loadStats = async () => {
     try {
-      const res = await fetch('/api/admin/stats', { headers: getAuthHeaders() });
+      const res = await fetch('/api/admin/stats', authHeaders());
       if (res.ok) setStats(await res.json());
     } catch {}
   };
@@ -94,7 +90,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
+      const res = await fetch('/api/admin/users', authHeaders());
       if (res.ok) setUsers(await res.json());
     } catch (e) {
       console.error(e);
@@ -104,7 +100,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const fetchExperiments = async () => {
     setExpLoading(true);
     try {
-      const res = await fetch('/api/experiments', { headers: getAuthHeaders() });
+      const res = await fetch('/api/experiments', authHeaders());
       if (res.ok) setExperiments(await res.json());
     } catch (e) {
       console.error(e);
@@ -119,9 +115,9 @@ export function AdminDashboard({ user, onLogout }: Props) {
     try {
       const accountId = u.account_id;
       const [profileRes, decayRes, interventionsRes] = await Promise.all([
-        fetch(`/api/profile/${accountId}`, { headers: getAuthHeaders() }),
-        fetch(`/api/decay/${accountId}`, { headers: getAuthHeaders() }),
-        fetch(`/api/interventions/${accountId}`, { headers: getAuthHeaders() }),
+        fetch(`/api/profile/${accountId}`, authHeaders()),
+        fetch(`/api/decay/${accountId}`, authHeaders()),
+        fetch(`/api/interventions/${accountId}`, authHeaders()),
       ]);
       const profile = profileRes.ok ? await profileRes.json() : null;
       const decay = decayRes.ok ? await decayRes.json() : null;
@@ -141,7 +137,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
     formData.append("image", file);
     setUploading(true);
     try {
-      const res = await fetch("/api/upload", { method: "POST", headers: getAuthHeaders(), body: formData });
+      const res = await fetch("/api/upload", { ...authHeaders(), method: "POST", body: formData });
       const data = await res.json();
       if (data.url) setNewReward(prev => ({ ...prev, imageUrl: data.url }));
       else alert("Upload failed: " + (data.error || "Unknown error"));
@@ -161,7 +157,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
         ingredients: newReward.ingredients.split(',').map(s => s.trim()),
         color: newReward.color, bgClass: newReward.bgClass, borderClass: newReward.borderClass,
       };
-      await fetch('/api/rewards', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      await fetch('/api/rewards', { ...authHeaders(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       setShowAddReward(false);
       fetchRewards();
     } catch (error) {
@@ -171,17 +167,17 @@ export function AdminDashboard({ user, onLogout }: Props) {
 
   const handleDeleteReward = async (id: string | number) => {
     if (!confirm('Bạn có chắc muốn xóa quà này?')) return;
-    await fetch(`/api/rewards/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+    await fetch(`/api/rewards/${id}`, { ...authHeaders(), method: 'DELETE' });
     fetchRewards();
   };
 
   const handleRoleChange = async (nick: string, newRole: string) => {
-    await fetch(`/api/admin/users/${nick}/role`, { method: 'PUT', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ role: newRole }) });
+    await fetch(`/api/admin/users/${nick}/role`, { ...authHeaders(), method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: newRole }) });
     fetchUsers();
   };
 
   const handlePointsAdjust = async (nick: string, delta: number, reason: string) => {
-    await fetch(`/api/admin/users/${nick}/adjust-points`, { method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ delta, reason }) });
+    await fetch(`/api/admin/users/${nick}/adjust-points`, { ...authHeaders(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delta, reason }) });
     fetchUsers();
     if (selectedUser?.nick === nick) {
       const updated = users.find(u => u.nick === nick);
@@ -190,27 +186,27 @@ export function AdminDashboard({ user, onLogout }: Props) {
   };
 
   const handleSuspend = async (nick: string, suspended: boolean) => {
-    await fetch(`/api/admin/users/${nick}/suspend`, { method: 'PUT', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ suspended }) });
+    await fetch(`/api/admin/users/${nick}/suspend`, { ...authHeaders(), method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suspended }) });
     fetchUsers();
     setSelectedUser(null);
   };
 
   const handleResetProgress = async (nick: string) => {
     if (!confirm(`CẢNH BÁO: Reset toàn bộ tiến độ của "${nick}"? Hành động này không thể hoàn tác!`)) return;
-    await fetch(`/api/admin/users/${nick}/reset-progress?confirm=true`, { method: 'POST', headers: getAuthHeaders() });
+    await fetch(`/api/admin/users/${nick}/reset-progress?confirm=true`, { ...authHeaders(), method: 'POST' });
     fetchUsers();
     setSelectedUser(null);
   };
 
   const handleTriggerDecay = async (accountId: string) => {
-    await fetch(`/api/admin/decay/${accountId}/detect`, { method: 'POST', headers: getAuthHeaders() });
+    await fetch(`/api/admin/decay/${accountId}/detect`, { ...authHeaders(), method: 'POST' });
     if (selectedUser) fetchUserDetail(selectedUser);
   };
 
   const handleCreateExp = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetch('/api/experiments', {
-      method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      ...authHeaders(), method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...newExp, metrics: ['engagement', 'retention'] })
     });
     setShowNewExp(false);
@@ -219,7 +215,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
   };
 
   const handleExpAction = async (expId: string, action: 'pause' | 'activate' | 'delete') => {
-    await fetch(`/api/experiments/${expId}/${action}`, { method: 'POST', headers: getAuthHeaders() });
+    await fetch(`/api/experiments/${expId}/${action}`, { ...authHeaders(), method: 'POST' });
     fetchExperiments();
   };
 
@@ -251,7 +247,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
             { id: 'experiments', icon: FlaskConical, label: 'Experiments' },
             { id: 'research', icon: BarChart3, label: 'Research' },
           ].map(({ id, icon: Icon, label }) => (
-            <button key={id} onClick={() => setActiveTab(id as any)}
+            <button key={id} onClick={id === 'research' ? () => window.location.href = '/research' : () => setActiveTab(id as any)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all text-sm ${
                 activeTab === id ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}>
@@ -545,11 +541,6 @@ export function AdminDashboard({ user, onLogout }: Props) {
               </div>
             )}
           </div>
-        )}
-
-        {/* RESEARCH TAB */}
-        {activeTab === 'research' && (
-          <ResearchDashboard user={user} />
         )}
       </div>
     </div>
