@@ -60,7 +60,10 @@ export default function App() {
     return (
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/research" replace />} />
+          <Route
+            path="/"
+            element={<Navigate to="/home" replace />}
+          />
           <Route
             path="/research"
             element={<ResearchDashboard user={user} />}
