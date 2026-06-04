@@ -60,14 +60,8 @@ export default function App() {
     return (
       <BrowserRouter>
         <Routes>
-          <Route
-            path="/"
-            element={<Navigate to="/home" replace />}
-          />
-          <Route
-            path="/research"
-            element={<ResearchDashboard user={user} />}
-          />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/research" element={<ResearchDashboard user={user} />} />
           <Route
             path="/:tab"
             element={<AdminDashboard user={user} onLogout={handleLogout} />}

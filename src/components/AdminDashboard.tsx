@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, AlertTriangle, RefreshCw, UserCog, FlaskConical, Eye, Trash2, Ban, Zap, Activity } from 'lucide-react';
 import { User, RewardItem } from '../types';
 
@@ -28,7 +29,8 @@ interface UserDetail {
 }
 
 export function AdminDashboard({ user, onLogout }: Props) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'rewards' | 'users' | 'experiments' | 'research'>('overview');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'overview' | 'rewards' | 'users' | 'experiments'>('overview');
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
