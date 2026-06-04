@@ -246,6 +246,9 @@ export function ResearchDashboard({ user }: ResearchDashboardProps) {
           <div className="bg-gray-50 rounded-xl p-4 text-left text-xs font-mono text-gray-600 mb-4">
             <p>DATABASE_URL=postgresql://user:pass@host:5432/dbname</p>
           </div>
+          <button onClick={() => window.history.back()} className="text-gray-500 font-bold text-sm hover:text-gray-700 hover:underline mr-4">
+            Back
+          </button>
           <button onClick={checkDbStatus} className="text-emerald-600 font-bold text-sm hover:underline">
             Check again
           </button>
