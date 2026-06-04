@@ -2134,6 +2134,11 @@ async function startServer() {
     }
   });
 
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("Unhandled error:", err);
+    res.status(err.statusCode || 500).json({ error: err.message || "Internal server error" });
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
   });
