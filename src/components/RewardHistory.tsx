@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Clock, Gift, ShoppingCart, BotMessageSquare, FileCheck, Zap } from "lucide-react";
+import { Badge, Button, Card, EmptyState, LoadingSpinner, TabButton } from "../lib/ui";
 
 interface RewardTransaction {
   id?: number;
@@ -42,16 +43,6 @@ function formatRelativeTime(dateStr: string): string {
   if (diffHours < 24) return `${diffHours} giờ trước`;
   if (diffDays < 7) return `${diffDays} ngày trước`;
   return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 interface RewardHistoryProps {
@@ -101,148 +92,99 @@ export function RewardHistory({ userId, currentBalance }: RewardHistoryProps) {
   const hiddenCount = Math.max(0, filtered.length - 8);
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-gray-800 flex items-center gap-2 text-lg">
-          <Clock size={20} className="text-indigo-500" />
-          Lịch Sử Điểm Thưởng
-        </h3>
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-          title="Làm mới"
-        >
+    <Card className="rounded-[28px] p-5">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div>
+          <h3 className="flex items-center gap-2 text-xl font-black text-slate-900">
+            <Clock size={20} className="text-indigo-500" />
+            Lịch sử điểm thưởng
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">Theo dõi biến động điểm và số dư hiện tại: <span className="font-black text-emerald-600">{currentBalance}</span></p>
+        </div>
+        <Button onClick={loadData} disabled={loading} variant="ghost" size="sm">
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-        </button>
+          Làm mới
+        </Button>
       </div>
 
       {summary && (
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
-            <div className="flex items-center justify-center gap-1 mb-1">
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 p-3 text-center">
+            <div className="mb-1 flex items-center justify-center gap-1">
               <TrendingUp size={14} className="text-emerald-500" />
-              <span className="text-[10px] font-bold text-emerald-600 uppercase">Kiếm được</span>
+              <span className="text-[10px] font-bold uppercase text-emerald-600">Kiếm được</span>
             </div>
-            <div className="font-black text-emerald-600 text-lg">+{summary.totalEarned}</div>
+            <div className="text-lg font-black text-emerald-600">+{summary.totalEarned}</div>
           </div>
-          <div className="bg-red-50 rounded-xl p-3 text-center border border-red-100">
-            <div className="flex items-center justify-center gap-1 mb-1">
+          <div className="rounded-[22px] border border-red-100 bg-red-50 p-3 text-center">
+            <div className="mb-1 flex items-center justify-center gap-1">
               <TrendingDown size={14} className="text-red-500" />
-              <span className="text-[10px] font-bold text-red-600 uppercase">Đã tiêu</span>
+              <span className="text-[10px] font-bold uppercase text-red-600">Đã tiêu</span>
             </div>
-            <div className="font-black text-red-600 text-lg">-{summary.totalSpent}</div>
+            <div className="text-lg font-black text-red-600">-{summary.totalSpent}</div>
           </div>
-          <div className={`${summary.netChange >= 0 ? "bg-blue-50 border-blue-100" : "bg-gray-50 border-gray-100"} rounded-xl p-3 text-center border`}>
-            <div className="flex items-center justify-center gap-1 mb-1">
-              {summary.netChange > 0 ? (
-                <TrendingUp size={14} className="text-blue-500" />
-              ) : summary.netChange < 0 ? (
-                <TrendingDown size={14} className="text-gray-500" />
-              ) : (
-                <Minus size={14} className="text-gray-500" />
-              )}
-              <span className={`text-[10px] font-bold uppercase ${summary.netChange >= 0 ? "text-blue-600" : "text-gray-600"}`}>Còn lại</span>
+          <div className={`rounded-[22px] border p-3 text-center ${summary.netChange >= 0 ? "border-blue-100 bg-blue-50" : "border-slate-100 bg-slate-50"}`}>
+            <div className="mb-1 flex items-center justify-center gap-1">
+              {summary.netChange > 0 ? <TrendingUp size={14} className="text-blue-500" /> : summary.netChange < 0 ? <TrendingDown size={14} className="text-slate-500" /> : <Minus size={14} className="text-slate-500" />}
+              <span className={`text-[10px] font-bold uppercase ${summary.netChange >= 0 ? "text-blue-600" : "text-slate-600"}`}>Chênh lệch</span>
             </div>
-            <div className={`font-black text-lg ${summary.netChange >= 0 ? "text-blue-600" : "text-gray-600"}`}>
-              {summary.netChange >= 0 ? "+" : ""}{summary.netChange}
-            </div>
+            <div className={`text-lg font-black ${summary.netChange >= 0 ? "text-blue-600" : "text-slate-600"}`}>{summary.netChange >= 0 ? "+" : ""}{summary.netChange}</div>
           </div>
         </div>
       )}
 
-      <div className="flex gap-1.5 mb-3">
-        {(["all", "earn", "spend"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => { setFilter(f); setShowAll(false); }}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-              filter === f
-                ? f === "earn" ? "bg-emerald-500 text-white"
-                  : f === "spend" ? "bg-red-500 text-white"
-                    : "bg-indigo-500 text-white"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-            }`}
-          >
-            {f === "all" ? "Tất cả" : f === "earn" ? "Kiếm điểm" : "Tiêu điểm"}
-          </button>
+      <div className="mb-4 flex gap-2 rounded-[24px] bg-slate-100 p-1">
+        {([
+          { id: "all", label: "Tất cả" },
+          { id: "earn", label: "Kiếm điểm" },
+          { id: "spend", label: "Tiêu điểm" },
+        ] as const).map((f) => (
+          <TabButton key={f.id} active={filter === f.id} onClick={() => { setFilter(f.id); setShowAll(false); }} className="flex-1 justify-center py-2.5">
+            {f.label}
+          </TabButton>
         ))}
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-6">
-          <RefreshCw size={20} className="animate-spin text-gray-400" />
-        </div>
+        <LoadingSpinner message="Đang tải lịch sử điểm..." />
       ) : filtered.length === 0 ? (
-        <div className="text-center py-6 text-gray-400 text-sm">
-          Chưa có giao dịch nào
-        </div>
+        <EmptyState title="Chưa có giao dịch nào" subtitle="Điểm thưởng và chi tiêu của bạn sẽ hiển thị tại đây." />
       ) : (
         <>
           <div className="space-y-2">
             {displayTransactions.map((tx, i) => (
-              <div
-                key={tx.id ?? `tx-${i}`}
-                className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    tx.transaction_type === "earn"
-                      ? "bg-emerald-100"
-                      : tx.transaction_type === "spend"
-                        ? "bg-red-100"
-                        : "bg-gray-100"
-                  }`}>
-                    {tx.transaction_type === "earn" ? (
-                      <TrendingUp size={14} className="text-emerald-600" />
-                    ) : tx.transaction_type === "spend" ? (
-                      <TrendingDown size={14} className="text-red-600" />
-                    ) : (
-                      <Minus size={14} className="text-gray-600" />
-                    )}
+              <div key={tx.id ?? `tx-${i}`} className="flex items-center justify-between rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3 transition hover:bg-white">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${tx.transaction_type === "earn" ? "bg-emerald-100" : tx.transaction_type === "spend" ? "bg-red-100" : "bg-slate-100"}`}>
+                    {tx.transaction_type === "earn" ? <TrendingUp size={14} className="text-emerald-600" /> : tx.transaction_type === "spend" ? <TrendingDown size={14} className="text-red-600" /> : <Minus size={14} className="text-slate-600" />}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-bold text-gray-800 truncate">
-                      {tx.reason || (tx.transaction_type === "earn" ? "Điểm thưởng" : "Tiêu điểm")}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <div className="truncate text-sm font-bold text-slate-800">{tx.reason || (tx.transaction_type === "earn" ? "Điểm thưởng" : "Tiêu điểm")}</div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                       {tx.source && SOURCE_ICONS[tx.source]}
                       {tx.source && <span className="capitalize">{tx.source}</span>}
-                      {tx.multiplier > 1 && (
-                        <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">
-                          ×{tx.multiplier}
-                        </span>
-                      )}
+                      {tx.multiplier > 1 && <Badge tone="warning">×{tx.multiplier}</Badge>}
                       <span>{formatRelativeTime(tx.created_at)}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end flex-shrink-0 ml-2">
-                  <div className={`font-black text-sm ${
-                    tx.transaction_type === "earn" ? "text-emerald-600" : "text-red-600"
-                  }`}>
+                <div className="ml-2 flex flex-shrink-0 flex-col items-end">
+                  <div className={`text-sm font-black ${tx.transaction_type === "earn" ? "text-emerald-600" : "text-red-600"}`}>
                     {tx.transaction_type === "earn" ? "+" : "-"}{Math.abs(tx.amount)}
                   </div>
-                  {tx.points_balance !== null && (
-                    <div className="text-[10px] text-gray-400">
-                      Còn {tx.points_balance}
-                    </div>
-                  )}
+                  {tx.points_balance !== null && <div className="text-[10px] text-slate-400">Còn {tx.points_balance}</div>}
                 </div>
               </div>
             ))}
           </div>
 
           {hiddenCount > 0 && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="w-full mt-3 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
-            >
+            <Button onClick={() => setShowAll(!showAll)} variant="ghost" className="mt-4 w-full">
               {showAll ? "Thu gọn" : `Xem thêm ${hiddenCount} giao dịch`}
-            </button>
+            </Button>
           )}
         </>
       )}
-    </div>
+    </Card>
   );
 }

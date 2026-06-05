@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, AlertTriangle, RefreshCw, UserCog, FlaskConical, Eye, Trash2, Ban, Zap, Activity } from 'lucide-react';
-import { User, RewardItem } from '../types';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, RefreshCw, FlaskConical, Eye, Trash2, Ban, Zap, Activity } from "lucide-react";
+import { User, RewardItem } from "../types";
+import { Badge, Button, Card, EmptyState, FieldLabel, Input, LoadingSpinner, SectionHeading, TabButton, TextArea } from "../lib/ui";
 
 interface Props {
   user: User;
@@ -30,35 +31,30 @@ interface UserDetail {
 
 export function AdminDashboard({ user, onLogout }: Props) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'rewards' | 'users' | 'experiments'>('overview');
+  const [activeTab, setActiveTab] = useState<"overview" | "rewards" | "users" | "experiments">("overview");
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
-
-  // User management
-  const [userSearch, setUserSearch] = useState('');
+  const [userSearch, setUserSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [userDetailLoading, setUserDetailLoading] = useState(false);
-
-  // Experiments
   const [experiments, setExperiments] = useState<any[]>([]);
   const [expLoading, setExpLoading] = useState(false);
-  const [newExp, setNewExp] = useState({ id: '', name: '', description: '', groups: [{ name: 'control', description: 'No intervention', ratio: 0.25 }] });
+  const [newExp, setNewExp] = useState({ id: "", name: "", description: "", groups: [{ name: "control", description: "No intervention", ratio: 0.25 }] });
   const [showNewExp, setShowNewExp] = useState(false);
-
-  // New reward state
   const [showAddReward, setShowAddReward] = useState(false);
   const [newReward, setNewReward] = useState({
-    name: '', desc: '', cost: 1000, imageUrl: '',
-    ingredients: 'Quà tặng,E-Voucher',
-    color: 'from-amber-400 to-orange-500',
-    bgClass: 'bg-amber-50', borderClass: 'border-amber-200'
+    name: "", desc: "", cost: 1000, imageUrl: "",
+    ingredients: "Quà tặng,E-Voucher",
+    color: "from-amber-400 to-orange-500",
+    bgClass: "bg-amber-50", borderClass: "border-amber-200",
   });
 
   const token = localStorage.getItem("auth_token");
+  const authHeaders = () => ({ headers: { Authorization: `Bearer ${token}` } });
 
   useEffect(() => {
     loadStats();
@@ -67,11 +63,9 @@ export function AdminDashboard({ user, onLogout }: Props) {
     fetchExperiments();
   }, []);
 
-  const authHeaders = () => ({ headers: { Authorization: `Bearer ${token}` } });
-
   const loadStats = async () => {
     try {
-      const res = await fetch('/api/admin/stats', authHeaders());
+      const res = await fetch("/api/admin/stats", authHeaders());
       if (res.ok) setStats(await res.json());
     } catch {}
   };
@@ -80,7 +74,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
     setLoading(true);
     setLoadingError(null);
     try {
-      const res = await fetch('/api/rewards');
+      const res = await fetch("/api/rewards");
       if (!res.ok) throw new Error("Không thể tải danh sách quà");
       setRewards(await res.json());
     } catch (e: unknown) {
@@ -92,7 +86,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users', authHeaders());
+      const res = await fetch("/api/admin/users", authHeaders());
       if (res.ok) setUsers(await res.json());
     } catch (e) {
       console.error(e);
@@ -102,7 +96,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const fetchExperiments = async () => {
     setExpLoading(true);
     try {
-      const res = await fetch('/api/experiments', authHeaders());
+      const res = await fetch("/api/experiments", authHeaders());
       if (res.ok) setExperiments(await res.json());
     } catch (e) {
       console.error(e);
@@ -125,7 +119,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
       const decay = decayRes.ok ? await decayRes.json() : null;
       const interventions = interventionsRes.ok ? await interventionsRes.json() : [];
       setSelectedUser({ ...u, profile, decay, interventions });
-    } catch (e) {
+    } catch {
       setSelectedUser({ ...u, profile: null, decay: null, interventions: [] });
     } finally {
       setUserDetailLoading(false);
@@ -141,7 +135,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
     try {
       const res = await fetch("/api/upload", { ...authHeaders(), method: "POST", body: formData });
       const data = await res.json();
-      if (data.url) setNewReward(prev => ({ ...prev, imageUrl: data.url }));
+      if (data.url) setNewReward((prev) => ({ ...prev, imageUrl: data.url }));
       else alert("Upload failed: " + (data.error || "Unknown error"));
     } catch (error) {
       console.error("Failed to upload image", error);
@@ -154,12 +148,17 @@ export function AdminDashboard({ user, onLogout }: Props) {
     e.preventDefault();
     try {
       const payload: RewardItem = {
-        id: Date.now().toString(), name: newReward.name, desc: newReward.desc,
-        cost: Number(newReward.cost), imageUrl: newReward.imageUrl,
-        ingredients: newReward.ingredients.split(',').map(s => s.trim()),
-        color: newReward.color, bgClass: newReward.bgClass, borderClass: newReward.borderClass,
+        id: Date.now().toString(),
+        name: newReward.name,
+        desc: newReward.desc,
+        cost: Number(newReward.cost),
+        imageUrl: newReward.imageUrl,
+        ingredients: newReward.ingredients.split(",").map((s) => s.trim()),
+        color: newReward.color,
+        bgClass: newReward.bgClass,
+        borderClass: newReward.borderClass,
       };
-      await fetch('/api/rewards', { ...authHeaders(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      await fetch("/api/rewards", { ...authHeaders(), method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       setShowAddReward(false);
       fetchRewards();
     } catch (error) {
@@ -168,34 +167,34 @@ export function AdminDashboard({ user, onLogout }: Props) {
   };
 
   const handleDeleteReward = async (id: string | number) => {
-    if (!confirm('Bạn có chắc muốn xóa quà này?')) return;
-    await fetch(`/api/rewards/${id}`, { ...authHeaders(), method: 'DELETE' });
+    if (!confirm("Bạn có chắc muốn xóa quà này?")) return;
+    await fetch(`/api/rewards/${id}`, { ...authHeaders(), method: "DELETE" });
     fetchRewards();
   };
 
   const handleRoleChange = async (nick: string, newRole: string) => {
-    await fetch(`/api/admin/users/${nick}/role`, { ...authHeaders(), method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: newRole }) });
+    await fetch(`/api/admin/users/${nick}/role`, { ...authHeaders(), method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: newRole }) });
     fetchUsers();
   };
 
   const handlePointsAdjust = async (nick: string, delta: number, reason: string) => {
-    await fetch(`/api/admin/users/${nick}/adjust-points`, { ...authHeaders(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delta, reason }) });
+    await fetch(`/api/admin/users/${nick}/adjust-points`, { ...authHeaders(), method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delta, reason }) });
     fetchUsers();
     if (selectedUser?.nick === nick) {
-      const updated = users.find(u => u.nick === nick);
+      const updated = users.find((u) => u.nick === nick);
       if (updated) fetchUserDetail(updated);
     }
   };
 
   const handleSuspend = async (nick: string, suspended: boolean) => {
-    await fetch(`/api/admin/users/${nick}/suspend`, { ...authHeaders(), method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suspended }) });
+    await fetch(`/api/admin/users/${nick}/suspend`, { ...authHeaders(), method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ suspended }) });
     fetchUsers();
     setSelectedUser(null);
   };
 
   const handleResetProgress = async (nick: string) => {
     if (!confirm(`CẢNH BÁO: Reset toàn bộ tiến độ của "${nick}"? Hành động này không thể hoàn tác!`)) return;
-    await fetch(`/api/admin/users/${nick}/reset-progress?confirm=true`, { ...authHeaders(), method: 'POST' });
+    await fetch(`/api/admin/users/${nick}/reset-progress?confirm=true`, { ...authHeaders(), method: "POST" });
     fetchUsers();
     setSelectedUser(null);
   };
@@ -204,11 +203,11 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const handleSyncSheets = async () => {
     setSyncingSheets(true);
     try {
-      const res = await fetch('/api/admin/sync-sheets', {
+      const res = await fetch("/api/admin/sync-sheets", {
         ...authHeaders(),
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spreadsheetId: '1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q' }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spreadsheetId: "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q" }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -216,194 +215,195 @@ export function AdminDashboard({ user, onLogout }: Props) {
         fetchUsers();
         loadStats();
       } else {
-        alert('Sync thất bại: ' + (data.error || data.message));
+        alert("Sync thất bại: " + (data.error || data.message));
       }
     } catch {
-      alert('Sync thất bại: lỗi kết nối');
+      alert("Sync thất bại: lỗi kết nối");
     }
     setSyncingSheets(false);
   };
 
   const handleTriggerDecay = async (accountId: string) => {
-    await fetch(`/api/admin/decay/${accountId}/detect`, { ...authHeaders(), method: 'POST' });
+    await fetch(`/api/admin/decay/${accountId}/detect`, { ...authHeaders(), method: "POST" });
     if (selectedUser) fetchUserDetail(selectedUser);
   };
 
   const handleCreateExp = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch('/api/experiments', {
-      ...authHeaders(), method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...newExp, metrics: ['engagement', 'retention'] })
+    await fetch("/api/experiments", {
+      ...authHeaders(), method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...newExp, metrics: ["engagement", "retention"] }),
     });
     setShowNewExp(false);
-    setNewExp({ id: '', name: '', description: '', groups: [{ name: 'control', description: 'No intervention', ratio: 0.25 }] });
+    setNewExp({ id: "", name: "", description: "", groups: [{ name: "control", description: "No intervention", ratio: 0.25 }] });
     fetchExperiments();
   };
 
-  const handleExpAction = async (expId: string, action: 'pause' | 'activate' | 'delete') => {
-    await fetch(`/api/experiments/${expId}/${action}`, { ...authHeaders(), method: 'POST' });
+  const handleExpAction = async (expId: string, action: "pause" | "activate" | "delete") => {
+    await fetch(`/api/experiments/${expId}/${action}`, { ...authHeaders(), method: "POST" });
     fetchExperiments();
   };
 
-  const filteredUsers = users.filter(u =>
+  const filteredUsers = users.filter((u) =>
     (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
     (u.nick || "").toLowerCase().includes(userSearch.toLowerCase()) ||
-    (u.account_id || "").toLowerCase().includes(userSearch.toLowerCase())
+    (u.account_id || "").toLowerCase().includes(userSearch.toLowerCase()),
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-black text-gray-800">Admin Dashboard</h1>
-            <p className="text-sm text-gray-500">Xin chào, {user.name}</p>
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <Card className="rounded-[32px] border-0 bg-[linear-gradient(140deg,#0f172a,#13322c_55%,#0f8f68)] p-6 text-white shadow-[var(--shadow-strong)]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <Badge tone="success" className="bg-white/10 text-white border-white/10">Admin control center</Badge>
+              <h1 className="mt-4 text-3xl font-black tracking-tight">Dashboard quản trị</h1>
+              <p className="mt-2 text-sm leading-6 text-white/75">Xin chào, {user.name}. Quản lý người dùng, quà tặng, thử nghiệm và dữ liệu nghiên cứu trong một giao diện gọn gàng hơn.</p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => navigate("/research")} variant="ghost" className="bg-white/10 text-white border-white/10 hover:bg-white/20">
+                <BarChart3 size={16} />
+                Mở Research
+              </Button>
+              <Button onClick={onLogout} variant="danger">
+                <LogOut size={16} />
+                Đăng xuất
+              </Button>
+            </div>
           </div>
-          <button onClick={onLogout} className="flex items-center gap-2 bg-red-100 text-red-600 px-4 py-2 rounded-xl font-bold hover:bg-red-200 transition-colors">
-            <LogOut size={18} /> Đăng xuất
-          </button>
-        </header>
+        </Card>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mb-6 flex-wrap">
+        <div className="flex flex-wrap gap-2">
           {[
-            { id: 'overview', icon: Activity, label: 'Tổng quan' },
-            { id: 'rewards', icon: Gift, label: 'Quà tặng' },
-            { id: 'users', icon: Users, label: 'Người chơi' },
-            { id: 'experiments', icon: FlaskConical, label: 'Experiments' },
-            { id: 'research', icon: BarChart3, label: 'Research' },
+            { id: "overview", icon: Activity, label: "Tổng quan" },
+            { id: "rewards", icon: Gift, label: "Quà tặng" },
+            { id: "users", icon: Users, label: "Người chơi" },
+            { id: "experiments", icon: FlaskConical, label: "Experiments" },
           ].map(({ id, icon: Icon, label }) => (
-            <button key={id} onClick={id === 'research' ? () => window.location.href = '/research' : () => setActiveTab(id as any)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all text-sm ${
-                activeTab === id ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}>
-              <Icon size={16} /> {label}
-            </button>
+            <Button key={id} onClick={() => setActiveTab(id as any)} variant={activeTab === id ? "secondary" : "ghost"}>
+              <Icon size={16} />
+              {label}
+            </Button>
           ))}
         </div>
 
-        {/* OVERVIEW TAB */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {activeTab === "overview" && (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'Tổng người dùng', value: stats?.total || '—', color: 'bg-blue-50 text-blue-700', icon: Users },
-              { label: 'Admin accounts', value: stats?.admins || '—', color: 'bg-purple-50 text-purple-700', icon: Shield },
-              { label: 'Hoạt động (7 ngày)', value: stats?.activeUsers || '—', color: 'bg-emerald-50 text-emerald-700', icon: Activity },
-              { label: 'Research users (7d)', value: stats?.researchActive7d || '—', color: 'bg-amber-50 text-amber-700', icon: BarChart3 },
-            ].map(({ label, value, color, icon: Icon }) => (
-              <div key={label} className={`${color} rounded-2xl p-5 border-0`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon size={20} />
-                  <span className="text-sm font-medium opacity-70">{label}</span>
+              { label: "Tổng người dùng", value: stats?.total || "—", tone: "accent" as const, icon: Users },
+              { label: "Tài khoản admin", value: stats?.admins || "—", tone: "warning" as const, icon: Shield },
+              { label: "Hoạt động 7 ngày", value: stats?.activeUsers || "—", tone: "success" as const, icon: Activity },
+              { label: "Research active 7d", value: stats?.researchActive7d || "—", tone: "default" as const, icon: BarChart3 },
+            ].map(({ label, value, tone, icon: Icon }) => (
+              <Card key={label} className="rounded-[28px] p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <Badge tone={tone}>{label}</Badge>
+                  <div className="rounded-full bg-slate-100 p-2 text-slate-500"><Icon size={18} /></div>
                 </div>
-                <p className="text-3xl font-black">{value}</p>
-              </div>
+                <p className="text-4xl font-black text-slate-900">{value}</p>
+              </Card>
             ))}
           </div>
         )}
 
-        {/* REWARDS TAB */}
-        {activeTab === 'rewards' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">Danh sách quà tặng</h2>
-              <button onClick={() => setShowAddReward(!showAddReward)}
-                className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-emerald-600 transition-colors text-sm">
-                <Plus size={16} /> {showAddReward ? 'Hủy' : 'Thêm quà mới'}
-              </button>
+        {activeTab === "rewards" && (
+          <Card className="rounded-[32px] p-6">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <SectionHeading title="Danh sách quà tặng" subtitle="Quản lý kho quà, hình ảnh và chi phí quy đổi." />
+              <Button onClick={() => setShowAddReward(!showAddReward)}>
+                <Plus size={16} />
+                {showAddReward ? "Ẩn biểu mẫu" : "Thêm quà mới"}
+              </Button>
             </div>
 
             {showAddReward && (
-              <form onSubmit={handleAddReward} className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Tên quà tặng</label>
-                  <input required type="text" className="w-full border p-2 rounded-lg" value={newReward.name} onChange={e => setNewReward({...newReward, name: e.target.value})} />
+              <form onSubmit={handleAddReward} className="mb-6 grid gap-4 rounded-[28px] border border-slate-100 bg-slate-50 p-5 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <FieldLabel>Tên quà tặng</FieldLabel>
+                  <Input required value={newReward.name} onChange={(e) => setNewReward({ ...newReward, name: e.target.value })} />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả</label>
-                  <input required type="text" className="w-full border p-2 rounded-lg" value={newReward.desc} onChange={e => setNewReward({...newReward, desc: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Giá điểm (EXP)</label>
-                  <input required type="number" className="w-full border p-2 rounded-lg" value={newReward.cost} onChange={e => setNewReward({...newReward, cost: Number(e.target.value)})} />
+                <div className="md:col-span-2">
+                  <FieldLabel>Mô tả</FieldLabel>
+                  <TextArea required value={newReward.desc} onChange={(e) => setNewReward({ ...newReward, desc: e.target.value })} rows={3} />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Ảnh (upload lên Cloudinary)</label>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full border p-2 rounded-lg text-sm" disabled={uploading} />
-                  {uploading && <p className="text-xs text-blue-500 mt-1 font-bold animate-pulse">Đang upload...</p>}
-                  {newReward.imageUrl && <img src={newReward.imageUrl} alt="preview" className="w-12 h-12 object-cover rounded-lg border mt-1" />}
+                  <FieldLabel>Giá điểm</FieldLabel>
+                  <Input required type="number" value={String(newReward.cost)} onChange={(e) => setNewReward({ ...newReward, cost: Number(e.target.value) })} />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Thành phần (cách nhau bởi dấu phẩy)</label>
-                  <input type="text" className="w-full border p-2 rounded-lg" value={newReward.ingredients} onChange={e => setNewReward({...newReward, ingredients: e.target.value})} />
+                <div>
+                  <FieldLabel>Ảnh quà</FieldLabel>
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm" disabled={uploading} />
+                  {uploading && <p className="mt-2 text-xs font-bold text-blue-500">Đang upload...</p>}
+                  {newReward.imageUrl && <img src={newReward.imageUrl} alt="preview" className="mt-3 h-14 w-14 rounded-xl border object-cover" />}
                 </div>
-                <div className="col-span-2 flex justify-end">
-                  <button type="submit" className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold">Lưu</button>
+                <div className="md:col-span-2">
+                  <FieldLabel>Thành phần</FieldLabel>
+                  <Input value={newReward.ingredients} onChange={(e) => setNewReward({ ...newReward, ingredients: e.target.value })} />
+                </div>
+                <div className="md:col-span-2 flex justify-end">
+                  <Button type="submit">Lưu quà tặng</Button>
                 </div>
               </form>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {rewards.map(r => (
-                <div key={r.id} className="flex gap-4 border border-gray-100 p-4 rounded-xl bg-gray-50 items-center">
-                  <img src={r.imageUrl} alt={r.name} className="w-16 h-16 object-cover rounded-lg shadow-sm" />
-                  <div className="flex-1">
-                    <h4 className="font-bold text-gray-800">{r.name}</h4>
-                    <p className="text-xs text-gray-500 line-clamp-1">{r.desc}</p>
-                    <p className="text-sm font-bold text-amber-600 mt-1">{r.cost} EXP</p>
+            {loading ? <LoadingSpinner message="Đang tải quà tặng..." /> : loadingError ? <EmptyState title="Không thể tải quà tặng" subtitle={loadingError} /> : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {rewards.map((r) => (
+                  <div key={r.id} className="flex items-center gap-4 rounded-[24px] border border-slate-100 bg-slate-50 p-4">
+                    <img src={r.imageUrl} alt={r.name} className="h-16 w-16 rounded-xl object-cover shadow-sm" />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate font-bold text-slate-900">{r.name}</h4>
+                      <p className="mt-1 line-clamp-1 text-xs text-slate-500">{r.desc}</p>
+                      <p className="mt-1 text-sm font-black text-amber-600">{r.cost} EXP</p>
+                    </div>
+                    <Button onClick={() => handleDeleteReward(r.id)} variant="danger" size="sm">
+                      <Trash size={16} />
+                    </Button>
                   </div>
-                  <button onClick={() => handleDeleteReward(r.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash size={18} /></button>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            )}
+          </Card>
         )}
 
-        {/* USERS TAB */}
-        {activeTab === 'users' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex gap-4 items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">Danh sách người chơi ({filteredUsers.length})</h2>
-              <div className="relative flex-1 max-w-sm ml-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input type="text" placeholder="Tìm tài khoản, tên..." value={userSearch} onChange={e => setUserSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border rounded-xl text-sm" />
+        {activeTab === "users" && (
+          <Card className="rounded-[32px] p-6">
+            <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <SectionHeading title={`Danh sách người chơi (${filteredUsers.length})`} subtitle="Xem hồ sơ, điều chỉnh quyền, điểm và theo dõi trạng thái decay." />
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative min-w-[260px] flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <Input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Tìm tài khoản, tên..." className="pl-9" />
+                </div>
+                <Button onClick={() => { fetchUsers(); loadStats(); }} variant="ghost"><RefreshCw size={16} /> Làm mới</Button>
+                <Button onClick={handleSyncSheets} disabled={syncingSheets}><RefreshCw size={14} className={syncingSheets ? "animate-spin" : ""} />{syncingSheets ? "Đang sync..." : "Sync Sheets"}</Button>
               </div>
-              <button onClick={() => { fetchUsers(); loadStats(); }} className="p-2 text-gray-500 hover:bg-gray-100 rounded-xl"><RefreshCw size={18} /></button>
-              <button onClick={handleSyncSheets} disabled={syncingSheets} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50 transition-all">
-                <RefreshCw size={14} className={syncingSheets ? 'animate-spin' : ''} />
-                {syncingSheets ? 'Đang sync...' : 'Sync Sheets'}
-              </button>
             </div>
 
-            <div className="flex gap-6">
-              {/* User list */}
-              <div className="flex-1 min-w-0">
+            <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+              <div className="overflow-hidden rounded-[28px] border border-slate-100">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 text-gray-500 text-xs">
-                        <th className="p-2 border-b font-bold">Tài khoản</th>
-                        <th className="p-2 border-b font-bold">Tên</th>
-                        <th className="p-2 border-b font-bold">EXP</th>
-                        <th className="p-2 border-b font-bold">Role</th>
-                        <th className="p-2 border-b font-bold">Hành động</th>
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs text-slate-500">
+                      <tr>
+                        <th className="p-3 font-bold">Tài khoản</th>
+                        <th className="p-3 font-bold">Tên</th>
+                        <th className="p-3 font-bold">EXP</th>
+                        <th className="p-3 font-bold">Role</th>
+                        <th className="p-3 font-bold">Xem</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredUsers.map(u => (
-                        <tr key={u.account_id} className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${selectedUser?.account_id === u.account_id ? 'bg-emerald-50' : ''}`}
-                          onClick={() => fetchUserDetail(u)}>
-                          <td className="p-2 truncate max-w-[120px]" title={u.account_id}>{u.nick}</td>
-                          <td className="p-2 font-medium truncate max-w-[120px]">{u.name}</td>
-                          <td className="p-2 text-amber-600 font-bold">{u.points}</td>
-                          <td className="p-2">
-                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : u.role === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
-                              {u.role || 'user'}
-                            </span>
+                      {filteredUsers.map((u) => (
+                        <tr key={u.account_id} onClick={() => fetchUserDetail(u)} className={`cursor-pointer border-t border-slate-100 transition hover:bg-slate-50 ${selectedUser?.account_id === u.account_id ? "bg-emerald-50" : "bg-white"}`}>
+                          <td className="p-3 font-medium text-slate-700">{u.nick}</td>
+                          <td className="p-3 font-medium text-slate-900">{u.name}</td>
+                          <td className="p-3 font-black text-amber-600">{u.points}</td>
+                          <td className="p-3">
+                            <Badge tone={u.role === "admin" ? "accent" : u.role === "suspended" ? "danger" : "default"}>{u.role || "user"}</Badge>
                           </td>
-                          <td className="p-2">
-                            <button onClick={(e) => { e.stopPropagation(); fetchUserDetail(u); }} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"><Eye size={14} /></button>
+                          <td className="p-3">
+                            <Button onClick={(e) => { e.stopPropagation(); fetchUserDetail(u); }} variant="ghost" size="sm"><Eye size={14} /></Button>
                           </td>
                         </tr>
                       ))}
@@ -412,165 +412,121 @@ export function AdminDashboard({ user, onLogout }: Props) {
                 </div>
               </div>
 
-              {/* User detail panel */}
-              {selectedUser && (
-                <div className="w-96 border-l border-gray-100 pl-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-gray-800">Chi tiết: {selectedUser.name}</h3>
-                    <button onClick={() => setSelectedUser(null)} className="text-gray-400 hover:text-gray-600">×</button>
-                  </div>
-                  {userDetailLoading ? (
-                    <div className="animate-pulse space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-3/4" />
-                      <div className="h-4 bg-gray-200 rounded w-1/2" />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="bg-gray-50 p-3 rounded-xl">
-                          <p className="text-gray-500 text-xs">Tài khoản</p>
-                          <p className="font-bold">{selectedUser.nick}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-xl">
-                          <p className="text-gray-500 text-xs">EXP</p>
-                          <p className="font-bold text-amber-600">{selectedUser.points}</p>
-                        </div>
+              <Card className="rounded-[28px] bg-slate-50 p-5">
+                {!selectedUser && !userDetailLoading && <EmptyState title="Chọn một người chơi" subtitle="Nhấn vào một hàng để xem chi tiết hồ sơ và thao tác nhanh." />}
+                {userDetailLoading && <LoadingSpinner message="Đang tải hồ sơ người chơi..." />}
+                {selectedUser && !userDetailLoading && (
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-black text-slate-900">{selectedUser.name}</h3>
+                        <p className="text-sm text-slate-500">@{selectedUser.nick}</p>
                       </div>
+                      <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600">×</button>
+                    </div>
 
-                      {/* Behavioral profile */}
-                      {selectedUser.profile && selectedUser.profile.scores && (
-                        <div className="bg-emerald-50 rounded-xl p-4">
-                          <p className="font-bold text-emerald-700 mb-2 text-sm flex items-center gap-1"><Activity size={14} /> Behavioral Profile</p>
-                          <div className="grid grid-cols-1 gap-1 text-xs">
-                            {Object.entries(selectedUser.profile.scores).map(([k, v]) => (
-                              <div key={k} className="flex justify-between items-center">
-                                <span className="capitalize text-gray-600">{k.replace('_', ' ')}</span>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(v as number) * 100}%` }} />
-                                  </div>
-                                  <span className="font-bold w-8 text-right">{Math.round((v as number) * 100)}%</span>
-                                </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-[22px] bg-white p-4"><p className="text-xs text-slate-400">Tài khoản</p><p className="font-bold text-slate-900">{selectedUser.account_id}</p></div>
+                      <div className="rounded-[22px] bg-white p-4"><p className="text-xs text-slate-400">EXP</p><p className="font-bold text-amber-600">{selectedUser.points}</p></div>
+                    </div>
+
+                    {selectedUser.profile && selectedUser.profile.scores && (
+                      <div className="rounded-[24px] bg-emerald-50 p-4">
+                        <p className="mb-3 flex items-center gap-1 text-sm font-bold text-emerald-700"><Activity size={14} /> Behavioral Profile</p>
+                        <div className="space-y-2 text-xs">
+                          {Object.entries(selectedUser.profile.scores).map(([k, v]) => (
+                            <div key={k} className="flex items-center justify-between gap-3">
+                              <span className="capitalize text-slate-600">{k.replace("_", " ")}</span>
+                              <div className="flex items-center gap-2">
+                                <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/70"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${(v as number) * 100}%` }} /></div>
+                                <span className="w-8 text-right font-bold">{Math.round((v as number) * 100)}%</span>
                               </div>
-                            ))}
-                          </div>
-                          <p className="text-xs text-emerald-600 mt-2">Confidence: {Math.round(selectedUser.profile.confidence * 100)}%</p>
-                        </div>
-                      )}
-
-                      {/* Decay state */}
-                      {selectedUser.decay && (
-                        <div className="bg-amber-50 rounded-xl p-4">
-                          <p className="font-bold text-amber-700 mb-2 text-sm">Novelty Decay</p>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div><span className="text-gray-500">Engagement:</span> <span className="font-bold">{Math.round((selectedUser.decay.engagementScore || 0) * 100)}%</span></div>
-                            <div><span className="text-gray-500">Severity:</span> <span className="font-bold">{selectedUser.decay.decaySeverity || 'none'}</span></div>
-                            <div><span className="text-gray-500">Streak:</span> <span className="font-bold">{selectedUser.decay.streakStability?.toFixed(2) || '—'}</span></div>
-                            <div><span className="text-gray-500">Days since login:</span> <span className="font-bold">{selectedUser.decay.daysSinceLogin || '—'}</span></div>
-                          </div>
-                          <button onClick={() => handleTriggerDecay(selectedUser.account_id)} className="mt-2 text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-lg font-bold hover:bg-amber-200">
-                            Trigger Detection
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Quick actions */}
-                      <div className="space-y-2">
-                        <p className="font-bold text-gray-700 text-sm">Hành động nhanh</p>
-                        <div className="flex gap-2 flex-wrap">
-                          <button onClick={() => handlePointsAdjust(selectedUser.nick, 100, "Admin bonus")}
-                            className="flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-200">
-                            <Zap size={12} /> +100 EXP
-                          </button>
-                          <button onClick={() => handlePointsAdjust(selectedUser.nick, -100, "Admin deduction")}
-                            className="flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-200">
-                            <Zap size={12} /> -100 EXP
-                          </button>
-                          <button onClick={() => handleRoleChange(selectedUser.nick, selectedUser.role === 'admin' ? 'user' : 'admin')}
-                            className="flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-200">
-                            <Shield size={12} /> {selectedUser.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-                          </button>
-                          <button onClick={() => handleSuspend(selectedUser.nick, selectedUser.role !== 'suspended')}
-                            className="flex items-center gap-1 bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-orange-200">
-                            <Ban size={12} /> {selectedUser.role === 'suspended' ? 'Unsuspend' : 'Suspend'}
-                          </button>
-                          <button onClick={() => handleResetProgress(selectedUser.nick)}
-                            className="flex items-center gap-1 bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-200">
-                            <Trash2 size={12} /> Reset Progress
-                          </button>
+                            </div>
+                          ))}
                         </div>
                       </div>
+                    )}
+
+                    {selectedUser.decay && (
+                      <div className="rounded-[24px] bg-amber-50 p-4">
+                        <p className="mb-2 text-sm font-bold text-amber-700">Novelty Decay</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div><span className="text-slate-500">Engagement:</span> <span className="font-bold">{Math.round((selectedUser.decay.engagementScore || 0) * 100)}%</span></div>
+                          <div><span className="text-slate-500">Severity:</span> <span className="font-bold">{selectedUser.decay.decaySeverity || "none"}</span></div>
+                          <div><span className="text-slate-500">Streak:</span> <span className="font-bold">{selectedUser.decay.streakStability?.toFixed(2) || "—"}</span></div>
+                          <div><span className="text-slate-500">Days since login:</span> <span className="font-bold">{selectedUser.decay.daysSinceLogin || "—"}</span></div>
+                        </div>
+                        <Button onClick={() => handleTriggerDecay(selectedUser.account_id)} size="sm" variant="soft" className="mt-3">Trigger detection</Button>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-bold text-slate-700">Hành động nhanh</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => handlePointsAdjust(selectedUser.nick, 100, "Admin bonus")} size="sm" variant="soft"><Zap size={12} /> +100 EXP</Button>
+                        <Button onClick={() => handlePointsAdjust(selectedUser.nick, -100, "Admin deduction")} size="sm" variant="danger"><Zap size={12} /> -100 EXP</Button>
+                        <Button onClick={() => handleRoleChange(selectedUser.nick, selectedUser.role === "admin" ? "user" : "admin")} size="sm" variant="ghost"><Shield size={12} /> {selectedUser.role === "admin" ? "Remove admin" : "Make admin"}</Button>
+                        <Button onClick={() => handleSuspend(selectedUser.nick, selectedUser.role !== "suspended")} size="sm" variant="ghost"><Ban size={12} /> {selectedUser.role === "suspended" ? "Unsuspend" : "Suspend"}</Button>
+                        <Button onClick={() => handleResetProgress(selectedUser.nick)} size="sm" variant="danger"><Trash2 size={12} /> Reset progress</Button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </Card>
             </div>
-          </div>
+          </Card>
         )}
 
-        {/* EXPERIMENTS TAB */}
-        {activeTab === 'experiments' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">A/B Experiments ({experiments.length})</h2>
-              <button onClick={() => setShowNewExp(!showNewExp)}
-                className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-emerald-600 text-sm">
-                <Plus size={16} /> {showNewExp ? 'Hủy' : 'Tạo Experiment'}
-              </button>
+        {activeTab === "experiments" && (
+          <Card className="rounded-[32px] p-6">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <SectionHeading title={`A/B Experiments (${experiments.length})`} subtitle="Tạo, bật, tạm dừng và quản lý các thử nghiệm hành vi." />
+              <Button onClick={() => setShowNewExp(!showNewExp)}><Plus size={16} />{showNewExp ? "Ẩn biểu mẫu" : "Tạo experiment"}</Button>
             </div>
 
             {showNewExp && (
-              <form onSubmit={handleCreateExp} className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <input required placeholder="Experiment ID (e.g. rewards_v2)" className="border p-2 rounded-lg text-sm" value={newExp.id} onChange={e => setNewExp({...newExp, id: e.target.value})} />
-                  <input required placeholder="Tên experiment" className="border p-2 rounded-lg text-sm" value={newExp.name} onChange={e => setNewExp({...newExp, name: e.target.value})} />
+              <form onSubmit={handleCreateExp} className="mb-6 space-y-3 rounded-[28px] border border-slate-100 bg-slate-50 p-5">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input required placeholder="Experiment ID (vd: rewards_v2)" value={newExp.id} onChange={(e) => setNewExp({ ...newExp, id: e.target.value })} />
+                  <Input required placeholder="Tên experiment" value={newExp.name} onChange={(e) => setNewExp({ ...newExp, name: e.target.value })} />
                 </div>
-                <input placeholder="Mô tả" className="w-full border p-2 rounded-lg text-sm" value={newExp.description} onChange={e => setNewExp({...newExp, description: e.target.value})} />
+                <TextArea placeholder="Mô tả" value={newExp.description} onChange={(e) => setNewExp({ ...newExp, description: e.target.value })} rows={3} />
                 <div className="flex gap-2">
-                  <input placeholder="Control group ratio (0.25)" type="number" step="0.05" min="0" max="1" className="border p-2 rounded-lg text-sm w-40" defaultValue="0.25" />
-                  <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Tạo</button>
+                  <Input placeholder="Control ratio" type="number" step="0.05" min="0" max="1" defaultValue="0.25" className="max-w-[160px]" />
+                  <Button type="submit">Tạo</Button>
                 </div>
               </form>
             )}
 
-            {expLoading ? (
-              <p className="text-gray-400 text-sm">Đang tải...</p>
-            ) : (
+            {expLoading ? <LoadingSpinner message="Đang tải experiments..." /> : experiments.length === 0 ? <EmptyState title="Chưa có experiment nào" subtitle="Tạo experiment đầu tiên để bắt đầu đo lường." /> : (
               <div className="space-y-3">
-                {experiments.map(exp => (
-                  <div key={exp.id} className="border border-gray-200 rounded-xl p-4">
-                    <div className="flex justify-between items-start">
+                {experiments.map((exp) => (
+                  <div key={exp.id} className="rounded-[24px] border border-slate-100 bg-slate-50 p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <h4 className="font-bold text-gray-800">{exp.name || exp.id}</h4>
-                        <p className="text-xs text-gray-500">{exp.description}</p>
-                        <div className="flex gap-2 mt-2">
+                        <h4 className="font-bold text-slate-900">{exp.name || exp.id}</h4>
+                        <p className="mt-1 text-xs text-slate-500">{exp.description}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {(exp.groups || []).map((g: any) => (
-                            <span key={g.name} className={`px-2 py-0.5 rounded-md text-xs font-bold ${
-                              g.name.includes('control') ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'
-                            }`}>{g.name} ({Math.round(g.ratio * 100)}%)</span>
+                            <Badge key={g.name} tone={g.name.includes("control") ? "default" : "accent"}>{g.name} ({Math.round(g.ratio * 100)}%)</Badge>
                           ))}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <span className={`px-2 py-1 rounded-md text-xs font-bold ${
-                          exp.status === 'active' ? 'bg-emerald-100 text-emerald-700' : exp.status === 'paused' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-                        }`}>{exp.status}</span>
-                        {exp.status === 'active' ? (
-                          <button onClick={() => handleExpAction(exp.id, 'pause')} className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold hover:bg-amber-200">Pause</button>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge tone={exp.status === "active" ? "success" : exp.status === "paused" ? "warning" : "default"}>{exp.status}</Badge>
+                        {exp.status === "active" ? (
+                          <Button onClick={() => handleExpAction(exp.id, "pause")} size="sm" variant="soft">Pause</Button>
                         ) : (
-                          <button onClick={() => handleExpAction(exp.id, 'activate')} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-bold hover:bg-emerald-200">Activate</button>
+                          <Button onClick={() => handleExpAction(exp.id, "activate")} size="sm">Activate</Button>
                         )}
-                        <button onClick={() => handleExpAction(exp.id, 'delete')} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-bold hover:bg-red-200">Delete</button>
+                        <Button onClick={() => handleExpAction(exp.id, "delete")} size="sm" variant="danger">Delete</Button>
                       </div>
                     </div>
                   </div>
                 ))}
-                {experiments.length === 0 && (
-                  <p className="text-gray-400 text-sm text-center py-8">Chưa có experiment nào. Tạo experiment đầu tiên!</p>
-                )}
               </div>
             )}
-          </div>
+          </Card>
         )}
       </div>
     </div>
