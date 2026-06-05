@@ -1,19 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { User } from '../types';
-import { ArrowLeft, Award, Flame, Library, CheckCircle, Pencil, X, Save, RefreshCw, Camera, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, X, Save, RefreshCw, Camera, Trash2, ChevronRight, Shield, Star, Zap, Award } from 'lucide-react';
 import { Skeleton, ErrorRetry } from '../lib/ui';
 import { RewardHistory } from './RewardHistory';
 
-const AVATARS = [
-  { id: "av1", emoji: "🌱", name: "Mầm Xanh" },
-  { id: "av2", emoji: "💧", name: "Chiến Binh Nước" },
-  { id: "av3", emoji: "🦁", name: "Thủ Lĩnh Rừng" },
+const EMOJI_AVATARS = [
+  { id: "av1", emoji: "🌱", name: "Mầm Xanh", color: "bg-emerald-100 text-emerald-600", bg: "from-emerald-400 to-teal-500" },
+  { id: "av2", emoji: "💧", name: "Chiến Binh Nước", color: "bg-blue-100 text-blue-600", bg: "from-blue-400 to-cyan-500" },
+  { id: "av3", emoji: "🦁", name: "Thủ Lĩnh Rừng", color: "bg-amber-100 text-amber-600", bg: "from-amber-400 to-orange-500" },
 ];
 
 const FRAMES = [
-  { id: "fr1", name: "Khung Gỗ", style: "border-4 border-amber-700" },
-  { id: "fr2", name: "Khung Băng", style: "border-4 border-cyan-400" },
-  { id: "fr3", name: "Hào Quang Đất", style: "border-4 border-emerald-500 shadow-[0_0_12px_#10b981]" },
+  { id: "fr1", name: "Khung Gỗ", style: "ring-4 ring-amber-700", desc: "Bền vững như gỗ" },
+  { id: "fr2", name: "Khung Băng", style: "ring-4 ring-cyan-400", desc: "Tinh khiết như băng" },
+  { id: "fr3", name: "Hào Quang Đất", style: "ring-4 ring-emerald-500 shadow-[0_0_16px_#10b981]", desc: "Huy hoàng như đất" },
 ];
 
 interface Props {
@@ -21,25 +21,30 @@ interface Props {
   onClose: () => void;
 }
 
+function getAuthHeaders(): RequestInit {
+  const token = localStorage.getItem("auth_token");
+  return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+}
+
 export function ProfileView({ nickname, onClose }: Props) {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Edit mode
-  const [editing, setEditing] = useState(false);
+  // Edit modal
+  const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
   const [editFrame, setEditFrame] = useState("");
-  const [editCustomAvatar, setEditCustomAvatar] = useState("");
+  const [editCustomUrl, setEditCustomUrl] = useState("");
   const [editPass, setEditPass] = useState("");
   const [saving, setSaving] = useState(false);
-  const [editMsg, setEditMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [savingMsg, setSavingMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Upload state
+  // Upload
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tabs
@@ -48,17 +53,13 @@ export function ProfileView({ nickname, onClose }: Props) {
   const loadProfile = () => {
     setLoading(true);
     fetch(`/api/user/${nickname}`)
-      .then(res => {
-        if (!res.ok) throw new Error("Không thể tải hồ sơ");
-        return res.json();
-      })
+      .then(res => { if (!res.ok) throw new Error("Không thể tải hồ sơ"); return res.json(); })
       .then(data => {
         setProfile(data);
         setEditName(data.name || "");
         setEditAvatar(data.selectedAvatar || "");
         setEditFrame(data.selectedFrame || "");
-        setEditCustomAvatar(data.customAvatarUrl || "");
-        setPreviewUrl(data.customAvatarUrl || null);
+        setEditCustomUrl(data.customAvatarUrl || "");
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -67,69 +68,78 @@ export function ProfileView({ nickname, onClose }: Props) {
       });
   };
 
-  useEffect(() => {
-    loadProfile();
-  }, [nickname]);
+  useEffect(() => { loadProfile(); }, [nickname]);
+
+  const openEdit = () => {
+    if (!profile) return;
+    setEditName(profile.name || "");
+    setEditAvatar(profile.selectedAvatar || "");
+    setEditFrame(profile.selectedFrame || "");
+    setEditCustomUrl(profile.customAvatarUrl || "");
+    setUploadPreview(null);
+    setUploadError(null);
+    setSavingMsg(null);
+    setEditPass("");
+    setShowEdit(true);
+  };
+
+  const closeEdit = () => {
+    setShowEdit(false);
+    setSavingMsg(null);
+    setUploadError(null);
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowed.includes(file.type)) {
-      setEditMsg({ type: "error", text: "Chỉ chấp nhận ảnh JPG, PNG, GIF, WEBP" });
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setEditMsg({ type: "error", text: "Ảnh tối đa 5MB" });
-      return;
-    }
+    if (!allowed.includes(file.type)) { setUploadError("Chỉ chấp nhận JPG, PNG, GIF, WEBP"); return; }
+    if (file.size > 5 * 1024 * 1024) { setUploadError("Ảnh tối đa 5MB"); return; }
 
-    // Preview immediately
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-    setEditCustomAvatar("");
-
-    // Upload to server
+    setUploadError(null);
     setUploading(true);
-    setUploadProgress(true);
-    setEditMsg(null);
+
+    // Instant preview
+    const url = URL.createObjectURL(file);
+    setUploadPreview(url);
+    // Clear emoji selection when choosing custom
+    setEditAvatar("");
+
     const formData = new FormData();
     formData.append("image", file);
     try {
-      const res = await fetch("/api/avatar/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/avatar/upload", { method: "POST", ...getAuthHeaders(), body: formData });
       const data = await res.json();
+      URL.revokeObjectURL(url);
+      setUploadPreview(null);
       if (data.success) {
-        setEditCustomAvatar(data.url);
-        setPreviewUrl(null);
-        URL.revokeObjectURL(objectUrl);
+        setEditCustomUrl(data.url);
+        setUploadError(null);
       } else {
-        setEditMsg({ type: "error", text: data.message || "Upload thất bại" });
-        URL.revokeObjectURL(objectUrl);
-        setPreviewUrl(null);
+        setUploadError(data.message || "Upload thất bại");
+        setEditCustomUrl("");
       }
     } catch {
-      setEditMsg({ type: "error", text: "Lỗi kết nối khi upload" });
-      URL.revokeObjectURL(objectUrl);
-      setPreviewUrl(null);
+      URL.revokeObjectURL(url);
+      setUploadPreview(null);
+      setUploadError("Lỗi kết nối khi upload");
     }
     setUploading(false);
-    setUploadProgress(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleRemoveCustomAvatar = () => {
-    setEditCustomAvatar("");
-    setPreviewUrl(null);
+  const handleRemoveCustom = () => {
+    setEditCustomUrl("");
+    setUploadPreview(null);
+    setUploadError(null);
   };
 
   const handleSave = async () => {
-    if (!editName.trim()) {
-      setEditMsg({ type: "error", text: "Tên không được để trống" });
-      return;
-    }
+    if (!editName.trim()) { setSavingMsg({ ok: false, text: "Tên không được để trống" }); return; }
+    if (!editPass) { setSavingMsg({ ok: false, text: "Nhập mật khẩu để xác nhận" }); return; }
     setSaving(true);
-    setEditMsg(null);
+    setSavingMsg(null);
     try {
       const res = await fetch("/api/profile", {
         method: "PUT",
@@ -137,380 +147,385 @@ export function ProfileView({ nickname, onClose }: Props) {
         body: JSON.stringify({
           nickname,
           name: editName.trim(),
-          selectedAvatar: editAvatar || undefined,
+          // Only send selectedAvatar if NOT using custom
+          selectedAvatar: editCustomUrl ? "" : (editAvatar || undefined),
           selectedFrame: editFrame || undefined,
-          customAvatarUrl: editCustomAvatar || undefined,
-          pass: editPass || undefined,
+          customAvatarUrl: editCustomUrl || undefined,
+          pass: editPass,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setEditMsg({ type: "success", text: "Lưu thành công!" });
-        setEditing(false);
-        setEditPass("");
-        loadProfile();
+        setSavingMsg({ ok: true, text: "Lưu thành công!" });
+        setTimeout(() => { closeEdit(); loadProfile(); }, 900);
       } else {
-        setEditMsg({ type: "error", text: data.message || "Lưu thất bại" });
+        setSavingMsg({ ok: false, text: data.message || "Lưu thất bại" });
       }
     } catch {
-      setEditMsg({ type: "error", text: "Lỗi kết nối" });
+      setSavingMsg({ ok: false, text: "Lỗi kết nối" });
     }
     setSaving(false);
   };
 
-  const handleCancel = () => {
-    if (profile) {
-      setEditName(profile.name || "");
-      setEditAvatar(profile.selectedAvatar || "");
-      setEditFrame(profile.selectedFrame || "");
-      setEditCustomAvatar(profile.customAvatarUrl || "");
-      setPreviewUrl(profile.customAvatarUrl || null);
-    }
-    setEditPass("");
-    setEditMsg(null);
-    setEditing(false);
-  };
+  // ── Display avatar logic ───────────────────────────────────────────
+  const activeAvatar = profile
+    ? EMOJI_AVATARS.find(a => a.id === profile.selectedAvatar)
+    : null;
+  const activeFrame = profile
+    ? FRAMES.find(f => f.id === profile.selectedFrame)
+    : null;
 
-  if (loading) {
-    return (
-      <div className="absolute inset-0 z-40 bg-white p-4 pt-20 space-y-4 animate-pulse">
-        <Skeleton className="h-10 w-32" />
-        <div className="flex items-center gap-4">
-          <Skeleton className="w-20 h-20 rounded-full" />
-          <div className="space-y-2 flex-1">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-24" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-          <Skeleton className="h-24 rounded-2xl col-span-2" />
-          <Skeleton className="h-24 rounded-2xl col-span-2" />
-        </div>
+  let displayUrl: string | null = null;
+  let displayEmoji = profile?.name?.[0] || "?";
+  if (profile?.customAvatarUrl) { displayUrl = profile.customAvatarUrl; displayEmoji = ""; }
+  else if (activeAvatar) { displayEmoji = activeAvatar.emoji; displayUrl = null; }
+
+  // Edit preview avatar
+  const editPreviewUrl = uploadPreview || editCustomUrl || null;
+  const editPreviewEmoji = editAvatar
+    ? (EMOJI_AVATARS.find(a => a.id === editAvatar)?.emoji || "")
+    : (!editCustomUrl && !uploadPreview ? (profile?.name?.[0] || "?") : "");
+
+  if (loading) return (
+    <div className="absolute inset-0 z-40 bg-gray-50 p-4 pt-16 space-y-4 animate-pulse overflow-y-auto">
+      <Skeleton className="h-10 w-28 rounded-full" />
+      <div className="flex flex-col items-center gap-3 pt-4">
+        <Skeleton className="w-28 h-28 rounded-full" />
+        <Skeleton className="h-7 w-40 rounded-lg" />
+        <Skeleton className="h-5 w-24 rounded-full" />
       </div>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <div className="absolute inset-0 z-40 bg-white p-4 text-center pt-20">
-        <ErrorRetry message={error || "Người chơi không tồn tại"} onRetry={loadProfile} />
-        <button onClick={onClose} className="mt-4 text-emerald-500 font-bold">Quay lại</button>
+      <div className="grid grid-cols-2 gap-3 mt-6">
+        {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+        <Skeleton className="h-24 rounded-2xl col-span-2" />
+        <Skeleton className="h-24 rounded-2xl col-span-2" />
       </div>
-    );
-  }
+    </div>
+  );
 
-  const selectedAvatarData = AVATARS.find(a => a.id === profile.selectedAvatar);
-  const selectedFrameData = FRAMES.find(f => f.id === profile.selectedFrame);
+  if (error || !profile) return (
+    <div className="absolute inset-0 z-40 bg-white p-4 text-center pt-20">
+      <ErrorRetry message={error || "Người chơi không tồn tại"} onRetry={loadProfile} />
+      <button onClick={onClose} className="mt-4 text-emerald-500 font-bold">Quay lại</button>
+    </div>
+  );
 
-  // Display logic: custom > emoji > initial
-  let displayAvatar: string;
-  let frameStyle = selectedFrameData?.style || "";
-  if (profile.customAvatarUrl) {
-    displayAvatar = profile.customAvatarUrl;
-  } else if (selectedAvatarData?.emoji) {
-    displayAvatar = selectedAvatarData.emoji;
-  } else {
-    displayAvatar = profile.name[0] || "?";
-  }
-  const isImageAvatar = typeof displayAvatar === "string" && (displayAvatar.startsWith("http"));
+  const level = Math.floor(profile.points / 200) + 1;
+  const title = profile.points > 200 ? "Hiệp sĩ môi trường" : profile.points > 50 ? "Người bảo vệ" : "Mầm non";
+  const streak = profile.progress?.streakDays || 1;
+  const streakMult = Math.min(1 + (streak - 1) * 0.1, 2);
 
   return (
-    <div className="bg-white absolute inset-0 z-40 p-4 pb-20 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-       <div className="flex items-center justify-between mb-6">
-         <button onClick={onClose} className="flex items-center text-gray-500 hover:text-gray-800 font-bold text-sm bg-gray-100 px-3 py-1.5 rounded-full">
-           <ArrowLeft className="w-4 h-4 mr-1"/> Quay lại
-         </button>
-         <button
-           onClick={() => setEditing(e => !e)}
-           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all ${
-             editing ? "bg-red-100 text-red-600 hover:bg-red-200" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-           }`}
-         >
-           {editing ? <><X size={14}/> Hủy</> : <><Pencil size={14}/> Chỉnh sửa</>}
-         </button>
-       </div>
+    <div className="absolute inset-0 z-40 bg-gray-50 overflow-y-auto">
 
-       {/* EDIT FORM */}
-       {editing && (
-         <div className="bg-gray-50 rounded-2xl p-5 mb-6 border border-gray-200 space-y-5">
-           <h3 className="font-black text-gray-700 text-sm uppercase tracking-wide">Chỉnh sửa hồ sơ</h3>
-
-           <div>
-             <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Tên hiển thị</label>
-             <input
-               value={editName}
-               onChange={e => setEditName(e.target.value)}
-               maxLength={30}
-               className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-               placeholder="Nhập tên mới..."
-             />
-           </div>
-
-           {/* Avatar selection */}
-           <div>
-             <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Chọn Avatar</label>
-             <div className="flex gap-3">
-               {AVATARS.map(av => (
-                 <button
-                   key={av.id}
-                   onClick={() => {
-                     setEditAvatar(editAvatar === av.id ? "" : av.id);
-                     setEditCustomAvatar("");
-                     setPreviewUrl(null);
-                   }}
-                   className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-black transition-all ${
-                     editAvatar === av.id && !editCustomAvatar
-                       ? "ring-2 ring-emerald-500 ring-offset-2 scale-110"
-                       : "bg-gray-100 hover:bg-gray-200 opacity-60 hover:opacity-100"
-                   }`}
-                   title={av.name}
-                 >
-                   {av.emoji}
-                 </button>
-               ))}
-             </div>
-             <p className="text-xs text-gray-400 mt-1">
-               {editCustomAvatar ? "✓ Đã chọn ảnh tùy chỉnh" : (selectedAvatarData?.name || "Mặc định")}
-             </p>
-           </div>
-
-           {/* Custom avatar upload */}
-           <div>
-             <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Ảnh đại diện tùy chỉnh</label>
-             <div className="flex items-center gap-3">
-               {/* Preview */}
-               {(previewUrl || editCustomAvatar) && (
-                 <div className="relative flex-shrink-0">
-                   {previewUrl ? (
-                     <img src={previewUrl} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400" />
-                   ) : (
-                     <img src={editCustomAvatar} alt="Custom" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400" />
-                   )}
-                   {uploadProgress && (
-                     <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
-                       <RefreshCw size={16} className="animate-spin text-white" />
-                     </div>
-                   )}
-                 </div>
-               )}
-
-               <input
-                 ref={fileInputRef}
-                 type="file"
-                 accept="image/jpeg,image/png,image/gif,image/webp"
-                 onChange={handleFileChange}
-                 disabled={uploading}
-                 className="hidden"
-                 id="avatar-upload"
-               />
-               <div className="flex gap-2">
-                 <label
-                   htmlFor="avatar-upload"
-                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border-2 cursor-pointer transition-all ${
-                     editCustomAvatar || previewUrl
-                       ? "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                       : "border-dashed border-gray-300 text-gray-500 hover:border-emerald-400 hover:text-emerald-600"
-                   }`}
-                 >
-                   {uploading ? <RefreshCw size={14} className="animate-spin"/> : <Camera size={14}/>}
-                   {uploading ? "Đang tải..." : (editCustomAvatar || previewUrl ? "Đổi ảnh" : "Tải ảnh lên")}
-                 </label>
-
-                 {(editCustomAvatar || previewUrl) && (
-                   <button
-                     onClick={handleRemoveCustomAvatar}
-                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border-2 border-red-200 text-red-500 hover:bg-red-50 transition-all"
-                   >
-                     <Trash2 size={14}/> Xoá
-                   </button>
-                 )}
-               </div>
-             </div>
-             <p className="text-xs text-gray-400 mt-1.5">JPG, PNG, GIF, WEBP · Tối đa 5MB · Ảnh vuông đẹp nhất</p>
-           </div>
-
-           {/* Frame selection */}
-           <div>
-             <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Khung avatar</label>
-             <div className="flex gap-3 flex-wrap">
-               {/* No frame option */}
-               <button
-                 onClick={() => setEditFrame(editFrame === "" ? "" : "")}
-                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${
-                   !editFrame
-                     ? "border-gray-400 bg-gray-200 text-gray-700"
-                     : "border-gray-200 bg-gray-100 text-gray-400 hover:border-gray-300"
-                 }`}
-               >
-                 Không khung
-               </button>
-               {FRAMES.map(fr => (
-                 <button
-                   key={fr.id}
-                   onClick={() => setEditFrame(editFrame === fr.id ? "" : fr.id)}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${
-                     editFrame === fr.id
-                       ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                       : "border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300"
-                   }`}
-                 >
-                   {fr.name}
-                 </button>
-               ))}
-             </div>
-           </div>
-
-           {/* Password confirmation */}
-           <div>
-             <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
-               Mật khẩu xác nhận <span className="text-red-400">(bắt buộc)</span>
-             </label>
-             <input
-               type="password"
-               value={editPass}
-               onChange={e => setEditPass(e.target.value)}
-               className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-               placeholder="Nhập mật khẩu để xác nhận..."
-             />
-           </div>
-
-           {editMsg && (
-             <div className={`text-sm font-bold px-3 py-2 rounded-xl ${
-               editMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
-             }`}>
-               {editMsg.text}
-             </div>
-           )}
-
-           <div className="flex gap-3">
-             <button
-               onClick={handleSave}
-               disabled={saving}
-               className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 disabled:opacity-50 transition-all"
-             >
-               {saving ? <RefreshCw size={14} className="animate-spin"/> : <Save size={14}/>}
-               {saving ? "Đang lưu..." : "Lưu thay đổi"}
-             </button>
-             <button onClick={handleCancel} className="px-4 py-2.5 bg-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-300 transition-all">
-               Hủy
-             </button>
-           </div>
-         </div>
-       )}
-
-       {/* HEADER with avatar */}
-       <div className="flex items-center gap-4 mb-4">
-         {isImageAvatar ? (
-           <img
-             src={displayAvatar}
-             alt={profile.name}
-             className={`w-20 h-20 rounded-full object-cover shadow-sm border-2 border-emerald-200 ${frameStyle}`}
-           />
-         ) : (
-           <div
-             className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 shadow-sm border-2 border-emerald-200 ${frameStyle}`}
-           >
-             {displayAvatar}
-           </div>
-         )}
-         <div>
-            <h2 className="text-2xl font-black text-gray-800 tracking-tight">{profile.name}</h2>
-            <p className="text-gray-500 text-sm mt-1">
-              Cống hiến: <span className="font-bold text-emerald-600 px-2 py-0.5 bg-emerald-50 rounded bg-emerald-100">{profile.points} EXP</span>
-            </p>
-            {profile.customAvatarUrl && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full mt-1">
-                <Camera size={10}/> Ảnh tùy chỉnh
-              </span>
+      {/* ── HEADER BANNER ─────────────────────────────────────────── */}
+      <div className="relative">
+        {/* Background gradient */}
+        <div className="h-40 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500" />
+        {/* Avatar circle + edit button */}
+        <div className="absolute -bottom-12 left-0 right-0 flex flex-col items-center">
+          <div className="relative">
+            {displayUrl ? (
+              <img src={displayUrl} alt={profile.name} className={`w-28 h-28 rounded-full object-cover ring-4 ring-white shadow-xl ${activeFrame?.style || ""}`} />
+            ) : (
+              <div className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-black ring-4 ring-white shadow-xl bg-gradient-to-br ${activeAvatar?.bg || "from-emerald-100 to-teal-100"} ${activeAvatar ? "text-white" : "text-emerald-600"} ${activeFrame?.style || ""}`}>
+                {displayEmoji}
+              </div>
             )}
-         </div>
-       </div>
-
-       {/* TABS */}
-       <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1">
-         {[
-           { id: 'overview', label: 'Tổng quan' },
-           { id: 'history', label: 'Lịch sử giao dịch' },
-         ].map(tab => (
-           <button
-             key={tab.id}
-             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-               activeTab === tab.id ? "bg-white shadow-sm text-emerald-600" : "text-gray-500 hover:text-gray-700"
-             }`}
-           >
-             {tab.label}
-           </button>
-         ))}
-       </div>
-
-       {/* OVERVIEW TAB */}
-       {activeTab === 'overview' && (
-         <>
-           <div className="grid grid-cols-2 gap-3 mb-6">
-             <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex flex-col items-center shadow-sm">
-               <Flame className="text-orange-500 mb-2 fill-current" size={28} />
-               <span className="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wide">Chuỗi ngày</span>
-               <span className="text-2xl font-black text-orange-600">{profile.progress?.streakDays || 1}</span>
-               {(profile.progress?.streakDays ?? 1) > 1 && (
-                 <span className="text-[10px] font-black text-orange-400 mt-0.5 flex items-center gap-0.5">
-                   x{Math.min(1 + ((profile.progress?.streakDays ?? 1) - 1) * 0.1, 2).toFixed(1)} EXP
-                 </span>
-               )}
-             </div>
-             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center shadow-sm">
-               <Award className="text-blue-500 mb-2" size={28} />
-               <span className="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wide">Cấp</span>
-               <span className="text-2xl font-black text-blue-600">{Math.floor(profile.points / 200) + 1}</span>
-             </div>
-             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center shadow-sm">
-               <CheckCircle className="text-emerald-500 mb-2" size={28} />
-               <span className="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wide">Thẻ đã mở</span>
-               <span className="text-2xl font-black text-emerald-600">{profile.progress?.flashcardsRead?.length || 0}</span>
-             </div>
-             <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col items-center shadow-sm">
-               <Award className="text-purple-500 mb-2" size={28} />
-               <span className="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wide">Số lần checkin</span>
-               <span className="text-2xl font-black text-purple-600">{profile.progress?.checkins?.length || 0}</span>
-             </div>
-             <div className="col-span-2 bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center shadow-sm">
-               <Award className="text-blue-500 mb-2" size={28} />
-               <span className="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wide">Danh hiệu</span>
-               <span className="text-lg font-black text-blue-600 text-center uppercase tracking-tighter leading-none mt-1">
-                 {profile.points > 200 ? 'Hiệp sĩ môi trường' : (profile.points > 50 ? 'Người bảo vệ' : 'Mầm non')}
-               </span>
-             </div>
-             <div className="col-span-2 bg-indigo-50 p-4 rounded-2xl border border-indigo-100 flex flex-col items-center shadow-sm">
-               <Library className="text-indigo-500 mb-2" size={28} />
-               <span className="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wide">Bộ sưu tập</span>
-               <span className="text-2xl font-black text-indigo-600">
-                 {profile.progress?.flashcardsRead?.length || 0}
-                 <span className="text-sm font-bold text-indigo-400">/300</span>
-               </span>
-             </div>
+            {profile.customAvatarUrl && (
+              <span className="absolute -bottom-1 -right-1 bg-indigo-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow">Tùy chỉnh</span>
+            )}
           </div>
+          <h2 className="mt-3 text-2xl font-black text-gray-800 tracking-tight">{profile.name}</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="bg-emerald-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
+              Cấp {level} · {title}
+            </span>
+            <span className="bg-orange-100 text-orange-600 text-xs font-black px-3 py-1 rounded-full">
+              🔥 {streak} ngày
+            </span>
+          </div>
+        </div>
+        {/* Back + Edit buttons */}
+        <div className="absolute top-4 left-4 right-4 flex justify-between">
+          <button onClick={onClose} className="flex items-center gap-1 bg-white/80 backdrop-blur text-gray-700 font-bold text-sm px-3 py-1.5 rounded-full shadow hover:bg-white transition">
+            <ArrowLeft className="w-4 h-4"/> Quay lại
+          </button>
+          <button onClick={openEdit} className="flex items-center gap-1.5 bg-white/80 backdrop-blur text-emerald-600 font-bold text-sm px-4 py-1.5 rounded-full shadow hover:bg-white transition">
+            <Pencil className="w-4 h-4"/> Chỉnh sửa
+          </button>
+        </div>
+      </div>
 
-          <h3 className="font-black text-gray-800 mb-4 border-b-4 border-emerald-400 inline-block text-sm uppercase tracking-wider">Hoạt Động / Thành Tích</h3>
-          <div className="space-y-3 text-sm mb-6">
-            <div className="p-4 bg-gray-50 rounded-xl flex justify-between items-center border border-gray-100 shadow-sm">
-              <span className="font-bold text-gray-600">Thử thách đã hoàn thành</span>
-              <span className="font-black text-xl text-emerald-600">{profile.progress?.challengesCompleted?.length || 0}</span>
+      {/* ── MAIN CONTENT ─────────────────────────────────────────── */}
+      <div className="mt-16 px-4 pb-24 space-y-4 max-w-lg mx-auto">
+
+        {/* EXP bar */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cống hiến (EXP)</span>
+            <span className="text-lg font-black text-emerald-600">{profile.points} <span className="text-sm font-bold text-emerald-400">/ {level * 200}</span></span>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-700"
+              style={{ width: `${Math.min((profile.points % 200) / 2, 100)}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1 text-right">{Math.max(0, level * 200 - profile.points)} EXP đến cấp kế tiếp</p>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
+            <Flame className="text-orange-400 mb-1" size={22} />
+            <span className="text-xl font-black text-gray-800">{streak}</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Ngày streak</span>
+            {streak > 1 && <span className="text-[10px] font-black text-orange-400">×{streakMult.toFixed(1)} EXP</span>}
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
+            <Award className="text-blue-400 mb-1" size={22} />
+            <span className="text-xl font-black text-gray-800">{level}</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Cấp độ</span>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
+            <Star className="text-purple-400 mb-1" size={22} />
+            <span className="text-xl font-black text-gray-800">{profile.progress?.flashcardsRead?.length || 0}</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thẻ đã mở</span>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 bg-white rounded-2xl p-1 shadow-sm border border-gray-100">
+          {[
+            { id: 'overview', label: 'Tổng quan' },
+            { id: 'history', label: 'Lịch sử điểm' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === tab.id ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* OVERVIEW TAB */}
+        {activeTab === 'overview' && (
+          <div className="space-y-3">
+            {/* Activity row */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-2">
+              <h3 className="font-black text-gray-700 text-xs uppercase tracking-wider">Hoạt động</h3>
+              {[
+                { label: "Thử thách đã hoàn thành", value: profile.progress?.challengesCompleted?.length || 0, icon: <Zap size={16} className="text-yellow-500" /> },
+                { label: "Quà đã đổi", value: profile.progress?.crafted?.length || 0, icon: <Award size={16} className="text-amber-500" /> },
+                { label: "Số lần checkin", value: profile.progress?.checkins?.length || 0, icon: <Shield size={16} className="text-blue-500" /> },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2">
+                    {item.icon}
+                    <span className="text-sm text-gray-600">{item.label}</span>
+                  </div>
+                  <span className="text-lg font-black text-gray-800">{item.value}</span>
+                </div>
+              ))}
             </div>
-            <div className="p-4 bg-gray-50 rounded-xl flex justify-between items-center border border-gray-100 shadow-sm">
-              <span className="font-bold text-gray-600">Quà đã đổi</span>
-              <span className="font-black text-xl text-amber-500">{profile.progress?.crafted?.length || 0}</span>
+
+            {/* Avatar & Frame info */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <h3 className="font-black text-gray-700 text-xs uppercase tracking-wider mb-3">Giao diện</h3>
+              <div className="flex gap-3">
+                <div className="flex-1 flex items-center gap-2">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-black bg-gradient-to-br ${activeAvatar?.bg || "from-emerald-100 to-teal-100"} ${activeAvatar ? "text-white" : "text-emerald-600"}`}>
+                    {displayEmoji}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700">{activeAvatar?.name || "Mặc định"}</p>
+                    <p className="text-[10px] text-gray-400">Avatar</p>
+                  </div>
+                </div>
+                <div className="w-px bg-gray-100" />
+                <div className="flex-1 flex items-center gap-2">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black bg-gray-100 text-gray-500 ${activeFrame?.style || ""}`}>
+                    🖼
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700">{activeFrame?.name || "Không khung"}</p>
+                    <p className="text-[10px] text-gray-400">Khung</p>
+                  </div>
+                </div>
+                <button onClick={openEdit} className="flex items-center gap-1 text-emerald-600 text-xs font-bold hover:text-emerald-700 self-center">
+                  Đổi <ChevronRight size={14}/>
+                </button>
+              </div>
+            </div>
+
+            {/* Bộ sưu tập */}
+            <div className="bg-indigo-50 rounded-2xl p-4 shadow-sm border border-indigo-100">
+              <h3 className="font-black text-indigo-600 text-xs uppercase tracking-wider mb-2">Bộ sưu tập</h3>
+              <div className="flex items-end justify-between">
+                <div>
+                  <span className="text-3xl font-black text-indigo-600">{profile.progress?.flashcardsRead?.length || 0}</span>
+                  <span className="text-lg font-bold text-indigo-300">/300</span>
+                </div>
+                <div className="w-32 bg-indigo-100 rounded-full h-2">
+                  <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${((profile.progress?.flashcardsRead?.length || 0) / 300) * 100}%` }} />
+                </div>
+              </div>
             </div>
           </div>
-         </>
-       )}
+        )}
 
-       {/* HISTORY TAB */}
-       {activeTab === 'history' && (
-         <div className="mt-2">
-           <RewardHistory userId={nickname} currentBalance={profile.points} />
-         </div>
-       )}
+        {/* HISTORY TAB */}
+        {activeTab === 'history' && (
+          <RewardHistory userId={nickname} currentBalance={profile.points} />
+        )}
+      </div>
+
+      {/* ── EDIT MODAL ─────────────────────────────────────────────── */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl max-h-[92vh] overflow-y-auto shadow-2xl">
+
+            {/* Modal header */}
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
+              <h2 className="text-xl font-black text-gray-800">Chỉnh sửa hồ sơ</h2>
+              <button onClick={closeEdit} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition">
+                <X size={18}/>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-6">
+
+              {/* Avatar preview + upload */}
+              <div className="flex flex-col items-center">
+                {/* Preview */}
+                <div className="relative mb-4">
+                  {editPreviewUrl ? (
+                    <img src={editPreviewUrl} alt="Preview" className={`w-24 h-24 rounded-full object-cover ring-4 ring-emerald-400 shadow-lg ${FRAMES.find(f => f.id === editFrame)?.style || ""}`} />
+                  ) : editPreviewEmoji ? (
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl font-black bg-gradient-to-br ${EMOJI_AVATARS.find(a => a.id === editAvatar)?.bg || "from-emerald-100 to-teal-100"} text-white shadow-lg ring-4 ring-emerald-400 ${FRAMES.find(f => f.id === editFrame)?.style || ""}`}>
+                      {editPreviewEmoji}
+                    </div>
+                  ) : (
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl font-black bg-gray-100 text-gray-400 shadow-lg ring-4 ring-gray-200 ${FRAMES.find(f => f.id === editFrame)?.style || ""}`}>
+                      ?
+                    </div>
+                  )}
+                  {uploading && (
+                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                      <RefreshCw size={24} className="animate-spin text-white" />
+                    </div>
+                  )}
+                  <label htmlFor="avatar-upload" className="absolute -bottom-1 -right-1 w-9 h-9 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-emerald-600 transition">
+                    <Camera size={16}/>
+                  </label>
+                  <input ref={fileInputRef} id="avatar-upload" type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={handleFileChange} disabled={uploading} className="hidden" />
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  {editCustomUrl && (
+                    <button onClick={handleRemoveCustom} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 border-red-200 text-red-500 hover:bg-red-50 transition">
+                      <Trash2 size={13}/> Xoá ảnh
+                    </button>
+                  )}
+                </div>
+
+                {uploadError && <p className="text-xs text-red-500 font-bold mt-1">{uploadError}</p>}
+                <p className="text-[11px] text-gray-400 mt-1">JPG, PNG, GIF, WEBP · Tối đa 5MB</p>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-gray-100" />
+
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Tên hiển thị</label>
+                <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={30}
+                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl text-base font-medium text-gray-800 focus:outline-none focus:border-emerald-400 focus:bg-white transition"
+                  placeholder="Nhập tên mới..." />
+              </div>
+
+              {/* Emoji avatars */}
+              <div>
+                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Avatar emoji</label>
+                <div className="flex gap-3">
+                  {EMOJI_AVATARS.map(av => (
+                    <button key={av.id}
+                      onClick={() => { setEditAvatar(editAvatar === av.id ? "" : av.id); setEditCustomUrl(""); setUploadPreview(null); }}
+                      className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xl font-black transition-all shadow-sm ${
+                        editAvatar === av.id && !editCustomUrl
+                          ? `${av.color} ring-2 ring-emerald-500 ring-offset-1 scale-105`
+                          : "bg-gray-100 text-gray-400 hover:bg-gray-200 opacity-60 hover:opacity-100"
+                      }`}>
+                      {av.emoji}
+                      <span className="text-[8px] font-bold leading-none">{av.name.split(" ")[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Frames */}
+              <div>
+                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Khung avatar</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setEditFrame("")}
+                    className={`p-3 rounded-2xl text-left transition-all border-2 ${
+                      !editFrame ? "border-gray-400 bg-gray-100" : "border-gray-100 bg-white"
+                    }`}>
+                    <p className="text-xs font-bold text-gray-700">Không khung</p>
+                    <p className="text-[10px] text-gray-400">Mặc định</p>
+                  </button>
+                  {FRAMES.map(fr => (
+                    <button key={fr.id}
+                      onClick={() => setEditFrame(editFrame === fr.id ? "" : fr.id)}
+                      className={`p-3 rounded-2xl text-left transition-all border-2 ${
+                        editFrame === fr.id ? "border-emerald-400 bg-emerald-50" : "border-gray-100 bg-white hover:border-gray-300"
+                      }`}>
+                      <p className="text-xs font-bold text-gray-700">{fr.name}</p>
+                      <p className="text-[10px] text-gray-400">{fr.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Password confirmation */}
+              <div>
+                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
+                  Mật khẩu xác nhận <span className="text-red-400">*</span>
+                </label>
+                <input type="password" value={editPass} onChange={e => setEditPass(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl text-base font-medium text-gray-800 focus:outline-none focus:border-emerald-400 focus:bg-white transition"
+                  placeholder="Nhập mật khẩu tài khoản..." />
+              </div>
+
+              {/* Save button */}
+              {savingMsg && (
+                <div className={`text-sm font-bold px-4 py-3 rounded-2xl ${
+                  savingMsg.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
+                }`}>
+                  {savingMsg.text}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={handleSave} disabled={saving}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-emerald-500 text-white rounded-2xl font-bold text-base hover:bg-emerald-600 disabled:opacity-60 active:scale-[0.98] transition-all shadow-lg shadow-emerald-200">
+                  {saving ? <RefreshCw size={18} className="animate-spin"/> : <Save size={18}/>}
+                  {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+                <button onClick={closeEdit}
+                  className="px-5 py-3.5 bg-gray-100 text-gray-600 rounded-2xl font-bold text-base hover:bg-gray-200 active:scale-[0.98] transition-all">
+                  Huỷ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
