@@ -14,6 +14,7 @@ import multer from "multer";
 import { resolveGacha, generateServerCard } from "./server/lib/cards.js";
 import { GoogleGenAI } from "@google/genai";
 import { initDb, isDbConnected, getDb } from "./server/db.js";
+import { listRewards, upsertReward, deleteRewardById, isRewardsDbConfigured } from "./server/rewardsDb.js";
 import { runSchema } from "./server/schema.js";
 import { researchRouter } from "./server/routes/research.js";
 import { eventLogger } from "./server/services/eventLogger.js";
@@ -990,55 +991,29 @@ const defaultRewards = [
 
 app.get("/api/rewards", async (req, res) => {
   try {
-    const db = getDb();
-    if (db && isDbConnected()) {
+    if (isRewardsDbConfigured()) {
       try {
-        const { rows } = await db.query(
-          `SELECT id, name, description AS desc, cost, ingredients, image_url AS "imageUrl", color, bg_class AS "bgClass", border_class AS "borderClass"
-           FROM rewards
-           ORDER BY cost ASC, id ASC`
-        );
-
-        if (rows.length === 0) {
+        const rewards = await listRewards();
+        if (rewards.length === 0) {
           for (const rw of defaultRewards) {
-            await db.query(
-              `INSERT INTO rewards (id, name, description, cost, ingredients, image_url, color, bg_class, border_class)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-               ON CONFLICT (id) DO NOTHING`,
-              [
-                rw.id.toString(),
-                rw.name,
-                rw.desc,
-                rw.cost,
-                JSON.stringify(rw.ingredients || []),
-                rw.imageUrl,
-                rw.color,
-                rw.bgClass,
-                rw.borderClass,
-              ]
-            );
+            await upsertReward({
+              id: rw.id.toString(),
+              name: rw.name,
+              desc: rw.desc,
+              cost: rw.cost,
+              ingredients: rw.ingredients || [],
+              imageUrl: rw.imageUrl,
+              color: rw.color,
+              bgClass: rw.bgClass,
+              borderClass: rw.borderClass,
+            });
           }
           return res.json(defaultRewards);
         }
 
-        const normalized = rows.map((row: any) => ({
-          ...row,
-          ingredients: Array.isArray(row.ingredients)
-            ? row.ingredients
-            : typeof row.ingredients === "string"
-              ? (() => {
-                  try {
-                    return JSON.parse(row.ingredients);
-                  } catch {
-                    return [];
-                  }
-                })()
-              : [],
-        }));
-
-        return res.json(normalized);
+        return res.json(rewards);
       } catch (dbError) {
-        console.error("[rewards:get] DB error:", dbError);
+        console.error("[rewards:get] Supabase error:", dbError);
       }
     }
 
@@ -1051,15 +1026,13 @@ app.get("/api/rewards", async (req, res) => {
 
 app.post("/api/rewards", requireAdmin, async (req, res) => {
   try {
-    const db = getDb();
-    if (!db || !isDbConnected()) {
+    if (!isRewardsDbConfigured()) {
       return res.status(503).json({ success: false, error: "Rewards database unavailable" });
     }
 
     const reward = req.body;
-    const docId = reward.id ? reward.id.toString() : Date.now().toString();
-    const normalizedReward = {
-      id: docId,
+    const savedReward = await upsertReward({
+      id: reward.id ? reward.id.toString() : Date.now().toString(),
       name: reward.name || "",
       desc: reward.desc || "",
       cost: Number(reward.cost || 0),
@@ -1068,34 +1041,9 @@ app.post("/api/rewards", requireAdmin, async (req, res) => {
       color: reward.color || "",
       bgClass: reward.bgClass || "",
       borderClass: reward.borderClass || "",
-    };
+    });
 
-    await db.query(
-      `INSERT INTO rewards (id, name, description, cost, ingredients, image_url, color, bg_class, border_class)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       ON CONFLICT (id) DO UPDATE SET
-         name = EXCLUDED.name,
-         description = EXCLUDED.description,
-         cost = EXCLUDED.cost,
-         ingredients = EXCLUDED.ingredients,
-         image_url = EXCLUDED.image_url,
-         color = EXCLUDED.color,
-         bg_class = EXCLUDED.bg_class,
-         border_class = EXCLUDED.border_class`,
-      [
-        normalizedReward.id,
-        normalizedReward.name,
-        normalizedReward.desc,
-        normalizedReward.cost,
-        JSON.stringify(normalizedReward.ingredients),
-        normalizedReward.imageUrl,
-        normalizedReward.color,
-        normalizedReward.bgClass,
-        normalizedReward.borderClass,
-      ]
-    );
-
-    res.json({ success: true, reward: normalizedReward });
+    res.json({ success: true, reward: savedReward });
   } catch (e) {
     console.error("[rewards:post] Error:", e);
     res.status(500).json({ success: false, error: "Failed to save reward" });
@@ -1104,12 +1052,11 @@ app.post("/api/rewards", requireAdmin, async (req, res) => {
 
 app.delete("/api/rewards/:id", requireAdmin, async (req, res) => {
   try {
-    const db = getDb();
-    if (!db || !isDbConnected()) {
+    if (!isRewardsDbConfigured()) {
       return res.status(503).json({ success: false, error: "Rewards database unavailable" });
     }
 
-    await db.query(`DELETE FROM rewards WHERE id = $1`, [req.params.id]);
+    await deleteRewardById(req.params.id);
     res.json({ success: true });
   } catch (e) {
     console.error("[rewards:delete] Error:", e);
