@@ -990,47 +990,129 @@ const defaultRewards = [
 
 app.get("/api/rewards", async (req, res) => {
   try {
-    if (db) {
-      const snap = await db.collection("rewards").get();
-      if (snap.empty) {
-        for (const rw of defaultRewards) {
-          await db.collection("rewards").doc(rw.id.toString()).set(rw);
+    const db = getDb();
+    if (db && isDbConnected()) {
+      try {
+        const { rows } = await db.query(
+          `SELECT id, name, description AS desc, cost, ingredients, image_url AS "imageUrl", color, bg_class AS "bgClass", border_class AS "borderClass"
+           FROM rewards
+           ORDER BY cost ASC, id ASC`
+        );
+
+        if (rows.length === 0) {
+          for (const rw of defaultRewards) {
+            await db.query(
+              `INSERT INTO rewards (id, name, description, cost, ingredients, image_url, color, bg_class, border_class)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (id) DO NOTHING`,
+              [
+                rw.id.toString(),
+                rw.name,
+                rw.desc,
+                rw.cost,
+                JSON.stringify(rw.ingredients || []),
+                rw.imageUrl,
+                rw.color,
+                rw.bgClass,
+                rw.borderClass,
+              ]
+            );
+          }
+          return res.json(defaultRewards);
         }
-        res.json(defaultRewards);
-        return;
+
+        const normalized = rows.map((row: any) => ({
+          ...row,
+          ingredients: Array.isArray(row.ingredients)
+            ? row.ingredients
+            : typeof row.ingredients === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(row.ingredients);
+                  } catch {
+                    return [];
+                  }
+                })()
+              : [],
+        }));
+
+        return res.json(normalized);
+      } catch (dbError) {
+        console.error("[rewards:get] DB error:", dbError);
       }
-      const list = snap.docs.map(doc => doc.data());
-      list.sort((a: any, b: any) => a.cost - b.cost);
-      res.json(list);
-      return;
     }
+
     res.json(defaultRewards);
   } catch (e) {
+    console.error("[rewards:get] Error:", e);
     res.json(defaultRewards);
   }
 });
 
 app.post("/api/rewards", requireAdmin, async (req, res) => {
   try {
-    const reward = req.body;
-    let docId = reward.id ? reward.id.toString() : Date.now().toString();
-    reward.id = docId;
-    if (db) {
-       await db.collection("rewards").doc(docId).set(reward);
+    const db = getDb();
+    if (!db || !isDbConnected()) {
+      return res.status(503).json({ success: false, error: "Rewards database unavailable" });
     }
-    res.json({ success: true, reward });
+
+    const reward = req.body;
+    const docId = reward.id ? reward.id.toString() : Date.now().toString();
+    const normalizedReward = {
+      id: docId,
+      name: reward.name || "",
+      desc: reward.desc || "",
+      cost: Number(reward.cost || 0),
+      ingredients: Array.isArray(reward.ingredients) ? reward.ingredients : [],
+      imageUrl: reward.imageUrl || "",
+      color: reward.color || "",
+      bgClass: reward.bgClass || "",
+      borderClass: reward.borderClass || "",
+    };
+
+    await db.query(
+      `INSERT INTO rewards (id, name, description, cost, ingredients, image_url, color, bg_class, border_class)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         description = EXCLUDED.description,
+         cost = EXCLUDED.cost,
+         ingredients = EXCLUDED.ingredients,
+         image_url = EXCLUDED.image_url,
+         color = EXCLUDED.color,
+         bg_class = EXCLUDED.bg_class,
+         border_class = EXCLUDED.border_class`,
+      [
+        normalizedReward.id,
+        normalizedReward.name,
+        normalizedReward.desc,
+        normalizedReward.cost,
+        JSON.stringify(normalizedReward.ingredients),
+        normalizedReward.imageUrl,
+        normalizedReward.color,
+        normalizedReward.bgClass,
+        normalizedReward.borderClass,
+      ]
+    );
+
+    res.json({ success: true, reward: normalizedReward });
   } catch (e) {
+    console.error("[rewards:post] Error:", e);
     res.status(500).json({ success: false, error: "Failed to save reward" });
   }
 });
 
 app.delete("/api/rewards/:id", requireAdmin, async (req, res) => {
   try {
-    if (db) {
-       await db.collection("rewards").doc(req.params.id).delete();
+    const db = getDb();
+    if (!db || !isDbConnected()) {
+      return res.status(503).json({ success: false, error: "Rewards database unavailable" });
     }
+
+    await db.query(`DELETE FROM rewards WHERE id = $1`, [req.params.id]);
     res.json({ success: true });
   } catch (e) {
+    console.error("[rewards:delete] Error:", e);
     res.status(500).json({ success: false, error: "Failed to delete" });
   }
 });

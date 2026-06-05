@@ -164,18 +164,22 @@ export function AdminDashboard({ user, onLogout }: Props) {
         desc: newReward.desc,
         cost: Number(newReward.cost),
         imageUrl: newReward.imageUrl,
-        ingredients: newReward.ingredients.split(",").map((s) => s.trim()),
+        ingredients: newReward.ingredients.split(",").map((s) => s.trim()).filter(Boolean),
         color: newReward.color,
         bgClass: newReward.bgClass,
         borderClass: newReward.borderClass,
       };
-      await fetch("/api/rewards", { ...authHeaders(), method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch("/api/rewards", { ...authHeaders(), method: "POST", headers: { ...authHeaders().headers, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Không thể lưu phần thưởng");
+      }
       setShowAddReward(false);
-      fetchRewards();
+      await fetchRewards();
       showToast("Đã thêm phần thưởng", "Danh sách quà đã được cập nhật.", "success");
     } catch (error) {
       console.error("Failed to add reward", error);
-      showToast("Không thể thêm phần thưởng", "Vui lòng kiểm tra dữ liệu rồi thử lại.", "warning");
+      showToast("Không thể thêm phần thưởng", error instanceof Error ? error.message : "Vui lòng kiểm tra dữ liệu rồi thử lại.", "warning");
     }
   };
 

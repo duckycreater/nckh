@@ -16,6 +16,19 @@ CREATE TABLE IF NOT EXISTS research_users (
   role VARCHAR(50) DEFAULT 'user'
 );
 
+-- Rewards catalog for admin-managed redeemables
+CREATE TABLE IF NOT EXISTS rewards (
+  id VARCHAR(255) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT '',
+  cost INTEGER NOT NULL DEFAULT 0,
+  ingredients JSONB DEFAULT '[]',
+  image_url TEXT DEFAULT '',
+  color VARCHAR(255) DEFAULT '',
+  bg_class VARCHAR(255) DEFAULT '',
+  border_class VARCHAR(255) DEFAULT ''
+);
+
 -- User sessions for engagement tracking
 CREATE TABLE IF NOT EXISTS research_sessions (
   id SERIAL PRIMARY KEY,
