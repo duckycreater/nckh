@@ -200,6 +200,30 @@ export function AdminDashboard({ user, onLogout }: Props) {
     setSelectedUser(null);
   };
 
+  const [syncingSheets, setSyncingSheets] = useState(false);
+  const handleSyncSheets = async () => {
+    setSyncingSheets(true);
+    try {
+      const res = await fetch('/api/admin/sync-sheets', {
+        ...authHeaders(),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId: '1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Đã sync ${data.totalImported} người dùng từ Google Sheets!`);
+        fetchUsers();
+        loadStats();
+      } else {
+        alert('Sync thất bại: ' + (data.error || data.message));
+      }
+    } catch {
+      alert('Sync thất bại: lỗi kết nối');
+    }
+    setSyncingSheets(false);
+  };
+
   const handleTriggerDecay = async (accountId: string) => {
     await fetch(`/api/admin/decay/${accountId}/detect`, { ...authHeaders(), method: 'POST' });
     if (selectedUser) fetchUserDetail(selectedUser);
@@ -346,6 +370,10 @@ export function AdminDashboard({ user, onLogout }: Props) {
                   className="w-full pl-9 pr-4 py-2 border rounded-xl text-sm" />
               </div>
               <button onClick={() => { fetchUsers(); loadStats(); }} className="p-2 text-gray-500 hover:bg-gray-100 rounded-xl"><RefreshCw size={18} /></button>
+              <button onClick={handleSyncSheets} disabled={syncingSheets} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50 transition-all">
+                <RefreshCw size={14} className={syncingSheets ? 'animate-spin' : ''} />
+                {syncingSheets ? 'Đang sync...' : 'Sync Sheets'}
+              </button>
             </div>
 
             <div className="flex gap-6">

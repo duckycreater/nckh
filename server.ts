@@ -2033,7 +2033,6 @@ async function startServer() {
   };
 
   setTimeout(startAutoSync, 3000); // Wait 3 seconds before first sync
-  setInterval(startAutoSync, 60 * 1000); // Then every 60 seconds for realtime sync
 
   // Research API routes
   app.use("/api/research", researchRouter);
