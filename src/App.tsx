@@ -6,6 +6,26 @@ import { Chatbot } from "./components/Chatbot";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { ResearchDashboard } from "./components/ResearchDashboard";
 import { User } from "./types";
+import { AppScreenShell, Badge, Card, LoadingSpinner } from "./lib/ui";
+
+function RestoringScreen() {
+  return (
+    <div className="min-h-screen px-4 py-6 sm:px-6">
+      <AppScreenShell
+        badge={<Badge tone="success">BMO Robot</Badge>}
+        title="Đang khôi phục phiên làm việc"
+        subtitle="Chuẩn bị lại bảng điều khiển, tiến trình học tập và không gian trải nghiệm của bạn."
+      >
+        <Card className="glass-panel rounded-[32px] border-white/60 p-8 sm:p-10">
+          <LoadingSpinner
+            message="Đang đồng bộ phiên đăng nhập"
+            subtitle="Việc này chỉ mất trong chốc lát để bạn quay lại đúng nơi đang dở dang."
+          />
+        </Card>
+      </AppScreenShell>
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -14,7 +34,6 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (token) {
-      // Try to restore user from localStorage
       try {
         const storedUser = localStorage.getItem("user_session");
         if (storedUser) {
@@ -23,6 +42,7 @@ export default function App() {
         }
       } catch {
         localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_session");
       }
     }
     setRestoring(false);
@@ -49,50 +69,39 @@ export default function App() {
   };
 
   if (restoring) {
-    return null;
+    return <RestoringScreen />;
   }
 
   if (!user) {
     return <Auth onLogin={handleLogin} />;
   }
 
-  if (user.role === "admin") {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/research" element={<ResearchDashboard user={user} />} />
-          <Route
-            path="/:tab"
-            element={<AdminDashboard user={user} onLogout={handleLogout} />}
-          />
-        </Routes>
-        <Chatbot currentUser={user.account_id} />
-      </BrowserRouter>
-    );
-  }
+  const isAdmin = user.role === "admin";
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/"
-          element={<Navigate to="/home" replace />}
-        />
-        <Route
-          path="/:tab"
-          element={
-            <>
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        {isAdmin ? (
+          <>
+            <Route path="/research" element={<ResearchDashboard user={user} />} />
+            <Route path="/:tab" element={<AdminDashboard user={user} onLogout={handleLogout} />} />
+          </>
+        ) : (
+          <Route
+            path="/:tab"
+            element={
               <Dashboard
                 user={user}
                 onLogout={handleLogout}
                 onUpdateUser={handleUpdateUser}
               />
-              <Chatbot currentUser={user.account_id} />
-            </>
-          }
-        />
+            }
+          />
+        )}
+        <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
       </Routes>
+      <Chatbot currentUser={user.account_id} />
     </BrowserRouter>
   );
 }

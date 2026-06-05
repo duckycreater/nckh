@@ -3,7 +3,7 @@ import { Camera, Image as ImageIcon, X, Upload, Wifi, Zap, CheckCircle, Sparkles
 import ReactMarkdown from "react-markdown";
 import { User } from "../types";
 import { localModelRunner, LOCAL_MODELS, LocalModelType } from "../services/localModelRunner";
-import { Badge, Button, Card, ModalShell, TabButton } from "../lib/ui";
+import { Badge, Button, Card, LoadingSpinner, ModalHeader, ModalShell, TabButton } from "../lib/ui";
 
 interface AIScannerProps {
   user: User;
@@ -62,7 +62,7 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
         videoRef.current.srcObject = mediaStream;
       }
     } catch {
-      setCameraError("Không thể truy cập camera. Vui lòng cấp quyền hoặc tải ảnh từ thiết bị.");
+      setCameraError("Không thể truy cập camera. Hãy cấp quyền camera trong trình duyệt hoặc tải ảnh từ thiết bị.");
     }
   };
 
@@ -192,22 +192,16 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
   }, [stream]);
 
   return (
-    <ModalShell onClose={onClose} className="max-w-4xl overflow-hidden p-0">
-      <div className="grid max-h-[90vh] overflow-hidden lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="bg-[linear-gradient(160deg,#0f1720,#12352f_58%,#174c40)] p-6 text-white sm:p-8">
-          <div className="mb-6 flex items-center justify-between gap-3">
-            <div>
-              <Badge tone="success" className="bg-white/10 text-white border-white/10">AI Scanner</Badge>
-              <h2 className="mt-4 text-3xl font-black tracking-tight">Quét rác thông minh</h2>
-              <p className="mt-2 max-w-md text-sm leading-6 text-slate-200/80">
-                Chụp ảnh hoặc tải ảnh lên để nhận phân loại, hướng dẫn xử lý đúng chuẩn và tích thêm điểm thưởng.
-              </p>
-            </div>
-            <button onClick={onClose} className="rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20">
-              <X size={20} />
-            </button>
-          </div>
+    <ModalShell onClose={onClose} className="max-w-5xl overflow-hidden p-0" title="AI Scanner">
+      <ModalHeader
+        title="Quét rác thông minh"
+        subtitle="Chụp ảnh hoặc tải ảnh lên để nhận phân loại, hướng dẫn xử lý chuẩn hơn và điểm thưởng ngay trong cùng một luồng rõ ràng."
+        badge={<Badge tone="success">AI Scanner</Badge>}
+        onClose={onClose}
+      />
 
+      <div className="grid max-h-[88vh] overflow-hidden lg:grid-cols-[1.02fr_0.98fr]">
+        <div className="bg-[linear-gradient(160deg,#0f1720,#12352f_58%,#174c40)] p-6 text-white sm:p-8">
           <div className="space-y-4 rounded-[26px] border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
             <div className="flex gap-2 rounded-[20px] bg-white/8 p-1">
               <TabButton active={scanMode === "cloud"} onClick={() => setScanMode("cloud")} className={`flex-1 justify-center gap-2 ${scanMode === "cloud" ? "bg-white text-slate-900" : "text-white/75 hover:text-white"}`}>
@@ -218,160 +212,126 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
               </TabButton>
             </div>
 
-            {scanMode === "local" && (
-              <div className="space-y-3 rounded-[22px] bg-black/15 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">Chọn mô hình</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {LOCAL_MODELS.map((m) => (
-                    <button
-                      key={m.type}
-                      onClick={() => {
-                        setSelectedModel(m.type);
-                        setModelLoading(true);
-                        localModelRunner.loadModel(m.type).finally(() => setModelLoading(false));
-                      }}
-                      className={`rounded-2xl border p-3 text-left text-xs transition-all ${
-                        selectedModel === m.type
-                          ? "border-emerald-300 bg-emerald-400/20 text-white"
-                          : "border-white/10 bg-white/6 text-slate-200 hover:bg-white/10"
-                      }`}
-                      title={m.description}
-                    >
-                      <div className="font-bold">{m.displayName}</div>
-                      <div className="mt-1 text-[10px] opacity-80">{m.inputSize.join("x")}</div>
-                    </button>
-                  ))}
+            <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200">Trạng thái</p>
+              <p className="mt-2 text-sm leading-6 text-slate-200/80">
+                {scanMode === "cloud"
+                  ? "Phù hợp khi bạn muốn kết quả phân tích sâu hơn từ Cloud AI."
+                  : modelLoading
+                  ? "Mô hình cục bộ đang được chuẩn bị để phân tích ngay trên thiết bị của bạn."
+                  : "Local AI đã sẵn sàng để phản hồi nhanh mà không cần gửi ảnh đi xa hơn."}
+              </p>
+              {scanMode === "local" && modelLoading && (
+                <div className="mt-4 rounded-2xl border border-emerald-200/20 bg-white/8 p-4">
+                  <LoadingSpinner message="Đang tải mô hình cục bộ" subtitle="Quá trình này có thể mất thêm vài giây ở lần đầu tiên." />
                 </div>
-                {modelLoading && <p className="text-xs font-bold text-emerald-200">Đang tải mô hình cục bộ...</p>}
-              </div>
-            )}
-
-            {lastMetrics && (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Card className="bg-white/8 p-4 text-white shadow-none border-white/10">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Model</p>
-                  <p className="mt-2 font-black">{lastMetrics.model}</p>
-                </Card>
-                <Card className="bg-white/8 p-4 text-white shadow-none border-white/10">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Latency</p>
-                  <p className="mt-2 font-black">{lastMetrics.latencyMs}ms</p>
-                </Card>
-                <Card className="bg-white/8 p-4 text-white shadow-none border-white/10">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Confidence</p>
-                  <p className="mt-2 font-black">{(lastMetrics.confidence * 100).toFixed(0)}%</p>
-                </Card>
-              </div>
-            )}
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                { icon: <Sparkles className="h-4 w-4" />, title: "Phân tích tức thì", desc: "Xử lý nhanh và trả về hướng dẫn rõ ràng." },
-                { icon: <CheckCircle className="h-4 w-4" />, title: "Có thưởng điểm", desc: "Mỗi lượt quét thành công đều có phản hồi ngay." },
-                { icon: <ShieldAlert className="h-4 w-4" />, title: "Giảm sai thao tác", desc: "Gợi ý đúng thùng rác và cách xử lý." },
-              ].map((item) => (
-                <div key={item.title} className="rounded-[22px] border border-white/10 bg-white/6 p-4">
-                  <div className="mb-2 inline-flex rounded-full bg-white/10 p-2 text-emerald-200">{item.icon}</div>
-                  <p className="font-bold text-white">{item.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-200/75">{item.desc}</p>
-                </div>
-              ))}
+              )}
             </div>
-          </div>
-        </div>
 
-        <div className="flex min-h-[540px] flex-col bg-white p-6 sm:p-8">
-          {cameraError && (
-            <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
-              {cameraError}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button onClick={() => fileInputRef.current?.click()} variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white">
+                <Upload size={16} /> Tải ảnh lên
+              </Button>
+              <Button onClick={startCamera} variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white">
+                <Camera size={16} /> Mở camera
+              </Button>
             </div>
-          )}
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
-          <div className="thin-scrollbar flex-1 overflow-y-auto">
-            {!image && !showCamera && (
-              <div className="flex h-full min-h-[440px] flex-col items-center justify-center rounded-[28px] border border-dashed border-emerald-200 bg-emerald-50/70 p-8 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm">
-                  <Camera size={28} />
-                </div>
-                <h3 className="text-xl font-black text-slate-900">Chọn nguồn ảnh</h3>
-                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                  Chụp ảnh trực tiếp hoặc tải từ thiết bị để AI nhận diện loại rác và gợi ý cách xử lý phù hợp.
-                </p>
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <Button onClick={startCamera} size="lg">
-                    <Camera className="h-4 w-4" />
-                    Chụp ảnh mới
-                  </Button>
-                  <Button onClick={() => fileInputRef.current?.click()} size="lg" variant="ghost">
-                    <ImageIcon className="h-4 w-4" />
-                    Tải ảnh lên
-                  </Button>
-                  <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
+            {cameraError && (
+              <div className="rounded-[20px] border border-amber-200/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>{cameraError}</p>
                 </div>
               </div>
             )}
 
             {showCamera && (
-              <div className="space-y-4">
-                <div className="overflow-hidden rounded-[28px] bg-black aspect-video">
-                  <video ref={videoRef} autoPlay playsInline className="h-full w-full object-cover" />
-                  <canvas ref={canvasRef} className="hidden" />
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button onClick={captureImage} className="flex-1">Chụp ngay</Button>
-                  <Button onClick={stopCamera} variant="ghost" className="flex-1">Huỷ</Button>
-                </div>
-              </div>
-            )}
-
-            {image && !showCamera && (
-              <div className="space-y-4">
-                <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 shadow-sm">
-                  <img src={image} alt="Garbage" className="h-auto max-h-72 w-full object-contain bg-slate-50" />
-                  <button
-                    onClick={() => {
-                      setImage(null);
-                      setResult("");
-                    }}
-                    className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-red-500 shadow-sm transition hover:bg-red-50"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-
-                {!result && (
-                  <Button onClick={analyzeImage} loading={loading} size="lg" className="w-full">
-                    {!loading && <Upload size={18} />}
-                    {loading ? "Đang phân tích..." : `Phân loại ngay (+50 điểm) ${scanMode === "local" ? `[${selectedModel}]` : "[Cloud]"}`}
+              <div className="overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/50">
+                <video ref={videoRef} autoPlay playsInline className="aspect-video w-full object-cover" />
+                <div className="flex gap-3 p-4">
+                  <Button onClick={captureImage} className="flex-1">
+                    <Camera size={16} /> Chụp ảnh
                   </Button>
-                )}
-
-                {result && (
-                  <Card className="rounded-[28px] border border-indigo-100 bg-indigo-50/60 p-5">
-                    <div className="prose prose-sm prose-emerald max-w-none text-slate-800">
-                      <ReactMarkdown>{result}</ReactMarkdown>
-                    </div>
-                    <div className="mt-5 flex gap-3">
-                      <Button
-                        onClick={() => {
-                          setImage(null);
-                          setResult("");
-                        }}
-                        variant="ghost"
-                        className="flex-1"
-                      >
-                        Quét ảnh khác
-                      </Button>
-                      <Button onClick={onClose} variant="secondary" className="flex-1">
-                        Hoàn tất
-                      </Button>
-                    </div>
-                  </Card>
-                )}
+                  <Button onClick={stopCamera} variant="ghost" className="flex-1 border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white">
+                    <X size={16} /> Đóng camera
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
+
+        <div className="thin-scrollbar overflow-y-auto bg-[linear-gradient(180deg,#ffffff,#f7faf8)] p-6 sm:p-8">
+          {!image && !loading && !result && (
+            <Card className="rounded-[28px] border-dashed bg-white/80 p-8 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+                <ImageIcon className="h-7 w-7" />
+              </div>
+              <h3 className="mt-4 text-xl font-black text-slate-900">Bắt đầu với một hình ảnh</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Tải ảnh từ thiết bị hoặc dùng camera để nhận phân tích chi tiết, rõ ràng và dễ hành động hơn.
+              </p>
+            </Card>
+          )}
+
+          {image && (
+            <div className="space-y-4">
+              <Card className="overflow-hidden rounded-[28px] p-0">
+                <img src={image} alt="Ảnh rác cần phân tích" className="aspect-[4/3] w-full object-cover" />
+              </Card>
+              <Button onClick={analyzeImage} loading={loading} className="w-full" size="lg" disabled={scanMode === "local" && modelLoading}>
+                <Sparkles size={16} />
+                {loading ? "Đang phân tích hình ảnh" : "Phân tích ngay"}
+              </Button>
+            </div>
+          )}
+
+          {loading && (
+            <Card className="mt-4 rounded-[28px] p-6">
+              <LoadingSpinner
+                message="AI đang phân tích hình ảnh"
+                subtitle={scanMode === "cloud" ? "Cloud AI đang xử lý nội dung và chuẩn bị gợi ý phân loại." : "Local AI đang đưa ra phân loại trực tiếp trên thiết bị của bạn."}
+              />
+            </Card>
+          )}
+
+          {result && !loading && (
+            <Card className="mt-4 rounded-[28px] p-6">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <Badge tone="success">Kết quả phân tích</Badge>
+                  <h3 className="mt-3 text-xl font-black text-slate-900">Gợi ý xử lý dành cho bạn</h3>
+                </div>
+                <div className="rounded-full bg-emerald-50 p-2 text-emerald-500">
+                  <CheckCircle size={18} />
+                </div>
+              </div>
+              <div className="prose prose-sm max-w-none text-slate-700 prose-headings:text-slate-900 prose-strong:text-slate-900">
+                <ReactMarkdown>{result}</ReactMarkdown>
+              </div>
+              {lastMetrics && (
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Model</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">{lastMetrics.model}</p>
+                  </div>
+                  <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Độ trễ</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">{lastMetrics.latencyMs} ms</p>
+                  </div>
+                  <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Độ tin cậy</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">{Math.round(lastMetrics.confidence * 100)}%</p>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
       </div>
+      <canvas ref={canvasRef} className="hidden" />
     </ModalShell>
   );
 }
