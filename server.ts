@@ -314,6 +314,7 @@ interface User {
   progress?: UserProgress;
   selectedAvatar?: string;
   selectedFrame?: string;
+  customAvatarUrl?: string;
 }
 
 interface GameProgress {
@@ -875,7 +876,7 @@ app.post("/api/update-preference", async (req, res) => {
 
 // Update profile (name + avatar + frame)
 app.put("/api/profile", async (req, res) => {
-  const { nickname, name, selectedAvatar, selectedFrame, pass } = req.body;
+  const { nickname, name, selectedAvatar, selectedFrame, customAvatarUrl, pass } = req.body;
   try {
     const user = await getUser(nickname);
     if (!user) {
@@ -891,11 +892,43 @@ app.put("/api/profile", async (req, res) => {
     }
     if (selectedAvatar !== undefined) user.selectedAvatar = selectedAvatar || undefined;
     if (selectedFrame !== undefined) user.selectedFrame = selectedFrame || undefined;
+    if (customAvatarUrl !== undefined) user.customAvatarUrl = customAvatarUrl || undefined;
     await saveUser(user);
-    res.json({ success: true, user: { name: user.name, selectedAvatar: user.selectedAvatar, selectedFrame: user.selectedFrame, points: user.points } });
+    res.json({ success: true, user: { name: user.name, selectedAvatar: user.selectedAvatar, selectedFrame: user.selectedFrame, customAvatarUrl: user.customAvatarUrl, points: user.points } });
   } catch (e) {
     console.error("[profile] Error:", e?.message || e);
     res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+});
+
+// Upload custom avatar from device
+app.post("/api/avatar/upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowed.includes(req.file.mimetype)) {
+      return res.status(400).json({ success: false, message: "Chỉ chấp nhận ảnh JPG, PNG, GIF, WEBP" });
+    }
+
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ success: false, message: "Ảnh tối đa 5MB" });
+    }
+
+    const b64 = Buffer.from(req.file.buffer).toString("base64");
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+      resource_type: "auto",
+      transformation: [{ width: 400, height: 400, crop: "fill", gravity: "face" }],
+    });
+
+    res.json({ success: true, url: result.secure_url });
+  } catch (error) {
+    console.error("[avatar/upload] Error:", error);
+    res.status(500).json({ success: false, message: "Upload thất bại" });
   }
 });
 

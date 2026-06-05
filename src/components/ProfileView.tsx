@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { User } from '../types';
-import { ArrowLeft, Award, Flame, Library, CheckCircle, Pencil, X, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Award, Flame, Library, CheckCircle, Pencil, X, Save, RefreshCw, Camera, Upload, Trash2 } from 'lucide-react';
 import { Skeleton, ErrorRetry } from '../lib/ui';
 import { RewardHistory } from './RewardHistory';
 
@@ -31,9 +31,16 @@ export function ProfileView({ nickname, onClose }: Props) {
   const [editName, setEditName] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
   const [editFrame, setEditFrame] = useState("");
+  const [editCustomAvatar, setEditCustomAvatar] = useState("");
   const [editPass, setEditPass] = useState("");
   const [saving, setSaving] = useState(false);
   const [editMsg, setEditMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
+
+  // Upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
@@ -50,6 +57,8 @@ export function ProfileView({ nickname, onClose }: Props) {
         setEditName(data.name || "");
         setEditAvatar(data.selectedAvatar || "");
         setEditFrame(data.selectedFrame || "");
+        setEditCustomAvatar(data.customAvatarUrl || "");
+        setPreviewUrl(data.customAvatarUrl || null);
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -61,6 +70,58 @@ export function ProfileView({ nickname, onClose }: Props) {
   useEffect(() => {
     loadProfile();
   }, [nickname]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setEditMsg({ type: "error", text: "Chỉ chấp nhận ảnh JPG, PNG, GIF, WEBP" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setEditMsg({ type: "error", text: "Ảnh tối đa 5MB" });
+      return;
+    }
+
+    // Preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+    setEditCustomAvatar("");
+
+    // Upload to server
+    setUploading(true);
+    setUploadProgress(true);
+    setEditMsg(null);
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      const res = await fetch("/api/avatar/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success) {
+        setEditCustomAvatar(data.url);
+        setPreviewUrl(null);
+        URL.revokeObjectURL(objectUrl);
+      } else {
+        setEditMsg({ type: "error", text: data.message || "Upload thất bại" });
+        URL.revokeObjectURL(objectUrl);
+        setPreviewUrl(null);
+      }
+    } catch {
+      setEditMsg({ type: "error", text: "Lỗi kết nối khi upload" });
+      URL.revokeObjectURL(objectUrl);
+      setPreviewUrl(null);
+    }
+    setUploading(false);
+    setUploadProgress(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveCustomAvatar = () => {
+    setEditCustomAvatar("");
+    setPreviewUrl(null);
+  };
 
   const handleSave = async () => {
     if (!editName.trim()) {
@@ -78,6 +139,7 @@ export function ProfileView({ nickname, onClose }: Props) {
           name: editName.trim(),
           selectedAvatar: editAvatar || undefined,
           selectedFrame: editFrame || undefined,
+          customAvatarUrl: editCustomAvatar || undefined,
           pass: editPass || undefined,
         }),
       });
@@ -101,6 +163,8 @@ export function ProfileView({ nickname, onClose }: Props) {
       setEditName(profile.name || "");
       setEditAvatar(profile.selectedAvatar || "");
       setEditFrame(profile.selectedFrame || "");
+      setEditCustomAvatar(profile.customAvatarUrl || "");
+      setPreviewUrl(profile.customAvatarUrl || null);
     }
     setEditPass("");
     setEditMsg(null);
@@ -138,8 +202,18 @@ export function ProfileView({ nickname, onClose }: Props) {
 
   const selectedAvatarData = AVATARS.find(a => a.id === profile.selectedAvatar);
   const selectedFrameData = FRAMES.find(f => f.id === profile.selectedFrame);
-  const avatarEmoji = selectedAvatarData?.emoji || profile.name[0];
-  const frameStyle = selectedFrameData?.style || "";
+
+  // Display logic: custom > emoji > initial
+  let displayAvatar: string;
+  let frameStyle = selectedFrameData?.style || "";
+  if (profile.customAvatarUrl) {
+    displayAvatar = profile.customAvatarUrl;
+  } else if (selectedAvatarData?.emoji) {
+    displayAvatar = selectedAvatarData.emoji;
+  } else {
+    displayAvatar = profile.name[0] || "?";
+  }
+  const isImageAvatar = typeof displayAvatar === "string" && (displayAvatar.startsWith("http"));
 
   return (
     <div className="bg-white absolute inset-0 z-40 p-4 pb-20 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
@@ -159,7 +233,7 @@ export function ProfileView({ nickname, onClose }: Props) {
 
        {/* EDIT FORM */}
        {editing && (
-         <div className="bg-gray-50 rounded-2xl p-5 mb-6 border border-gray-200 space-y-4">
+         <div className="bg-gray-50 rounded-2xl p-5 mb-6 border border-gray-200 space-y-5">
            <h3 className="font-black text-gray-700 text-sm uppercase tracking-wide">Chỉnh sửa hồ sơ</h3>
 
            <div>
@@ -173,15 +247,20 @@ export function ProfileView({ nickname, onClose }: Props) {
              />
            </div>
 
+           {/* Avatar selection */}
            <div>
-             <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Avatar</label>
+             <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Chọn Avatar</label>
              <div className="flex gap-3">
                {AVATARS.map(av => (
                  <button
                    key={av.id}
-                   onClick={() => setEditAvatar(editAvatar === av.id ? "" : av.id)}
+                   onClick={() => {
+                     setEditAvatar(editAvatar === av.id ? "" : av.id);
+                     setEditCustomAvatar("");
+                     setPreviewUrl(null);
+                   }}
                    className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-black transition-all ${
-                     editAvatar === av.id
+                     editAvatar === av.id && !editCustomAvatar
                        ? "ring-2 ring-emerald-500 ring-offset-2 scale-110"
                        : "bg-gray-100 hover:bg-gray-200 opacity-60 hover:opacity-100"
                    }`}
@@ -191,12 +270,81 @@ export function ProfileView({ nickname, onClose }: Props) {
                  </button>
                ))}
              </div>
-             <p className="text-xs text-gray-400 mt-1">{selectedAvatarData?.name || "Mặc định"}</p>
+             <p className="text-xs text-gray-400 mt-1">
+               {editCustomAvatar ? "✓ Đã chọn ảnh tùy chỉnh" : (selectedAvatarData?.name || "Mặc định")}
+             </p>
            </div>
 
+           {/* Custom avatar upload */}
+           <div>
+             <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Ảnh đại diện tùy chỉnh</label>
+             <div className="flex items-center gap-3">
+               {/* Preview */}
+               {(previewUrl || editCustomAvatar) && (
+                 <div className="relative flex-shrink-0">
+                   {previewUrl ? (
+                     <img src={previewUrl} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400" />
+                   ) : (
+                     <img src={editCustomAvatar} alt="Custom" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400" />
+                   )}
+                   {uploadProgress && (
+                     <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                       <RefreshCw size={16} className="animate-spin text-white" />
+                     </div>
+                   )}
+                 </div>
+               )}
+
+               <input
+                 ref={fileInputRef}
+                 type="file"
+                 accept="image/jpeg,image/png,image/gif,image/webp"
+                 onChange={handleFileChange}
+                 disabled={uploading}
+                 className="hidden"
+                 id="avatar-upload"
+               />
+               <div className="flex gap-2">
+                 <label
+                   htmlFor="avatar-upload"
+                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border-2 cursor-pointer transition-all ${
+                     editCustomAvatar || previewUrl
+                       ? "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                       : "border-dashed border-gray-300 text-gray-500 hover:border-emerald-400 hover:text-emerald-600"
+                   }`}
+                 >
+                   {uploading ? <RefreshCw size={14} className="animate-spin"/> : <Camera size={14}/>}
+                   {uploading ? "Đang tải..." : (editCustomAvatar || previewUrl ? "Đổi ảnh" : "Tải ảnh lên")}
+                 </label>
+
+                 {(editCustomAvatar || previewUrl) && (
+                   <button
+                     onClick={handleRemoveCustomAvatar}
+                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border-2 border-red-200 text-red-500 hover:bg-red-50 transition-all"
+                   >
+                     <Trash2 size={14}/> Xoá
+                   </button>
+                 )}
+               </div>
+             </div>
+             <p className="text-xs text-gray-400 mt-1.5">JPG, PNG, GIF, WEBP · Tối đa 5MB · Ảnh vuông đẹp nhất</p>
+           </div>
+
+           {/* Frame selection */}
            <div>
              <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Khung avatar</label>
-             <div className="flex gap-3">
+             <div className="flex gap-3 flex-wrap">
+               {/* No frame option */}
+               <button
+                 onClick={() => setEditFrame(editFrame === "" ? "" : "")}
+                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${
+                   !editFrame
+                     ? "border-gray-400 bg-gray-200 text-gray-700"
+                     : "border-gray-200 bg-gray-100 text-gray-400 hover:border-gray-300"
+                 }`}
+               >
+                 Không khung
+               </button>
                {FRAMES.map(fr => (
                  <button
                    key={fr.id}
@@ -206,7 +354,6 @@ export function ProfileView({ nickname, onClose }: Props) {
                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                        : "border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300"
                    }`}
-                   title={fr.name}
                  >
                    {fr.name}
                  </button>
@@ -214,6 +361,7 @@ export function ProfileView({ nickname, onClose }: Props) {
              </div>
            </div>
 
+           {/* Password confirmation */}
            <div>
              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
                Mật khẩu xác nhận <span className="text-red-400">(bắt buộc)</span>
@@ -251,18 +399,31 @@ export function ProfileView({ nickname, onClose }: Props) {
          </div>
        )}
 
-       {/* HEADER */}
+       {/* HEADER with avatar */}
        <div className="flex items-center gap-4 mb-4">
-         <div
-           className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 shadow-sm border-2 border-emerald-200 ${frameStyle}`}
-         >
-           {avatarEmoji}
-         </div>
+         {isImageAvatar ? (
+           <img
+             src={displayAvatar}
+             alt={profile.name}
+             className={`w-20 h-20 rounded-full object-cover shadow-sm border-2 border-emerald-200 ${frameStyle}`}
+           />
+         ) : (
+           <div
+             className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 shadow-sm border-2 border-emerald-200 ${frameStyle}`}
+           >
+             {displayAvatar}
+           </div>
+         )}
          <div>
             <h2 className="text-2xl font-black text-gray-800 tracking-tight">{profile.name}</h2>
             <p className="text-gray-500 text-sm mt-1">
               Cống hiến: <span className="font-bold text-emerald-600 px-2 py-0.5 bg-emerald-50 rounded bg-emerald-100">{profile.points} EXP</span>
             </p>
+            {profile.customAvatarUrl && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full mt-1">
+                <Camera size={10}/> Ảnh tùy chỉnh
+              </span>
+            )}
          </div>
        </div>
 

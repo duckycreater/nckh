@@ -22,6 +22,7 @@ export interface User {
   role?: string;
   selectedAvatar?: string;
   selectedFrame?: string;
+  customAvatarUrl?: string;
   // Research fields
   dominantProfile?: string;
   personalityMode?: string;
