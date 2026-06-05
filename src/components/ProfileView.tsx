@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { User } from '../types';
-import { ArrowLeft, Pencil, X, Save, RefreshCw, Camera, Trash2, ChevronRight, Shield, Star, Zap, Award } from 'lucide-react';
+import { ArrowLeft, Pencil, X, Save, RefreshCw, Camera, Trash2, ChevronRight, Shield, Star, Zap, Award, Flame } from 'lucide-react';
 import { Skeleton, ErrorRetry } from '../lib/ui';
 import { RewardHistory } from './RewardHistory';
 
