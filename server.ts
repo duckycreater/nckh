@@ -873,6 +873,32 @@ app.post("/api/update-preference", async (req, res) => {
   }
 });
 
+// Update profile (name + avatar + frame)
+app.put("/api/profile", async (req, res) => {
+  const { nickname, name, selectedAvatar, selectedFrame, pass } = req.body;
+  try {
+    const user = await getUser(nickname);
+    if (!user) {
+      return res.json({ success: false, message: "Không tìm thấy tài khoản" });
+    }
+    if (pass !== undefined && pass !== user.pass) {
+      return res.json({ success: false, message: "Mật khẩu xác nhận không đúng" });
+    }
+    if (name !== undefined) {
+      const trimmed = (name || "").trim();
+      if (!trimmed) return res.json({ success: false, message: "Tên không được để trống" });
+      user.name = trimmed;
+    }
+    if (selectedAvatar !== undefined) user.selectedAvatar = selectedAvatar || undefined;
+    if (selectedFrame !== undefined) user.selectedFrame = selectedFrame || undefined;
+    await saveUser(user);
+    res.json({ success: true, user: { name: user.name, selectedAvatar: user.selectedAvatar, selectedFrame: user.selectedFrame, points: user.points } });
+  } catch (e) {
+    console.error("[profile] Error:", e?.message || e);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+});
+
 // 3. Leaderboard
 app.get("/api/leaderboard", async (req, res) => {
   const allUsers = await getAllUsers();
