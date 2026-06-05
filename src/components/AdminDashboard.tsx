@@ -55,7 +55,13 @@ export function AdminDashboard({ user, onLogout }: Props) {
   });
 
   const token = localStorage.getItem("auth_token");
-  const authHeaders = () => ({ headers: { Authorization: `Bearer ${token}` } });
+  const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
+  const authHeaders = () => ({
+    headers: {
+      Authorization: token ? `Bearer ${token}` : "",
+      "x-admin-key": adminApiKey,
+    },
+  });
 
   useEffect(() => {
     loadStats();

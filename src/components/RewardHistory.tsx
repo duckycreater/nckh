@@ -64,16 +64,24 @@ export function RewardHistory({ userId, currentBalance }: RewardHistoryProps) {
         fetch(`/api/reward-history/${userId}`),
         fetch(`/api/reward-summary/${userId}`),
       ]);
-      if (txRes.ok) {
+
+      if (txRes.ok && (txRes.headers.get("content-type") || "").includes("application/json")) {
         const data = await txRes.json();
-        setTransactions(data);
+        setTransactions(Array.isArray(data) ? data : []);
+      } else {
+        setTransactions([]);
       }
-      if (sumRes.ok) {
+
+      if (sumRes.ok && (sumRes.headers.get("content-type") || "").includes("application/json")) {
         const data = await sumRes.json();
         setSummary(data);
+      } else {
+        setSummary(null);
       }
     } catch (e) {
       console.error("[RewardHistory] Failed to load:", e);
+      setTransactions([]);
+      setSummary(null);
     } finally {
       setLoading(false);
     }

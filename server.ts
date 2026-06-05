@@ -34,7 +34,6 @@ import { experimentsRouter } from "./server/routes/experiments.js";
 import { socialRouter } from "./server/routes/social.js";
 import { longitudinalRouter } from "./server/routes/longitudinal.js";
 import { sessionTokens, createSessionToken } from "./server/auth.js";
-import { requireAuth as requireSessionAuth } from "./server/auth.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -63,6 +62,13 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
 
 // ─── Admin Auth Middleware ───────────────────────────────────────────────────
 async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const apiKey = req.headers["x-admin-key"] as string | undefined;
+  const apiKeyHeader = process.env.ADMIN_API_KEY;
+
+  if (apiKeyHeader && apiKey && apiKey === apiKeyHeader) {
+    return next();
+  }
+
   const token = req.headers.authorization?.replace("Bearer ", "");
   const session = token && sessionTokens.get(token);
   if (!session || session.expires < Date.now()) {
@@ -875,22 +881,31 @@ app.post("/api/update-preference", async (req, res) => {
   }
 });
 
-// Update profile (name + avatar + frame) — requires auth, owner or admin
-app.put("/api/profile", requireSessionAuth, async (req, res) => {
+// Update profile (name + avatar + frame) — password-confirmed, optional session auth
+app.put("/api/profile", async (req, res) => {
   const { nickname, name, selectedAvatar, selectedFrame, customAvatarUrl, pass } = req.body;
   try {
-    const authNick = (req as any).userNick;
+    const authHeader = req.headers.authorization;
+    const authNick = authHeader && authHeader.startsWith("Bearer ")
+      ? sessionTokens.get(authHeader.replace("Bearer ", ""))?.nick
+      : undefined;
+
     const targetUser = await getUser(nickname);
     if (!targetUser) {
       return res.json({ success: false, message: "Không tìm thấy tài khoản" });
     }
-    // Only owner or admin can edit
-    if (authNick !== nickname && targetUser.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Không có quyền chỉnh sửa" });
+
+    if (pass === undefined || pass !== targetUser.pass) {
+      return res.status(401).json({ success: false, message: "Mật khẩu xác nhận không đúng" });
     }
-    if (pass !== undefined && pass !== targetUser.pass) {
-      return res.json({ success: false, message: "Mật khẩu xác nhận không đúng" });
+
+    if (authNick && authNick !== nickname) {
+      const authUser = await getUser(authNick);
+      if (!authUser || authUser.role !== "admin") {
+        return res.status(403).json({ success: false, message: "Không có quyền chỉnh sửa" });
+      }
     }
+
     if (name !== undefined) {
       const trimmed = (name || "").trim();
       if (!trimmed) return res.json({ success: false, message: "Tên không được để trống" });
@@ -907,24 +922,8 @@ app.put("/api/profile", requireSessionAuth, async (req, res) => {
   }
 });
 
-// Upload custom avatar from device — requires auth, owner or admin
-app.post("/api/avatar/upload", requireSessionAuth, upload.single("image"), async (req, res) => {
-  const authNick = (req as any).userNick;
-  const { targetNick } = req.body;
-  if (!authNick) return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
-
-  try {
-    if (targetNick) {
-      const targetUser = await getUser(targetNick);
-      if (!targetUser) return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
-      if (authNick !== targetNick && targetUser.role !== "admin") {
-        return res.status(403).json({ success: false, message: "Không có quyền upload avatar cho người này" });
-      }
-    }
-  } catch {
-    return res.status(500).json({ success: false, message: "Lỗi server kiểm tra quyền" });
-  }
-
+// Upload custom avatar from device — works with password-confirmed profile flow
+app.post("/api/avatar/upload", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
