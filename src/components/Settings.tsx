@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, Lock, Palette, Shield, UserCircle2 } from "lucide-react";
 import { User } from "../types";
-import { Badge, Button, Card, FieldLabel, Input, TabButton } from "../lib/ui";
 
 interface SettingsProps {
   user: User;
@@ -19,6 +17,8 @@ const FRAMES = [
   { id: "fr2", name: "Khung Băng", borderClass: "border-4 border-cyan-400", shadowClass: "" },
   { id: "fr3", name: "Hào Quang Đất", borderClass: "border-4 border-emerald-500", shadowClass: "shadow-[0_0_12px_#10b981]" },
 ];
+
+const ALL_PURCHASE_IDS = ["av1", "av2", "av3", "fr1", "fr2", "fr3"];
 
 export function Settings({ user, onUpdate }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<"appearance" | "name" | "password">("appearance");
@@ -62,8 +62,8 @@ export function Settings({ user, onUpdate }: SettingsProps) {
       });
       const data = await res.json();
       if (data.success) {
-        onUpdate({ selectedAvatar: selectedAvatar || undefined, selectedFrame: selectedFrame || undefined });
-        setPrefMsg("Đã lưu giao diện hồ sơ.");
+        onUpdate({ selectedAvatar: selectedAvatar || undefined, selectedFrame: selectedFrame || undefined, customAvatarUrl: undefined });
+        setPrefMsg("Đã lưu!");
       } else {
         setPrefMsg("Lưu thất bại.");
       }
@@ -71,7 +71,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
       setPrefMsg("Lỗi kết nối.");
     } finally {
       setSavingPref(false);
-      setTimeout(() => setPrefMsg(""), 2200);
+      setTimeout(() => setPrefMsg(""), 2000);
     }
   };
 
@@ -151,203 +151,221 @@ export function Settings({ user, onUpdate }: SettingsProps) {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Card className="overflow-hidden rounded-[30px] p-0">
-        <div className="border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff,#f7faf8)] px-6 py-6 sm:px-8">
-          <Badge tone="accent">Tài khoản</Badge>
-          <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Cài đặt cá nhân</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Tinh chỉnh hồ sơ, tên hiển thị và bảo mật tài khoản trong một giao diện gọn gàng hơn.
-          </p>
-        </div>
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Tab navigation */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        {(["appearance", "name", "password"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+              activeTab === tab
+                ? "bg-white text-emerald-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {tab === "appearance" ? "Hiển thị" : tab === "name" ? "Tên" : "Mật khẩu"}
+          </button>
+        ))}
+      </div>
 
-        <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
-          <div className="flex gap-2 rounded-[24px] bg-slate-100 p-1">
-            {([
-              { id: "appearance", label: "Hiển thị", icon: <Palette className="h-4 w-4" /> },
-              { id: "name", label: "Tên", icon: <UserCircle2 className="h-4 w-4" /> },
-              { id: "password", label: "Mật khẩu", icon: <Shield className="h-4 w-4" /> },
-            ] as const).map((tab) => (
-              <TabButton key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="flex-1 justify-center gap-2 px-3 py-3">
-                {tab.icon}
-                <span>{tab.label}</span>
-              </TabButton>
-            ))}
+      {/* Appearance tab */}
+      {activeTab === "appearance" && (
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Avatar</h3>
+            <p className="text-xs text-gray-500 mb-3">Chọn avatar để hiển thị trên hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.</p>
+            <div className="grid grid-cols-3 gap-3">
+              {AVATARS.map((av) => {
+                const owned = hasPurchased(av.id);
+                const active = selectedAvatar === av.id;
+                return (
+                  <button
+                    key={av.id}
+                    disabled={!owned}
+                    onClick={() => setSelectedAvatar(active ? "" : av.id)}
+                    className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                      active
+                        ? "border-emerald-500 bg-emerald-50"
+                        : owned
+                        ? "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                    }`}
+                  >
+                    {!owned && (
+                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">🔒</span>
+                    )}
+                    {active && (
+                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">✓</span>
+                    )}
+                    <span className="text-3xl">{av.emoji}</span>
+                    <span className="text-xs font-bold text-gray-700 text-center">{av.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Khung hồ sơ</h3>
+            <p className="text-xs text-gray-500 mb-3">Chọn khung để trang trí hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.</p>
+            <div className="grid grid-cols-3 gap-3">
+              {FRAMES.map((fr) => {
+                const owned = hasPurchased(fr.id);
+                const active = selectedFrame === fr.id;
+                return (
+                  <button
+                    key={fr.id}
+                    disabled={!owned}
+                    onClick={() => setSelectedFrame(active ? "" : fr.id)}
+                    className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                      active
+                        ? "border-emerald-500 bg-emerald-50"
+                        : owned
+                        ? "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                    }`}
+                  >
+                    {!owned && (
+                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">🔒</span>
+                    )}
+                    {active && (
+                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">✓</span>
+                    )}
+                    <div className={`w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl ${fr.borderClass} ${fr.shadowClass}`}>
+                      <span className="font-black text-gray-600">{user.name[0]}</span>
+                    </div>
+                    <span className="text-xs font-bold text-gray-700 text-center">{fr.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSaveAppearance}
+              disabled={savingPref}
+              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-500 disabled:opacity-60 transition-colors"
+            >
+              {savingPref ? "Đang lưu..." : "Lưu thay đổi"}
+            </button>
+            {prefMsg && (
+              <span className={`text-sm font-bold ${prefMsg.includes("thất") || prefMsg.includes("Lỗi") ? "text-red-500" : "text-emerald-600"}`}>
+                {prefMsg}
+              </span>
+            )}
           </div>
         </div>
+      )}
 
-        <div className="p-6 sm:p-8">
-          {activeTab === "appearance" && (
-            <div className="space-y-8">
-              <div className="rounded-[26px] border border-slate-100 bg-slate-50/80 p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-lg font-black text-slate-900">Xem trước hồ sơ</p>
-                    <p className="text-sm text-slate-500">Chọn avatar và khung đã mở khoá để làm mới diện mạo.</p>
-                  </div>
-                  <div className={`flex h-20 w-20 items-center justify-center rounded-full bg-white text-3xl shadow-sm ${FRAMES.find((f) => f.id === selectedFrame)?.borderClass || "border border-slate-200"} ${FRAMES.find((f) => f.id === selectedFrame)?.shadowClass || ""}`}>
-                    {AVATARS.find((a) => a.id === selectedAvatar)?.emoji || user.name[0]}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <FieldLabel>Avatar hồ sơ</FieldLabel>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {AVATARS.map((av) => {
-                    const owned = hasPurchased(av.id);
-                    const active = selectedAvatar === av.id;
-                    return (
-                      <button
-                        key={av.id}
-                        disabled={!owned}
-                        onClick={() => setSelectedAvatar(active ? "" : av.id)}
-                        className={`relative rounded-[24px] border p-4 text-left transition-all ${
-                          active
-                            ? "border-emerald-400 bg-emerald-50 shadow-[var(--shadow-soft)]"
-                            : owned
-                            ? "border-slate-200 bg-white hover:border-emerald-200 hover:bg-slate-50"
-                            : "border-slate-100 bg-slate-50 opacity-55 cursor-not-allowed"
-                        }`}
-                      >
-                        <div className="mb-3 flex items-center justify-between">
-                          <span className="text-3xl">{av.emoji}</span>
-                          {!owned && <Badge>Chưa mở</Badge>}
-                          {active && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                        </div>
-                        <p className="font-bold text-slate-800">{av.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">Dùng cho hồ sơ và thẻ xếp hạng.</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <FieldLabel>Khung hồ sơ</FieldLabel>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {FRAMES.map((fr) => {
-                    const owned = hasPurchased(fr.id);
-                    const active = selectedFrame === fr.id;
-                    return (
-                      <button
-                        key={fr.id}
-                        disabled={!owned}
-                        onClick={() => setSelectedFrame(active ? "" : fr.id)}
-                        className={`relative rounded-[24px] border p-4 text-left transition-all ${
-                          active
-                            ? "border-emerald-400 bg-emerald-50 shadow-[var(--shadow-soft)]"
-                            : owned
-                            ? "border-slate-200 bg-white hover:border-emerald-200 hover:bg-slate-50"
-                            : "border-slate-100 bg-slate-50 opacity-55 cursor-not-allowed"
-                        }`}
-                      >
-                        <div className="mb-3 flex items-center justify-between">
-                          <div className={`flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 ${fr.borderClass} ${fr.shadowClass}`}>
-                            {user.name[0]}
-                          </div>
-                          {!owned && <Badge>Chưa mở</Badge>}
-                          {active && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                        </div>
-                        <p className="font-bold text-slate-800">{fr.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">Tạo điểm nhấn cho avatar khi hiển thị trên app.</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Button onClick={handleSaveAppearance} loading={savingPref}>Lưu thay đổi</Button>
-                {prefMsg && (
-                  <span className={`text-sm font-bold ${prefMsg.includes("thất") || prefMsg.includes("Lỗi") ? "text-red-500" : "text-emerald-600"}`}>
-                    {prefMsg}
-                  </span>
-                )}
-              </div>
-            </div>
+      {/* Name tab */}
+      {activeTab === "name" && (
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Đổi tên hiển thị</h3>
+          {nameErr && (
+            <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{nameErr}</p>
           )}
-
-          {activeTab === "name" && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xl font-black text-slate-900">Đổi tên hiển thị</h3>
-                <p className="mt-2 text-sm text-slate-500">Tên hiện tại của bạn là <span className="font-bold text-slate-700">{user.name}</span>.</p>
-              </div>
-
-              {nameErr && <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{nameErr}</div>}
-              {nameMsg && <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{nameMsg}</div>}
-
-              <form onSubmit={handleChangeName} className="space-y-4">
-                <div>
-                  <FieldLabel>Tên hiển thị mới</FieldLabel>
-                  <Input required value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nhập tên hiển thị mới" />
-                </div>
-                <div>
-                  <FieldLabel>Mật khẩu xác nhận</FieldLabel>
-                  <Input type="password" required value={namePass} onChange={(e) => setNamePass(e.target.value)} placeholder="Nhập mật khẩu hiện tại" />
-                </div>
-                <Button type="submit">Cập nhật tên</Button>
-              </form>
-            </div>
+          {nameMsg && (
+            <p className="text-green-600 text-sm mb-4 bg-green-50 p-3 rounded">{nameMsg}</p>
           )}
-
-          {activeTab === "password" && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xl font-black text-slate-900">Đổi mật khẩu</h3>
-                <p className="mt-2 text-sm text-slate-500">Tăng độ an toàn cho tài khoản với mật khẩu mạnh hơn và dễ ghi nhớ.</p>
-              </div>
-
-              {passErr && <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{passErr}</div>}
-              {passMsg && <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{passMsg}</div>}
-
-              <form onSubmit={handleChangePass} className="space-y-4">
-                <div>
-                  <FieldLabel>Mật khẩu cũ</FieldLabel>
-                  <Input type="password" required value={oldPass} onChange={(e) => setOldPass(e.target.value)} placeholder="Nhập mật khẩu cũ" />
-                </div>
-                <div>
-                  <FieldLabel>Mật khẩu mới</FieldLabel>
-                  <Input type="password" required value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="Ít nhất 6 ký tự" />
-                  {newPass.length > 0 && (
-                    <div className="mt-2">
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                        <div className={`h-full ${strength.color} transition-all duration-300`} style={{ width: strength.width }} />
-                      </div>
-                      <p className={`mt-1 text-xs font-bold ${strength.label === "Mạnh" ? "text-green-600" : strength.label === "Trung bình" ? "text-yellow-600" : "text-red-500"}`}>
-                        {strength.label}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <FieldLabel>Xác nhận mật khẩu mới</FieldLabel>
-                  <Input
-                    type="password"
-                    required
-                    value={confirmPass}
-                    onChange={(e) => setConfirmPass(e.target.value)}
-                    placeholder="Nhập lại mật khẩu mới"
-                    className={confirmPass && newPass !== confirmPass ? "border-red-300 bg-red-50 focus:border-red-400 focus:ring-red-500/10" : ""}
-                  />
-                  {confirmPass && newPass !== confirmPass && (
-                    <p className="mt-1 text-xs font-bold text-red-500">Mật khẩu không khớp.</p>
-                  )}
-                </div>
-                <div className="rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                  <div className="mb-2 flex items-center gap-2 font-bold text-slate-700">
-                    <Lock className="h-4 w-4" />
-                    Gợi ý mật khẩu mạnh
-                  </div>
-                  Kết hợp chữ hoa, số và độ dài tối thiểu 10 ký tự để tăng độ an toàn.
-                </div>
-                <Button type="submit" variant="secondary">Đổi mật khẩu</Button>
-              </form>
+          <form onSubmit={handleChangeName} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tên hiện tại: <span className="font-bold">{user.name}</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Tên hiển thị mới"
+                className="w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
+              />
             </div>
-          )}
+            <div>
+              <input
+                type="password"
+                required
+                value={namePass}
+                onChange={(e) => setNamePass(e.target.value)}
+                placeholder="Mật khẩu xác nhận"
+                className="w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-500"
+            >
+              Cập nhật Tên
+            </button>
+          </form>
         </div>
-      </Card>
+      )}
+
+      {/* Password tab */}
+      {activeTab === "password" && (
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Đổi mật khẩu</h3>
+          {passErr && (
+            <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{passErr}</p>
+          )}
+          {passMsg && (
+            <p className="text-green-600 text-sm mb-4 bg-green-50 p-3 rounded">{passMsg}</p>
+          )}
+          <form onSubmit={handleChangePass} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                required
+                value={oldPass}
+                onChange={(e) => setOldPass(e.target.value)}
+                placeholder="Mật khẩu cũ"
+                className="w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+            <div>
+              <input
+                type="password"
+                required
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+                placeholder="Mật khẩu mới (ít nhất 6 ký tự)"
+                className="w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
+              />
+              {newPass.length > 0 && (
+                <div className="mt-1.5">
+                  <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div className={`h-full ${strength.color} transition-all duration-300`} style={{ width: strength.width }} />
+                  </div>
+                  <p className={`text-xs mt-0.5 ${strength.label === "Mạnh" ? "text-green-600" : strength.label === "Trung bình" ? "text-yellow-600" : "text-red-500"}`}>
+                    {strength.label}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div>
+              <input
+                type="password"
+                required
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+                placeholder="Xác nhận mật khẩu mới"
+                className={`w-full rounded-md py-2 px-3 text-gray-900 ring-1 ring-inset focus:ring-2 focus:ring-emerald-600 ${confirmPass && newPass !== confirmPass ? "ring-red-500 bg-red-50" : "ring-gray-300"}`}
+              />
+              {confirmPass && newPass !== confirmPass && (
+                <p className="text-xs text-red-500 mt-0.5">Mật khẩu không khớp</p>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800"
+            >
+              Đổi Mật Khẩu
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

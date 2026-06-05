@@ -1,48 +1,11 @@
 import React, { useState } from "react";
-import { ArrowRight, Eye, EyeOff, KeyRound, LogIn, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
 import { User } from "../types";
-import { Badge, Button, Card, FieldLabel, Input } from "../lib/ui";
 
 interface AuthProps {
   onLogin: (user: User) => void;
 }
 
 type ViewState = "login" | "register" | "changepass";
-
-function PasswordField({
-  value,
-  onChange,
-  placeholder,
-  autoComplete,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  autoComplete?: string;
-}) {
-  const [show, setShow] = useState(false);
-
-  return (
-    <div className="relative">
-      <Input
-        type={show ? "text" : "password"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        className="pr-12"
-      />
-      <button
-        type="button"
-        onClick={() => setShow((prev) => !prev)}
-        className="absolute inset-y-0 right-3 my-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-        aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-      >
-        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  );
-}
 
 export function Auth({ onLogin }: AuthProps) {
   const [view, setView] = useState<ViewState>("login");
@@ -52,13 +15,16 @@ export function Auth({ onLogin }: AuthProps) {
     type: "error" | "success";
   } | null>(null);
 
+  // Login states
   const [loginNick, setLoginNick] = useState("");
   const [loginPass, setLoginPass] = useState("");
 
+  // Register states
   const [regName, setRegName] = useState("");
   const [regNick, setRegNick] = useState("");
   const [regPass, setRegPass] = useState("");
 
+  // Change Password states
   const [cpNick, setCpNick] = useState("");
   const [cpOldPass, setCpOldPass] = useState("");
   const [cpNewPass, setCpNewPass] = useState("");
@@ -83,9 +49,11 @@ export function Auth({ onLogin }: AuthProps) {
       });
       const data = await res.json();
       if (data.success) {
+        // Store session token
         if (data.token) {
           localStorage.setItem("auth_token", data.token);
         }
+        // Fetch full progress after login
         try {
           const progressRes = await fetch(`/api/user/${data.account_id}`);
           const progressData = await progressRes.json();
@@ -95,8 +63,9 @@ export function Auth({ onLogin }: AuthProps) {
             account_id: data.account_id,
             points: data.points,
             role: data.role,
-            selectedAvatar: data.selectedAvatar,
-            selectedFrame: data.selectedFrame,
+            selectedAvatar: progressData.selectedAvatar ?? data.selectedAvatar,
+            selectedFrame: progressData.selectedFrame ?? data.selectedFrame,
+            customAvatarUrl: progressData.customAvatarUrl ?? data.customAvatarUrl,
             progress: progressData.progress || null,
           });
         } catch {
@@ -108,13 +77,14 @@ export function Auth({ onLogin }: AuthProps) {
             role: data.role,
             selectedAvatar: data.selectedAvatar,
             selectedFrame: data.selectedFrame,
+            customAvatarUrl: data.customAvatarUrl,
           });
         }
       } else {
         setMessage({ text: data.message, type: "error" });
       }
     } catch {
-      setMessage({ text: "Không thể kết nối tới hệ thống. Vui lòng thử lại sau ít phút.", type: "error" });
+      setMessage({ text: "Lỗi kết nối.", type: "error" });
     }
     setLoading(false);
   };
@@ -143,12 +113,12 @@ export function Auth({ onLogin }: AuthProps) {
           setRegNick("");
           setRegPass("");
           setMessage(null);
-        }, 1800);
+        }, 2000);
       } else {
         setMessage({ text: data.message, type: "error" });
       }
     } catch {
-      setMessage({ text: "Không thể tạo tài khoản lúc này. Vui lòng thử lại sau.", type: "error" });
+      setMessage({ text: "Lỗi kết nối.", type: "error" });
     }
     setLoading(false);
   };
@@ -177,143 +147,211 @@ export function Auth({ onLogin }: AuthProps) {
         setMessage({ text: data.message, type: "error" });
       }
     } catch {
-      setMessage({ text: "Không thể cập nhật mật khẩu. Vui lòng kiểm tra kết nối và thử lại.", type: "error" });
+      setMessage({ text: "Lỗi kết nối.", type: "error" });
     }
     setLoading(false);
   };
 
-  const title = view === "login" ? "Đăng nhập để tiếp tục" : view === "register" ? "Tạo tài khoản mới" : "Khôi phục quyền truy cập";
-  const subtitle = view === "login"
-    ? "Theo dõi điểm thưởng, hồ sơ và hành trình phân loại rác của bạn trong một trải nghiệm mượt mà và dễ dùng ngay từ lần đầu."
-    : view === "register"
-    ? "Tạo tài khoản chỉ trong vài giây để bắt đầu tích điểm, mở khóa phần thưởng và xây dựng thói quen xanh."
-    : "Cập nhật mật khẩu nhanh gọn để bảo vệ tài khoản và quay lại hành trình của bạn ngay.";
-
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(15,143,104,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(85,105,255,0.12),transparent_24%)]" />
-
-      <div className="relative z-10 grid w-full max-w-6xl gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-        <Card className="hero-panel hidden min-h-[640px] rounded-[34px] border-0 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-          <div className="relative z-10 flex h-full flex-col justify-between">
-            <div className="space-y-5">
-              <Badge tone="success" className="border-white/10 bg-white/10 text-white">Nền tảng phân loại rác thông minh</Badge>
-              <div className="space-y-3">
-                <h1 className="max-w-lg text-4xl font-black leading-tight tracking-tight">Trải nghiệm xanh tinh tế, rõ ràng và đáng tin cậy hơn cho mọi người dùng.</h1>
-                <p className="max-w-xl text-base leading-7 text-slate-200/82">
-                  Theo dõi hành trình học tập, phân loại rác, tích điểm và quản lý hồ sơ trong một giao diện gọn gàng, hiện đại, mượt mà và dễ dùng ngay từ lần đầu tiên.
-                </p>
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-[420px] bg-white/95 p-[30px] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.6)] border-t-[6px] border-[#4CAF50] text-center relative max-h-[90vh] overflow-y-auto">
+        {view === "login" && (
+          <div className="animate-[fadeIn_0.4s_ease-out]">
+            <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+              ♻️ TRA CỨU ĐIỂM
+            </h2>
+            <form onSubmit={handleLogin} className="text-left space-y-[15px]">
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Tài khoản
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={loginNick}
+                  onChange={(e) => setLoginNick(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
               </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              {[
-                { icon: <Sparkles className="h-5 w-5" />, title: "Mượt hơn", desc: "Hành động chính rõ ràng hơn, giảm rối mắt và tăng phản hồi trạng thái." },
-                { icon: <ShieldCheck className="h-5 w-5" />, title: "Tin cậy hơn", desc: "Đăng nhập, mật khẩu, hồ sơ và phần thưởng được trình bày trực quan hơn." },
-                { icon: <ArrowRight className="h-5 w-5" />, title: "Nhanh hơn", desc: "Đưa bạn đến đúng nơi cần thao tác, giảm bước thừa ở các flow quan trọng." },
-              ].map((item) => (
-                <div key={item.title} className="rounded-[24px] border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
-                  <div className="mb-3 inline-flex rounded-full bg-white/10 p-2 text-emerald-200">{item.icon}</div>
-                  <p className="font-black text-white">{item.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-200/75">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-
-        <Card className="glass-panel mx-auto w-full max-w-[480px] overflow-hidden rounded-[32px] p-0">
-          <div className="border-b border-slate-100 px-6 pb-5 pt-6 sm:px-8">
-            <Badge tone="accent">BMO Robot</Badge>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{subtitle}</p>
-          </div>
-
-          <div className="px-6 py-6 sm:px-8 sm:py-7">
-            <div className="mb-6 grid grid-cols-3 gap-2 rounded-[22px] bg-slate-100 p-1">
-              {[
-                { id: "login", label: "Đăng nhập" },
-                { id: "register", label: "Đăng ký" },
-                { id: "changepass", label: "Mật khẩu" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => switchView(tab.id as ViewState)}
-                  className={`rounded-2xl px-4 py-2.5 text-sm font-bold transition-all ${
-                    view === tab.id ? "bg-white text-emerald-700 shadow-[var(--shadow-soft)]" : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {message && (
-              <div className={`mb-5 rounded-[22px] border px-4 py-3 text-sm font-medium ${message.type === "success" ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-red-100 bg-red-50 text-red-600"}`}>
-                {message.text}
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Mật khẩu
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={loginPass}
+                  onChange={(e) => setLoginPass(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
               </div>
-            )}
-
-            {view === "login" && (
-              <form onSubmit={handleLogin} className="fade-in space-y-4">
-                <div>
-                  <FieldLabel>Tài khoản</FieldLabel>
-                  <Input value={loginNick} onChange={(e) => setLoginNick(e.target.value)} placeholder="Nhập tài khoản của bạn" autoComplete="username" />
-                </div>
-                <div>
-                  <FieldLabel>Mật khẩu</FieldLabel>
-                  <PasswordField value={loginPass} onChange={setLoginPass} placeholder="Nhập mật khẩu" autoComplete="current-password" />
-                </div>
-                <Button type="submit" loading={loading} className="w-full" size="lg">
-                  <LogIn className="h-4 w-4" />
-                  Đăng nhập
-                </Button>
-              </form>
-            )}
-
-            {view === "register" && (
-              <form onSubmit={handleRegister} className="fade-in space-y-4">
-                <div>
-                  <FieldLabel>Họ và tên</FieldLabel>
-                  <Input value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Tên hiển thị của bạn" autoComplete="name" />
-                </div>
-                <div>
-                  <FieldLabel>Tài khoản</FieldLabel>
-                  <Input value={regNick} onChange={(e) => setRegNick(e.target.value)} placeholder="Tên đăng nhập mong muốn" autoComplete="username" />
-                </div>
-                <div>
-                  <FieldLabel>Mật khẩu</FieldLabel>
-                  <PasswordField value={regPass} onChange={setRegPass} placeholder="Tạo mật khẩu mới" autoComplete="new-password" />
-                </div>
-                <Button type="submit" loading={loading} className="w-full" size="lg">
-                  <UserPlus className="h-4 w-4" />
-                  Tạo tài khoản
-                </Button>
-              </form>
-            )}
-
-            {view === "changepass" && (
-              <form onSubmit={handleChangePass} className="fade-in space-y-4">
-                <div>
-                  <FieldLabel>Tài khoản</FieldLabel>
-                  <Input value={cpNick} onChange={(e) => setCpNick(e.target.value)} placeholder="Nhập tài khoản cần cập nhật" autoComplete="username" />
-                </div>
-                <div>
-                  <FieldLabel>Mật khẩu hiện tại</FieldLabel>
-                  <PasswordField value={cpOldPass} onChange={setCpOldPass} placeholder="Nhập mật khẩu hiện tại" autoComplete="current-password" />
-                </div>
-                <div>
-                  <FieldLabel>Mật khẩu mới</FieldLabel>
-                  <PasswordField value={cpNewPass} onChange={setCpNewPass} placeholder="Nhập mật khẩu mới" autoComplete="new-password" />
-                </div>
-                <Button type="submit" loading={loading} className="w-full" size="lg" variant="secondary">
-                  <KeyRound className="h-4 w-4" />
-                  Cập nhật mật khẩu
-                </Button>
-              </form>
-            )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full p-3 bg-[#4CAF50] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+              >
+                ĐĂNG NHẬP
+              </button>
+            </form>
+            <div className="mt-[15px] text-[14px] text-[#666]">
+              Chưa có tài khoản?{" "}
+              <button
+                onClick={() => switchView("register")}
+                className="text-[#2E7D32] font-bold underline-offset-2 hover:underline cursor-pointer"
+              >
+                Đăng ký ngay
+              </button>
+              <br />
+              <button
+                onClick={() => switchView("changepass")}
+                className="text-[12px] text-[#757575] block mt-[8px] mx-auto hover:underline cursor-pointer"
+              >
+                Đổi mật khẩu?
+              </button>
+            </div>
           </div>
-        </Card>
+        )}
+
+        {view === "register" && (
+          <div className="animate-[fadeIn_0.4s_ease-out]">
+            <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+              📝 ĐĂNG KÝ MỚI
+            </h2>
+            <form
+              onSubmit={handleRegister}
+              className="text-left space-y-[15px]"
+            >
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Họ và Tên hiển thị
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Tài khoản
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={regNick}
+                  onChange={(e) => setRegNick(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Mật khẩu
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={regPass}
+                  onChange={(e) => setRegPass(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full p-3 bg-[#FF9800] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+              >
+                ĐĂNG KÝ
+              </button>
+            </form>
+            <div className="mt-[15px] text-[14px] text-[#666]">
+              Đã có tài khoản?{" "}
+              <button
+                onClick={() => switchView("login")}
+                className="text-[#2E7D32] font-bold underline-offset-2 hover:underline cursor-pointer"
+              >
+                Quay lại đăng nhập
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === "changepass" && (
+          <div className="animate-[fadeIn_0.4s_ease-out]">
+            <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+              🔐 ĐỔI MẬT KHẨU
+            </h2>
+            <form
+              onSubmit={handleChangePass}
+              className="text-left space-y-[15px]"
+            >
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Tài khoản
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={cpNick}
+                  onChange={(e) => setCpNick(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Mật khẩu cũ
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={cpOldPass}
+                  onChange={(e) => setCpOldPass(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-[#444] text-[13px] block mb-[5px]">
+                  Mật khẩu MỚI
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={cpNewPass}
+                  onChange={(e) => setCpNewPass(e.target.value)}
+                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full p-3 bg-[#2196F3] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+              >
+                LƯU THAY ĐỔI
+              </button>
+            </form>
+            <div className="mt-[15px] text-[14px] text-[#666]">
+              <button
+                onClick={() => switchView("login")}
+                className="text-[#2E7D32] font-bold cursor-pointer hover:underline"
+              >
+                ⬅ Quay lại
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="mt-[15px] mx-auto w-[30px] h-[30px] border-[4px] border-[#f3f3f3] border-t-[#4CAF50] rounded-full animate-spin"></div>
+        )}
+
+        {message && !loading && (
+          <div
+            className={`mt-[15px] font-bold ${message.type === "success" ? "text-[#2E7D32]" : "text-[#d32f2f]"}`}
+          >
+            {message.text}
+          </div>
+        )}
       </div>
     </div>
   );

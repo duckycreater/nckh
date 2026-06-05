@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Bot, X, Send, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Badge, Button } from "../lib/ui";
 
 interface Message {
   role: "user" | "assistant";
@@ -123,7 +122,9 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
 
           <div className="thin-scrollbar flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,#f8fbfa,#f3f7f5)] p-4">
             <div className="flex items-center justify-between">
-              <Badge tone="success">Tư vấn tức thì</Badge>
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                Tư vấn tức thì
+              </span>
               <span className="text-xs font-medium text-slate-400">Lưu theo phiên người dùng</span>
             </div>
 
@@ -173,13 +174,13 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
                 placeholder="Nhập câu hỏi của bạn..."
                 className="flex-1 bg-transparent px-4 py-3 text-sm text-gray-700 focus:outline-none"
               />
-              <Button
+              <button
                 onClick={handleSend}
                 disabled={!input.trim() || isTyping}
-                className="m-1 h-10 rounded-full px-4"
+                className="m-1 h-10 rounded-full bg-emerald-600 px-4 text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Send size={16} />
-              </Button>
+              </button>
             </div>
           </div>
         </div>

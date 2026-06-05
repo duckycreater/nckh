@@ -661,6 +661,7 @@ app.post("/api/login", async (req, res) => {
         role: role,
         selectedAvatar: user.selectedAvatar,
         selectedFrame: user.selectedFrame,
+        customAvatarUrl: user.customAvatarUrl,
         message: "Đăng nhập thành công!",
       });
     } else {
@@ -902,7 +903,7 @@ app.put("/api/profile", async (req, res) => {
 });
 
 // Upload custom avatar from device
-app.post("/api/avatar/upload", upload.single("image"), async (req, res) => {
+app.post("/api/avatar/upload", requireAuth, upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -1089,6 +1090,7 @@ app.get("/api/user/:nick", async (req, res) => {
       progress: progress || user.progress || null,
       selectedAvatar: user.selectedAvatar,
       selectedFrame: user.selectedFrame,
+      customAvatarUrl: user.customAvatarUrl,
     });
   } else {
     res.status(404).json({ message: "Not found" });
