@@ -34,6 +34,7 @@ import { experimentsRouter } from "./server/routes/experiments.js";
 import { socialRouter } from "./server/routes/social.js";
 import { longitudinalRouter } from "./server/routes/longitudinal.js";
 import { sessionTokens, createSessionToken } from "./server/auth.js";
+import { requireAuth as requireSessionAuth } from "./server/auth.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -661,7 +662,6 @@ app.post("/api/login", async (req, res) => {
         role: role,
         selectedAvatar: user.selectedAvatar,
         selectedFrame: user.selectedFrame,
-        customAvatarUrl: user.customAvatarUrl,
         message: "Đăng nhập thành công!",
       });
     } else {
@@ -875,35 +875,56 @@ app.post("/api/update-preference", async (req, res) => {
   }
 });
 
-// Update profile (name + avatar + frame)
-app.put("/api/profile", async (req, res) => {
+// Update profile (name + avatar + frame) — requires auth, owner or admin
+app.put("/api/profile", requireSessionAuth, async (req, res) => {
   const { nickname, name, selectedAvatar, selectedFrame, customAvatarUrl, pass } = req.body;
   try {
-    const user = await getUser(nickname);
-    if (!user) {
+    const authNick = (req as any).userNick;
+    const targetUser = await getUser(nickname);
+    if (!targetUser) {
       return res.json({ success: false, message: "Không tìm thấy tài khoản" });
     }
-    if (pass !== undefined && pass !== user.pass) {
+    // Only owner or admin can edit
+    if (authNick !== nickname && targetUser.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Không có quyền chỉnh sửa" });
+    }
+    if (pass !== undefined && pass !== targetUser.pass) {
       return res.json({ success: false, message: "Mật khẩu xác nhận không đúng" });
     }
     if (name !== undefined) {
       const trimmed = (name || "").trim();
       if (!trimmed) return res.json({ success: false, message: "Tên không được để trống" });
-      user.name = trimmed;
+      targetUser.name = trimmed;
     }
-    if (selectedAvatar !== undefined) user.selectedAvatar = selectedAvatar || undefined;
-    if (selectedFrame !== undefined) user.selectedFrame = selectedFrame || undefined;
-    if (customAvatarUrl !== undefined) user.customAvatarUrl = customAvatarUrl || undefined;
-    await saveUser(user);
-    res.json({ success: true, user: { name: user.name, selectedAvatar: user.selectedAvatar, selectedFrame: user.selectedFrame, customAvatarUrl: user.customAvatarUrl, points: user.points } });
+    if (selectedAvatar !== undefined) targetUser.selectedAvatar = selectedAvatar || undefined;
+    if (selectedFrame !== undefined) targetUser.selectedFrame = selectedFrame || undefined;
+    if (customAvatarUrl !== undefined) targetUser.customAvatarUrl = customAvatarUrl || undefined;
+    await saveUser(targetUser);
+    res.json({ success: true, user: { name: targetUser.name, selectedAvatar: targetUser.selectedAvatar, selectedFrame: targetUser.selectedFrame, customAvatarUrl: targetUser.customAvatarUrl, points: targetUser.points } });
   } catch (e) {
     console.error("[profile] Error:", e?.message || e);
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 });
 
-// Upload custom avatar from device
-app.post("/api/avatar/upload", requireAuth, upload.single("image"), async (req, res) => {
+// Upload custom avatar from device — requires auth, owner or admin
+app.post("/api/avatar/upload", requireSessionAuth, upload.single("image"), async (req, res) => {
+  const authNick = (req as any).userNick;
+  const { targetNick } = req.body;
+  if (!authNick) return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
+
+  try {
+    if (targetNick) {
+      const targetUser = await getUser(targetNick);
+      if (!targetUser) return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
+      if (authNick !== targetNick && targetUser.role !== "admin") {
+        return res.status(403).json({ success: false, message: "Không có quyền upload avatar cho người này" });
+      }
+    }
+  } catch {
+    return res.status(500).json({ success: false, message: "Lỗi server kiểm tra quyền" });
+  }
+
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -1090,7 +1111,6 @@ app.get("/api/user/:nick", async (req, res) => {
       progress: progress || user.progress || null,
       selectedAvatar: user.selectedAvatar,
       selectedFrame: user.selectedFrame,
-      customAvatarUrl: user.customAvatarUrl,
     });
   } else {
     res.status(404).json({ message: "Not found" });
