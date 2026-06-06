@@ -1050,6 +1050,119 @@ app.post("/api/rewards", requireAdmin, async (req, res) => {
   }
 });
 
+// ─── Card Fusion: combine 3 copies → upgraded version ────────────────────────
+app.post("/api/cards/fuse", async (req, res) => {
+  try {
+    const { nickname, cardId } = req.body;
+    if (!nickname || !cardId) {
+      return res.status(400).json({ success: false, error: "Missing fields" });
+    }
+
+    const progress = await getGameProgress(nickname);
+    const user = await getUser(nickname);
+    if (!user || !progress) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const count = progress.flashcardCounts?.[String(cardId)] || 0;
+    if (count < 3) {
+      return res.status(400).json({ success: false, error: `Cần 3 thẻ để hợp nhất. Bạn hiện có ${count}.` });
+    }
+
+    // Consume 3 copies
+    progress.flashcardCounts[String(cardId)] = count - 3;
+    if (progress.flashcardCounts[String(cardId)] <= 0) {
+      delete progress.flashcardCounts[String(cardId)];
+      progress.flashcardsRead = progress.flashcardsRead.filter((id) => id !== cardId);
+    }
+
+    // Award bonus XP equivalent
+    const serverCard = generateServerCard(cardId);
+    const xpReward = Math.floor((serverCard.atk + serverCard.hp) * 2);
+    user.points = (user.points || 0) + xpReward;
+
+    await saveGameProgress(nickname, progress);
+    await saveUser(user);
+
+    res.json({
+      success: true,
+      xpGained: xpReward,
+      cardId,
+      remainingCount: progress.flashcardCounts?.[String(cardId)] || 0,
+      message: `Hợp nhất thành công! Nhận +${xpReward} EXP.`,
+    });
+  } catch (e) {
+    console.error("[cards:fuse] Error:", e);
+    res.status(500).json({ success: false, error: "Fusion failed" });
+  }
+});
+
+// ─── Card Level Up: spend XP to level up owned cards ─────────────────────────
+app.post("/api/cards/levelup", async (req, res) => {
+  try {
+    const { nickname, cardId } = req.body;
+    if (!nickname || !cardId) {
+      return res.status(400).json({ success: false, error: "Missing fields" });
+    }
+
+    const progress = await getGameProgress(nickname);
+    const user = await getUser(nickname);
+    if (!user || !progress) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const count = progress.flashcardCounts?.[String(cardId)] || 0;
+    if (count < 1) {
+      return res.status(400).json({ success: false, error: "Bạn không sở hữu thẻ này." });
+    }
+
+    // Get or init card levels
+    const cardLevels: Record<string, number> = (progress as any).cardLevels || {};
+    const currentLevel = cardLevels[String(cardId)] || 1;
+    const nextLevel = currentLevel + 1;
+    const xpCost = nextLevel * nextLevel * 30; // 120, 270, 480, 750...
+
+    if ((user.points || 0) < xpCost) {
+      return res.status(400).json({ success: false, error: `Cần ${xpCost} EXP để lên cấp ${nextLevel}. Bạn chỉ có ${user.points}.` });
+    }
+
+    user.points -= xpCost;
+    cardLevels[String(cardId)] = nextLevel;
+    (progress as any).cardLevels = cardLevels;
+
+    await saveGameProgress(nickname, progress);
+    await saveUser(user);
+
+    const serverCard = generateServerCard(cardId);
+    const newAtk = Math.floor(serverCard.atk * (1 + (nextLevel - 1) * 0.15));
+    const newHp = Math.floor(serverCard.hp * (1 + (nextLevel - 1) * 0.15));
+
+    res.json({
+      success: true,
+      cardId,
+      newLevel: nextLevel,
+      xpCost,
+      newAtk,
+      newHp,
+      remainingPoints: user.points,
+    });
+  } catch (e) {
+    console.error("[cards:levelup] Error:", e);
+    res.status(500).json({ success: false, error: "Level up failed" });
+  }
+});
+
+// ─── Get card levels ─────────────────────────────────────────────────────────
+app.get("/api/cards/levels/:nickname", async (req, res) => {
+  try {
+    const progress = await getGameProgress(req.params.nickname);
+    const levels: Record<string, number> = (progress as any)?.cardLevels || {};
+    res.json(levels);
+  } catch (e) {
+    res.status(500).json({});
+  }
+});
+
 app.delete("/api/rewards/:id", requireAdmin, async (req, res) => {
   try {
     if (!isRewardsDbConfigured()) {
@@ -1210,7 +1323,15 @@ app.post("/api/user-progress", async (req, res) => {
 
       // Save and return the resolved card
       await saveGameProgress(nickname, progress);
-      res.json({ success: true, progress, card: pulledCard, isNew: !unlockedIds.includes(pulledCardId) });
+      const cardLevels: Record<string, number> = (progress as any).cardLevels || {};
+      const cardLevel = cardLevels[String(pulledCardId)] || 1;
+      res.json({
+        success: true,
+        progress,
+        card: pulledCard,
+        isNew: !unlockedIds.includes(pulledCardId),
+        cardLevel,
+      });
       return;
     } else if (type === "checkin") {
       if (!progress.checkins.includes(data)) {
