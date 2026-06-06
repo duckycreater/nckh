@@ -151,9 +151,9 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
   return (
     <div className="flex h-screen bg-gray-100 items-center justify-center sm:p-4 perspective-1000">
-      <div className="w-full h-full sm:h-[90vh] sm:max-w-md bg-white sm:rounded-3xl shadow-xl flex flex-col relative overflow-hidden">
+        <div className="w-full h-full sm:h-[90vh] sm:max-w-md bg-white sm:rounded-3xl shadow-xl flex flex-col relative overflow-hidden">
         {/* Header Content inside App Layout */}
-        <div className="flex-1 overflow-y-auto w-full pb-20">
+        <div className="flex-1 overflow-y-auto w-full">
           <div className="p-4 space-y-4">
             {/* Header info */}
             {activeTab === "home" && (
@@ -286,13 +286,13 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             )}
 
             {activeTab === "cards" && (
-              <div className="h-full min-h-[60vh] animate-[fadeIn_0.4s_ease-out] flex flex-col justify-center">
+              <div className="animate-[fadeIn_0.4s_ease-out]">
                 <Flashcards onReward={handleEarnPoints} points={user.points} onSpend={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
               </div>
             )}
 
             {activeTab === "craft" && (
-              <div className="min-h-[60vh] animate-[fadeIn_0.4s_ease-out]">
+              <div className="animate-[fadeIn_0.4s_ease-out]">
                 <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100 mb-4 flex justify-between items-center shadow-sm">
                   <div>
                     <h4 className="font-black text-emerald-900 text-lg uppercase tracking-wide">Kho Lõi Năng Lượng</h4>

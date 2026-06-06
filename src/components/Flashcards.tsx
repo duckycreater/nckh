@@ -463,7 +463,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   };
 
   return (
-    <div className="flex h-full max-h-[88vh] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
       {/* ── HEADER ── */}
       <div className="flex-shrink-0 border-b border-slate-100 bg-white px-4 pt-4 pb-3">

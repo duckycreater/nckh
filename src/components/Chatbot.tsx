@@ -87,7 +87,7 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-[5.5rem] right-4 z-50 sm:bottom-6 sm:right-6">
       {isOpen && (
         <div className="mb-4 flex h-[34rem] w-80 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl sm:w-96">
           <div className="bg-[linear-gradient(135deg,#0f8f68,#179a73)] px-4 py-4 text-white">
