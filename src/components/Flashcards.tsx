@@ -5,7 +5,7 @@ import {
   ArrowUp, TrendingUp, GitMerge, Shield, Zap, ChevronDown,
 } from "lucide-react";
 import { UserProgress } from "../types";
-import { ALL_CARDS, RARITIES, getElementIcon, ELEMENTS, getAdvantage, getDisadvantage, calcPower, getXpForLevel, getFusedXp } from "../lib/cards";
+import { ALL_CARDS, RARITIES, getElementIcon, ELEMENTS, getAdvantage, getDisadvantage, calcPower, getXpForLevel, getFusedXp, ELEMENT_COUNTER } from "../lib/cards";
 import { CardBattle } from "./CardBattle";
 import { Badge, Button, Card, EmptyState, ModalShell } from "../lib/ui";
 
@@ -111,6 +111,20 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const deckPower = deckCards.reduce((sum, card) => sum + calcPower(card, getCardLevel(card.id)), 0);
   const canBattle = deck.length === DECK_SIZE;
 
+  // Normalize a card: always resolve from ALL_CARDS to get full element/rarity data
+  const resolveCard = (raw: any) => {
+    if (!raw) return null;
+    if (raw.element?.gradient) return raw; // already full
+    const found = ALL_CARDS.find((c) => c.id === raw.id);
+    if (found) return found;
+    // fallback for server-only cards
+    return {
+      ...raw,
+      element: ELEMENTS.find((e) => e.id === raw.elementId) || raw.element,
+      rarity: RARITIES.find((r) => r.id === raw.rarityId) || raw.rarity,
+    };
+  };
+
   // ─── Gacha ───────────────────────────────────────────────────────────────────
   const handlePullGacha = () => {
     if (points < PULL_COST) return;
@@ -125,15 +139,13 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       .then((res) => res.json())
       .then((result) => {
         if (result.success && result.card) {
-          const sc = result.card;
-          const clientCard = ALL_CARDS.find((c) => c.id === sc.id) || {
-            id: sc.id, name: sc.name,
-            element: { id: sc.elementId, name: sc.elementName },
-            rarity: { id: sc.rarityId, name: sc.rarityName },
-            hp: sc.hp, atk: sc.atk,
-          };
-          setGachaResult({ ...clientCard, isNew: result.isNew });
-          if (result.isNew) setUnlockedCards((prev) => [...prev, sc.id]);
+          const resolved = resolveCard(result.card);
+          setGachaResult({ ...resolved, isNew: result.isNew });
+          if (result.isNew) setUnlockedCards((prev) => {
+            const next = [...prev];
+            if (!next.includes(result.card.id)) next.push(result.card.id);
+            return next;
+          });
         }
         if (result.success && onRefresh) onRefresh(result.progress);
         setIsPulling(false);
@@ -371,7 +383,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             ) : (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 {displayCards.map((card) => (
-                  <GameCard key={card.id} card={card} count={getCardCount(card.id)} onClick={() => setViewingCard(card)} />
+                  <GameCard key={card.id} card={card} count={getCardCount(card.id)} onClick={() => setViewingCard(resolveCard(card))} />
                 ))}
               </div>
             )}
@@ -579,8 +591,8 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Hệ tương khắc</p>
               <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                 {ELEMENTS.map((el) => {
-                  const adv = Object.entries({ plastic: "organic", organic: "hazard", hazard: "plastic", paper: "plastic", metal: "paper", glass: "metal" }).find(([, v]) => v === el.id)?.[0];
-                  const dis = { plastic: "organic", organic: "hazard", hazard: "plastic", paper: "plastic", metal: "paper", glass: "metal" }[el.id] as string;
+                  const adv = Object.entries(ELEMENT_COUNTER).find(([, v]) => v === el.id)?.[0];
+                  const dis = ELEMENT_COUNTER[el.id];
                   return (
                     <div key={el.id} className="flex items-center gap-1 rounded-lg bg-white/5 p-1.5">
                       <div className="flex-shrink-0">{getElementIcon(el.id, 18)}</div>
@@ -668,8 +680,8 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
 
                     {/* Counter */}
                     {(() => {
-                      const adv = Object.entries({ plastic: "organic", organic: "hazard", hazard: "plastic", paper: "plastic", metal: "paper", glass: "metal" }).find(([, v]) => v === viewingCard.element.id)?.[0];
-                      const dis = ({ plastic: "organic", organic: "hazard", hazard: "plastic", paper: "plastic", metal: "paper", glass: "metal" } as Record<string, string>)[viewingCard.element.id];
+                      const adv = Object.entries(ELEMENT_COUNTER).find(([, v]) => v === viewingCard.element.id)?.[0];
+                      const dis = ELEMENT_COUNTER[viewingCard.element.id];
                       return (
                         <div className="mt-2 flex gap-2">
                           {adv && (
@@ -730,12 +742,12 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                 <motion.div className="flex flex-col items-center"
                   initial={{ scale: 0.7, y: 60, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
                   transition={{ type: "spring", damping: 14, stiffness: 120 }}>
-                  <h2 className={`mb-4 text-3xl font-black drop-shadow-lg ${
+                  <motion.h2 className={`mb-4 text-3xl font-black drop-shadow-lg ${
                     gachaResult.rarity.id === "legendary" ? "text-yellow-300"
                       : gachaResult.rarity.id === "epic" ? "text-purple-400"
                       : gachaResult.rarity.id === "rare" ? "text-blue-400"
                       : "text-emerald-400"
-                  }`}>{gachaResult.rarity.name}!</h2>
+                  }`}>{gachaResult.rarity.name}!</motion.h2>
 
                   <div className={`overflow-hidden rounded-2xl ${gachaResult.rarity.glowColor} ${gachaResult.rarity.border}`}>
                     <div className={`p-1 bg-gradient-to-br ${gachaResult.rarity.bgGradient}`}>
