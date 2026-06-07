@@ -141,7 +141,7 @@ function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?
 }
 
 // ─── Card Tile (grid) ───────────────────────────────────────────────────────
-function CardTile({ card, level = 1, count = 1, selected = false, locked = false, inDeck = false, onClick }: {
+function CardTile({ card, level = 1, count = 1, selected = false, locked = false, inDeck = false, isNew = false, onClick }: {
   card: any; level?: number; count?: number; selected?: boolean; locked?: boolean; inDeck?: boolean; isNew?: boolean; onClick?: () => void;
 }) {
   const rs = RARITY[card.rarity.id] || RARITY.common;
@@ -605,7 +605,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   }, [progress, userId, fetchCardLevels]);
 
   // ─── Filter & sort cards ────────────────────────────────────────────
-  const RARITY_ORDER: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+  const RARITY_SCORE: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
   let displayCards = ALL_CARDS.filter((c) =>
     (filterRarity === "all" || c.rarity.id === filterRarity) &&
     (filterElement === "all" || c.element.id === filterElement) &&
@@ -618,7 +618,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     if (sortBy === "atk") return (b.atk * lb) - (a.atk * la);
     if (sortBy === "hp") return (b.hp * lb) - (a.hp * la);
     if (sortBy === "level") return lb - la;
-    if (sortBy === "rarity") return (RARITY_ORDER[b.rarity.id] || 0) - (RARITY_ORDER[a.rarity.id] || 0);
+    if (sortBy === "rarity") return (RARITY_SCORE[b.rarity.id] || 0) - (RARITY_SCORE[a.rarity.id] || 0);
     if (sortBy === "name") return a.name.localeCompare(b.name);
     return calcPower(b, lb) - calcPower(a, la);
   });
