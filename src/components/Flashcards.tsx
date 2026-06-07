@@ -59,7 +59,7 @@ const STAT_CONFIG: Record<string, { icon: string; label: string; color: string }
 };
 
 // ─── Card Avatar Circle ────────────────────────────────────────────────────
-function CardAvatar({ elementId, size = 36 }: { elementId: string; size?: number }) {
+function CardAvatar({ elementId, size = 36, sm }: { elementId: string; size?: number; sm?: number }) {
   const emoji = getAvatarEmoji(elementId);
   const color = ELEM_COLOR[elementId] || "#94a3b8";
   return (
@@ -72,7 +72,7 @@ function CardAvatar({ elementId, size = 36 }: { elementId: string; size?: number
         boxShadow: `0 0 12px ${color}20`,
       }}
     >
-      <span className="text-[70%]" style={{ fontSize: size * 0.55 }}>{emoji}</span>
+      <span className="text-[70%]" style={{ fontSize: sm ?? size * 0.55 }}>{emoji}</span>
     </div>
   );
 }
@@ -255,66 +255,66 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4"
       onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
+        className="relative w-full max-w-xs sm:max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
         style={{ boxShadow: `0 0 0 1.5px ${rs.accent}40, 0 25px 80px rgba(0,0,0,0.18)` }}
       >
         {/* ── Hero Header ── */}
-        <div className="relative px-6 pt-8 pb-6" style={{ background: `linear-gradient(145deg, ${elemColor}12, ${elemColor}05, transparent)` }}>
+        <div className="relative px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6" style={{ background: `linear-gradient(145deg, ${elemColor}12, ${elemColor}05, transparent)` }}>
           {/* Element color accent bar */}
           <div className="absolute inset-x-0 top-0 h-1.5 rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${elemColor}80, ${rs.accent})` }} />
 
           {/* Count badge */}
           {count > 1 && (
-            <div className="absolute right-5 top-8 z-20 flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-1 text-xs font-black text-white shadow-lg">
+            <div className="absolute right-3 sm:right-5 top-6 sm:top-8 z-20 flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] sm:text-xs font-black text-white shadow-lg">
               <span>x{count}</span>
             </div>
           )}
 
           {/* Close button */}
           <button onClick={onClose}
-            className="absolute right-4 top-8 rounded-full border border-slate-200 bg-white/80 p-2 text-slate-400 backdrop-blur-sm transition-all hover:border-slate-300 hover:text-slate-600 hover:bg-white">
-            <X size={15} />
+            className="absolute right-3 sm:right-4 top-6 sm:top-8 rounded-full border border-slate-200 bg-white/80 p-1.5 sm:p-2 text-slate-400 backdrop-blur-sm transition-all hover:border-slate-300 hover:text-slate-600 hover:bg-white">
+            <X size={14} sm:size={16} />
           </button>
 
           {/* Main content: Avatar + info */}
-          <div className="flex items-start gap-5">
+          <div className="flex items-start gap-3 sm:gap-5">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              <CardAvatar elementId={card.element.id} size={72} />
+              <CardAvatar elementId={card.element.id} size={56} sm={72} />
             </div>
 
             {/* Info */}
-            <div className="flex-1 min-w-0 pt-1">
+            <div className="flex-1 min-w-0 pt-0.5 sm:pt-1">
               {/* Rarity row */}
-              <div className="flex items-center gap-2 mb-1.5">
-                <RarityStars rarityId={card.rarity.id} size={12} />
-                <span className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 flex-wrap">
+                <RarityStars rarityId={card.rarity.id} size={10} sm={12} />
+                <span className="rounded-full px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider"
                   style={{ backgroundColor: rs.accent + "18", color: rs.accent, border: `1px solid ${rs.accent}40` }}>
                   {rs.name}
                 </span>
                 {level > 1 && <LevelBadge level={level} />}
               </div>
               {/* Name */}
-              <h3 className="text-xl font-black text-slate-900 leading-tight">{card.name}</h3>
-              {card.subtitle && <p className="text-sm text-slate-400 font-medium">{card.subtitle}</p>}
+              <h3 className="text-base sm:text-xl font-black text-slate-900 leading-tight truncate">{card.name}</h3>
+              {card.subtitle && <p className="text-xs sm:text-sm text-slate-400 font-medium truncate">{card.subtitle}</p>}
               {/* Element + Power */}
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                 {elem && (
-                  <div className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: elemColor + "18" }}>
-                    <span className="text-sm">{getAvatarEmoji(card.element.id)}</span>
-                    <span className="text-[10px] font-bold" style={{ color: elemColor }}>{elem.name}</span>
+                  <div className="flex items-center gap-1 rounded-full px-1.5 sm:px-2.5 py-0.5" style={{ backgroundColor: elemColor + "18" }}>
+                    <span className="text-xs">{getAvatarEmoji(card.element.id)}</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold" style={{ color: elemColor }}>{elem.name}</span>
                   </div>
                 )}
-                <div className="ml-auto flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1.5">
-                  <Zap size={12} className="text-amber-400" />
-                  <span className="text-sm font-black text-white" style={{ fontFamily: "monospace" }}>{power}</span>
+                <div className="ml-auto flex items-center gap-1 rounded-full bg-slate-900 px-2 sm:px-3 py-1 sm:py-1.5">
+                  <Zap size={10} sm={12} className="text-amber-400" />
+                  <span className="text-xs sm:text-sm font-black text-white" style={{ fontFamily: "monospace" }}>{power}</span>
                 </div>
               </div>
             </div>
@@ -334,7 +334,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
         </div>
 
         {/* ── Stats Section ── */}
-        <div className="px-6 pb-4">
+        <div className="px-4 sm:px-6 pb-4">
           <div className="mb-1 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chỉ số</span>
             <span className="text-xs font-bold text-slate-300">Level {level}</span>
@@ -348,15 +348,15 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
 
         {/* ── Ability Section ── */}
         {ability && (
-          <div className="mx-6 mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-slate-100">
-                <span className="text-2xl">{ability.icon}</span>
+          <div className="mx-3 sm:mx-6 mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-slate-100">
+                <span className="text-xl sm:text-2xl">{ability.icon}</span>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-black text-slate-900">{ability.name}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-black text-slate-900">{ability.name}</p>
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <span className={`rounded-full px-1.5 py-0.5 text-[7px] sm:text-[8px] font-black uppercase ${
                     ability.type === "ultimate" ? "bg-amber-100 text-amber-700" :
                     ability.type === "active" ? "bg-blue-100 text-blue-700" :
                     "bg-slate-100 text-slate-600"
@@ -371,15 +371,15 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
                 </div>
               </div>
             </div>
-            <p className="text-xs leading-relaxed text-slate-500 pl-[52px]">{ability.desc}</p>
+            <p className="text-[10px] sm:text-xs leading-relaxed text-slate-500 pl-[36px] sm:pl-[44px]">{ability.desc}</p>
           </div>
         )}
 
         {/* ── Action Button ── */}
         {onAddDeck && (
-          <div className="mx-6 mb-6">
+          <div className="mx-3 sm:mx-6 mb-4 sm:mb-6">
             <Button onClick={onAddDeck} size="lg"
-              className="w-full text-sm font-bold shadow-md"
+              className="w-full text-xs sm:text-sm font-bold shadow-md py-2 sm:py-3"
               style={{ backgroundColor: rs.accent, color: "#fff" }}>
               <Plus size={14} />Thêm vào đội hình
             </Button>
@@ -441,15 +441,15 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
           style={{ perspective: "1000px" }}
           initial={{ rotateY: 180 }} animate={{ rotateY: flipped ? 0 : 180 }}
           transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1], delay: 0.2 }}
-          className="relative w-56 overflow-hidden rounded-3xl"
+          className="relative w-44 sm:w-56 overflow-hidden rounded-2xl sm:rounded-3xl"
           style={{ background: `linear-gradient(145deg, ${elemColor}20, ${rs.accent}15)`, border: `3px solid ${rs.accent}60`, boxShadow: `0 0 40px ${rs.accent}40, 0 20px 60px rgba(0,0,0,0.4)` }}
         >
           {/* Color bar */}
           <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${elemColor}, ${rs.accent})` }} />
 
           {/* Avatar */}
-          <div className="flex flex-col items-center gap-3 p-6">
-            <CardAvatar elementId={result.element?.id || "plastic"} size={80} />
+          <div className="flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-6">
+            <CardAvatar elementId={result.element?.id || "plastic"} size={56} sm={80} />
             <div className="text-center">
               <RarityStars rarityId={result.rarity?.id ?? "common"} size={12} />
               <h3 className="mt-2 text-xl font-black text-white">{result.name}</h3>
@@ -457,21 +457,21 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
             </div>
 
             {/* Quick stats */}
-            <div className="grid w-full grid-cols-3 gap-2">
+            <div className="grid w-full grid-cols-3 gap-1.5 sm:gap-2">
               {(["atk", "hp", "def"] as const).map((stat) => (
-                <div key={stat} className="flex flex-col items-center rounded-xl bg-black/30 p-2">
-                  <span className="text-[9px] font-bold uppercase text-white/50">{STAT_CONFIG[stat].label}</span>
-                  <span className="text-base font-black" style={{ color: STAT_CONFIG[stat].color }}>{result[stat]}</span>
+                <div key={stat} className="flex flex-col items-center rounded-lg sm:rounded-xl bg-black/30 p-1.5 sm:p-2">
+                  <span className="text-[7px] sm:text-[9px] font-bold uppercase text-white/50">{STAT_CONFIG[stat].label}</span>
+                  <span className="text-sm sm:text-base font-black" style={{ color: STAT_CONFIG[stat].color }}>{result[stat]}</span>
                 </div>
               ))}
             </div>
 
             {/* Ability */}
             {ability && (
-              <div className="w-full rounded-xl bg-black/40 p-3 text-center">
-                <span className="text-2xl">{ability.icon}</span>
+              <div className="w-full rounded-xl bg-black/40 p-2.5 sm:p-3 text-center">
+                <span className="text-xl sm:text-2xl">{ability.icon}</span>
                 <p className="mt-1 text-xs font-black text-white">{ability.name}</p>
-                <p className="text-[10px] text-white/50">{ability.desc}</p>
+                <p className="text-[9px] sm:text-[10px] text-white/50">{ability.desc}</p>
               </div>
             )}
           </div>
@@ -493,7 +493,7 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
         <motion.p
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.0 }}
-          className={`mt-6 text-base font-black ${result.isNew ? "text-amber-400" : "text-slate-400"}`}
+          className={`mt-4 sm:mt-6 text-xs sm:text-base font-black ${result.isNew ? "text-amber-400" : "text-slate-400"}`}
         >
           {result.isNew ? "Thẻ mới! Đã thêm vào bộ sưu tập" : "Bạn đã có thẻ này"}
         </motion.p>
@@ -762,25 +762,25 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   ];
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-h-full">
 
       {/* ─── Header ─── */}
-      <div className="flex-shrink-0 border-b border-slate-100 bg-white px-5 pt-4 pb-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <div className="flex-shrink-0 border-b border-slate-100 bg-white px-3 sm:px-5 pt-3 sm:pt-4 pb-2 sm:pb-3">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
             <Badge tone="accent">Thẻ bài</Badge>
-            <span className="text-sm font-medium text-slate-500">{collectedCount}/{totalCards}</span>
+            <span className="text-xs sm:text-sm font-medium text-slate-500 whitespace-nowrap">{collectedCount}/{totalCards}</span>
             {collectionPower > 0 && <PowerBadge power={collectionPower} />}
             {fuseableCount > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-1 text-xs font-bold text-purple-600">
-                <GitMerge size={10} />{fuseableCount} hợp nhất
+              <span className="flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-purple-600">
+                <GitMerge size={10} />{fuseableCount}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div className="text-right">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">EXP</p>
-              <p className="text-lg font-black leading-none tabular-nums text-slate-900">{points}</p>
+              <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-slate-400">EXP</p>
+              <p className="text-base sm:text-lg font-black leading-none tabular-nums text-slate-900">{points}</p>
             </div>
           </div>
         </div>
@@ -796,12 +796,12 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         </div>
 
         {/* Tabs */}
-        <div className="mt-3 flex gap-1 overflow-x-auto thin-scrollbar">
+        <div className="mt-2 sm:mt-3 flex gap-1 overflow-x-auto thin-scrollbar">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveSection(tab.id)}
-              className={`flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap ${
+              className={`flex flex-shrink-0 items-center gap-1 rounded-xl px-2 sm:px-3.5 py-1.5 text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${
                 activeSection === tab.id
                   ? "bg-slate-900 text-white shadow-md"
                   : "bg-slate-100 text-slate-500 hover:bg-slate-200"
@@ -864,12 +864,12 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               </div>
             </div>
 
-            <p className="text-xs text-slate-400">{displayCards.length} thẻ · {collectedCount} đã mở</p>
+            <p className="text-[10px] sm:text-xs text-slate-400">{displayCards.length} thẻ · {collectedCount} đã mở</p>
 
             {displayCards.length === 0 ? (
               <EmptyState icon={<Layers size={40} className="text-slate-300" />} title="Không có thẻ" subtitle="Thử thay đổi bộ lọc." />
             ) : (
-              <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 overflow-x-auto pb-2 thin-scrollbar">
                 {displayCards.map((card) => {
                   const isLocked = !unlockedCards.includes(card.id);
                   const inDeck = deck.includes(card.id);

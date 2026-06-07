@@ -1293,49 +1293,49 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       style={{ background: "linear-gradient(180deg, #0a0a14 0%, #12121f 40%, #1a1030 70%, #0a0a14 100%)" }}>
 
       {/* ─── Top bar ──────────────────────────────────────────────────────── */}
-      <div className="relative z-30 flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/60 backdrop-blur-xl">
+      <div className="relative z-30 flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 border-b border-white/10 bg-black/60 backdrop-blur-xl">
         <Button onClick={() => { isRunningRef.current = false; onClose(); }}
-          variant="ghost" className="bg-white/8 text-white/80 border border-white/10 hover:bg-white/15 text-xs px-2.5 py-1 gap-1">
-          <ArrowLeft size={13} /> Thoát
+          variant="ghost" className="bg-white/8 text-white/80 border border-white/10 hover:bg-white/15 text-[10px] sm:text-xs px-2 sm:px-2.5 py-1 gap-1">
+          <ArrowLeft size={12} sm={13} /> <span className="hidden sm:inline">Thoát</span>
         </Button>
-        <div className="flex items-center gap-2">
-          <Badge tone="warning">⚔️ Đấu Trường</Badge>
-          <span className="rounded-full bg-black/50 border border-white/10 px-2 py-0.5 text-[10px] font-mono text-white/40">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <Badge tone="warning" className="text-[9px] sm:text-xs">⚔️ Đấu Trường</Badge>
+          <span className="rounded-full bg-black/50 border border-white/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-mono text-white/40">
             Lượt {turnCount}
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 border border-white/10">
-            <Shield size={10} className="text-red-400" />
-            <span className="text-[10px] font-black text-red-400">{bossAlive.length}/3</span>
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-black/50 px-1.5 sm:px-2 py-0.5 border border-white/10">
+            <Shield size={9} sm={10} className="text-red-400" />
+            <span className="text-[9px] sm:text-[10px] font-black text-red-400">{bossAlive.length}/3</span>
           </div>
-          <div className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 border border-white/10">
-            <Heart size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-black text-emerald-400">{playerAlive.length}/{playerTeam.length}</span>
+          <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-black/50 px-1.5 sm:px-2 py-0.5 border border-white/10">
+            <Heart size={9} sm={10} className="text-emerald-400" />
+            <span className="text-[9px] sm:text-[10px] font-black text-emerald-400">{playerAlive.length}/{playerTeam.length}</span>
           </div>
         </div>
       </div>
 
       {/* ─── INTRO ─────────────────────────────────────────────────────────── */}
       {stage === "intro" && (
-        <div className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto p-4">
+        <div className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto p-3 sm:p-4">
           <div className="text-center pt-2">
-            <h2 className="text-2xl font-black text-white">Chọn Chiến Dịch</h2>
-            <p className="mt-1 text-sm text-slate-400">Đánh bại 3 boss liên tiếp! 4 chiêu/thẻ - Né đòn - Tuyệt chiêu</p>
+            <h2 className="text-xl sm:text-2xl font-black text-white">Chọn Chiến Dịch</h2>
+            <p className="mt-1 text-xs sm:text-sm text-slate-400">Đánh bại 3 boss liên tiếp!</p>
           </div>
           <div className="w-full max-w-sm space-y-2 pb-4">
             {CAMPAIGN_LEVELS.map((lvl) => {
               const bossEl = ELEMENTS.find((e) => e.id === lvl.element);
               return (
                 <button key={lvl.id} onClick={() => setSelectedLevelId(lvl.id)}
-                  className={`w-full rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
+                  className={`w-full rounded-2xl border-2 p-3 sm:p-4 text-left transition-all duration-200 ${
                     selectedLevelId === lvl.id
                       ? "border-amber-400 bg-amber-950/25 shadow-[0_0_20px_rgba(234,179,8,0.18)]"
                       : "border-slate-700/60 bg-slate-900/60 hover:bg-slate-800/60"
                   }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${selectedLevelId === lvl.id ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-slate-800 text-slate-500"}`}>
-                      <Trophy size={20} />
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl ${selectedLevelId === lvl.id ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-slate-800 text-slate-500"}`}>
+                      <Trophy size={18} sm={20} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-black text-white truncate">{lvl.name}</h3>
@@ -1363,8 +1363,8 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
           </div>
           {deckCardIds.length >= 1 ? (
             <Button onClick={startBattle} size="lg"
-              className="w-full max-w-sm text-base font-black py-3 shadow-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border-0">
-              <Swords size={18} />Xông trận!
+              className="w-full max-w-sm text-sm sm:text-base font-black py-2.5 sm:py-3 shadow-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border-0">
+              <Swords size={16} sm={18} />Xông trận!
             </Button>
           ) : (
             <div className="w-full max-w-sm rounded-xl border border-red-900/50 bg-red-950/20 p-3 text-center">
@@ -1411,19 +1411,19 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
             </AnimatePresence>
 
             {/* ─── Boss zone ─────────────────────────────────────────────────── */}
-            <div className="relative z-10 border-b border-white/10 bg-gradient-to-b from-red-950/20 to-transparent px-2 pt-2 pb-3">
-              <div className="mb-2 flex items-center justify-center">
-                <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1 border border-white/10">
+            <div className="relative z-10 border-b border-white/10 bg-gradient-to-b from-red-950/20 to-transparent px-1 sm:px-2 pt-1.5 sm:pt-2 pb-2 sm:pb-3">
+              <div className="mb-1.5 sm:mb-2 flex items-center justify-center">
+                <div className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-black/50 px-2 sm:px-3 py-0.5 border border-white/10">
                   <TypeBadge elementId={level.element} />
-                  <span className="text-[10px] font-black text-white/60">
+                  <span className="text-[9px] sm:text-[10px] font-black text-white/60 hidden sm:inline">
                     {ELEMENTS.find((e) => e.id === level.element)?.name} Boss
                   </span>
-                  <span className="rounded-full bg-red-900/80 px-1.5 py-0.5 text-[9px] font-black text-red-300">
+                  <span className="rounded-full bg-red-900/80 px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black text-red-300">
                     {bossAlive.length} còn
                   </span>
                 </div>
               </div>
-              <div className="flex items-end justify-center gap-4">
+              <div className="flex items-end justify-center gap-2 sm:gap-4">
                 {bossTeam.map((b, i) => (
                   <BattleAvatar
                     key={b.id}
@@ -1463,11 +1463,11 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
             </div>
 
             {/* ─── Player zone ───────────────────────────────────────────────── */}
-            <div className="relative z-10 flex-1 px-2 py-2 flex gap-2">
+            <div className="relative z-10 flex-1 px-1 sm:px-2 py-1.5 sm:py-2 flex gap-1 sm:gap-2">
               {/* Main card + stats */}
-              <div className="flex flex-col items-center gap-2 flex-1">
+              <div className="flex flex-col items-center gap-1 sm:gap-2 flex-1">
                 {/* Team lineup */}
-                <div className="flex items-start justify-center gap-2 mb-1">
+                <div className="flex items-start justify-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
                   {playerTeam.map((p, i) => (
                     <div key={p.id} className="relative">
                       <BattleAvatar
@@ -1485,8 +1485,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                           initial={{ scale: 0 }} animate={{ scale: 1 }}
                           whileHover={{ scale: 1.1 }}
                           onClick={() => switchCard(i)}
-                          className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-blue-600/80 border border-blue-400/50 px-1 py-0.5 text-[7px] font-black text-white shadow"
-                        >
+                          className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-blue-600/80 border border-blue-400/50 px-1 py-0.5 text-[6px] sm:text-[7px] font-black text-white shadow whitespace-nowrap">
                           Đổi
                         </motion.button>
                       )}
@@ -1496,14 +1495,14 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
 
                 {/* Energy + Ultimate bars */}
                 {activePlayer?.isAlive && (
-                  <div className="w-full max-w-[200px] space-y-1">
-                    <div className="flex items-center justify-between text-[9px]">
-                      <span className="text-cyan-400 font-bold">⚡ Năng lượng</span>
+                  <div className="w-full max-w-[150px] sm:max-w-[200px] space-y-0.5 sm:space-y-1">
+                    <div className="flex items-center justify-between text-[7px] sm:text-[9px]">
+                      <span className="text-cyan-400 font-bold">⚡</span>
                       <span className="text-cyan-300 font-black">{playerEnergy}/{activePlayer.maxEnergy}</span>
                     </div>
                     <EnergyBar current={playerEnergy} max={activePlayer.maxEnergy} />
-                    <div className="flex items-center justify-between text-[9px]">
-                      <span className="text-amber-400 font-bold">💥 Tuyệt chiêu</span>
+                    <div className="flex items-center justify-between text-[7px] sm:text-[9px]">
+                      <span className="text-amber-400 font-bold">💥</span>
                       <span className="text-amber-300 font-black">{activePlayer.ultimateCharge}%</span>
                     </div>
                     <UltimateBar charge={activePlayer.ultimateCharge} />
@@ -1512,15 +1511,15 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               </div>
 
               {/* Combo meter */}
-              <div className="flex items-start pt-4">
+              <div className="flex items-start pt-1 sm:pt-4">
                 <ComboMeter combo={activePlayer?.comboStreak || 0} maxDmg={maxDmg} />
               </div>
             </div>
 
             {/* ─── Move buttons ─────────────────────────────────────────────── */}
             {phase === "idle" && activePlayer?.isAlive && (
-              <div className="relative z-20 px-3 pb-2">
-                <div className="flex items-center justify-center gap-2 flex-wrap">
+              <div className="relative z-20 px-1.5 sm:px-3 pb-2">
+                <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
                   {activePlayer.moves.map((move) => (
                     <MoveButton
                       key={move.id}
@@ -1580,9 +1579,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
             </div>
 
             {/* Battle log */}
-            <div className="mx-3 mb-2 max-h-16 overflow-y-auto rounded-xl border border-white/10 bg-black/50 px-3 py-1.5 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Nhật ký</span>
+            <div className="mx-2 sm:mx-3 mb-2 max-h-14 sm:max-h-16 overflow-y-auto rounded-xl border border-white/10 bg-black/50 px-2 sm:px-3 py-1 sm:py-1.5 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-wider">Nhật ký</span>
                 <button onClick={() => setLogVisible(!logVisible)} className="text-slate-500 hover:text-slate-300">
                   {logVisible ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
                 </button>
