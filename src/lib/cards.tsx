@@ -206,11 +206,13 @@ export const ELEMENT_COUNTER: Record<string, string> = {
   glass: "metal",      // glass scratches metal
 };
 export function getAdvantage(elementId: string): string | null {
-  const counteredBy = Object.entries(ELEMENT_COUNTER).find(([, v]) => v === elementId)?.[0];
-  return counteredBy ?? null;
+  // What element does 'elementId' deal +50% damage TO? (what is weak against this element)
+  return ELEMENT_COUNTER[elementId] ?? null;
 }
 export function getDisadvantage(elementId: string): string | null {
-  return ELEMENT_COUNTER[elementId] ?? null;
+  // What element deals +50% damage TO 'elementId'? (what counters this element)
+  const counteredBy = Object.entries(ELEMENT_COUNTER).find(([, v]) => v === elementId)?.[0];
+  return counteredBy ?? null;
 }
 export function calcDamage(atk: number, attackerEl: string, defenderEl: string): number {
   const adv = getAdvantage(attackerEl);

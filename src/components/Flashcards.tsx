@@ -713,22 +713,22 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   <span className="text-xs font-bold text-amber-600">{deckPower} PWR</span>
                 )}
               </div>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                 {Array.from({ length: DECK_SIZE }).map((_, i) => {
                   const card = deckCards[i];
                   if (!card) {
                     return (
                       <div key={i} className="aspect-[3/4] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center">
-                        <span className="text-xl text-slate-300">+</span>
+                        <span className="text-base text-slate-300">+</span>
                       </div>
                     );
                   }
                   const rs = RARITY_STYLE[card.rarity.id] || RARITY_STYLE.common;
                   return (
-                    <div key={i} className={`relative aspect-[3/4] overflow-hidden rounded-xl border-2 ${rs.border} ${rs.glowColor || ""}`}>
+                    <div key={i} className={`relative aspect-[3/4] overflow-hidden rounded-xl border-2 ${rs.border} ${rs.glow || ""}`}>
                       <div className={`absolute inset-0 bg-gradient-to-br ${rs.bg}`} />
                       <div className="relative z-10 flex h-full flex-col items-center justify-center p-1">
-                        <div className={`rounded-lg p-0.5 ${rs.iconBg}`}>{getElementIcon(card.element.id, 18)}</div>
+                        <div className={`rounded-lg p-0.5 ${rs.iconBg}`}>{getElementIcon(card.element.id, 16)}</div>
                         <p className="mt-0.5 text-[6px] font-black leading-tight line-clamp-1" style={{ color: rs.frameAccent }}>
                           {card.name.split(" ")[0]}
                         </p>
@@ -746,7 +746,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             {/* Card picker */}
             <div>
               <h4 className="mb-2 font-black text-sm text-slate-800">Chọn thẻ</h4>
-              <div className="grid max-h-[200px] grid-cols-4 gap-1.5 overflow-y-auto thin-scrollbar pr-1">
+              <div className="grid grid-cols-4 gap-1.5 overflow-y-auto sm:max-h-[200px]">
                 {unlockedCards.map((id) => {
                   const card = ALL_CARDS.find((c) => c.id === id)!;
                   const inDeck = deck.includes(id);
@@ -760,7 +760,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                           <span className="text-[7px] font-black">✓</span>
                         </div>
                       )}
-                      <div className={`rounded-lg p-0.5 ${rs.iconBg}`}>{getElementIcon(card.element.id, 20)}</div>
+                      <div className={`rounded-lg p-0.5 ${rs.iconBg}`}>{getElementIcon(card.element.id, 18)}</div>
                       <p className="text-[6px] font-black leading-tight line-clamp-1 mt-0.5">{card.name.split(" ")[0]}</p>
                     </button>
                   );
@@ -768,7 +768,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               </div>
             </div>
 
-            <Button onClick={() => setShowBattle(true)} disabled={!canBattle} size="lg" className="w-full">
+            <Button onClick={() => setShowBattle(true)} disabled={!canBattle} size="lg" className="w-full font-bold">
               <Swords size={16} />
               {canBattle ? "Xông trận!" : `Chọn thêm ${DECK_SIZE - deck.length} thẻ`}
             </Button>
