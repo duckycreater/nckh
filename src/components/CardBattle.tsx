@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Zap, Trophy, ArrowLeft, Play, Sparkles, RotateCcw, Star, Shield, Heart, Flame } from "lucide-react";
-import { ALL_CARDS, getElementIcon, ELEMENTS, getAdvantage, getDisadvantage } from "../lib/cards";
+import { Swords, Zap, Trophy, ArrowLeft, Play, Sparkles, RotateCcw, Star, Shield, Heart, Flame, Activity, Skull } from "lucide-react";
+import { ALL_CARDS, getElementIcon, ELEMENTS, getAdvantage, getDisadvantage, getCardAbility } from "../lib/cards";
 import { Badge, Button } from "../lib/ui";
 
 interface Props {
@@ -20,7 +20,7 @@ const CAMPAIGN_LEVELS = [
 ];
 
 type BattleStage = "intro" | "battle" | "victory" | "defeat";
-type TurnPhase = "idle" | "player_attack" | "boss_attack" | "ultimate_hit" | "victory_anim" | "defeat_anim";
+type TurnPhase = "idle" | "player_attack" | "boss_attack" | "victory_anim" | "defeat_anim";
 
 interface BattleCard {
   id: number;
@@ -31,9 +31,17 @@ interface BattleCard {
   hp: number;
   maxHp: number;
   atk: number;
+  def: number;
+  spd: number;
+  crt: number;
+  int: number;
   level: number;
   isAlive: boolean;
   ultimateCharge: number;
+  poisonStacks: number;
+  shieldActive: boolean;
+  shieldTurns: number;
+  hasActedThisTurn: boolean;
 }
 
 interface DmgNum {
@@ -42,17 +50,29 @@ interface DmgNum {
   target: "player" | "boss";
   isCrit: boolean;
   isSuper: boolean;
+  isPoison: boolean;
 }
 
 function buildBattleCard(cardId: number, level: number, atkMult = 1, hpMult = 1): BattleCard {
   const base = ALL_CARDS.find((c) => c.id === cardId);
   if (!base) {
-    return { id: cardId, name: `Boss #${cardId}`, elementId: "plastic", gradient: "from-cyan-600 to-blue-800", accentColor: "#06b6d4", hp: 0, maxHp: 0, atk: 0, level: 1, isAlive: false, ultimateCharge: 0 };
+    return { id: cardId, name: `Boss #${cardId}`, elementId: "plastic", gradient: "from-cyan-600 to-blue-800", accentColor: "#06b6d4", hp: 0, maxHp: 0, atk: 0, def: 0, spd: 0, crt: 0, int: 0, level: 1, isAlive: false, ultimateCharge: 0, poisonStacks: 0, shieldActive: false, shieldTurns: 0, hasActedThisTurn: false };
   }
   const el = ELEMENTS.find((e) => e.id === base.element.id);
   const hp = Math.floor(base.hp * (1 + (level - 1) * 0.15) * hpMult);
   const atk = Math.floor(base.atk * (1 + (level - 1) * 0.15) * atkMult);
-  return { id: cardId, name: base.name, elementId: base.element.id, gradient: el?.gradient || "from-slate-600 to-slate-800", accentColor: el?.accent || "#94a3b8", hp, maxHp: hp, atk, level, isAlive: true, ultimateCharge: 0 };
+  const def = Math.floor((base.def || 0) * (1 + (level - 1) * 0.1));
+  const spd = Math.floor((base.spd || 0) * (1 + (level - 1) * 0.05));
+  const crt = Math.min(30, Math.floor((base.crt || 0) * (1 + (level - 1) * 0.02)));
+  const int = Math.floor((base.int || 0) * (1 + (level - 1) * 0.05));
+  return {
+    id: cardId, name: base.name, elementId: base.element.id,
+    gradient: el?.gradient || "from-slate-600 to-slate-800",
+    accentColor: el?.accent || "#94a3b8",
+    hp, maxHp: hp, atk, def, spd, crt, int, level,
+    isAlive: true, ultimateCharge: 0,
+    poisonStacks: 0, shieldActive: false, shieldTurns: 0, hasActedThisTurn: false,
+  };
 }
 
 function getAdvantageInfo(attackerEl: string, defenderEl: string): { mult: number; label: string; color: string } | null {
@@ -60,6 +80,49 @@ function getAdvantageInfo(attackerEl: string, defenderEl: string): { mult: numbe
   if (getDisadvantage(attackerEl) === defenderEl) return { mult: 0.75, label: "Yếu hơn!", color: "#ef4444" };
   return null;
 }
+
+// ─── Full damage formula using all 6 stats ──────────────────────────────────────
+function calcBattleDamage(attacker: BattleCard, defender: BattleCard, isUltimate: boolean): { dmg: number; isCrit: boolean; notes: string[] } {
+  const notes: string[] = [];
+  const baseDmg = isUltimate
+    ? Math.floor(attacker.atk * 3.0 * (1 + attacker.int * 0.02))
+    : Math.floor(attacker.atk * (0.85 + Math.random() * 0.3));
+
+  const crtRoll = Math.random() * 100 < attacker.crt;
+  const isCrit = crtRoll;
+  const critMult = isCrit ? 2.0 : 1.0;
+  if (isCrit) notes.push("Chí mạng!");
+
+  const advInfo = getAdvantageInfo(attacker.elementId, defender.elementId);
+  const advMult = advInfo ? advInfo.mult : 1.0;
+  if (advInfo) notes.push(advInfo.label);
+
+  let dmg = Math.floor(baseDmg * critMult * advMult);
+  if (defender.shieldActive) {
+    const reduction = Math.min(defender.def * 0.5, 40);
+    dmg = Math.floor(dmg * (1 - reduction / 100));
+    notes.push("Khiên chặn!");
+  } else {
+    dmg = Math.floor(dmg * (1 - defender.def * 0.3 / 100));
+  }
+  dmg = Math.max(1, dmg);
+
+  const ability = getCardAbility({ element: { id: attacker.elementId } });
+  if (ability?.id === "glass_shield" && isUltimate) {
+    notes.push("Khiên Thủy Tinh!");
+  }
+
+  return { dmg, isCrit, notes };
+}
+
+// ─── Stat display pills ─────────────────────────────────────────────────────────
+const STAT_COLORS: Record<string, string> = {
+  atk: "#ef4444", hp: "#22c55e", def: "#3b82f6",
+  spd: "#06b6d4", crt: "#f59e0b", int: "#a855f7",
+};
+const STAT_LABELS: Record<string, string> = {
+  atk: "ATK", hp: "HP", def: "DEF", spd: "SPD", crt: "CRT", int: "INT",
+};
 
 // ─── Type Badge ───────────────────────────────────────────────────────────────
 function TypeBadge({ elementId, size = "sm" }: { elementId: string; size?: "sm" | "lg" }) {
@@ -187,6 +250,15 @@ function BattleCardAvatar({ card, team, isActive, shake, isHit, attackAnim, isUl
         {Math.max(0, card.hp)}/{card.maxHp}
       </p>
 
+      {/* Mini stat row */}
+      <div className="flex items-center gap-1 mt-0.5">
+        <span className="text-[7px] font-black" style={{ color: STAT_COLORS.atk }}>{card.atk}</span>
+        <span className="text-[7px] text-slate-600">·</span>
+        <span className="text-[7px] font-black" style={{ color: STAT_COLORS.def }}>🛡{card.def}</span>
+        <span className="text-[7px] text-slate-600">·</span>
+        <span className="text-[7px] font-black" style={{ color: STAT_COLORS.spd }}>⚡{card.spd}</span>
+      </div>
+
       {/* Active indicator */}
       {isActive && card.isAlive && team === "player" && (
         <motion.div
@@ -206,7 +278,7 @@ function BattleCardAvatar({ card, team, isActive, shake, isHit, attackAnim, isUl
 
 // ─── Damage Number ─────────────────────────────────────────────────────────────
 function DamageNumber({ num }: { num: DmgNum }) {
-  const color = num.isSuper ? "#22c55e" : num.isCrit ? "#f59e0b" : num.target === "boss" ? "#ef4444" : "#60a5fa";
+  const color = num.isPoison ? "#a855f7" : num.isSuper ? "#22c55e" : num.isCrit ? "#f59e0b" : num.target === "boss" ? "#ef4444" : "#60a5fa";
   const scale = num.isCrit ? 1.4 : num.isSuper ? 1.2 : 1.0;
 
   return (
@@ -327,7 +399,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
 
   const level = CAMPAIGN_LEVELS.find((l) => l.id === selectedLevelId) || CAMPAIGN_LEVELS[0];
 
-  const spawnDmg = useCallback((id: string, value: number, target: "player" | "boss", isCrit = false, isSuper = false) => {
+  const spawnDmg = useCallback((id: string, value: number, target: "player" | "boss", isCrit = false, isSuper = false, isPoison = false) => {
     const key = `${id}-${Date.now()}-${Math.random()}`;
     setDmgNums((prev) => [...prev.filter((d) => d.id !== key), { id: key, value, target, isCrit, isSuper }]);
     setTimeout(() => setDmgNums((prev) => prev.filter((d) => d.id !== key)), 1200);
@@ -409,22 +481,24 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       if (type === "ultimate") { setUltimateFlash(true); setTimeout(() => setUltimateFlash(false), 600); }
       triggerShake();
 
-      const advInfo = getAdvantageInfo(attacker.elementId, target.elementId);
-      const mult = advInfo?.mult ?? 1;
-      const baseDmg = type === "ultimate"
-        ? Math.floor(attacker.atk * 3.0)
-        : Math.floor(attacker.atk * (0.85 + Math.random() * 0.3));
-      const dmg = Math.floor(baseDmg * mult);
-      const isCrit = type === "ultimate" || Math.random() < 0.1;
+      const { dmg, isCrit, notes } = calcBattleDamage(attacker, target, type === "ultimate");
 
-      if (advInfo) showBanner(advInfo, "boss");
-      spawnDmg(String(target.id), dmg, "boss", isCrit, mult > 1);
+      if (notes.some((n) => n.includes("Hiệu quả"))) {
+        const adv = getAdvantageInfo(attacker.elementId, target.elementId);
+        if (adv) showBanner(adv, "boss");
+      } else if (notes.some((n) => n.includes("Yếu"))) {
+        const dis = { mult: 0.75, label: "Yếu hơn!", color: "#ef4444" };
+        showBanner(dis, "boss");
+      }
+
+      spawnDmg(String(target.id), dmg, "boss", isCrit, notes.some((n) => n.includes("Hiệu quả")));
 
       if (type === "normal") {
         setPlayerTeam((prev) => prev.map((c, i) => i === activePlayerIdx ? { ...c, ultimateCharge: Math.min(100, c.ultimateCharge + 30) } : c));
       }
 
-      setLog((prev) => [...prev.slice(-4), `${type === "ultimate" ? "💥" : "⚔️"} ${attacker.name} → ${dmg} dmg${advInfo ? ` (${advInfo.label})` : ""}${isCrit ? " [Chí mạng!]" : ""}`]);
+      const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
+      setLog((prev) => [...prev.slice(-4), `${type === "ultimate" ? "💥" : "⚔️"} ${attacker.name} → ${dmg} dmg${noteStr}`]);
 
       const newDmg = Math.max(0, target.hp - dmg);
       const targetDied = newDmg === 0 && target.isAlive;
@@ -436,10 +510,6 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
 
       if (targetDied) {
         setComboCount((c) => c + 1);
-        activeBossIdxRef.current = prev => {
-          const next = prev.filter((c) => c.isAlive);
-          return next.length > 0 ? prev.indexOf(next[0]) : 0;
-        };
         setLog((prev) => [...prev, `🔥 ${target.name} đã bị đánh bại!`]);
       }
 
@@ -477,15 +547,20 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       triggerHit("player");
       triggerShake();
 
-      const advInfo = getAdvantageInfo(boss.elementId, target.elementId);
-      const mult = advInfo?.mult ?? 1;
-      const bossDmg = Math.floor(boss.atk * (0.85 + Math.random() * 0.3) * mult);
-      const isCrit = Math.random() < 0.08;
+      const { dmg, isCrit, notes } = calcBattleDamage(boss, target, false);
 
-      if (advInfo) showBanner(advInfo, "player");
-      spawnDmg(`p${target.id}`, bossDmg, "player", isCrit, mult > 1);
+      if (notes.some((n) => n.includes("Hiệu quả"))) {
+        const adv = { mult: 1.5, label: "Hiệu quả!", color: "#22c55e" };
+        showBanner(adv, "player");
+      } else if (notes.some((n) => n.includes("Yếu"))) {
+        const dis = { mult: 0.75, label: "Yếu hơn!", color: "#ef4444" };
+        showBanner(dis, "player");
+      }
 
-      setLog((prev) => [...prev.slice(-4), `👹 ${boss.name} → ${bossDmg} dmg${advInfo ? ` (${advInfo.label})` : ""}`]);
+      spawnDmg(`p${target.id}`, dmg, "player", isCrit, notes.some((n) => n.includes("Hiệu quả")));
+
+      const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
+      setLog((prev) => [...prev.slice(-4), `👹 ${boss.name} → ${dmg} dmg${noteStr}`]);
 
       const newHp = Math.max(0, target.hp - bossDmg);
       const died = newHp === 0 && target.isAlive;

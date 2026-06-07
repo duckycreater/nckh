@@ -65,6 +65,7 @@ export const ELEMENTS = [
 ];
 
 // ─── Rarity definitions ────────────────────────────────────────────────────
+// defMult/spdMult/crtMult/intMult are used for the new 6-stat system
 export const RARITIES = [
   {
     id: "common",
@@ -79,6 +80,10 @@ export const RARITIES = [
     frameAccent: "#94a3b8",
     atkMult: 1,
     hpMult: 1,
+    defMult: 1,
+    spdMult: 1,
+    crtMult: 1,
+    intMult: 1,
     atkColor: "text-slate-600",
     hpColor: "text-slate-600",
     bannerBg: "bg-slate-200",
@@ -99,6 +104,10 @@ export const RARITIES = [
     frameAccent: "#3b82f6",
     atkMult: 1.15,
     hpMult: 1.15,
+    defMult: 1.1,
+    spdMult: 1.1,
+    crtMult: 1.1,
+    intMult: 1.1,
     atkColor: "text-blue-600",
     hpColor: "text-blue-600",
     bannerBg: "bg-blue-100",
@@ -108,7 +117,7 @@ export const RARITIES = [
   },
   {
     id: "epic",
-    name: "Sử thi",
+    name: "Siêu hiếm",
     nameShort: "Epic",
     chance: 0.96,
     borderColor: "border-purple-400",
@@ -119,6 +128,10 @@ export const RARITIES = [
     frameAccent: "#a855f7",
     atkMult: 1.35,
     hpMult: 1.35,
+    defMult: 1.25,
+    spdMult: 1.25,
+    crtMult: 1.25,
+    intMult: 1.25,
     atkColor: "text-purple-600",
     hpColor: "text-purple-600",
     bannerBg: "bg-purple-100",
@@ -139,6 +152,10 @@ export const RARITIES = [
     frameAccent: "#f59e0b",
     atkMult: 1.6,
     hpMult: 1.6,
+    defMult: 1.5,
+    spdMult: 1.5,
+    crtMult: 1.5,
+    intMult: 1.5,
     atkColor: "text-amber-600",
     hpColor: "text-amber-600",
     bannerBg: "bg-amber-100",
@@ -148,6 +165,90 @@ export const RARITIES = [
     hasShimmer: true,
   },
 ];
+
+// ─── Ability IDs ───────────────────────────────────────────────────────────
+export const ABILITY_IDS = [
+  "man_nhua",
+  "giay_doc",
+  "kien_thuy_tinh",
+  "lop_vo",
+  "phan_huy",
+  "chat_doc",
+] as const;
+
+// ─── Abilities ─────────────────────────────────────────────────────────────
+export type AbilityType = "passive" | "active" | "ultimate";
+
+export interface Ability {
+  id: string;
+  name: string;
+  type: AbilityType;
+  desc: string;
+  icon: string;
+  power: number; // 1–5 stars, derived from rarity
+}
+
+export const ABILITIES: Record<string, Ability> = {
+  plastic: {
+    id: "man_nhua",
+    name: "Màn Nhựa",
+    type: "passive",
+    desc: "+15% DEF (Giảm sát thương nhận vào thêm 15%)",
+    icon: "🛡️",
+    power: 1,
+  },
+  paper: {
+    id: "giay_doc",
+    name: "Giấy Độc",
+    type: "active",
+    desc: "Gây 10% maxHP sát thương trong 3 lượt",
+    icon: "☠️",
+    power: 2,
+  },
+  glass: {
+    id: "kien_thuy_tinh",
+    name: "Khiên Thủy Tinh",
+    type: "active",
+    desc: "Khối 30% sát thương trong 2 lượt",
+    icon: "🪟",
+    power: 3,
+  },
+  metal: {
+    id: "lop_vo",
+    name: "Lớp Vỏ",
+    type: "active",
+    desc: "Phản 20% sát thương lại kẻ địch",
+    icon: "🔰",
+    power: 3,
+  },
+  organic: {
+    id: "phan_huy",
+    name: "Phân Hủy",
+    type: "active",
+    desc: "Hồi 15% maxHP",
+    icon: "🌱",
+    power: 2,
+  },
+  hazard: {
+    id: "chat_doc",
+    name: "Chất Độc",
+    type: "passive",
+    desc: "5% cơ hội gây trúng độc khi đánh",
+    icon: "☣️",
+    power: 1,
+  },
+};
+
+export function getCardAbility(card: Card): Ability {
+  const base = ABILITIES[card.element.id] ?? ABILITIES["plastic"];
+  const rarityPower: Record<string, number> = {
+    common: 1,
+    rare: 2,
+    epic: 3,
+    legendary: 4,
+  };
+  return { ...base, power: rarityPower[card.rarity.id] ?? 1 };
+}
 
 // ─── Card data generation ──────────────────────────────────────────────────
 const TRASH_NAMES = [
@@ -167,7 +268,29 @@ function seededRandom(seed: number) {
   return x - Math.floor(x);
 }
 
-export function generateCard(id: number) {
+export interface Card {
+  id: number;
+  name: string;
+  element: (typeof ELEMENTS)[number];
+  rarity: (typeof RARITIES)[number];
+  atk: number;
+  hp: number;
+  def: number;
+  spd: number;
+  crt: number;
+  int: number;
+}
+
+export interface CardStats {
+  atk: number;
+  hp: number;
+  def: number;
+  spd: number;
+  crt: number;
+  int: number;
+}
+
+export function generateCard(id: number): Card {
   const rngElement = seededRandom(id * 1.5);
   const element = ELEMENTS[Math.floor(rngElement * ELEMENTS.length)];
 
@@ -180,20 +303,41 @@ export function generateCard(id: number) {
   const nameIdx = Math.floor(seededRandom(id * 3.3) * TRASH_NAMES.length);
   const adjIdx = Math.floor(seededRandom(id * 4.4) * ADJECTIVES.length);
 
-  const baseHp = Math.floor(seededRandom(id * 5.5) * 100) + 20;
-  const baseAtk = Math.floor(seededRandom(id * 6.6) * 50) + 10;
+  // Generate all 6 stats using seededRandom
+  const baseAtk = Math.floor(seededRandom(id * 5.5) * 51) + 10;   // 10–60
+  const baseHp  = Math.floor(seededRandom(id * 6.6) * 101) + 20; // 20–120
+  const baseDef = Math.floor(seededRandom(id * 7.7) * 31);        // 0–30
+  const baseSpd = Math.floor(seededRandom(id * 8.8) * 101);        // 0–100
+  const baseCrt = Math.floor(seededRandom(id * 9.9) * 31);         // 0–30
+  const baseInt = Math.floor(seededRandom(id * 10.1) * 31);        // 0–30
 
   return {
     id,
     name: `${TRASH_NAMES[nameIdx]} ${ADJECTIVES[adjIdx]}`,
     element,
     rarity,
-    hp: Math.floor(baseHp * rarity.hpMult),
     atk: Math.floor(baseAtk * rarity.atkMult),
+    hp:  Math.floor(baseHp  * rarity.hpMult),
+    def: Math.floor(baseDef * rarity.defMult),
+    spd: Math.floor(baseSpd * rarity.spdMult),
+    crt: Math.floor(baseCrt * rarity.crtMult),
+    int: Math.floor(baseInt * rarity.intMult),
   };
 }
 
 export const ALL_CARDS = Array.from({ length: TOTAL_CARDS }, (_, i) => generateCard(i + 1));
+
+// ─── Card stats helper ─────────────────────────────────────────────────────
+export function getCardStats(card: Card): CardStats {
+  return {
+    atk: card.atk,
+    hp:  card.hp,
+    def: card.def,
+    spd: card.spd,
+    crt: card.crt,
+    int: card.int,
+  };
+}
 
 // ─── Element Counter (rock-paper-scissors style) ─────────────────────────────
 //   → advantage deals +50% dmg, disadvantage deals -25% dmg
@@ -222,9 +366,21 @@ export function calcDamage(atk: number, attackerEl: string, defenderEl: string):
   else if (dis === defenderEl) mult = 0.75;
   return Math.floor(atk * mult * (0.8 + Math.random() * 0.4));
 }
-export function calcPower(card: any, level = 1): number {
-  return Math.floor((card.atk + card.hp) * level * (card.rarity.id === "legendary" ? 1.2 : card.rarity.id === "epic" ? 1.1 : card.rarity.id === "rare" ? 1.05 : 1));
+
+export function calcPower(card: Card | CardStats, level = 1): number {
+  const rarityMult: Record<string, number> = {
+    common: 1.0,
+    rare: 1.15,
+    epic: 1.35,
+    legendary: 1.6,
+  };
+  const rmult = rarityMult[(card as Card).rarity?.id ?? "common"];
+  const s = "atk" in card ? card : getCardStats(card as Card);
+  return Math.floor(
+    (s.atk * 2 + s.hp + s.def * 1.5 + s.spd + s.crt * 2 + s.int * 2) * level * rmult
+  );
 }
+
 export function getXpForLevel(level: number): number {
   return level * level * 30; // level 2=120, 3=270, 4=480, 5=750... (must match server)
 }
