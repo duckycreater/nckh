@@ -113,7 +113,7 @@ async function getAdminStats(): Promise<AdminStats> {
 
 app.use(express.json({ limit: "50mb" }));
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 async function sendPurchaseEmail(user: any, itemId: string) {
   try {
