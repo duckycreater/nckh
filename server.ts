@@ -1163,6 +1163,32 @@ app.get("/api/cards/levels/:nickname", async (req, res) => {
   }
 });
 
+app.post("/api/admin/unlock-all-cards", requireAdmin, async (req, res) => {
+  try {
+    const { nickname } = req.body;
+    if (!nickname) return res.status(400).json({ success: false, error: "Missing nickname" });
+
+    const CARD_TOTAL = 300;
+    const flashcardCounts: Record<string, number> = {};
+    for (let i = 1; i <= CARD_TOTAL; i++) {
+      flashcardCounts[String(i)] = 3;
+    }
+
+    const progress = await getGameProgress(nickname);
+    const updated: GameProgress = {
+      ...(progress || {}),
+      flashcardsRead: Array.from({ length: CARD_TOTAL }, (_, i) => i + 1),
+      flashcardCounts,
+    };
+
+    await saveGameProgress(nickname, updated);
+    console.log(`[unlock-all-cards] Unlocked ${CARD_TOTAL} cards for ${nickname}`);
+    res.json({ success: true, message: `Đã mở khóa ${CARD_TOTAL} thẻ cho ${nickname}` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e?.message || "Lỗi" });
+  }
+});
+
 app.delete("/api/rewards/:id", requireAdmin, async (req, res) => {
   try {
     if (!isRewardsDbConfigured()) {
