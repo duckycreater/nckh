@@ -908,12 +908,12 @@ const CARD_DEFINITIONS: CardDef[] = [
   { id: 294, name: "Lon Vệ Tinh", subtitle: "Người Quan Sát Trái Đất", elementId: "metal", rarityId: "epic", atk: 45, hp: 65, def: 28, spd: 55, crt: 25, int: 32, abilityId: "utl_18", artVariant: 2 },
 
   // LEGENDARY CARDS (295-300) - 6 legendary cards
-  { id: 295, name: "Xác Đại Bàng Sét", subtitle: "Kẻ Thống Trị Bầu Trời", elementId: "plastic", rarityId: "legendary", atk: 70, hp: 90, def: 25, spd: 80, crt: 45, int: 30, abilityId: "off_20", artVariant: 3 },
-  { id: 296, name: "Lò Phản Ứng Hạt Nhân", subtitle: "Người Chia Cắt Vũ Trụ", elementId: "hazard", rarityId: "legendary", atk: 90, hp: 80, def: 20, spd: 50, crt: 55, int: 40, abilityId: "off_20", artVariant: 4 },
-  { id: 297, name: "Hạt Giống Cổ Đại", subtitle: "Kẻ Ngủ Ngàn Năm Thức Tỉnh", elementId: "organic", rarityId: "legendary", atk: 55, hp: 120, def: 60, spd: 30, crt: 25, int: 55, abilityId: "utl_20", artVariant: 5 },
-  { id: 298, name: "Bom Nguyên Tử Mini", subtitle: "Người Hủy Diệt Tận Gốc", elementId: "hazard", rarityId: "legendary", atk: 120, hp: 50, def: 0, spd: 35, crt: 70, int: 30, abilityId: "off_20", artVariant: 6 },
-  { id: 299, name: "Bản Đồ Kho Báu", subtitle: "Kẻ Dẫn Lối Vô Tận", elementId: "paper", rarityId: "legendary", atk: 50, hp: 100, def: 40, spd: 60, crt: 35, int: 65, abilityId: "utl_20", artVariant: 7 },
-  { id: 300, name: "Lon Bia Tình Yêu", subtitle: "Người Bất Tử Vĩnh Hằng", elementId: "plastic", rarityId: "legendary", atk: 65, hp: 100, def: 45, spd: 55, crt: 40, int: 40, abilityId: "def_12", artVariant: 8 },
+  { id: 295, name: "Tiền polymer cổ", subtitle: "Tờ tiền polymer đầu tiên", elementId: "paper", rarityId: "legendary", atk: 50, hp: 100, def: 40, spd: 60, crt: 35, int: 65, abilityId: "utl_20", artVariant: 8 },
+  { id: 296, name: "Kính thiên văn", subtitle: "Kính thiên văn vũ trụ", elementId: "glass", rarityId: "legendary", atk: 55, hp: 90, def: 35, spd: 55, crt: 38, int: 60, abilityId: "utl_20", artVariant: 1 },
+  { id: 297, name: "Hạt sen cổ", subtitle: "Hạt sen triều Nguyễn", elementId: "organic", rarityId: "legendary", atk: 55, hp: 120, def: 60, spd: 30, crt: 25, int: 55, abilityId: "utl_20", artVariant: 2 },
+  { id: 298, name: "Lon hiệu ứng", subtitle: "Lon bia sưu tầm thế giới", elementId: "metal", rarityId: "legendary", atk: 70, hp: 100, def: 50, spd: 50, crt: 40, int: 45, abilityId: "def_20", artVariant: 3 },
+  { id: 299, name: "Lọ cổ vật", subtitle: "Lọ pha lê hoàng gia", elementId: "glass", rarityId: "legendary", atk: 60, hp: 110, def: 45, spd: 40, crt: 35, int: 55, abilityId: "def_20", artVariant: 4 },
+  { id: 300, name: "Hộp di sản", subtitle: "Hộp gỗ di sản quốc gia", elementId: "metal", rarityId: "legendary", atk: 65, hp: 100, def: 55, spd: 45, crt: 40, int: 50, abilityId: "def_20", artVariant: 5 },
 ];
 
 // ─── Cards Array & Lookup ───────────────────────────────────────────────────
