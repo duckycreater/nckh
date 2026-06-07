@@ -834,12 +834,12 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             onClick={() => setSelectedElement(null)}
             className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === null ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
           >Tất cả</button>
-          {ELEMENTS.map((el) => (
+          {Array.isArray(ELEMENTS) && ELEMENTS.map((el) => (
             <button
               key={el.id}
               onClick={() => setSelectedElement(el.id === selectedElement ? null : el.id)}
               className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === el.id ? "ring-2 ring-offset-1" : "opacity-70 hover:opacity-100"}`}
-              style={{ backgroundColor: el.id === selectedElement ? el.color : `${el.color}22`, color: el.id === selectedElement ? "white" : el.color, borderColor: el.color, ...(selectedElement !== el.id ? { border: `1px solid ${el.color}44` } : {}) }}
+              style={{ backgroundColor: el.id === selectedElement ? el.accent || el.color : `${el.accent || el.color}22`, color: el.id === selectedElement ? "white" : (el.accent || el.color), borderColor: el.accent || el.color, ...(selectedElement !== el.id ? { border: `1px solid ${(el.accent || el.color)}44` } : {}) }}
             >
               {el.icon} {el.name}
             </button>
@@ -945,10 +945,10 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"}`}>
                   Tất cả
                 </button>
-                {ELEMENTS.map((el) => (
+                {Array.isArray(ELEMENTS) && ELEMENTS.map((el) => (
                   <button key={el.id} onClick={() => setFilterElement(el.id)}
                     className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === el.id ? "text-white" : "bg-slate-100 text-slate-500"}`}
-                    style={filterElement === el.id ? { backgroundColor: el.accent } : {}}>
+                    style={filterElement === el.id ? { backgroundColor: el.accent || el.color } : {}}>
                     <span>{getAvatarEmoji(el.id)}</span>{el.name}
                   </button>
                 ))}
