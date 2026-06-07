@@ -7,6 +7,7 @@ import {
   ChevronDown, Info, Plus, Check, RefreshCw,
   Activity, Award, Cpu, Skull, Eye, Search,
   ChevronRight, Battery, Lightning, Gauge,
+  Filter, SortAsc, Sparkle,
 } from "lucide-react";
 import { UserProgress } from "../types";
 import {
@@ -140,7 +141,7 @@ function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?
 
 // ─── Card Tile (grid) ───────────────────────────────────────────────────────
 function CardTile({ card, level = 1, count = 1, selected = false, locked = false, inDeck = false, onClick }: {
-  card: any; level?: number; count?: number; selected?: boolean; locked?: boolean; inDeck?: boolean; onClick?: () => void;
+  card: any; level?: number; count?: number; selected?: boolean; locked?: boolean; inDeck?: boolean; isNew?: boolean; onClick?: () => void;
 }) {
   const rs = RARITY[card.rarity.id] || RARITY.common;
   const ability = getCardAbility(card);
@@ -185,9 +186,24 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
       {/* Element color bar */}
       <div className="absolute inset-x-0 top-0 z-10 h-1.5 rounded-t-[14px]" style={{ background: `linear-gradient(90deg, ${elemColor}60, ${elemColor})` }} />
 
-      {/* Avatar area */}
+      {/* New Badge */}
+      {isNew && (
+        <motion.div
+          initial={{ scale: 0, rotate: -20 }}
+          animate={{ scale: 1, rotate: 0 }}
+          className="absolute left-1 top-1 z-20 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[7px] font-black text-white shadow-lg"
+        >
+          NEW
+        </motion.div>
+      )}
+
+      {/* Avatar area - SVG card art */}
       <div className="absolute inset-0 flex items-center justify-center pt-3.5">
-        <CardAvatar elementId={card.element.id} size={58} />
+        <div className="w-full h-full p-2">
+          <div className="relative w-full h-full">
+            {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
+          </div>
+        </div>
       </div>
 
       {/* Bottom info panel */}
@@ -285,9 +301,11 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
 
           {/* Main content: Avatar + info */}
           <div className="flex items-start gap-3 sm:gap-5">
-            {/* Avatar */}
-            <div className="flex-shrink-0">
-              <CardAvatar elementId={card.element.id} size={56} sm={72} />
+            {/* SVG Card Art */}
+            <div className="flex-shrink-0 w-24 sm:w-32 h-32 sm:h-44">
+              <div className="relative w-full h-full transform scale-[0.85] sm:scale-100 origin-top-left">
+                {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
+              </div>
             </div>
 
             {/* Info */}
@@ -438,18 +456,19 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
 
         {/* Card */}
         <motion.div
-          style={{ perspective: "1000px" }}
           initial={{ rotateY: 180 }} animate={{ rotateY: flipped ? 0 : 180 }}
           transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1], delay: 0.2 }}
           className="relative w-44 sm:w-56 overflow-hidden rounded-2xl sm:rounded-3xl"
-          style={{ background: `linear-gradient(145deg, ${elemColor}20, ${rs.accent}15)`, border: `3px solid ${rs.accent}60`, boxShadow: `0 0 40px ${rs.accent}40, 0 20px 60px rgba(0,0,0,0.4)` }}
+          style={{ perspective: "1000px", background: `linear-gradient(145deg, ${elemColor}20, ${rs.accent}15)`, border: `3px solid ${rs.accent}60`, boxShadow: `0 0 40px ${rs.accent}40, 0 20px 60px rgba(0,0,0,0.4)` }}
         >
           {/* Color bar */}
           <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${elemColor}, ${rs.accent})` }} />
 
           {/* Avatar */}
           <div className="flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-6">
-            <CardAvatar elementId={result.element?.id || "plastic"} size={56} sm={80} />
+            <div className="w-20 sm:w-24 h-28 sm:h-32">
+              {getCardArt(result.id || 1, result.element?.id || "plastic", result.artVariant || 1, result.rarity?.id ?? "common")}
+            </div>
             <div className="text-center">
               <RarityStars rarityId={result.rarity?.id ?? "common"} size={12} />
               <h3 className="mt-2 text-xl font-black text-white">{result.name}</h3>
@@ -527,7 +546,8 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const [filterElement, setFilterElement] = useState<string>("all");
   const [viewingCard, setViewingCard] = useState<any>(null);
   const [activeSection, setActiveSection] = useState<Section>("collection");
-  const [sortBy, setSortBy] = useState<"power" | "atk" | "hp">("power");
+  const [sortBy, setSortBy] = useState<"power" | "atk" | "hp" | "level" | "rarity" | "name">("power");
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [showLocked, setShowLocked] = useState(false);
   const [cardLevels, setCardLevels] = useState<Record<string, number>>({});
   const [deck, setDeck] = useState<number[]>([]);
@@ -537,6 +557,8 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const [fusing, setFusing] = useState(false);
   const [levelingUp, setLevelingUp] = useState(false);
   const [levelupMsg, setLevelupMsg] = useState<string | null>(null);
+  const [fuseAnimCard, setFuseAnimCard] = useState<{ card: any; xpGained: number } | null>(null);
+  const [newCardIds, setNewCardIds] = useState<Set<number>>(new Set());
 
   // ─── Helpers ───────────────────────────────────────────────────────
   const getCardCount = (id: number) => {
@@ -582,9 +604,11 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   }, [progress, userId, fetchCardLevels]);
 
   // ─── Filter & sort cards ────────────────────────────────────────────
+  const RARITY_ORDER: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
   let displayCards = ALL_CARDS.filter((c) =>
     (filterRarity === "all" || c.rarity.id === filterRarity) &&
     (filterElement === "all" || c.element.id === filterElement) &&
+    (selectedElement === null || c.element.id === selectedElement) &&
     (searchQuery === "" || c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.subtitle && c.subtitle.toLowerCase().includes(searchQuery.toLowerCase())))
   );
   if (!showLocked) displayCards = displayCards.filter((c) => unlockedCards.includes(c.id));
@@ -592,6 +616,9 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     const la = getCardLevel(a.id), lb = getCardLevel(b.id);
     if (sortBy === "atk") return (b.atk * lb) - (a.atk * la);
     if (sortBy === "hp") return (b.hp * lb) - (a.hp * la);
+    if (sortBy === "level") return lb - la;
+    if (sortBy === "rarity") return (RARITY_ORDER[b.rarity.id] || 0) - (RARITY_ORDER[a.rarity.id] || 0);
+    if (sortBy === "name") return a.name.localeCompare(b.name);
     return calcPower(b, lb) - calcPower(a, la);
   });
 
@@ -647,6 +674,15 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               if (!next.includes(id)) next.push(id);
               return next;
             });
+            // Mark card as new in localStorage
+            try {
+              const stored = localStorage.getItem("newCardIds");
+              const current = stored ? JSON.parse(stored) : [];
+              const updated = current.filter((e: any) => e.id !== id);
+              updated.push({ id, timestamp: Date.now() });
+              localStorage.setItem("newCardIds", JSON.stringify(updated));
+              setNewCardIds((prev) => new Set([...prev, id]));
+            } catch { /* silent */ }
           }
         }
         if (result.success && onRefresh) onRefresh(result.progress);
@@ -665,8 +701,15 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         body: JSON.stringify({ nickname: userId, cardId }),
       });
       const data = await res.json();
-      setFuseMsg(data.success ? `Hợp nhất thành công! +${data.xpGained} EXP` : (data.error || "Thất bại."));
-      if (data.success) { await refreshProgress(); fetchCardLevels(); }
+      if (data.success) {
+        setFuseAnimCard({ card: { ...card, level: getCardLevel(cardId) }, xpGained: data.xpGained || getFusedXp(card.atk + card.hp) });
+        setFuseMsg(`Hợp nhất thành công! +${data.xpGained || getFusedXp(card.atk + card.hp)} EXP`);
+        if (onSpend) onSpend(data.xpGained || getFusedXp(card.atk + card.hp), "Hợp nhất thẻ");
+        await refreshProgress();
+        fetchCardLevels();
+      } else {
+        setFuseMsg(data.error || "Thất bại.");
+      }
     } catch { setFuseMsg("Lỗi kết nối."); }
     setFusing(false);
     setTimeout(() => setFuseMsg(null), 4000);
@@ -785,14 +828,62 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative mt-3">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm thẻ theo tên..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pl-9 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-          />
+        {/* Element Filter Buttons */}
+        <div className="flex gap-1.5 mt-2 flex-wrap">
+          <button
+            onClick={() => setSelectedElement(null)}
+            className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === null ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+          >Tất cả</button>
+          {ELEMENTS.map((el) => (
+            <button
+              key={el.id}
+              onClick={() => setSelectedElement(el.id === selectedElement ? null : el.id)}
+              className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === el.id ? "ring-2 ring-offset-1" : "opacity-70 hover:opacity-100"}`}
+              style={{ backgroundColor: el.id === selectedElement ? el.color : `${el.color}22`, color: el.id === selectedElement ? "white" : el.color, borderColor: el.color, ...(selectedElement !== el.id ? { border: `1px solid ${el.color}44` } : {}) }}
+            >
+              {el.icon} {el.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Sort Row */}
+        <div className="relative mt-2 flex gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm thẻ theo tên..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pl-9 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+            />
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-400 cursor-pointer"
+          >
+            <option value="power">Power</option>
+            <option value="level">Level</option>
+            <option value="rarity">Rarity</option>
+            <option value="name">Name</option>
+          </select>
+        </div>
+
+        {/* Rarity Overview Bar */}
+        <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold">
+          {(["legendary", "epic", "rare", "uncommon", "common"] as const).map((rarity) => {
+            const count = unlockedCards.filter((id) => {
+              const card = ALL_CARDS.find((c) => c.id === id);
+              return card?.rarity.id === rarity;
+            }).length;
+            const r = ALL_CARDS.find((c) => c.rarity.id === rarity)?.rarity;
+            if (!r) return null;
+            return (
+              <span key={rarity} className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: `${r.color}22`, color: r.color }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: r.color }} />
+                {count} {r.name}
+              </span>
+            );
+          })}
         </div>
 
         {/* Tabs */}
@@ -881,6 +972,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                       level={getCardLevel(card.id)}
                       locked={isLocked && showLocked}
                       inDeck={inDeck}
+                      isNew={newCardIds.has(card.id)}
                       onClick={() => !isLocked && setViewingCard(resolveCard(card))}
                     />
                   );
@@ -899,6 +991,48 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   fuseMsg.includes("thành") ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
                 }`}>
                 {fuseMsg}
+              </motion.div>
+            )}
+            {/* Dramatic Fusion Animation */}
+            {fuseAnimCard && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                onClick={() => setFuseAnimCard(null)}
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.2, 1] }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                  className="relative flex flex-col items-center gap-4"
+                >
+                  {/* Flash effect */}
+                  <motion.div
+                    animate={{ opacity: [0, 1, 0], scale: [1, 2, 1] }}
+                    transition={{ duration: 0.5 }}
+                    className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-400 via-yellow-300 to-orange-500 blur-xl"
+                  />
+                  {/* XP Indicator */}
+                  <motion.div
+                    animate={{ y: [0, -20, 0] }}
+                    transition={{ repeat: 3, duration: 0.5, ease: "easeInOut" }}
+                    className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-6 py-2 text-xl font-black text-white shadow-lg"
+                  >
+                    +{fuseAnimCard.xpGained} EXP
+                  </motion.div>
+                  {/* Result Card */}
+                  <div className="relative">
+                    <CardAvatar elementId={fuseAnimCard.card.element.id} size={80} />
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
+                      transition={{ duration: 0.5 }}
+                      className="absolute -inset-2 rounded-2xl border-4 border-amber-400 bg-amber-400/20"
+                    />
+                  </div>
+                  <p className="text-lg font-black text-white">{fuseAnimCard.card.name}</p>
+                  <p className="text-sm text-amber-300">Hợp nhất thành công!</p>
+                </motion.div>
               </motion.div>
             )}
             {unlockedCards.filter((id) => getCardCount(id) >= 3).length === 0 ? (
@@ -927,7 +1061,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                         <Sparkles size={8} />+{xpGain} EXP
                       </div>
                       <Button onClick={() => handleFuse(id)} disabled={fusing}
-                        size="sm" variant="secondary" className="mt-2 w-full text-[10px] py-1.5 font-bold bg-slate-900 text-white hover:bg-slate-800">
+                        size="sm" className="mt-2 w-full text-[10px] py-1.5 font-bold bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-lg">
                         <GitMerge size={9} />Hợp nhất
                       </Button>
                     </div>
@@ -941,11 +1075,48 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* LEVEL UP */}
         {activeSection === "levelup" && (
           <div className="space-y-3 p-4">
-            {levelupMsg && (
+            {/* Level Up Animation */}
+            {levelupMsg && levelupMsg.includes("thành") && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                onClick={() => setLevelupMsg(null)}
+              >
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 150, damping: 12 }}
+                  className="flex flex-col items-center gap-4"
+                >
+                  {/* Stars Burst */}
+                  {[...Array(8)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 1, scale: 0 }}
+                      animate={{ opacity: 0, scale: 2, x: Math.cos(i * Math.PI / 4) * 100, y: Math.sin(i * Math.PI / 4) * 100 }}
+                      transition={{ duration: 1, delay: i * 0.05 }}
+                      className="absolute text-2xl"
+                    >
+                      ⭐
+                    </motion.div>
+                  ))}
+                  <div className="rounded-3xl border-4 border-amber-400 bg-gradient-to-br from-amber-400 to-orange-500 p-8 shadow-2xl">
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                    >
+                      <Star size={64} className="text-white drop-shadow-lg" />
+                    </motion.div>
+                  </div>
+                  <p className="text-2xl font-black text-white drop-shadow-lg">{levelupMsg}</p>
+                  <p className="text-sm text-amber-300">Nâng cấp thành công!</p>
+                </motion.div>
+              </motion.div>
+            )}
+            {levelupMsg && !levelupMsg.includes("thành") && (
               <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
-                className={`rounded-xl border px-4 py-3 text-sm font-bold ${
-                  levelupMsg.includes("thành") ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
-                }`}>
+                className="rounded-xl border px-4 py-3 text-sm font-bold border-red-200 bg-red-50 text-red-700">
                 {levelupMsg}
               </motion.div>
             )}
@@ -985,12 +1156,21 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                         <div className="mt-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[9px] font-bold text-amber-700">Cấp tối đa</div>
                       ) : (
                         <>
-                          <div className="mt-1.5 flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600">
-                            <Sparkles size={8} className="text-amber-500" />{xpCost} EXP
+                          {/* Before/After Stats */}
+                          <div className="mt-1 flex flex-col gap-0.5 w-full px-1">
+                            <div className="flex justify-between text-[8px] text-slate-400">
+                              <span>ATK</span><span>{card.atk * level} → {card.atk * (level + 1)}</span>
+                            </div>
+                            <div className="flex justify-between text-[8px] text-slate-400">
+                              <span>HP</span><span>{card.hp * level} → {card.hp * (level + 1)}</span>
+                            </div>
+                          </div>
+                          <div className={`mt-1.5 flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold ${hasXp ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+                            <Sparkles size={8} className={hasXp ? "text-amber-500" : "text-red-400"} />{xpCost} EXP
                           </div>
                           <Button onClick={() => handleLevelUp(id)} disabled={!hasXp || levelingUp}
-                            size="sm" variant="secondary"
-                            className={`mt-1.5 w-full text-[10px] py-1.5 font-bold ${hasXp ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-400"}`}>
+                            size="sm"
+                            className={`mt-1.5 w-full text-[10px] py-1.5 font-bold ${hasXp ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-lg" : "bg-slate-100 text-slate-400"}`}>
                             <ArrowUp size={9} />Nâng cấp
                           </Button>
                         </>
@@ -1104,6 +1284,40 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               </div>
             </div>
 
+            {/* Battle Tips */}
+            <div className="space-y-2">
+              {!canBattle && (
+                <div className="flex items-center gap-2 rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-2">
+                  <Trophy size={16} className="text-amber-500" />
+                  <p className="text-xs font-bold text-amber-700">Cần 5 thẻ để chiến đấu tốt nhất</p>
+                </div>
+              )}
+              {/* Elemental Composition Hint */}
+              {deckCards.length > 0 && (
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2">
+                  <Zap size={14} className="text-indigo-500" />
+                  <p className="text-xs font-medium text-slate-600">
+                    {(() => {
+                      const elements = deckCards.map((c) => c.element.id);
+                      const unique = new Set(elements).size;
+                      const balanceRatio = unique / deckCards.length;
+                      if (balanceRatio >= 0.6) return "Đội hình cân bằng nguyên tố sẽ mạnh hơn!";
+                      const counts: Record<string, number> = {};
+                      elements.forEach((e) => { counts[e] = (counts[e] || 0) + 1; });
+                      const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+                      return `Thế mạnh: ${dominant?.[0]} (${dominant?.[1]}/5) — cân bằng thêm để tăng sức mạnh!`;
+                    })()}
+                  </p>
+                </div>
+              )}
+              {deck.length > 0 && (
+                <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2">
+                  <span className="text-xs font-bold text-emerald-700">Tổng sức mạnh đội hình</span>
+                  <PowerBadge power={deckPower} />
+                </div>
+              )}
+            </div>
+
             {/* Card picker */}
             <div>
               <h4 className="mb-3 font-black text-base text-slate-900">Chọn thẻ vào đội hình</h4>
@@ -1149,16 +1363,21 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               </div>
             </div>
 
-            {/* Battle button */}
-            <Button
-              onClick={() => setShowBattle(true)}
-              disabled={!canBattle}
-              size="lg"
-              className={`w-full text-sm font-bold py-3 ${canBattle ? "bg-slate-900 hover:bg-slate-800 text-white shadow-lg" : "bg-slate-200 text-slate-400"}`}
+            {/* Dramatic Battle Button */}
+            <motion.div
+              whileHover={canBattle ? { scale: 1.02 } : {}}
+              whileTap={canBattle ? { scale: 0.98 } : {}}
             >
-              <Swords size={14} />
-              {canBattle ? "Xông trận!" : `Chọn thêm ${DECK_SIZE - deck.length} thẻ`}
-            </Button>
+              <Button
+                onClick={() => setShowBattle(true)}
+                disabled={!canBattle}
+                size="lg"
+                className={`w-full text-sm font-black py-4 rounded-2xl shadow-xl ${canBattle ? "bg-gradient-to-r from-red-600 via-rose-500 to-pink-500 hover:from-red-700 hover:via-rose-600 hover:to-pink-600 text-white animate-pulse" : "bg-slate-200 text-slate-400"}`}
+              >
+                <Swords size={18} className="mr-2" />
+                {canBattle ? "⚔️ XÔNG TRẬN! ⚔️" : `Chọn thêm ${DECK_SIZE - deck.length} thẻ`}
+              </Button>
+            </motion.div>
           </div>
         )}
       </div>

@@ -13,11 +13,11 @@ import { Badge, Button } from "../lib/ui";
 
 // ─── Campaign Levels ────────────────────────────────────────────────────────
 const CAMPAIGN_LEVELS = [
-  { id: 1, name: "Vùng Đất Rác Thiếc",    bossIds: [101, 102, 103], bossHpMult: 0.6, bossAtkMult: 0.5, reward: 30,  element: "plastic" },
-  { id: 2, name: "Đầm Lầy Nhựa Độc",      bossIds: [201, 202, 203], bossHpMult: 0.9, bossAtkMult: 0.8, reward: 60,  element: "hazard" },
-  { id: 3, name: "Núi Chế Phẩm Hữu Cơ",   bossIds: [151, 152, 153], bossHpMult: 1.2, bossAtkMult: 1.0, reward: 120, element: "organic" },
-  { id: 4, name: "Rừng Kim Loại Gỉ",       bossIds: [251, 252, 253], bossHpMult: 1.6, bossAtkMult: 1.5, reward: 200, element: "metal" },
-  { id: 5, name: "Lõi Lò Đốt Rác",         bossIds: [301, 302, 303], bossHpMult: 2.8, bossAtkMult: 2.2, reward: 500, element: "hazard" },
+  { id: 1, name: "Vùng Đất Rác Thiếc",    bossIds: [101, 102, 103], bossHpMult: 0.8, bossAtkMult: 0.7, reward: 30,  element: "plastic" },
+  { id: 2, name: "Đầm Lầy Nhựa Độc",      bossIds: [201, 202, 203], bossHpMult: 1.2, bossAtkMult: 1.0, reward: 60,  element: "hazard" },
+  { id: 3, name: "Núi Chế Phẩm Hữu Cơ",   bossIds: [151, 152, 153], bossHpMult: 1.6, bossAtkMult: 1.3, reward: 120, element: "organic" },
+  { id: 4, name: "Rừng Kim Loại Gỉ",       bossIds: [251, 252, 253], bossHpMult: 2.2, bossAtkMult: 1.8, reward: 200, element: "metal" },
+  { id: 5, name: "Lõi Lò Đốt Rác",         bossIds: [301, 302, 303], bossHpMult: 3.5, bossAtkMult: 2.8, reward: 500, element: "hazard" },
 ];
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -272,6 +272,12 @@ function calcBattleDamage(
 
   let dmg = Math.floor(baseDmg * critMult * advMult);
 
+  // Speed down / slowed penalty
+  if (attacker.speedBoost === false) {
+    dmg = Math.floor(dmg * 0.8);
+    notes.push("Chậm 20%!");
+  }
+
   // Shield reduction
   if (defender.shieldActive) {
     const shieldBlock = Math.min(defender.shieldValue, dmg);
@@ -357,40 +363,115 @@ function UltimateBar({ charge }: { charge: number }) {
 }
 
 // ─── Status Icons ───────────────────────────────────────────────────────────
-function StatusIcons({ card }: { card: BattleCard }) {
+const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  poison:  { bg: "bg-purple-900/90", text: "text-purple-300", border: "border-purple-500/30" },
+  burn:     { bg: "bg-orange-900/90", text: "text-orange-300", border: "border-orange-500/30" },
+  shield:   { bg: "bg-blue-900/90",  text: "text-blue-300",   border: "border-blue-500/30" },
+  stun:     { bg: "bg-yellow-900/90",text: "text-yellow-300",  border: "border-yellow-500/30" },
+  regen:    { bg: "bg-emerald-900/90",text:"text-emerald-300", border: "border-emerald-500/30" },
+  dodge:    { bg: "bg-green-900/90",  text: "text-green-300",  border: "border-green-500/30" },
+  silenced: { bg: "bg-red-900/90",    text: "text-red-300",    border: "border-red-500/30" },
+};
+
+function StatusIcon({ effect, stacks, value }: { effect: string; stacks?: number; value?: number }) {
+  const colors = STATUS_COLORS[effect] || { bg: "bg-gray-900/90", text: "text-gray-300", border: "border-gray-500/30" };
+  const labels: Record<string, { icon: string; label: (n: number, v?: number) => string }> = {
+    poison:  { icon: "☠️", label: (n) => `×${n}` },
+    burn:    { icon: "🔥", label: (n) => `×${n}` },
+    shield:  { icon: "🛡️", label: (_, v) => `${v}` },
+    stun:    { icon: "⚡", label: (n) => `×${n}` },
+    regen:   { icon: "💚", label: (n) => `×${n}` },
+    dodge:   { icon: "💨", label: (n) => `${n}` },
+    silenced:{ icon: "🔇", label: (n) => `×${n}` },
+  };
+  const lbl = labels[effect];
+  if (!lbl) return null;
+  return (
+    <div className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-black ${colors.bg} ${colors.text} ${colors.border}`}>
+      <span className="text-[10px]">{lbl.icon}</span>
+      <span className="text-[9px]">{lbl.label(stacks || 0, value)}</span>
+    </div>
+  );
+}
+
+function StatusIcons({ card, compact = false }: { card: BattleCard; compact?: boolean }) {
   const icons: React.ReactNode[] = [];
-  if (card.poisonStacks > 0) icons.push(
-    <div key="poison" className="flex items-center gap-0.5 rounded-full bg-purple-900/80 px-1.5 py-0.5 text-[9px] font-black text-purple-300">
-      ☠️ {card.poisonStacks}
-    </div>
-  );
-  if (card.burnStacks > 0) icons.push(
-    <div key="burn" className="flex items-center gap-0.5 rounded-full bg-orange-900/80 px-1.5 py-0.5 text-[9px] font-black text-orange-300">
-      🔥 {card.burnStacks}
-    </div>
-  );
-  if (card.shieldActive) icons.push(
-    <div key="shield" className="flex items-center gap-0.5 rounded-full bg-blue-900/80 px-1.5 py-0.5 text-[9px] font-black text-blue-300">
-      🛡️ {card.shieldValue}
-    </div>
-  );
-  if (card.stunned > 0) icons.push(
-    <div key="stun" className="flex items-center gap-0.5 rounded-full bg-yellow-900/80 px-1.5 py-0.5 text-[9px] font-black text-yellow-300">
-      ⚡ {card.stunned}
-    </div>
-  );
-  if (card.dodgeCooldown > 0) icons.push(
-    <div key="dodgecd" className="flex items-center gap-0.5 rounded-full bg-green-900/80 px-1.5 py-0.5 text-[9px] font-black text-green-300">
-      💨 CD:{card.dodgeCooldown}
-    </div>
-  );
-  if (card.regenStacks > 0) icons.push(
-    <div key="regen" className="flex items-center gap-0.5 rounded-full bg-emerald-900/80 px-1.5 py-0.5 text-[9px] font-black text-emerald-300">
-      💚 {card.regenStacks}
-    </div>
-  );
+  if (card.poisonStacks > 0) icons.push(<StatusIcon key="poison" effect="poison" stacks={card.poisonStacks} />);
+  if (card.burnStacks > 0) icons.push(<StatusIcon key="burn" effect="burn" stacks={card.burnStacks} />);
+  if (card.shieldActive) icons.push(<StatusIcon key="shield" effect="shield" value={card.shieldValue} />);
+  if (card.stunned > 0) icons.push(<StatusIcon key="stun" effect="stun" stacks={card.stunned} />);
+  if (card.dodgeCooldown > 0) icons.push(<StatusIcon key="dodge" effect="dodge" stacks={card.dodgeCooldown} />);
+  if (card.regenStacks > 0) icons.push(<StatusIcon key="regen" effect="regen" stacks={card.regenStacks} />);
+  if (card.silenced > 0) icons.push(<StatusIcon key="silenced" effect="silenced" stacks={card.silenced} />);
   if (icons.length === 0) return null;
-  return <div className="flex items-center gap-1 flex-wrap justify-center">{icons}</div>;
+  return (
+    <div className={`flex items-center gap-1 flex-wrap ${compact ? "justify-end" : "justify-center"}`}>{icons}</div>
+  );
+}
+
+// ─── Boss HP Display (prominent top bar) ────────────────────────────────────
+function BossHpDisplay({ boss, levelData }: { boss: BattleCard; levelData: { name: string } }) {
+  if (!boss.isAlive) return null;
+  const pct = Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100));
+  const barColor = pct > 55 ? "#22c55e" : pct > 28 ? "#f59e0b" : "#ef4444";
+  const el = ELEMENTS.find((e) => e.id === boss.elementId);
+  const emoji = ELEMENT_EMOJI[boss.elementId] || "👹";
+
+  return (
+    <div className="w-full rounded-2xl border border-red-800/40 bg-gradient-to-r from-red-950/80 via-slate-900/90 to-red-950/80 p-3 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{emoji}</span>
+          <div>
+            <p className="text-sm font-black text-white leading-none">{boss.name}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="rounded-full bg-red-900/80 border border-red-500/40 px-1.5 py-0.5 text-[9px] font-black text-red-300">
+                Lv.{boss.level}
+              </span>
+              {el && (
+                <span className="text-[9px] font-bold" style={{ color: el.accent }}>
+                  {el.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-black text-white leading-none">{Math.max(0, boss.hp)}</p>
+          <p className="text-[9px] text-slate-500">/ {boss.maxHp} HP</p>
+          <p className="text-[10px] font-black" style={{ color: barColor }}>{pct.toFixed(0)}%</p>
+        </div>
+      </div>
+
+      {/* HP bar */}
+      <div className="relative mb-1.5">
+        <div className="w-full overflow-hidden rounded-full bg-black/70 ring-1 ring-white/10" style={{ height: 16 }}>
+          <motion.div
+            className="rounded-full"
+            style={{ background: `linear-gradient(90deg, ${barColor}ee, ${barColor})`, boxShadow: `0 0 12px ${barColor}80` }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
+        </div>
+        <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent" />
+      </div>
+
+      {/* Shield row */}
+      {boss.shieldActive && (
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex items-center gap-1 rounded-full bg-blue-900/80 border border-blue-500/40 px-2 py-0.5">
+            <span className="text-xs">🛡️</span>
+            <span className="text-[10px] font-black text-blue-300">Khiên: {boss.shieldValue}</span>
+            <span className="text-[9px] text-blue-400/70">({boss.shieldTurns}t)</span>
+          </div>
+        </div>
+      )}
+
+      {/* Status icons */}
+      <StatusIcons card={boss} />
+    </div>
+  );
 }
 
 // ─── Move Button ───────────────────────────────────────────────────────────
@@ -469,18 +550,40 @@ function MoveButton({
 function ComboMeter({ combo, maxDmg }: { combo: number; maxDmg: number }) {
   if (combo < 2) return null;
   const scale = Math.min(1 + combo * 0.08, 1.5);
+  const bonusMult = (1 + combo * 0.1).toFixed(1);
   return (
     <motion.div
       animate={{ scale: [scale * 0.9, scale, scale * 0.95], rotate: [-1, 1, -1] }}
       transition={{ duration: 0.4, repeat: Infinity }}
       className="flex flex-col items-center"
     >
-      <div className="rounded-2xl bg-gradient-to-b from-amber-700 to-red-800 px-4 py-2 shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-amber-500/40">
-        <p className="text-center text-lg font-black text-amber-300 leading-none">
-          🔥 {combo}x
-        </p>
-        <p className="text-[8px] font-black text-amber-600 uppercase tracking-wider text-center">COMBO</p>
-        <p className="text-[8px] font-black text-red-400 text-center">MAX {maxDmg} DMG</p>
+      {/* Fire particles */}
+      <motion.div
+        className="absolute -top-1 left-1/2 -translate-x-1/2 text-lg leading-none"
+        animate={{ y: [-2, -5, -2], opacity: [0.8, 1, 0.8] }}
+        transition={{ duration: 0.3, repeat: Infinity }}
+      >
+        🔥🔥
+      </motion.div>
+      <div className="relative rounded-2xl bg-gradient-to-b from-amber-700 via-orange-700 to-red-900 px-4 py-2 shadow-[0_0_30px_rgba(245,158,11,0.6)] border border-amber-400/50">
+        {/* Glow overlay */}
+        <motion.div
+          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-t from-white/10 to-transparent"
+          animate={{ opacity: [0.1, 0.3, 0.1] }}
+          transition={{ duration: 0.6, repeat: Infinity }}
+        />
+        <div className="relative">
+          <p className="text-center text-xl font-black text-amber-200 leading-none">
+            🔥 {combo}x
+          </p>
+          <p className="text-[7px] font-black text-amber-600 uppercase tracking-wider text-center">COMBO</p>
+          <p className="text-[8px] font-black text-red-300 text-center mt-0.5">MAX {maxDmg} DMG</p>
+          {combo >= 2 && (
+            <p className="text-[7px] font-black text-yellow-300 text-center bg-yellow-900/50 rounded px-1 mt-0.5">
+              ⚡ +{bonusMult}x DMG
+            </p>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -647,17 +750,17 @@ function BattleAvatar({
 function DamageNumber({ num }: { num: DmgNum }) {
   let color = "#ffffff";
   let label = "";
-  if (num.isDodge)   { color = "#22c55e"; label = "NÉ!"; }
-  else if (num.isHeal)  { color = "#22c55e"; label = "+HP"; }
+  if (num.isDodge)   { color = "#06b6d4"; label = "NÉ!"; }
+  else if (num.isHeal)  { color = "#22c55e"; label = "HỒI HP"; }
   else if (num.isShield) { color = "#60a5fa"; label = "KHIÊN"; }
-  else if (num.isCrit)  { color = "#f59e0b"; label = "CHÍ MẠNG!"; }
+  else if (num.isCrit)  { color = "#fbbf24"; label = "CHÍ MẠNG!"; }
   else if (num.isSuper) { color = "#22c55e"; label = "HIỆU QUẢ!"; }
-  else if (num.isWeak)  { color = "#ef4444"; label = "YẾU HƠN!"; }
-  else if (num.isPoison){ color = "#a855f7"; label = "ĐỘC"; }
-  else if (num.isBurn)  { color = "#f97316"; label = "CHÁY"; }
+  else if (num.isWeak)  { color = "#60a5fa"; label = "YẾU HƠN!"; }
+  else if (num.isPoison){ color = "#c084fc"; label = "ĐỘC"; }
+  else if (num.isBurn)  { color = "#fb923c"; label = "CHÁY"; }
   else color = num.target === "boss" ? "#ef4444" : "#60a5fa";
 
-  const scale = num.isCrit ? 1.6 : num.isDodge ? 1.3 : 1.1;
+  const scale = num.isCrit ? 1.8 : num.isDodge ? 1.4 : 1.2;
   const valueStr = num.isHeal ? `+${num.value}` : `-${num.value}`;
 
   return (
@@ -666,10 +769,13 @@ function DamageNumber({ num }: { num: DmgNum }) {
       animate={{ opacity: [1, 1, 0], y: -80, scale, rotate: [0, 5, -5, 0] }}
       transition={{ duration: 1.4, ease: "easeOut" }}
       className="absolute left-1/2 z-50 font-black text-white pointer-events-none text-center"
-      style={{ color, textShadow: `0 0 16px ${color}, 0 2px 8px rgba(0,0,0,0.9)`, transform: "translate(-50%,-50%)" }}
+      style={{ color, textShadow: `0 0 20px ${color}, 0 0 8px rgba(0,0,0,1), 0 3px 10px rgba(0,0,0,1)` }}
     >
-      <div className="text-4xl leading-none drop-shadow-lg">{valueStr}</div>
-      {label && <div className="text-[11px] font-black uppercase tracking-wider mt-0.5">{label}</div>}
+      <div
+        className="text-5xl leading-none font-black drop-shadow-lg"
+        style={{ WebkitTextStroke: num.isCrit ? "1px rgba(0,0,0,0.6)" : "0px", textShadow: `0 0 20px ${color}, 0 0 10px rgba(0,0,0,1), 0 3px 10px rgba(0,0,0,1)` }}
+      >{valueStr}</div>
+      {label && <div className="text-[12px] font-black uppercase tracking-wider mt-0.5" style={{ textShadow: `0 2px 6px rgba(0,0,0,1)` }}>{label}</div>}
     </motion.div>
   );
 }
@@ -731,6 +837,59 @@ function VictoryConfetti() {
             width: p.size, height: p.size, background: p.color,
             borderRadius: p.shape === "circle" ? "50%" : "3px",
             boxShadow: `0 0 10px ${p.color}`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Hit Sparks ──────────────────────────────────────────────────────────────
+function HitSparks({ target, elementId }: { target: "player" | "boss"; elementId: string }) {
+  const sparkColors: Record<string, string> = {
+    plastic: "#06b6d4",
+    paper: "#f59e0b",
+    glass: "#14b8a6",
+    metal: "#94a3b8",
+    organic: "#22c55e",
+    hazard: "#ef4444",
+  };
+  const color = sparkColors[elementId] || "#ffffff";
+  const sparks = Array.from({ length: 8 }, (_, i) => ({
+    id: i,
+    angle: (i / 8) * 360,
+    distance: 40 + Math.random() * 30,
+    size: 3 + Math.random() * 4,
+    delay: Math.random() * 0.1,
+  }));
+
+  return (
+    <div
+      className="absolute pointer-events-none z-40"
+      style={{
+        top: target === "boss" ? "30%" : "58%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+      }}
+    >
+      {sparks.map((s) => (
+        <motion.div
+          key={s.id}
+          initial={{ opacity: 1, scale: 0, x: 0, y: 0 }}
+          animate={{
+            opacity: [1, 1, 0],
+            scale: [0, 1, 0.5],
+            x: Math.cos((s.angle * Math.PI) / 180) * s.distance,
+            y: Math.sin((s.angle * Math.PI) / 180) * s.distance,
+          }}
+          transition={{ duration: 0.5, delay: s.delay, ease: "easeOut" }}
+          style={{
+            width: s.size,
+            height: s.size,
+            borderRadius: "50%",
+            background: color,
+            boxShadow: `0 0 ${s.size * 2}px ${color}`,
+            position: "absolute",
           }}
         />
       ))}
@@ -801,6 +960,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   const [playerEnergy, setPlayerEnergy] = useState(100);
   const [showIntro, setShowIntro]       = useState(false);
   const [turnIndicator, setTurnIndicator] = useState<"player" | "boss" | null>(null);
+  const [hitSparks, setHitSparks] = useState<{ target: "player" | "boss"; elementId: string } | null>(null);
 
   const pRef          = useRef<BattleCard[]>([]);
   const bRef          = useRef<BattleCard[]>([]);
@@ -957,9 +1117,8 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
     const bossIdx = b.findIndex((c) => c.isAlive);
     if (bossIdx === -1) return;
     const boss = b[bossIdx];
-    const aliveP = p.findIndex((c) => c.isAlive);
-    if (aliveP === -1) return;
-    const target = p[aliveP];
+    const alivePlayers = p.filter((c) => c.isAlive);
+    if (alivePlayers.length === 0) return;
 
     // Boss intro
     if (bossIntro === -1) {
@@ -973,59 +1132,191 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
     }
 
     function executeBossAction() {
+      // ── Status: stun check ──
+      if (boss.stunned > 0) {
+        addLog(`${boss.name} bị choáng, bỏ lượt!`, "status");
+        announce("⚡ CHOÁNG!", "#f59e0b");
+        setTimeout(() => {
+          setBossTeam((prev) => prev.map((c, i) => i === bossIdx ? { ...c, stunned: Math.max(0, c.stunned - 1) } : c));
+          tickStatus("boss", bossIdx, boss);
+          setTimeout(() => {
+            setPlayerTeam((prev) => prev.map((c) => ({
+              ...c, energy: c.maxEnergy,
+              moves: c.moves.map((m) => ({ ...m, currentCooldown: Math.max(0, m.currentCooldown - 1) })),
+              ultimateCharge: Math.min(100, c.ultimateCharge + 33),
+              stunned: Math.max(0, c.stunned - 1),
+              silenced: Math.max(0, c.silenced - 1),
+            })));
+            setBossTeam((prev) => prev.map((c) => ({ ...c, ultimateCharge: Math.min(100, c.ultimateCharge + 33) })));
+            setPlayerEnergy(100);
+            if (!checkEnd()) { setPhase("idle"); setTurnCount((t) => t + 1); }
+          }, 500);
+        }, 600);
+        return;
+      }
+
+      // ── Choose target: lowest HP alive player ──
+      const targetPlayer = alivePlayers.reduce((lowest, c) =>
+        c.hp < lowest.hp ? c : lowest, alivePlayers[0]);
+      const targetIdx = p.findIndex((c) => c.id === targetPlayer.id && c.isAlive);
+
+      // ── Decide boss move ──
+      const bossHpPct = boss.hp / boss.maxHp;
+      const bossMoves: BattleMove[] = [
+        { id: "boss-tackle", name: "Tấn Công", desc: "Đòn tấn công", icon: "⚔️", type: "tackle", energyCost: 0, cooldown: 0, currentCooldown: 0, power: boss.atk, effect: { type: "damage", value: boss.atk } },
+        { id: "boss-elemental", name: boss.elementId === "hazard" ? "Chất Độc" : boss.elementId === "organic" ? "Hơi Nóng" : "Bão Nguyên Tố", desc: "Đòn nguyên tố", icon: "🌪️", type: "skill", energyCost: 0, cooldown: 2, currentCooldown: 0, power: Math.floor(boss.atk * 0.7), effect: { type: boss.elementId === "hazard" ? "poison" : "burn", value: 2, duration: 2 } },
+        { id: "boss-dodge", name: "Phòng Thủ", desc: "Tăng khiên", icon: "🛡️", type: "skill", energyCost: 0, cooldown: 3, currentCooldown: 0, power: 0, effect: { type: "shield", value: 25, duration: 2 } },
+        { id: "boss-heavy", name: "Đòn Nặng", desc: "Sát thương lớn", icon: "💥", type: "skill", energyCost: 0, cooldown: 2, currentCooldown: 0, power: Math.floor(boss.atk * 1.6), effect: { type: "damage", value: Math.floor(boss.atk * 1.6) } },
+      ];
+
+      // Smart move selection
+      let chosenMove = bossMoves[0]; // default tackle
+      const roll = Math.random();
+
+      if (bossHpPct < 0.3 && boss.dodgeCooldown === 0) {
+        // Low HP: prefer dodge or shield
+        chosenMove = roll < 0.5 ? bossMoves[2] : (roll < 0.75 ? bossMoves[0] : bossMoves[3]);
+      } else if (bossHpPct < 0.5) {
+        // Mid HP: mix offensive/defensive
+        chosenMove = roll < 0.2 ? bossMoves[2] : (roll < 0.5 ? bossMoves[1] : (roll < 0.8 ? bossMoves[0] : bossMoves[3]));
+      } else {
+        // Full HP: aggressive
+        chosenMove = roll < 0.4 ? bossMoves[0] : (roll < 0.7 ? bossMoves[3] : bossMoves[1]);
+      }
+
+      // Skip elemental if already poisoned/burning (prefer damage)
+      if (chosenMove.id === "boss-elemental" && (boss.poisonStacks > 0 || boss.burnStacks > 0)) {
+        chosenMove = roll < 0.6 ? bossMoves[0] : bossMoves[3];
+      }
+
       setAttackAnim("boss");
       setTimeout(() => {
         setAttackAnim(null);
 
-        // Boss attacks
         const dodgeRoll = Math.random() * 100;
-        const playerCard = pRef.current[aliveP];
-        const evaded = dodgeRoll < playerCard.evasionChance && playerCard.dodgeActive;
+        const evaded = dodgeRoll < targetPlayer.evasionChance && targetPlayer.dodgeActive;
 
         if (evaded) {
-          // Player dodged
           setIsDodging(true);
           spawnDmg(0, "player", false, false, false, false, false, true);
           announce("💨 NÉ!", "#22c55e");
-          addLog(`${playerCard.name} né được đòn!`, "dodge");
+          addLog(`${targetPlayer.name} né được đòn!`, "dodge");
           setTimeout(() => setIsDodging(false), 400);
         } else {
-          // Boss hits
-          setProjectile({ from: "boss", to: "player", elementId: boss.elementId });
-          setTimeout(() => {
-            setProjectile(null);
-            triggerHit("player");
-            triggerShake();
+          // Elemental move: apply status effect
+          if (chosenMove.id === "boss-elemental") {
+            const isPoison = chosenMove.effect?.type === "poison";
+            setProjectile({ from: "boss", to: "player", elementId: boss.elementId });
+            setTimeout(() => {
+              setProjectile(null);
+              triggerHit("player");
+              triggerShake();
+              setHitSparks({ target: "player", elementId: boss.elementId });
+              setTimeout(() => setHitSparks(null), 600);
 
-            const { dmg, isCrit, notes } = calcBattleDamage(boss, playerCard, boss.atk * 0.9);
-            const advInfo = getAdvantageInfo(boss.elementId, playerCard.elementId);
-            if (advInfo) showBanner(advInfo, "player");
-            spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1);
-            const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
-            addLog(`${ELEMENT_EMOJI[boss.elementId] || "👹"} ${boss.name} → ${dmg} dmg${noteStr}`, "damage");
+              const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, chosenMove.power);
+              const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
+              if (advInfo) showBanner(advInfo, "player");
+              spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1, isPoison, !isPoison);
+              const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
+              addLog(`${ELEMENT_EMOJI[boss.elementId] || "👹"} ${boss.name} dùng ${chosenMove.name}!${noteStr}`, "ability");
 
-            const { died } = applyDamage("player", aliveP, dmg);
-            comboRef.current = 0;
+              const { died } = applyDamage("player", targetIdx, dmg);
+              comboRef.current = 0;
 
-            if (died) {
-              addLog(`${target.name} đã bị đánh bại!`, "ko");
-              announce("💀 KO!", "#f59e0b");
-              setTimeout(() => {
-                const nextAlive = pRef.current.findIndex((c, i) => i > aliveP && c.isAlive);
-                const newIdx = nextAlive !== -1 ? nextAlive : pRef.current.findIndex((c) => c.isAlive);
-                if (newIdx !== -1) setActivePlayerIdx(newIdx);
-              }, 300);
-            }
-          }, 400);
+              if (died) {
+                addLog(`${targetPlayer.name} đã bị đánh bại!`, "ko");
+                announce("💀 KO!", "#f59e0b");
+                setTimeout(() => {
+                  const nextAlive = pRef.current.findIndex((c, i) => i > targetIdx && c.isAlive);
+                  const newIdx = nextAlive !== -1 ? nextAlive : pRef.current.findIndex((c) => c.isAlive);
+                  if (newIdx !== -1) setActivePlayerIdx(newIdx);
+                }, 300);
+              }
+
+              // Apply poison/burn
+              setBossTeam((prev) => prev.map((c, i) => i === bossIdx ? { ...c, [isPoison ? "poisonStacks" : "burnStacks"]: (isPoison ? c.poisonStacks : c.burnStacks) + (chosenMove.effect?.duration || 2) } : c));
+            }, 400);
+          }
+          // Shield move
+          else if (chosenMove.id === "boss-dodge") {
+            const shieldVal = Math.floor(boss.maxHp * (chosenMove.effect?.value || 25) / 100);
+            announce("🛡️ PHÒNG THỦ!", "#60a5fa");
+            addLog(`${boss.name} tạo khiên ${shieldVal} HP!`, "ability");
+            setBossTeam((prev) => prev.map((c, i) => i === bossIdx
+              ? { ...c, shieldActive: true, shieldValue: shieldVal, shieldTurns: chosenMove.effect?.duration || 2, dodgeCooldown: 3 }
+              : c
+            ));
+          }
+          // Heavy attack (multi-hit feel)
+          else if (chosenMove.id === "boss-heavy") {
+            setProjectile({ from: "boss", to: "player", elementId: boss.elementId });
+            setTimeout(() => {
+              setProjectile(null);
+              triggerHit("player");
+              triggerShake();
+              setHitSparks({ target: "player", elementId: boss.elementId });
+              setTimeout(() => setHitSparks(null), 600);
+
+              const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, chosenMove.power);
+              const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
+              if (advInfo) showBanner(advInfo, "player");
+              spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1);
+              const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
+              addLog(`💥 ${boss.name} Đòn Nặng! → ${dmg} dmg${noteStr}`, "damage");
+
+              const { died } = applyDamage("player", targetIdx, dmg);
+              comboRef.current = 0;
+
+              if (died) {
+                addLog(`${targetPlayer.name} đã bị đánh bại!`, "ko");
+                announce("💀 KO!", "#f59e0b");
+                setTimeout(() => {
+                  const nextAlive = pRef.current.findIndex((c, i) => i > targetIdx && c.isAlive);
+                  const newIdx = nextAlive !== -1 ? nextAlive : pRef.current.findIndex((c) => c.isAlive);
+                  if (newIdx !== -1) setActivePlayerIdx(newIdx);
+                }, 300);
+              }
+            }, 400);
+          }
+          // Normal tackle
+          else {
+            setProjectile({ from: "boss", to: "player", elementId: boss.elementId });
+            setTimeout(() => {
+              setProjectile(null);
+              triggerHit("player");
+              triggerShake();
+              setHitSparks({ target: "player", elementId: boss.elementId });
+              setTimeout(() => setHitSparks(null), 600);
+
+              const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, chosenMove.power);
+              const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
+              if (advInfo) showBanner(advInfo, "player");
+              spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1);
+              const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
+              addLog(`${ELEMENT_EMOJI[boss.elementId] || "👹"} ${boss.name} → ${dmg} dmg${noteStr}`, "damage");
+
+              const { died } = applyDamage("player", targetIdx, dmg);
+              comboRef.current = 0;
+
+              if (died) {
+                addLog(`${targetPlayer.name} đã bị đánh bại!`, "ko");
+                announce("💀 KO!", "#f59e0b");
+                setTimeout(() => {
+                  const nextAlive = pRef.current.findIndex((c, i) => i > targetIdx && c.isAlive);
+                  const newIdx = nextAlive !== -1 ? nextAlive : pRef.current.findIndex((c) => c.isAlive);
+                  if (newIdx !== -1) setActivePlayerIdx(newIdx);
+                }, 300);
+              }
+            }, 400);
+          }
         }
 
         // Status tick boss
         setTimeout(() => {
           tickStatus("boss", bossIdx, boss);
 
-          // End turn: reset cooldowns, regen energy, charge ultimates
           setTimeout(() => {
-            // Reset dodge for player
             setPlayerTeam((prev) => prev.map((c) => ({
               ...c,
               dodgeActive: false,
@@ -1038,6 +1329,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
             setBossTeam((prev) => prev.map((c) => ({
               ...c,
               ultimateCharge: Math.min(100, c.ultimateCharge + 33),
+              dodgeCooldown: Math.max(0, c.dodgeCooldown - 1),
             })));
             setPlayerEnergy(100);
 
@@ -1058,6 +1350,11 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
     const b = bRef.current;
     const attacker = p[activePlayerIdx];
     if (!attacker?.isAlive || attacker.stunned > 0) { setPhase("idle"); return; }
+    if (attacker.silenced > 0 && (move.type === "skill" || move.type === "ultimate")) {
+      addLog(`🔇 ${attacker.name} bị câm, không dùng được chiêu!`, "info");
+      setPhase("idle");
+      return;
+    }
     if (attacker.energy < move.energyCost) {
       addLog(`⚡ Không đủ năng lượng!`, "info");
       return;
@@ -1115,6 +1412,8 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
         setProjectile(null);
         triggerHit("boss");
         triggerShake();
+        setHitSparks({ target: "boss", elementId: attacker.elementId });
+        setTimeout(() => setHitSparks(null), 600);
 
         if (move.type === "ultimate") {
           // Ultimate: 3x damage, bypass shield, clear debuffs
@@ -1412,18 +1711,10 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
 
             {/* ─── Boss zone ─────────────────────────────────────────────────── */}
             <div className="relative z-10 border-b border-white/10 bg-gradient-to-b from-red-950/20 to-transparent px-1 sm:px-2 pt-1.5 sm:pt-2 pb-2 sm:pb-3">
-              <div className="mb-1.5 sm:mb-2 flex items-center justify-center">
-                <div className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-black/50 px-2 sm:px-3 py-0.5 border border-white/10">
-                  <TypeBadge elementId={level.element} />
-                  <span className="text-[9px] sm:text-[10px] font-black text-white/60 hidden sm:inline">
-                    {ELEMENTS.find((e) => e.id === level.element)?.name} Boss
-                  </span>
-                  <span className="rounded-full bg-red-900/80 px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black text-red-300">
-                    {bossAlive.length} còn
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-end justify-center gap-2 sm:gap-4">
+              {/* Prominent boss HP display */}
+              {bossAlive[0] && <BossHpDisplay boss={bossAlive[0]} levelData={level} />}
+              {/* Boss lineup */}
+              <div className="flex items-end justify-center gap-2 sm:gap-4 mt-2">
                 {bossTeam.map((b, i) => (
                   <BattleAvatar
                     key={b.id}
@@ -1445,18 +1736,50 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               <div className="relative z-10 px-4 text-center">
                 <span className="text-2xl font-black italic text-amber-500/15 select-none">VS</span>
                 <div className="mt-1">
-                  {phase === "idle" && (
-                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                      className="rounded-full bg-blue-600/20 border border-blue-500/40 px-2.5 py-0.5 text-[8px] font-black text-blue-400 shadow shadow-blue-500/20">
-                      Lượt của bạn
-                    </motion.div>
-                  )}
-                  {(phase === "boss_turn" || phase === "animating") && (
-                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                      className="rounded-full bg-red-600/20 border border-red-500/40 px-2.5 py-0.5 text-[8px] font-black text-red-400 shadow shadow-red-500/20">
-                      Boss đánh
-                    </motion.div>
-                  )}
+                        <AnimatePresence>
+                          {phase === "idle" && (
+                            <motion.div
+                              key="player-turn"
+                              initial={{ opacity: 0, y: -20, scale: 0.6 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -20, scale: 0.8 }}
+                              transition={{ type: "spring", stiffness: 350, damping: 18 }}
+                              className="relative rounded-xl border-2 border-blue-400/50 bg-gradient-to-r from-blue-900/80 via-blue-800/80 to-blue-900/80 px-4 py-1.5 shadow-[0_0_24px_rgba(59,130,246,0.4)]"
+                            >
+                              <motion.div
+                                className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                                animate={{ x: ["-100%", "200%"] }}
+                                transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                              />
+                              <div className="relative flex items-center gap-2">
+                                <span className="text-lg">⚔️</span>
+                                <span className="text-xs font-black uppercase tracking-wider text-blue-300">Lượt của bạn!</span>
+                                <span className="text-lg">🛡️</span>
+                              </div>
+                            </motion.div>
+                          )}
+                          {(phase === "boss_turn" || phase === "animating") && (
+                            <motion.div
+                              key="boss-turn"
+                              initial={{ opacity: 0, y: -20, scale: 0.6 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -20, scale: 0.8 }}
+                              transition={{ type: "spring", stiffness: 350, damping: 18 }}
+                              className="relative rounded-xl border-2 border-red-400/50 bg-gradient-to-r from-red-900/80 via-red-800/80 to-red-900/80 px-4 py-1.5 shadow-[0_0_24px_rgba(239,68,68,0.4)]"
+                            >
+                              <motion.div
+                                className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                                animate={{ x: ["200%", "-100%"] }}
+                                transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                              />
+                              <div className="relative flex items-center gap-2">
+                                <span className="text-lg">👹</span>
+                                <span className="text-xs font-black uppercase tracking-wider text-red-300">Boss tấn công!</span>
+                                <span className="text-lg">💀</span>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                 </div>
               </div>
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -1557,6 +1880,17 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               )}
             </AnimatePresence>
 
+            {/* Hit Sparks */}
+            <AnimatePresence>
+              {hitSparks && (
+                <HitSparks
+                  key="sparks"
+                  target={hitSparks.target}
+                  elementId={hitSparks.elementId}
+                />
+              )}
+            </AnimatePresence>
+
             {/* Effectiveness banner */}
             <AnimatePresence>
               {effectBanner && <EffectivenessBanner key="banner" info={effectBanner.info} side={effectBanner.side} />}
@@ -1579,18 +1913,31 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
             </div>
 
             {/* Battle log */}
-            <div className="mx-2 sm:mx-3 mb-2 max-h-14 sm:max-h-16 overflow-y-auto rounded-xl border border-white/10 bg-black/50 px-2 sm:px-3 py-1 sm:py-1.5 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-wider">Nhật ký</span>
+            <div className="mx-2 sm:mx-3 mb-2 max-h-20 sm:max-h-24 overflow-y-auto rounded-xl border border-white/10 bg-black/60 px-2 sm:px-3 py-1.5 sm:py-2 backdrop-blur-sm scrollbar-thin scrollbar-track-black scrollbar-thumb-white/10">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-wider">Nhật ký</span>
+                  <span className="text-[8px] text-slate-600">Lượt {turnCount}</span>
+                </div>
                 <button onClick={() => setLogVisible(!logVisible)} className="text-slate-500 hover:text-slate-300">
                   {logVisible ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
                 </button>
               </div>
-              {logVisible && log.slice(-4).map((l) => (
-                <p key={l.id} className="text-[10px] font-medium leading-relaxed" style={{ color: l.color }}>
-                  {l.text}
-                </p>
-              ))}
+              {logVisible && (
+                <div className="space-y-0.5">
+                  {log.slice(-6).map((l) => (
+                    <motion.p
+                      key={l.id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="text-[10px] sm:text-[11px] font-medium leading-relaxed"
+                      style={{ color: l.color, textShadow: `0 0 8px ${l.color}40` }}
+                    >
+                      <span className="text-[8px] text-white/20 mr-1">▸</span>{l.text}
+                    </motion.p>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </ScreenShake>
@@ -1608,53 +1955,89 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               initial={{ scale: 0.3, y: 60, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               transition={{ type: "spring", stiffness: 250, damping: 16, delay: 0.1 }}
-              className="relative z-10 w-full max-w-sm rounded-3xl border-2 border-amber-400/50 bg-gradient-to-b from-slate-900 to-slate-950 p-8 text-center shadow-[0_0_80px_rgba(245,158,11,0.25)]"
+              className="relative z-10 w-full max-w-md rounded-3xl border-2 border-amber-400/60 bg-gradient-to-b from-slate-900 via-slate-800/90 to-slate-950 p-8 text-center shadow-[0_0_100px_rgba(245,158,11,0.35)]"
             >
+              {/* Glow orb behind trophy */}
+              <motion.div
+                className="absolute inset-0 rounded-3xl bg-gradient-radial from-amber-500/10 to-transparent pointer-events-none"
+                animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
               <motion.div
                 initial={{ scale: 0, rotate: -30 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: "spring", stiffness: 400, delay: 0.3 }}
-                className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/20 shadow-[0_0_50px_rgba(234,179,8,0.5)]"
+                className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-amber-500/20 shadow-[0_0_60px_rgba(234,179,8,0.6)]"
               >
-                <Trophy size={44} className="text-amber-400" />
+                <Trophy size={52} className="text-amber-400" />
               </motion.div>
               <motion.h2
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45 }}
-                className="text-3xl font-black uppercase tracking-wider text-amber-400"
+                className="relative text-4xl font-black uppercase tracking-widest text-amber-400 drop-shadow-[0_0_20px_rgba(234,179,8,0.6)]"
               >
                 Chiến Thắng!
               </motion.h2>
+              <motion.p
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="relative mt-1 text-xs text-amber-300/70"
+              >
+                {level.name}
+              </motion.p>
+
+              {/* Stats grid */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55 }}
+                className="relative mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/30 p-3"
+              >
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Lượt</span>
+                  <span className="text-lg font-black text-white">{turnCount}</span>
+                </div>
+                <div className="flex flex-col items-center border-x border-white/10">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tổng DMG</span>
+                  <span className="text-lg font-black text-red-400">{totalDmgRef.current}</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">MAX DMG</span>
+                  <span className="text-lg font-black text-orange-400">{maxDmg}</span>
+                </div>
+              </motion.div>
+
+              {/* Combo banner */}
               {maxComboRef.current >= 2 && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.55 }}
-                  className="mt-2 flex items-center justify-center gap-1 text-sm font-bold text-amber-300"
+                  transition={{ delay: 0.6 }}
+                  className="relative mt-3 flex items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2"
                 >
-                  <Flame size={14} className="text-amber-400" />
-                  {maxComboRef.current}x Combo!
+                  <Flame size={18} className="text-amber-400 animate-pulse" />
+                  <span className="text-sm font-black text-amber-300">🔥 {maxComboRef.current}x Combo!</span>
+                  <span className="text-xs text-amber-500">(+{(1 + maxComboRef.current * 0.1).toFixed(1)}x DMG)</span>
                 </motion.div>
               )}
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-                className="mt-3 space-y-1 text-sm text-slate-400">
-                <p>Hoàn thành trong <span className="font-black text-white">{turnCount}</span> lượt</p>
-                <p>Tổng sát thương: <span className="font-black text-red-400">{totalDmgRef.current}</span></p>
-                <p>Damage lớn nhất: <span className="font-black text-red-400">{maxDmg}</span></p>
-                <p>Max combo: <span className="font-black text-amber-400">{maxComboRef.current}x</span></p>
-              </motion.div>
+
+              {/* Reward */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.7 }}
-                className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-amber-500/20 px-6 py-3 ring-1 ring-amber-500/30 shadow shadow-amber-500/20"
+                transition={{ delay: 0.65 }}
+                className="relative mt-4 flex items-center justify-center gap-3 rounded-2xl border border-amber-400/40 bg-gradient-to-r from-amber-900/40 via-amber-800/30 to-amber-900/40 px-6 py-4 shadow-[0_0_30px_rgba(234,179,8,0.2)]"
               >
-                <Sparkles size={20} className="text-amber-400" />
-                <span className="text-2xl font-black text-amber-300">+{battleReward} EXP</span>
+                <Sparkles size={24} className="text-amber-400" />
+                <div className="text-left">
+                  <p className="text-[10px] text-amber-400/70 uppercase tracking-wider font-bold">Phần thưởng</p>
+                  <p className="text-3xl font-black text-amber-300">+{battleReward} EXP</p>
+                </div>
               </motion.div>
+
               <Button
                 onClick={() => { onWin(battleReward); onClose(); }}
                 size="lg"
-                className="mt-6 w-full text-sm font-bold py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-lg"
+                className="relative mt-6 w-full text-base font-black py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-[0_0_30px_rgba(234,179,8,0.4)] rounded-2xl border-0"
               >
+                <Sparkles size={18} className="mr-2" />
                 Nhận thưởng
               </Button>
             </motion.div>
