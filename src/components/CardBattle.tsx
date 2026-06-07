@@ -402,32 +402,47 @@ function MoveButton({
   const noEnergy = energy < move.energyCost;
   const onCd = move.currentCooldown > 0;
   const isReady = !disabled && !noEnergy && !onCd;
-  const btnColor =
-    move.type === "ultimate" ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border-amber-500/50"
-    : move.type === "dodge"  ? "bg-gradient-to-r from-green-700 to-emerald-700 hover:from-green-600 hover:to-emerald-600 border-green-600/50"
-    : move.type === "skill"  ? "bg-gradient-to-r from-purple-700 to-pink-700 hover:from-purple-600 hover:to-pink-600 border-purple-500/50"
-    : "bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 border-slate-500/50";
+  const glowColor = move.type === "ultimate" ? "#f59e0b" : move.type === "dodge" ? "#22c55e" : move.type === "skill" ? "#a855f7" : "#94a3b8";
+  const typeLabel = move.type === "ultimate" ? "TUYỆT CHIÊU" : move.type === "dodge" ? "NÉ ĐÒN" : move.type === "skill" ? "CHIÊU" : "TẤN CÔNG";
 
   return (
     <motion.button
-      whileHover={isReady ? { scale: 1.05, y: -2 } : {}}
-      whileTap={isReady ? { scale: 0.95 } : {}}
+      whileHover={isReady ? { scale: 1.06, y: -3 } : {}}
+      whileTap={isReady ? { scale: 0.94 } : {}}
       onClick={onClick}
       disabled={!isReady}
       className={`
-        relative flex flex-col items-center justify-center rounded-xl border p-2
-        transition-all duration-150 select-none
-        ${btnColor}
-        ${isReady ? "shadow-lg shadow-black/30 cursor-pointer" : "opacity-40 cursor-not-allowed"}
+        relative flex flex-col items-center justify-center rounded-2xl border-2 p-2.5
+        transition-all duration-150 select-none overflow-hidden
+        ${isReady ? "cursor-pointer shadow-lg" : "cursor-not-allowed opacity-40"}
       `}
-      style={{ minWidth: 70, minHeight: 64 }}
+      style={{
+        minWidth: 76, minHeight: 72,
+        background: `linear-gradient(135deg, ${glowColor}30, ${glowColor}15)`,
+        borderColor: glowColor + "80",
+        boxShadow: isReady ? `0 0 16px ${glowColor}40` : undefined,
+      }}
     >
+      {/* Glow overlay */}
+      {isReady && (
+        <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-30"
+          style={{ background: `radial-gradient(circle at center, ${glowColor}60, transparent 70%)` }}
+        />
+      )}
+
+      {/* Type label */}
+      <div className="absolute top-1 left-1 right-1 text-center">
+        <span className="text-[6px] font-black uppercase tracking-wider text-white/60">{typeLabel}</span>
+      </div>
+
       {/* Icon */}
-      <span className="text-xl leading-none">{move.icon}</span>
+      <span className="text-2xl leading-none mt-2">{move.icon}</span>
+
       {/* Name */}
-      <span className="text-[9px] font-black text-white/90 mt-0.5 leading-tight text-center">{move.name}</span>
-      {/* Energy cost */}
-      <div className="flex items-center gap-0.5 mt-0.5">
+      <span className="text-[8px] font-black text-white/90 leading-tight text-center mt-0.5">{move.name}</span>
+
+      {/* Energy + Cooldown */}
+      <div className="flex items-center gap-1 mt-0.5">
         {move.energyCost > 0 && (
           <span className={`text-[8px] font-black ${noEnergy ? "text-red-400" : "text-cyan-300"}`}>
             ⚡{move.energyCost}
@@ -437,11 +452,12 @@ function MoveButton({
           <span className="text-[8px] font-black text-yellow-400">CD{move.currentCooldown}</span>
         )}
       </div>
-      {/* Ultimate ready indicator */}
-      {move.type === "ultimate" && move.currentCooldown === 0 && (
+
+      {/* Ultimate ready pulse */}
+      {move.type === "ultimate" && isReady && (
         <motion.div
-          className="absolute inset-0 rounded-xl border-2 border-amber-300"
-          animate={{ opacity: [0.3, 0.8, 0.3] }}
+          className="absolute inset-0 rounded-2xl border-2 border-amber-300 pointer-events-none"
+          animate={{ opacity: [0.2, 0.7, 0.2] }}
           transition={{ duration: 0.8, repeat: Infinity }}
         />
       )}

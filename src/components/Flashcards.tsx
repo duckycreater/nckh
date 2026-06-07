@@ -112,24 +112,24 @@ function PowerBadge({ power, size = "sm" }: { power: number; size?: "sm" | "lg" 
   );
 }
 
-// ─── Stat Row (clean mini bar) ─────────────────────────────────────────────
-function StatRow({ stat, value, max = 200 }: { stat: string; value: number; max?: number }) {
+// ─── Stat Bar ─────────────────────────────────────────────────────────
+function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?: number }) {
   const cfg = STAT_CONFIG[stat];
-  const pct = Math.min(100, (value / max) * 100);
+  const barPct = Math.min(100, (value / max) * 100);
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-8 text-center text-[10px] font-bold" style={{ color: cfg.color }}>{cfg.icon}</div>
+    <div className="flex items-center gap-3">
+      <div className="w-7 text-center text-[11px]">{cfg.icon}</div>
       <div className="flex-1">
-        <div className="flex items-center justify-between mb-0.5">
+        <div className="mb-1 flex items-center justify-between">
           <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{cfg.label}</span>
-          <span className="text-[10px] font-black tabular-nums" style={{ color: cfg.color }}>{value}</span>
+          <span className="text-[11px] font-black tabular-nums" style={{ color: cfg.color }}>{value}</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
           <motion.div
             className="h-full rounded-full"
             style={{ backgroundColor: cfg.color }}
             initial={{ width: 0 }}
-            animate={{ width: `${pct}%` }}
+            animate={{ width: `${barPct}%` }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           />
         </div>
@@ -145,7 +145,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
   const rs = RARITY[card.rarity.id] || RARITY.common;
   const ability = getCardAbility(card);
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
-  const emoji = getAvatarEmoji(card.element.id);
+  const isEpic = card.rarity.id === "epic" || card.rarity.id === "legendary";
 
   if (locked) {
     return (
@@ -156,7 +156,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
         style={{ aspectRatio: "3/4" }}
       >
         <div className="absolute inset-0 flex items-center justify-center opacity-5">
-          <span className="text-4xl opacity-20">{emoji}</span>
+          <CardAvatar elementId={card.element.id} size={48} />
         </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200">
@@ -183,11 +183,11 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
       style={{ aspectRatio: "3/4", boxShadow: `0 2px 8px ${rs.accent}20, 0 1px 3px rgba(0,0,0,0.06)` }}
     >
       {/* Element color bar */}
-      <div className="absolute inset-x-0 top-0 z-10 h-1 rounded-t-[14px]" style={{ background: `linear-gradient(90deg, ${elemColor}60, ${elemColor})` }} />
+      <div className="absolute inset-x-0 top-0 z-10 h-1.5 rounded-t-[14px]" style={{ background: `linear-gradient(90deg, ${elemColor}60, ${elemColor})` }} />
 
       {/* Avatar area */}
-      <div className="absolute inset-0 flex items-center justify-center pt-3">
-        <CardAvatar elementId={card.element.id} size={52} />
+      <div className="absolute inset-0 flex items-center justify-center pt-3.5">
+        <CardAvatar elementId={card.element.id} size={58} />
       </div>
 
       {/* Bottom info panel */}
@@ -227,7 +227,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
       </div>
 
       {/* Shimmer for epic+ */}
-      {rs.shimmer && (
+      {isEpic && (
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl opacity-40">
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent"
@@ -250,111 +250,139 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
   const power = calcPower(card, level);
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
   const elem = ELEMENTS.find((e) => e.id === card.element.id);
+  const isEpic = card.rarity.id === "epic" || card.rarity.id === "legendary";
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.92, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.92, y: 20 }}
+        initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl"
-        style={{ boxShadow: `0 0 0 2px ${rs.accent}30, 0 25px 60px rgba(0,0,0,0.15)` }}
+        className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
+        style={{ boxShadow: `0 0 0 1.5px ${rs.accent}40, 0 25px 80px rgba(0,0,0,0.18)` }}
       >
-        {/* Color header */}
-        <div className="relative px-6 pt-8 pb-4" style={{ background: `linear-gradient(135deg, ${elemColor}15, transparent)` }}>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <CardAvatar elementId={card.element.id} size={56} />
-              <div>
-                <div className="flex items-center gap-2">
-                  <RarityStars rarityId={card.rarity.id} size={11} />
-                  <span className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
-                    style={{ backgroundColor: rs.accent + "20", color: rs.accent }}>
-                    {rs.name}
-                  </span>
+        {/* ── Hero Header ── */}
+        <div className="relative px-6 pt-8 pb-6" style={{ background: `linear-gradient(145deg, ${elemColor}12, ${elemColor}05, transparent)` }}>
+          {/* Element color accent bar */}
+          <div className="absolute inset-x-0 top-0 h-1.5 rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${elemColor}80, ${rs.accent})` }} />
+
+          {/* Count badge */}
+          {count > 1 && (
+            <div className="absolute right-5 top-8 z-20 flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-1 text-xs font-black text-white shadow-lg">
+              <span>x{count}</span>
+            </div>
+          )}
+
+          {/* Close button */}
+          <button onClick={onClose}
+            className="absolute right-4 top-8 rounded-full border border-slate-200 bg-white/80 p-2 text-slate-400 backdrop-blur-sm transition-all hover:border-slate-300 hover:text-slate-600 hover:bg-white">
+            <X size={15} />
+          </button>
+
+          {/* Main content: Avatar + info */}
+          <div className="flex items-start gap-5">
+            {/* Avatar */}
+            <div className="flex-shrink-0">
+              <CardAvatar elementId={card.element.id} size={72} />
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0 pt-1">
+              {/* Rarity row */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <RarityStars rarityId={card.rarity.id} size={12} />
+                <span className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
+                  style={{ backgroundColor: rs.accent + "18", color: rs.accent, border: `1px solid ${rs.accent}40` }}>
+                  {rs.name}
+                </span>
+                {level > 1 && <LevelBadge level={level} />}
+              </div>
+              {/* Name */}
+              <h3 className="text-xl font-black text-slate-900 leading-tight">{card.name}</h3>
+              {card.subtitle && <p className="text-sm text-slate-400 font-medium">{card.subtitle}</p>}
+              {/* Element + Power */}
+              <div className="mt-2 flex items-center gap-2">
+                {elem && (
+                  <div className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: elemColor + "18" }}>
+                    <span className="text-sm">{getAvatarEmoji(card.element.id)}</span>
+                    <span className="text-[10px] font-bold" style={{ color: elemColor }}>{elem.name}</span>
+                  </div>
+                )}
+                <div className="ml-auto flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1.5">
+                  <Zap size={12} className="text-amber-400" />
+                  <span className="text-sm font-black text-white" style={{ fontFamily: "monospace" }}>{power}</span>
                 </div>
-                <h3 className="mt-1 text-xl font-black text-slate-900">{card.name}</h3>
-                {card.subtitle && <p className="text-sm text-slate-400">{card.subtitle}</p>}
               </div>
             </div>
-            <button onClick={onClose} className="rounded-full border border-slate-200 bg-white p-2 text-slate-400 hover:border-slate-300 hover:text-slate-600 transition-colors">
-              <X size={16} />
-            </button>
           </div>
-          {/* Level + element row */}
-          <div className="mt-3 flex items-center gap-3">
-            {level > 1 && <LevelBadge level={level} />}
-            {elem && (
-              <div className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: elemColor + "20" }}>
-                <span className="text-xs">{getAvatarEmoji(card.element.id)}</span>
-                <span className="text-[10px] font-bold" style={{ color: elemColor }}>{elem.name}</span>
-              </div>
-            )}
-            <div className="ml-auto">
-              <PowerBadge power={power} size="lg" />
+
+          {/* Shimmer for epic */}
+          {isEpic && (
+            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-20">
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                animate={{ x: ["-100%", "200%"] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                style={{ width: "25%", transform: "skewX(-15deg)" }}
+              />
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Stats */}
-        <div className="px-6 py-4">
-          <div className="mb-3 flex items-center justify-between">
+        {/* ── Stats Section ── */}
+        <div className="px-6 pb-4">
+          <div className="mb-1 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chỉ số</span>
-            <span className="text-xs font-bold text-slate-300">Lv.{level}</span>
+            <span className="text-xs font-bold text-slate-300">Level {level}</span>
           </div>
           <div className="space-y-2">
             {(["atk", "hp", "def", "spd", "crt", "int"] as const).map((stat) => (
-              <StatRow key={stat} stat={stat} value={card[stat]} max={stat === "hp" ? 200 : stat === "atk" ? 80 : 50} />
+              <StatBar key={stat} stat={stat} value={card[stat]} max={stat === "hp" ? 200 : stat === "atk" ? 80 : 50} />
             ))}
           </div>
         </div>
 
-        {/* Ability */}
+        {/* ── Ability Section ── */}
         {ability && (
           <div className="mx-6 mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-200 text-lg">{ability.icon}</span>
-              <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-slate-100">
+                <span className="text-2xl">{ability.icon}</span>
+              </div>
+              <div className="flex-1">
                 <p className="text-sm font-black text-slate-900">{ability.name}</p>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${
                     ability.type === "ultimate" ? "bg-amber-100 text-amber-700" :
                     ability.type === "active" ? "bg-blue-100 text-blue-700" :
-                    "bg-slate-200 text-slate-600"
+                    "bg-slate-100 text-slate-600"
                   }`}>
                     {ability.type === "ultimate" ? "Tuyệt chiêu" : ability.type === "active" ? "Chủ động" : "Bị động"}
                   </span>
-                  {Array.from({ length: ability.power }).map((_, i) => (
-                    <Star key={i} size={8} className="fill-amber-400 text-amber-400" />
-                  ))}
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: ability.power }).map((_, i) => (
+                      <Star key={i} size={8} className="fill-amber-400 text-amber-400" />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-            <p className="text-xs leading-relaxed text-slate-500">{ability.desc}</p>
+            <p className="text-xs leading-relaxed text-slate-500 pl-[52px]">{ability.desc}</p>
           </div>
         )}
 
-        {/* Add to deck button */}
+        {/* ── Action Button ── */}
         {onAddDeck && (
           <div className="mx-6 mb-6">
-            <Button onClick={onAddDeck} size="lg" className="w-full text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white">
+            <Button onClick={onAddDeck} size="lg"
+              className="w-full text-sm font-bold shadow-md"
+              style={{ backgroundColor: rs.accent, color: "#fff" }}>
               <Plus size={14} />Thêm vào đội hình
             </Button>
-          </div>
-        )}
-
-        {/* Count badge */}
-        {count > 1 && (
-          <div className="absolute -right-2 -top-2 z-20 rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-white shadow-lg">
-            x{count}
           </div>
         )}
       </motion.div>
