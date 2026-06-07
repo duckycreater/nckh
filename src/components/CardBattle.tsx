@@ -6,6 +6,7 @@ import { Badge, Button, Card, ModalShell } from "../lib/ui";
 
 interface Props {
   deckCardIds: number[];
+  cardLevels: Record<string, number>;
   onClose: () => void;
   onWin: (exp: number) => void;
 }
@@ -39,7 +40,7 @@ function buildBattleCard(cardId: number, level: number, atkMult = 1, hpMult = 1)
   return { id: cardId, card: base, hp, maxHp: hp, atk, level, isAlive: true, ultimateCharge: 0 };
 }
 
-export function CardBattle({ deckCardIds, onClose, onWin }: Props) {
+export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   const [stage, setStage] = useState<BattleStage>("intro");
   const [selectedLevelId, setSelectedLevelId] = useState<number>(1);
   const [playerTeam, setPlayerTeam] = useState<BattleCard[]>([]);
@@ -52,10 +53,7 @@ export function CardBattle({ deckCardIds, onClose, onWin }: Props) {
 
   const level = CAMPAIGN_LEVELS.find((l) => l.id === selectedLevelId) || CAMPAIGN_LEVELS[0];
 
-  // Load levels from cardLevels passed via URL param? Use defaults.
-  // We'll use level=1 for now since the Flashcards component passes deck only
-  const [cardLevels] = useState<Record<string, number>>({});
-
+  // cardLevels passed as prop so battle reflects actual upgrade levels
   const startBattle = () => {
     // Build player team
     const team = deckCardIds.map((id) => buildBattleCard(id, cardLevels[String(id)] || 1));

@@ -224,10 +224,10 @@ export function calcPower(card: any, level = 1): number {
   return Math.floor((card.atk + card.hp) * level * (card.rarity.id === "legendary" ? 1.2 : card.rarity.id === "epic" ? 1.1 : card.rarity.id === "rare" ? 1.05 : 1));
 }
 export function getXpForLevel(level: number): number {
-  return level * level * 50; // level 1→2=50, 2→3=200, 3→4=450, 4→5=800...
+  return level * level * 30; // level 2=120, 3=270, 4=480, 5=750... (must match server)
 }
 export function getFusedXp(cost: number): number {
-  return Math.floor(cost * 0.3);
+  return Math.floor(cost * 2); // must match server: (atk+hp)*2
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

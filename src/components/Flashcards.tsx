@@ -420,6 +420,26 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       .catch(() => setIsPulling(false));
   };
 
+  // Fetch latest user progress to keep UI in sync (used after fuse/levelup)
+  const refreshProgress = useCallback(async () => {
+    try {
+      const res = await fetch("/api/user-progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname: userId, type: "flashcard", data: null }),
+      });
+      const result = await res.json();
+      if (result.success && result.progress) {
+        const readSet = new Set<number>(result.progress.flashcardsRead?.map(Number) || []);
+        if (result.progress.flashcardCounts) {
+          Object.keys(result.progress.flashcardCounts).forEach((k) => readSet.add(Number(k)));
+        }
+        setUnlockedCards(Array.from(readSet));
+        if (onRefresh) onRefresh(result.progress);
+      }
+    } catch { /* silent */ }
+  }, [userId, onRefresh]);
+
   // ─── Fusion ─────────────────────────────────────────────────────────────────
   const handleFuse = async (cardId: number) => {
     setFusing(true);
@@ -432,8 +452,11 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       });
       const data = await res.json();
       setFuseMsg(data.success ? `Hợp nhất! +${data.xpGained} EXP` : (data.error || "Thất bại."));
-      if (data.success && onRefresh) onRefresh();
-      fetchCardLevels();
+      if (data.success) {
+        // Re-sync unlocked cards (count may drop to 0 after consuming 3)
+        await refreshProgress();
+        fetchCardLevels();
+      }
     } catch { setFuseMsg("Lỗi kết nối."); }
     setFusing(false);
     setTimeout(() => setFuseMsg(null), 4000);
@@ -453,7 +476,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       if (data.success) {
         setCardLevels((prev) => ({ ...prev, [String(cardId)]: data.newLevel }));
         setLevelupMsg(`Lên cấp ${data.newLevel}! -${data.xpCost} EXP`);
-        if (onRefresh) onRefresh();
+        await refreshProgress();
       } else {
         setLevelupMsg(data.error || "Thất bại.");
       }
@@ -833,6 +856,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       {showBattle && deck.length === DECK_SIZE && (
         <CardBattle
           deckCardIds={deck}
+          cardLevels={cardLevels}
           onClose={() => setShowBattle(false)}
           onWin={(exp) => { onReward(exp); }}
         />
