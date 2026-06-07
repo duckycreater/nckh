@@ -36,10 +36,11 @@ const RARITY: Record<string, {
 }> = {
   common:    { name: "Phổ thông", shortName: "PT", accent: "#94a3b8", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-300", glow: "shadow-slate-200", badgeBg: "bg-slate-100", badgeText: "text-slate-600", shimmer: false, starCount: 1 },
   rare:      { name: "Hiếm",     shortName: "HM", accent: "#3b82f6", bgLight: "#eff6ff", bgDark: "#1e3a8a", border: "border-blue-400", glow: "shadow-blue-200", badgeBg: "bg-blue-100", badgeText: "text-blue-700", shimmer: false, starCount: 2 },
+  uncommon:  { name: "Thường",   shortName: "T",  accent: "#64748b", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-300", glow: "shadow-slate-200", badgeBg: "bg-slate-100", badgeText: "text-slate-600", shimmer: false, starCount: 1 },
   epic:      { name: "Siêu hiếm", shortName: "SH", accent: "#a855f7", bgLight: "#faf5ff", bgDark: "#581c87", border: "border-purple-400", glow: "shadow-purple-200", badgeBg: "bg-purple-100", badgeText: "text-purple-700", shimmer: true, starCount: 3 },
   legendary:  { name: "Huyền thoại", shortName: "HT", accent: "#f59e0b", bgLight: "#fffbeb", bgDark: "#78350f", border: "border-amber-400", glow: "shadow-amber-200", badgeBg: "bg-amber-100", badgeText: "text-amber-700", shimmer: true, starCount: 4 },
 };
-const RARITY_ORDER = ["legendary", "epic", "rare", "common"];
+const RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
 const PULL_COST = 50;
 const DECK_SIZE = 5;
 
@@ -877,9 +878,10 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             }).length;
             const r = ALL_CARDS.find((c) => c.rarity.id === rarity)?.rarity;
             if (!r) return null;
+            const rColor = r.frameAccent || "#94a3b8";
             return (
-              <span key={rarity} className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: `${r.color}22`, color: r.color }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: r.color }} />
+              <span key={rarity} className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: `${rColor}22`, color: rColor }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rColor }} />
                 {count} {r.name}
               </span>
             );
