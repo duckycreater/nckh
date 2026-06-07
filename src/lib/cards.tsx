@@ -571,8 +571,9 @@ export const ALL_ABILITIES: Record<string, Ability> = {
 };
 
 // ─── Get Ability Function ────────────────────────────────────────────────────
-export function getCardAbility(card: { element: { id: string }; rarity: { id: string }; abilityId: string }): Ability {
-  const ability = ALL_ABILITIES[card.abilityId];
+export function getCardAbility(card: { element?: { id?: string }; rarity?: { id?: string }; abilityId?: string }): Ability {
+  const abilityId = card.abilityId ?? "def_01";
+  const ability = ALL_ABILITIES[abilityId];
   if (!ability) return ALL_ABILITIES["def_01"];
 
   const rarityPower: Record<string, number> = {
@@ -581,7 +582,7 @@ export function getCardAbility(card: { element: { id: string }; rarity: { id: st
     epic: 3,
     legendary: 4,
   };
-  return { ...ability, power: rarityPower[card.rarity.id] ?? 1 };
+  return { ...ability, power: rarityPower[card.rarity?.id ?? "common"] ?? 1 };
 }
 
 // ─── 300 Unique Card Definitions ─────────────────────────────────────────────
@@ -1212,7 +1213,7 @@ function generatePattern(variant: number, rngVal: number, accent: string, bgColo
 }
 
 function generateParticles(rngVal: number, accent: string): ReactElement {
-  const particles: JSX.Element[] = [];
+  const particles: ReactElement[] = [];
   for (let i = 0; i < 8; i++) {
     const x = 10 + seededRandom(rngVal + i * 100) * 100;
     const y = 10 + seededRandom(rngVal + i * 200) * 140;
@@ -1293,3 +1294,236 @@ export function getElementIcon(id: string, size = 40) {
 
 // ─── Legacy Ability ID Export (for backward compat) ─────────────────────────
 export const ABILITY_IDS = Object.keys(ALL_ABILITIES);
+
+// ─── Emoji Avatar Generator ────────────────────────────────────────────────
+export interface CardAvatarProps {
+  cardId: number;
+  elementId: string;
+  rarityId: string;
+  size?: number;
+  state?: "idle" | "attacking" | "hurt" | "ko";
+}
+
+const AVATAR_EMOJI: Record<string, string> = {
+  plastic: "🔵",
+  paper: "📄",
+  glass: "🥛",
+  metal: "🥫",
+  organic: "🍃",
+  hazard: "☣️",
+};
+
+const AVATAR_FACES: Record<string, Record<string, string>> = {
+  idle: {
+    plastic: "◕‿◕",
+    paper: "◕ ‿ ◕",
+    glass: "◠‿◠",
+    metal: "◉_◉",
+    organic: "◕◡◕",
+    hazard: "◉_◉",
+  },
+  attacking: {
+    plastic: "◕ω◕",
+    paper: "◔‿◔",
+    glass: "◔◡◔",
+    metal: "◉ω◉",
+    organic: "◕ω◕",
+    hazard: "◉ω◉",
+  },
+  hurt: {
+    plastic: "◕︿◕",
+    paper: "◔︿◔",
+    glass: "◔︿◔",
+    metal: "◉︿◉",
+    organic: "◕︿◕",
+    hazard: "◉︿◉",
+  },
+  ko: {
+    plastic: "×_×",
+    paper: "×_×",
+    glass: "×_×",
+    metal: "×_×",
+    organic: "×_×",
+    hazard: "×_×",
+  },
+};
+
+const RARITY_GLOW: Record<string, { color: string; shadow: string }> = {
+  common:   { color: "#94a3b8", shadow: "0 0 12px #94a3b880" },
+  rare:     { color: "#3b82f6", shadow: "0 0 16px #3b82f680, 0 0 32px #3b82f640" },
+  epic:     { color: "#a855f7", shadow: "0 0 20px #a855f780, 0 0 40px #a855f740" },
+  legendary: { color: "#f59e0b", shadow: "0 0 24px #f59e0b80, 0 0 48px #f59e0b40, 0 0 72px #f59e0b20" },
+};
+
+export function getAvatarEmoji(elementId: string): string {
+  return AVATAR_EMOJI[elementId] || "⚪";
+}
+
+export function getCardAvatarSVG(
+  cardId: number,
+  elementId: string,
+  rarityId: string,
+  size = 64,
+  state: CardAvatarProps["state"] = "idle",
+): ReactElement {
+  const emoji = AVATAR_EMOJI[elementId] || "⚪";
+  const face = AVATAR_FACES[state]?.[elementId] || AVATAR_FACES.idle[elementId] || "◕‿◕";
+  const glow = RARITY_GLOW[rarityId] || RARITY_GLOW.common;
+  const accentColor = ELEMENTS.find((e) => e.id === elementId)?.accent || "#94a3b8";
+  const isLegendary = rarityId === "legendary";
+  const isEpic = rarityId === "epic" || isLegendary;
+
+  const totalSize = size;
+  const emojiSize = size * 0.5;
+  const faceSize = size * 0.18;
+  const innerRadius = size * 0.35;
+
+  return (
+    <div
+      className="relative flex items-center justify-center select-none"
+      style={{ width: totalSize, height: totalSize }}
+    >
+      {/* Glow ring */}
+      {isEpic && (
+        <div
+          className="absolute rounded-full animate-pulse"
+          style={{
+            width: totalSize * 1.1,
+            height: totalSize * 1.1,
+            background: `radial-gradient(circle, ${glow.color}30, transparent 70%)`,
+            boxShadow: glow.shadow,
+            animation: isLegendary ? "avatar-pulse 1.5s ease-in-out infinite" : "avatar-pulse 2.5s ease-in-out infinite",
+          }}
+        />
+      )}
+
+      {/* Avatar circle */}
+      <div
+        className="relative flex flex-col items-center justify-center rounded-full overflow-hidden"
+        style={{
+          width: innerRadius * 2,
+          height: innerRadius * 2,
+          background: `radial-gradient(circle at 35% 35%, ${accentColor}40, ${accentColor}15, transparent)`,
+          border: `3px solid ${glow.color}`,
+          boxShadow: glow.shadow,
+        }}
+      >
+        {/* Top element icon */}
+        <div
+          className="absolute top-0 text-center"
+          style={{ fontSize: faceSize * 0.8 }}
+        >
+          {emoji}
+        </div>
+
+        {/* Main emoji */}
+        <div style={{ fontSize: emojiSize }} className="leading-none">
+          {state === "ko" ? "💀" : emoji}
+        </div>
+
+        {/* Face */}
+        <div
+          className="absolute bottom-1 text-center font-bold"
+          style={{
+            fontSize: faceSize,
+            color: glow.color,
+            fontFamily: "monospace",
+            letterSpacing: "-1px",
+            textShadow: `0 0 4px ${glow.color}`,
+          }}
+        >
+          {face}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Card Frame SVG (for collection display) ────────────────────────────────
+export function getCardFrameSVG(
+  cardId: number,
+  elementId: string,
+  rarityId: string,
+): ReactElement {
+  const emoji = AVATAR_EMOJI[elementId] || "⚪";
+  const glow = RARITY_GLOW[rarityId] || RARITY_GLOW.common;
+  const accentColor = ELEMENTS.find((e) => e.id === elementId)?.accent || "#94a3b8";
+  const isLegendary = rarityId === "legendary";
+  const isEpic = rarityId === "epic" || isLegendary;
+  const isRare = rarityId === "rare";
+
+  const width = 120;
+  const height = 160;
+
+  return (
+    <div
+      className="relative"
+      style={{ width, height }}
+    >
+      {/* Outer glow for epic/legendary */}
+      {isEpic && (
+        <div
+          className="absolute inset-0 rounded-2xl"
+          style={{
+            background: `radial-gradient(ellipse at center, ${glow.color}40 0%, transparent 70%)`,
+            filter: "blur(8px)",
+            animation: isLegendary ? "shimmer 2s linear infinite" : "none",
+          }}
+        />
+      )}
+
+      {/* Card body */}
+      <div
+        className="relative flex flex-col items-center justify-between p-2 rounded-2xl border-2 overflow-hidden"
+        style={{
+          width,
+          height,
+          background: `linear-gradient(145deg, ${accentColor}15, ${accentColor}05, #0a0a1480)`,
+          borderColor: glow.color,
+          boxShadow: `0 0 16px ${glow.color}40, inset 0 0 20px ${accentColor}10`,
+        }}
+      >
+        {/* Top badge */}
+        <div
+          className="flex items-center justify-center rounded-full"
+          style={{
+            width: 20,
+            height: 20,
+            background: accentColor,
+            fontSize: 10,
+          }}
+        >
+          {emoji}
+        </div>
+
+        {/* Center avatar */}
+        <div className="flex-1 flex items-center justify-center">
+          <div style={{ fontSize: 36, filter: isEpic ? `drop-shadow(0 0 8px ${glow.color})` : "none" }}>
+            {emoji}
+          </div>
+        </div>
+
+        {/* Bottom rarity bar */}
+        <div
+          className="w-full rounded-full"
+          style={{
+            height: 4,
+            background: `linear-gradient(90deg, ${glow.color}00, ${glow.color}, ${glow.color}00)`,
+            boxShadow: isRare ? `0 0 6px ${glow.color}` : "none",
+          }}
+        />
+
+        {/* Legendary sparkle */}
+        {isLegendary && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15) 0%, transparent 50%)",
+              animation: "shimmer 3s linear infinite",
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
