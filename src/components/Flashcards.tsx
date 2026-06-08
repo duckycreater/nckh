@@ -310,7 +310,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
                     <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full"
-                        style={{ backgroundColor: cfg.color, width: `${Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100}%` }}
+                        style={{ backgroundColor: cfg.color, width: `${Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100}%` }
                       />
                     </div>
                     <span className="text-[7px] font-black tabular-nums" style={{ color: cfg.color }}>{val}</span>
