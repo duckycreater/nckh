@@ -148,6 +148,9 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
   const ability = getCardAbility(card);
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
   const isEpic = card.rarity.id === "epic" || card.rarity.id === "legendary";
+  const isLegendary = card.rarity.id === "legendary";
+
+  const [flipped, setFlipped] = useState(false);
 
   if (locked) {
     return (
@@ -155,7 +158,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
         whileHover={{ opacity: 0.7 }}
         onClick={onClick}
         className="relative w-full cursor-pointer overflow-hidden rounded-2xl border-2 border-slate-200 text-left bg-slate-50"
-        style={{ aspectRatio: "3/4" }}
+        style={{ aspectRatio: "2/3" }}
       >
         <div className="absolute inset-0 flex items-center justify-center opacity-5">
           <CardAvatar elementId={card.element.id} size={48} />
@@ -170,91 +173,165 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
     );
   }
 
+  const handleClick = () => {
+    setFlipped((f) => !f);
+    if (onClick) onClick();
+  };
+
+  const glowClass = isLegendary
+    ? "card-shimmer-glow"
+    : isEpic
+    ? "card-shimmer-glow"
+    : "";
+
   return (
-    <motion.button
-      whileHover={{ y: -4, scale: 1.03 }}
-      whileTap={{ scale: 0.97 }}
-      onClick={onClick}
-      className={`
-        relative w-full cursor-pointer overflow-hidden rounded-2xl border-2 text-left
-        transition-all duration-200 bg-white
-        ${rs.border}
-        ${selected ? "ring-2 ring-amber-400 ring-offset-2" : ""}
-        ${inDeck ? "ring-2 ring-amber-400 ring-offset-1" : ""}
-      `}
-      style={{ aspectRatio: "3/4", boxShadow: `0 2px 8px ${rs.accent}20, 0 1px 3px rgba(0,0,0,0.06)` }}
+    <div
+      className="relative w-full cursor-pointer"
+      style={{ perspective: "800px", aspectRatio: "2/3" }}
     >
-      {/* Element color bar */}
-      <div className="absolute inset-x-0 top-0 z-10 h-1.5 rounded-t-[14px]" style={{ background: `linear-gradient(90deg, ${elemColor}60, ${elemColor})` }} />
+      <motion.button
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+        onClick={handleClick}
+        onMouseLeave={() => setFlipped(false)}
+        className={`
+          absolute inset-0 w-full h-full cursor-pointer overflow-hidden rounded-2xl border-2 text-left
+          backface-hidden preserve-3d
+          ${rs.border}
+          ${selected ? "ring-2 ring-amber-400 ring-offset-2" : ""}
+          ${inDeck ? "ring-2 ring-amber-400 ring-offset-1" : ""}
+        `}
+        style={{
+          background: `linear-gradient(145deg, ${rs.bgLight}, ${elemColor}10)`,
+          boxShadow: `0 4px 20px ${rs.accent}25, 0 1px 4px rgba(0,0,0,0.08)`,
+          ["--glow-color" as string]: `${rs.accent}60`,
+        }}
+      >
+        {/* ── FRONT ── */}
+        <div className="absolute inset-0 backface-hidden">
+          {/* Element top bar */}
+          <div className="absolute inset-x-0 top-0 z-10 h-1.5 rounded-t-[14px]"
+            style={{ background: `linear-gradient(90deg, ${elemColor}50, ${elemColor})` }} />
 
-      {/* New Badge */}
-      {isNew && (
-        <motion.div
-          initial={{ scale: 0, rotate: -20 }}
-          animate={{ scale: 1, rotate: 0 }}
-          className="absolute left-1 top-1 z-20 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[7px] font-black text-white shadow-lg"
+          {/* Legendary outer glow */}
+          {isLegendary && (
+            <div className="absolute inset-0 z-0 rounded-2xl"
+              style={{ boxShadow: `0 0 16px ${rs.accent}40, inset 0 0 30px ${rs.accent}10` }} />
+          )}
+
+          {/* NEW badge */}
+          {isNew && (
+            <motion.div
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              className="absolute left-1 top-1 z-20 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[7px] font-black text-white shadow-lg"
+            >
+              NEW
+            </motion.div>
+          )}
+
+          {/* Card art area */}
+          <div className="absolute inset-0 flex items-center justify-center pt-3 pb-14 px-1">
+            <div className="w-full h-full">
+              {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
+            </div>
+          </div>
+
+          {/* Bottom info */}
+          <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-2xl bg-white/95 backdrop-blur-sm px-2 pt-4 pb-1.5">
+            <div className="flex items-center justify-between mb-0.5">
+              <RarityStars rarityId={card.rarity.id} size={7} />
+              <div className="flex items-center gap-1">
+                {count > 1 && (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-black text-amber-700">x{count}</span>
+                )}
+                {inDeck && (
+                  <span className="rounded-full bg-amber-400 p-0.5">
+                    <Check size={8} className="text-white" />
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="line-clamp-1 text-center text-[8px] font-black text-slate-800 leading-tight">{card.name}</p>
+            {level > 1 && (
+              <div className="flex items-center justify-center">
+                <LevelBadge level={level} />
+              </div>
+            )}
+          </div>
+
+          {/* Flip hint */}
+          <div className="absolute bottom-1 right-1 z-20 opacity-0 group-hover:opacity-30 transition-opacity">
+            <span className="text-[6px] text-slate-400">tap to flip</span>
+          </div>
+
+          {/* Shimmer overlay for epic+ */}
+          {isEpic && (
+            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl opacity-50">
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/70 to-transparent"
+                animate={{ x: ["-100%", "200%"] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                style={{ width: "30%", transform: "skewX(-15deg)" }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* ── BACK (flipped) ── */}
+        <div
+          className="absolute inset-0 backface-hidden rounded-2xl border-2 overflow-hidden"
+          style={{
+            background: `linear-gradient(145deg, ${elemColor}15, ${rs.bgLight})`,
+            borderColor: rs.accent,
+            transform: "rotateY(180deg)",
+          }}
         >
-          NEW
-        </motion.div>
-      )}
+          {/* Element color bar */}
+          <div className="absolute inset-x-0 top-0 h-1.5"
+            style={{ background: `linear-gradient(90deg, ${elemColor}, ${rs.accent})` }} />
 
-      {/* Avatar area - SVG card art */}
-      <div className="absolute inset-0 flex items-center justify-center pt-3.5">
-        <div className="w-full h-full p-2">
-          <div className="relative w-full h-full">
-            {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom info panel */}
-      <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-2xl bg-white/95 backdrop-blur-sm p-2 pt-5">
-        {/* Rarity + element */}
-        <div className="mb-1 flex items-center justify-between">
-          <RarityStars rarityId={card.rarity.id} size={7} />
-          <div className="flex items-center gap-1">
-            {count > 1 && (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-black text-amber-700">x{count}</span>
+          {/* Stats panel */}
+          <div className="flex flex-col h-full p-2 pt-4">
+            <p className="text-[8px] font-black text-center text-slate-800 mb-1 leading-tight">{card.name}</p>
+            {ability && (
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <span className="text-sm">{ability.icon}</span>
+                <span className="text-[7px] font-bold text-slate-600">{ability.name}</span>
+              </div>
             )}
-            {inDeck && (
-              <span className="rounded-full bg-amber-400 p-0.5">
-                <Check size={8} className="text-white" />
-              </span>
+            <div className="flex-1 space-y-0.5 overflow-hidden">
+              {(["atk", "hp", "def", "spd"] as const).map((stat) => {
+                const cfg = STAT_CONFIG[stat];
+                const val = card[stat] * (stat === "atk" || stat === "hp" ? level : 1);
+                return (
+                  <div key={stat} className="flex items-center gap-1.5">
+                    <span className="text-[8px] w-4 text-center">{cfg.icon}</span>
+                    <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: cfg.color, width: `${Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-[7px] font-black tabular-nums" style={{ color: cfg.color }}>{val}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {ability && (
+              <p className="text-[6px] text-center text-slate-400 leading-tight mt-1 line-clamp-2">
+                {ability.desc}
+              </p>
             )}
           </div>
+
+          {/* Back glow */}
+          {isLegendary && (
+            <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 20px ${rs.accent}30` }} />
+          )}
         </div>
-
-        {/* Card name */}
-        <p className="line-clamp-1 text-center text-[8px] font-black text-slate-800 leading-tight">{card.name}</p>
-
-        {/* Level */}
-        {level > 1 && (
-          <div className="mt-0.5 flex items-center justify-center">
-            <LevelBadge level={level} />
-          </div>
-        )}
-
-        {/* Ability */}
-        {ability && (
-          <div className="mt-1 flex items-center justify-center gap-1">
-            <span className="text-[8px]">{ability.icon}</span>
-            <span className="text-[7px] font-medium text-slate-500 truncate max-w-full">{ability.name}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Shimmer for epic+ */}
-      {isEpic && (
-        <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl opacity-40">
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent"
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-            style={{ width: "30%", transform: "skewX(-15deg)" }}
-          />
-        </div>
-      )}
-    </motion.button>
+      </motion.button>
+    </div>
   );
 }
 
@@ -561,6 +638,26 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const [fuseAnimCard, setFuseAnimCard] = useState<{ card: any; xpGained: number } | null>(null);
   const [newCardIds, setNewCardIds] = useState<Set<number>>(new Set());
 
+  // ─── Daily Challenge Card ─────────────────────────────────────────
+  const getDailyChallenge = () => {
+    const today = new Date().toDateString();
+    const stored = localStorage.getItem("dailyChallenge");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.date === today) return parsed;
+      } catch { /* ignore */ }
+    }
+    if (unlockedCards.length === 0) return null;
+    const idx = Math.floor(Math.random() * unlockedCards.length);
+    const cardId = unlockedCards[idx];
+    const challenge = { date: today, cardId, buff: 2 };
+    localStorage.setItem("dailyChallenge", JSON.stringify(challenge));
+    return challenge;
+  };
+
+  const dailyChallenge = getDailyChallenge();
+
   // ─── Helpers ───────────────────────────────────────────────────────
   const getCardCount = (id: number) => {
     const read = progress?.flashcardsRead || [];
@@ -731,8 +828,15 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       });
       const data = await res.json();
       if (data.success) {
-        setLevelupMsg(`Nâng cấp thành công lên Lv.${data.newLevel}!`);
-        if (onSpend) onSpend(cost, "Nâng cấp thẻ");
+        let bonusXp = 0;
+        if (dailyChallenge && cardId === dailyChallenge.cardId) {
+          bonusXp = Math.floor(cost);
+          setLevelupMsg(`Nâng cấp thành công lên Lv.${data.newLevel}! +${bonusXp} bonus EXP (Challenge)!`);
+          if (onSpend) onSpend(cost - bonusXp, "Nâng cấp thẻ");
+        } else {
+          setLevelupMsg(`Nâng cấp thành công lên Lv.${data.newLevel}!`);
+          if (onSpend) onSpend(cost, "Nâng cấp thẻ");
+        }
         await fetchCardLevels();
         if (onRefresh) onRefresh();
       } else {
@@ -869,24 +973,80 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           </select>
         </div>
 
-        {/* Rarity Overview Bar */}
-        <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold">
-          {(["legendary", "epic", "rare", "uncommon", "common"] as const).map((rarity) => {
-            const count = unlockedCards.filter((id) => {
-              const card = ALL_CARDS.find((c) => c.id === id);
-              return card?.rarity.id === rarity;
-            }).length;
-            const r = ALL_CARDS.find((c) => c.rarity.id === rarity)?.rarity;
-            if (!r) return null;
-            const rColor = r.frameAccent || "#94a3b8";
-            return (
-              <span key={rarity} className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: `${rColor}22`, color: rColor }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rColor }} />
-                {count} {r.name}
+        {/* Collection progress map */}
+        <div className="mt-2 p-3 rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 shadow-inner">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bộ sưu tập</span>
+            <span className="text-[10px] font-black text-white tabular-nums">
+              {collectedCount}/{totalCards}
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div className="relative h-3 bg-slate-700 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, (collectedCount / Math.max(totalCards, 1)) * 100}%` }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+              className="absolute inset-y-0 left-0 rounded-full"
+              style={{ background: "linear-gradient(90deg, #06b6d4, #22c55e, #f59e0b, #a855f7, #ef4444)" }}
+            />
+            {/* Milestone markers */}
+            {[25, 50, 75, 100].map((milestone) => (
+              <div key={milestone} className="absolute top-0 bottom-0 z-10"
+                style={{ left: `${milestone}%`, marginLeft: -1, width: 2, background: milestone <= (collectedCount / Math.max(totalCards, 1) * 100 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.2)" }}
+              />
+            ))}
+          </div>
+          {/* Milestone labels */}
+          <div className="flex justify-between mt-0.5 px-0.5">
+            {[25, 50, 75, 100].map((m) => (
+              <span key={m} className={`text-[7px] font-bold ${m <= (collectedCount / Math.max(totalCards, 1) * 100) ? "text-white" : "text-slate-500"}`}>
+                {m}%
               </span>
-            );
-          })}
+            ))}
+          </div>
+          {/* Power total */}
+          {collectionPower > 0 && <div className="mt-1.5 flex items-center justify-between">
+            <span className="text-[9px] font-medium text-slate-500">Tổng Power</span>
+            <PowerBadge power={collectionPower} />
+          </div>}
         </div>
+
+        {/* Daily Challenge Card */}
+        {dailyChallenge && (() => {
+          const challengeCard = ALL_CARDS.find((c) => c.id === dailyChallenge.cardId);
+          if (!challengeCard) return null;
+          const elemColor = ELEM_COLOR[challengeCard.element.id] || "#94a3b8";
+          return (
+            <div className="mt-2 flex items-center gap-2 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-2.5"
+              style={{ boxShadow: "0 0 20px rgba(245, 158, 11, 0.2)" }}>
+              <div className="flex items-center gap-1.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 shadow">
+                  <Sparkle size={14} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-amber-600">Thử thách ngày</p>
+                  <p className="text-[10px] font-bold text-amber-700">+100% EXP khi lên cấp</p>
+                </div>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <div className="relative flex-shrink-0" style={{ width: 36, height: 48 }}>
+                  {getCardArt(challengeCard.id, challengeCard.element.id, challengeCard.artVariant || 1, challengeCard.rarity.id)}
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-800">{challengeCard.name}</p>
+                  <p className="text-[9px] font-bold" style={{ color: elemColor }}>
+                    {challengeCard.element.id === 'plastic' ? '🔵 Nhựa' :
+                     challengeCard.element.id === 'paper' ? '📄 Giấy' :
+                     challengeCard.element.id === 'glass' ? '🥛 Thủy Tinh' :
+                     challengeCard.element.id === 'metal' ? '🥫 Kim Loại' :
+                     challengeCard.element.id === 'organic' ? '🍃 Hữu Cơ' : '☣️ Nguy Hại'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Tabs */}
         <div className="mt-2 sm:mt-3 flex gap-1 overflow-x-auto thin-scrollbar">
@@ -962,21 +1122,22 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             {displayCards.length === 0 ? (
               <EmptyState icon={<Layers size={40} className="text-slate-300" />} title="Không có thẻ" subtitle="Thử thay đổi bộ lọc." />
             ) : (
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 overflow-x-auto pb-2 thin-scrollbar">
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 overflow-x-auto pb-3 thin-scrollbar">
                 {displayCards.map((card) => {
                   const isLocked = !unlockedCards.includes(card.id);
                   const inDeck = deck.includes(card.id);
                   return (
-                    <CardTile
-                      key={card.id}
-                      card={card}
-                      count={getCardCount(card.id)}
-                      level={getCardLevel(card.id)}
-                      locked={isLocked && showLocked}
-                      inDeck={inDeck}
-                      isNew={newCardIds.has(card.id)}
-                      onClick={() => !isLocked && setViewingCard(resolveCard(card))}
-                    />
+                    <div key={card.id} className="card-grid-item">
+                      <CardTile
+                        card={card}
+                        count={getCardCount(card.id)}
+                        level={getCardLevel(card.id)}
+                        locked={isLocked && showLocked}
+                        inDeck={inDeck}
+                        isNew={newCardIds.has(card.id)}
+                        onClick={() => !isLocked && setViewingCard(resolveCard(card))}
+                      />
+                    </div>
                   );
                 })}
               </div>
@@ -1294,24 +1455,58 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   <p className="text-xs font-bold text-amber-700">Cần 5 thẻ để chiến đấu tốt nhất</p>
                 </div>
               )}
-              {/* Elemental Composition Hint */}
-              {deckCards.length > 0 && (
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2">
-                  <Zap size={14} className="text-indigo-500" />
-                  <p className="text-xs font-medium text-slate-600">
-                    {(() => {
-                      const elements = deckCards.map((c) => c.element.id);
-                      const unique = new Set(elements).size;
-                      const balanceRatio = unique / deckCards.length;
-                      if (balanceRatio >= 0.6) return "Đội hình cân bằng nguyên tố sẽ mạnh hơn!";
-                      const counts: Record<string, number> = {};
-                      elements.forEach((e) => { counts[e] = (counts[e] || 0) + 1; });
-                      const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-                      return `Thế mạnh: ${dominant?.[0]} (${dominant?.[1]}/5) — cân bằng thêm để tăng sức mạnh!`;
-                    })()}
-                  </p>
-                </div>
-              )}
+              {/* Element Synergy Bonus */}
+              {deckCards.length >= 3 && (() => {
+                const elements = deckCards.map((c) => c.element.id);
+                const counts: Record<string, number> = {};
+                elements.forEach((e) => { counts[e] = (counts[e] || 0) + 1; });
+                const synergyEntries = Object.entries(counts).filter(([, n]) => n >= 3);
+                if (synergyEntries.length === 0) {
+                  // Show composition hint when no synergy
+                  const unique = new Set(elements).size;
+                  const balanceRatio = unique / deckCards.length;
+                  if (balanceRatio >= 0.6) return (
+                    <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2">
+                      <Sparkles size={14} className="text-amber-500" />
+                      <p className="text-xs font-medium text-amber-700">Đội hình cân bằng nguyên tố — cần 3+ thẻ cùng loại để kích hoạt Synergy!</p>
+                    </div>
+                  );
+                  const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+                  return (
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2">
+                      <Zap size={14} className="text-indigo-500" />
+                      <p className="text-xs font-medium text-slate-600">
+                        Thế mạnh: {dominant?.[0]} ({dominant?.[1]}/5) — cần thêm thẻ cùng loại để kích hoạt Synergy!
+                      </p>
+                    </div>
+                  );
+                }
+                const [synEl, synCount] = synergyEntries[0];
+                const synElem = ELEMENTS.find((e) => e.id === synEl);
+                const bonus = Math.floor(synCount * 5);
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-2 rounded-xl border-2 border-emerald-400 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-2 shadow-md"
+                    style={{ boxShadow: `0 0 20px ${synElem?.accent || '#22c55e'}25` }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles size={16} className="text-emerald-500 animate-pulse" />
+                      <span className="text-lg">{synElem?.id === 'plastic' ? '🔵' : synElem?.id === 'paper' ? '📄' : synElem?.id === 'glass' ? '🥛' : synElem?.id === 'metal' ? '🥫' : synElem?.id === 'organic' ? '🍃' : '☣️'}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-black text-emerald-700">SYNERGY KÍCH HOẠT!</p>
+                      <p className="text-[10px] text-emerald-600">
+                        {synCount}x {synElem?.name || synEl} — +{bonus}% ATK tất cả thẻ {synElem?.name || synEl}
+                      </p>
+                    </div>
+                    <div className="rounded-full bg-emerald-500 px-2 py-1 text-xs font-black text-white shadow">
+                      +{bonus}%
+                    </div>
+                  </motion.div>
+                );
+              })()}
               {deck.length > 0 && (
                 <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2">
                   <span className="text-xs font-bold text-emerald-700">Tổng sức mạnh đội hình</span>

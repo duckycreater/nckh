@@ -994,6 +994,492 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
+// Element-specific art data
+const ELEMENT_ART: Record<string, {
+  icon: string;
+  shape: string;
+  texture: string;
+  overlay: string;
+}> = {
+  plastic: {
+    icon: "🔵",
+    shape: "bottle",
+    texture: "crinkled",
+    overlay: "reflection",
+  },
+  paper: {
+    icon: "📄",
+    shape: "sheet",
+    texture: "torn",
+    overlay: "fiber",
+  },
+  glass: {
+    icon: "🥛",
+    shape: "jar",
+    texture: "rings",
+    overlay: "shine",
+  },
+  metal: {
+    icon: "🥫",
+    shape: "can",
+    texture: "dents",
+    overlay: "scratch",
+  },
+  organic: {
+    icon: "🍃",
+    shape: "leaf",
+    texture: "veins",
+    overlay: "dewdrop",
+  },
+  hazard: {
+    icon: "☣️",
+    shape: "skull",
+    texture: "crack",
+    overlay: "steam",
+  },
+};
+
+const RARITY_COLORS: Record<string, { border: string; glow: string; bg: string; accent: string }> = {
+  common:    { border: "#94a3b8", glow: "#cbd5e1", bg: "#f1f5f9", accent: "#64748b" },
+  rare:      { border: "#3b82f6", glow: "#60a5fa", bg: "#eff6ff", accent: "#2563eb" },
+  epic:      { border: "#a855f7", glow: "#c084fc", bg: "#faf5ff", accent: "#7c3aed" },
+  legendary: { border: "#f59e0b", glow: "#fbbf24", bg: "#fffbeb", accent: "#d97706" },
+};
+
+function getParticleCount(rarityId: string): number {
+  switch (rarityId) {
+    case "legendary": return 24;
+    case "epic": return 16;
+    case "rare": return 8;
+    default: return 0;
+  }
+}
+
+function generateElementArt(elementId: string, cardId: number, rng: (n: number) => number): ReactElement {
+  const accentColor = ELEMENTS.find(e => e.id === elementId)?.accent || "#94a3b8";
+
+  switch (elementId) {
+    case "plastic": {
+      // Multi-layer crumpled plastic with wavy layers and texture
+      const scale = 0.9 + rng(50) * 0.2;
+      const crumple = rng(35);
+      return (
+        <g transform={`translate(60,88) scale(${scale})`}>
+          {/* Outer crumpled layer 1 */}
+          <path
+            d="M-20,-48 Q-25,-40 -22,-28 Q-28,-15 -20,-5 Q-26,8 -18,20 Q-22,32 -15,45 Q-18,52 -10,55 Q-5,52 -8,45 Q-3,35 -10,22 Q-4,10 -12,-5 Q-5,-18 -14,-28 Q-6,-40 -16,-50 Q-18,-48 -20,-48 Z"
+            fill={accentColor} opacity="0.5"
+          />
+          {/* Outer crumpled layer 2 */}
+          <path
+            d="M18,-48 Q25,-40 22,-28 Q28,-15 20,-5 Q26,8 18,20 Q22,32 15,45 Q18,52 10,55 Q5,52 8,45 Q3,35 10,22 Q4,10 12,-5 Q5,-18 14,-28 Q6,-40 16,-50 Q18,-48 18,-48 Z"
+            fill={accentColor} opacity="0.35"
+          />
+          {/* Bottle body - main */}
+          <path
+            d="M-18,-45 L-22,-30 L-22,15 Q-22,22 -15,22 L-15,40 Q-15,48 -8,48 L8,48 Q15,48 15,40 L15,22 Q22,22 22,15 L22,-30 L18,-45 Q15,-55 0,-55 Q-15,-55 -18,-45 Z"
+            fill={accentColor} opacity="0.85"
+          />
+          {/* Wavy inner layer - crumpled effect */}
+          <path
+            d={`M-16,-40 Q${-10 + crumple * 8},-25 ${-14 + crumple * 5},-10 Q${-18 + crumple * 10},5 ${-12 + crumple * 6},20 Q${-16 + crumple * 8},35 ${-8 + crumple * 4},42`}
+            stroke={accentColor} strokeWidth="2" fill="none" opacity="0.2"
+          />
+          {/* Cap */}
+          <rect x="-12" y="-62" width="24" height="10" rx="3" fill={accentColor} opacity="0.9" />
+          <rect x="-10" y="-65" width="20" height="5" rx="2" fill={accentColor} opacity="1" />
+          {/* Label band with wrinkle */}
+          <rect x="-18" y="-5" width="36" height="18" rx="2" fill="white" opacity="0.4" />
+          <path d={`M-15,-5 Q${-5 + crumple * 10},0 0,-5 Q${5 + crumple * 8},2 15,-5`} stroke={accentColor} strokeWidth="0.8" fill="none" opacity="0.3" />
+          {/* Water level with wavy surface */}
+          <path d={`M-16,18 Q${-8 + crumple * 6},14 0,18 Q${8 - crumple * 6},22 16,18 L16,40 Q16,44 8,44 L-8,44 Q-16,44 -16,40 Z`} fill={accentColor} opacity="0.35" />
+          {/* Crumple/wrinkle lines on body */}
+          <path d={`M-14,-35 Q${-8 + crumple * 6},-28 -12,-20`} stroke="white" strokeWidth="1" fill="none" opacity="0.15" strokeLinecap="round" />
+          <path d={`M10,-30 Q${16 - crumple * 6},-22 12,-15`} stroke="white" strokeWidth="1" fill="none" opacity="0.15" strokeLinecap="round" />
+          {/* Highlight */}
+          <path d="M-12,-40 Q-14,-20 -12,10" stroke="white" strokeWidth="4" fill="none" opacity="0.5" strokeLinecap="round" />
+          <circle cx="-10" cy="-38" r="3" fill="white" opacity="0.6" />
+          {/* Secondary highlight for glassy plastic */}
+          <path d="M4,-42 Q6,-20 4,15" stroke="white" strokeWidth="2" fill="none" opacity="0.2" strokeLinecap="round" />
+        </g>
+      );
+    }
+
+    case "paper": {
+      // Torn paper with layered edges and fiber texture
+      const tearSeed = Math.floor(rng(60) * 5);
+      const tear2 = Math.floor(rng(61) * 3);
+      return (
+        <g transform="translate(60,88)">
+          {/* Shadow layer for depth */}
+          <path
+            d={`M-26,42 Q-18,44 -8,40 Q2,46 12,40 Q22,36 28,42`}
+            fill={accentColor} opacity="0.25"
+          />
+          {/* Main paper sheet with torn top/bottom edges */}
+          <path
+            d={`M-30,-44 Q${-20 + tearSeed * 2},-46 ${-10 + tearSeed * 1.5},-42 Q${tearSeed * 1},-48 5,-42 Q${15 - tearSeed},-46 25,-42 Q${28 - tear2},-45 30,-42 L30,44 Q${22 + tear2},42 12,46 Q${2 + tearSeed},40 -8,44 Q${-18 - tearSeed},42 -30,44 Z`}
+            fill={accentColor} opacity="0.75"
+          />
+          {/* Secondary torn paper layer behind */}
+          <path
+            d={`M-25,-38 Q-15,-36 -5,-40 5,-36 15,-40 25,-38 L25,36 Q15,40 5,36 -5,40 -15,36 -25,38 Z`}
+            fill={accentColor} opacity="0.25"
+          />
+          {/* Fold line */}
+          <line x1="0" y1="-42" x2="0" y2="44" stroke="white" strokeWidth="1" opacity="0.2" />
+          <line x1="-30" y1="0" x2="30" y2="0" stroke="white" strokeWidth="1" opacity="0.15" />
+          {/* Text lines with varying lengths */}
+          {[1,2,3,4,5,6].map((i) => (
+            <line key={i} x1="-22" y1={-34 + i * 12} x2={16 - i * 2} y2={-34 + i * 12} stroke="white" strokeWidth="2" opacity={0.35 - i * 0.04} strokeLinecap="round" />
+          ))}
+          {/* Torn corners - multiple */}
+          <path d="M22,-42 Q24,-40 28,-42 Q24,-38 22,-42" fill="white" opacity="0.3" />
+          <path d="M-26,42 Q-22,40 -24,44 Q-20,42 -26,42" fill="white" opacity="0.25" />
+          {/* Dog-ear folds */}
+          <path d="M22,-42 L30,-34 L22,-34 Z" fill={accentColor} opacity="0.5" />
+          <path d="M-22,42 L-30,34 L-22,-34 Z" fill={accentColor} opacity="0.3" />
+          {/* Fiber texture - more dense */}
+          {[1,2,3,4,5,6,7,8].map((i) => (
+            <line key={`fib-${i}`} x1={-22 + i * 6} y1={-38} x2={-20 + i * 6} y2={-42} stroke="white" strokeWidth="0.6" opacity="0.3" strokeLinecap="round" />
+          ))}
+          {[1,2,3,4,5,6,7,8].map((i) => (
+            <line key={`fib2-${i}`} x1={-22 + i * 6} y1={36} x2={-20 + i * 6} y2={40} stroke="white" strokeWidth="0.6" opacity="0.25" strokeLinecap="round" />
+          ))}
+          {/* Crease lines */}
+          <path d="M-20,-20 Q-5,-18 10,-20" stroke="white" strokeWidth="0.8" fill="none" opacity="0.12" strokeLinecap="round" />
+          <path d="M-15,10 Q0,12 12,10" stroke="white" strokeWidth="0.8" fill="none" opacity="0.12" strokeLinecap="round" />
+        </g>
+      );
+    }
+
+    case "glass": {
+      // Glass jar with multiple ring texture layers and complex shine
+      const shineOffset = rng(70);
+      const ringCount = 4;
+      return (
+        <g transform="translate(60,88)">
+          {/* Outer glow layer */}
+          <ellipse cx="0" cy="0" rx="30" ry="55" fill={accentColor} opacity="0.08" />
+          {/* Jar body - outer */}
+          <path
+            d="M-22,-35 L-22,35 Q-22,45 -12,45 L12,45 Q22,45 22,35 L22,-35 Q22,-40 18,-40 L-18,-40 Q-22,-40 -22,-35 Z"
+            fill={accentColor} opacity="0.45"
+          />
+          {/* Jar body - inner layer for depth */}
+          <path
+            d="M-18,-30 L-18,32 Q-18,40 -10,40 L10,40 Q18,40 18,32 L18,-30 Q18,-35 15,-35 L-15,-35 Q-18,-35 -18,-30 Z"
+            fill={accentColor} opacity="0.15"
+          />
+          {/* Lid */}
+          <rect x="-24" y="-50" width="48" height="12" rx="4" fill={accentColor} opacity="0.8" />
+          <rect x="-22" y="-48" width="44" height="6" rx="2" fill={accentColor} opacity="0.6" />
+          {/* Ring detail on lid */}
+          <ellipse cx="0" cy="-44" rx="15" ry="3" fill={accentColor} opacity="0.3" />
+          {/* Liquid inside with layers */}
+          <path d="M-18,15 L-18,38 Q-18,42 -12,42 L12,42 Q18,42 18,38 L18,15 Q0,20 -18,15 Z" fill={accentColor} opacity="0.5" />
+          <path d="M-16,18 L-16,36 Q-16,40 -10,40 L10,40 Q16,40 16,36 L16,18 Q0,22 -16,18 Z" fill={accentColor} opacity="0.25" />
+          {/* Multiple ring marks - concentric circles for glass texture */}
+          {[1,2,3,4].map((i) => (
+            <ellipse key={i} cx="0" cy={-12 + i * 14} rx={12 + i * 2} ry="2.5" fill="none" stroke={accentColor} strokeWidth="1" opacity={0.15 - i * 0.02} />
+          ))}
+          {/* Secondary ring set offset */}
+          {[1,2,3].map((i) => (
+            <ellipse key={`r2-${i}`} cx="3" cy={-5 + i * 12} rx={10 + i * 2} ry="2" fill="none" stroke={accentColor} strokeWidth="0.8" opacity={0.1 - i * 0.02} />
+          ))}
+          {/* Main shine - primary streak */}
+          <path d={`M${-18 + shineOffset * 10},-30 Q${-20 + shineOffset * 10},0 ${-18 + shineOffset * 10},30`} stroke="white" strokeWidth="5" fill="none" opacity="0.4" strokeLinecap="round" />
+          {/* Secondary shine */}
+          <path d={`M${-12 + shineOffset * 6},-25 Q${-14 + shineOffset * 6},5 ${-12 + shineOffset * 6},25`} stroke="white" strokeWidth="2.5" fill="none" opacity="0.2" strokeLinecap="round" />
+          {/* Shine drops */}
+          <ellipse cx="-15" cy="-25" rx="4" ry="8" fill="white" opacity="0.25" />
+          <ellipse cx="-13" cy="-10" rx="2" ry="5" fill="white" opacity="0.15" />
+          <ellipse cx="-16" cy="8" rx="3" ry="6" fill="white" opacity="0.12" />
+          {/* Glass edge highlights - both sides */}
+          <path d="M-22,-35 L-22,35" stroke="white" strokeWidth="2.5" opacity="0.3" strokeLinecap="round" />
+          <path d="M22,-35 L22,35" stroke="white" strokeWidth="1.5" opacity="0.15" strokeLinecap="round" />
+        </g>
+      );
+    }
+
+    case "metal": {
+      // Metal can with circuit board traces and rust patches
+      const dentAngle = rng(65) * 360;
+      const traceCount = 5;
+      return (
+        <g transform="translate(60,88)">
+          {/* Circuit trace background layer */}
+          <g opacity="0.15" stroke="#a0a0a0" strokeWidth="1" fill="none">
+            {/* Horizontal traces */}
+            <path d="M-24,-30 L-15,-30 L-10,-25 L10,-25 L15,-30 L24,-30" />
+            <path d="M-24,0 L-12,0 L-8,5 L8,5 L12,0 L24,0" />
+            <path d="M-24,30 L-12,30 L-8,25 L8,25 L12,30 L24,30" />
+            {/* Vertical traces */}
+            <path d="M-10,-25 L-10,5" />
+            <path d="M10,-25 L10,5" />
+            <path d="M0,5 L0,25" />
+            {/* Trace nodes */}
+            <circle cx="-10" cy="-25" r="2" fill="#a0a0a0" />
+            <circle cx="10" cy="-25" r="2" fill="#a0a0a0" />
+            <circle cx="0" cy="5" r="2" fill="#a0a0a0" />
+            <circle cx="-10" cy="5" r="2" fill="#a0a0a0" />
+            <circle cx="10" cy="5" r="2" fill="#a0a0a0" />
+            <circle cx="0" cy="25" r="2" fill="#a0a0a0" />
+            {/* Additional fine traces */}
+            <path d="M-18,-40 L-18,-30 L-10,-25" />
+            <path d="M18,-40 L18,-30 L10,-25" />
+            <path d="M-12,25 L-8,25 L-8,30" />
+            <path d="M12,25 L8,25 L8,30" />
+          </g>
+          {/* Can body */}
+          <path
+            d="M-24,-40 L-24,40 Q-24,50 0,50 Q24,50 24,40 L24,-40 Q24,-50 0,-50 Q-24,-50 -24,-40 Z"
+            fill={accentColor} opacity="0.8"
+          />
+          {/* Top rim */}
+          <ellipse cx="0" cy="-40" rx="24" ry="8" fill={accentColor} opacity="0.9" />
+          <ellipse cx="0" cy="-40" rx="18" ry="5" fill={accentColor} opacity="0.5" />
+          {/* Pull tab */}
+          <ellipse cx="0" cy="-42" rx="8" ry="4" fill={accentColor} opacity="0.7" />
+          <rect x="-3" y="-48" width="6" height="8" rx="2" fill={accentColor} opacity="0.6" />
+          {/* Dent */}
+          <ellipse cx={Math.cos(dentAngle * Math.PI / 180) * 10} cy={Math.sin(dentAngle * Math.PI / 180) * 20} rx="8" ry="5" fill={accentColor} opacity="0.3" transform={`rotate(${dentAngle}, 0, 0)`} />
+          {/* Rust patches - more varied */}
+          {[1,2,3,4].map((i) => (
+            <circle key={i} cx={-12 + i * 8} cy={20 + (i % 2) * 10} r={2 + rng(i * 17) * 3} fill="#b45309" opacity="0.3" />
+          ))}
+          {[1,2,3].map((i) => (
+            <circle key={`r2-${i}`} cx={-8 + i * 6} cy={-20 + (i % 3) * 8} r={1.5 + rng(i * 13) * 2} fill="#b45309" opacity="0.2" />
+          ))}
+          {/* Scratch lines */}
+          {[1,2,3,4].map((i) => (
+            <line key={i} x1={-18 + i * 3} y1={-30 + i * 20} x2={-14 + i * 3} y2={-20 + i * 20} stroke="white" strokeWidth="0.8" opacity="0.2" strokeLinecap="round" />
+          ))}
+          {/* Additional scratches */}
+          {[1,2,3].map((i) => (
+            <line key={`s2-${i}`} x1={-15 + i * 8} y1={-38 + i * 5} x2={-12 + i * 8} y2={-35 + i * 5} stroke="white" strokeWidth="0.6" opacity="0.15" strokeLinecap="round" />
+          ))}
+          {/* Shine band */}
+          <rect x="-24" y="0" width="48" height="8" fill="white" opacity="0.12" rx="2" />
+          {/* Vertical shine */}
+          <path d="M-18,-38 Q-20,0 -18,38" stroke="white" strokeWidth="3" fill="none" opacity="0.3" strokeLinecap="round" />
+          {/* Secondary vertical shine */}
+          <path d="M-14,-35 Q-15,5 -14,30" stroke="white" strokeWidth="1.5" fill="none" opacity="0.15" strokeLinecap="round" />
+        </g>
+      );
+    }
+
+    case "organic": {
+      // Organic with layered leaves and branch patterns
+      const leafAngle = rng(80) * 20 - 10;
+      return (
+        <g transform={`translate(60,88) rotate(${leafAngle})`}>
+          {/* Background shadow leaf */}
+          <path
+            d="M0,-50 Q30,-30 30,0 Q30,30 0,50 Q-30,30 -30,0 Q-30,-30 0,-50 Z"
+            fill={accentColor} opacity="0.25"
+          />
+          {/* Main leaf */}
+          <path
+            d="M0,-55 Q35,-35 35,0 Q35,35 0,55 Q-35,35 -35,0 Q-35,-35 0,-55 Z"
+            fill={accentColor} opacity="0.8"
+          />
+          {/* Leaf highlight - inner layer */}
+          <path d="M0,-50 Q28,-30 28,0 Q28,30 0,50 Q0,40 0,30 Q22,15 22,-15 Q22,-35 0,-50 Z" fill={accentColor} opacity="0.4" />
+          {/* Branch patterns emanating from stem */}
+          <path d="M0,55 Q2,65 0,75" stroke={accentColor} strokeWidth="4" fill="none" opacity="0.6" strokeLinecap="round" />
+          <path d="M0,60 Q-8,68 -14,75" stroke={accentColor} strokeWidth="2" fill="none" opacity="0.4" strokeLinecap="round" />
+          <path d="M0,60 Q8,68 14,75" stroke={accentColor} strokeWidth="2" fill="none" opacity="0.4" strokeLinecap="round" />
+          {/* Small branch leaves */}
+          <path d="M-14,75 Q-22,72 -28,78 Q-20,80 -14,75 Z" fill={accentColor} opacity="0.6" />
+          <path d="M14,75 Q22,72 28,78 Q20,80 14,75 Z" fill={accentColor} opacity="0.6" />
+          {/* Central vein */}
+          <path d="M0,-55 Q2,0 0,55" stroke="white" strokeWidth="2.5" fill="none" opacity="0.35" strokeLinecap="round" />
+          {/* Side veins - more dense */}
+          {[1,2,3,4,5,6].map((i) => {
+            const y = -42 + i * 16;
+            const xW = 26 - Math.abs(i - 3) * 5;
+            return (
+              <g key={i}>
+                <path d={`M0,${y} Q${xW * 0.5},${y + 5} ${xW},${y + 8}`} stroke="white" strokeWidth="1.2" fill="none" opacity="0.25" strokeLinecap="round" />
+                <path d={`M0,${y} Q${-xW * 0.5},${y + 5} ${-xW},${y + 8}`} stroke="white" strokeWidth="1.2" fill="none" opacity="0.25" strokeLinecap="round" />
+              </g>
+            );
+          })}
+          {/* Stem */}
+          <path d="M0,55 Q2,65 0,75" stroke={accentColor} strokeWidth="4" fill="none" opacity="0.6" strokeLinecap="round" />
+          {/* Dew drops - more varied */}
+          {[1,2,3,4].map((i) => (
+            <circle key={i} cx={-12 + i * 8} cy={-30 + i * 15} r={1.5 + rng(i * 23) * 1.5} fill="white" opacity="0.4" />
+          ))}
+          {[1,2].map((i) => (
+            <circle key={`d2-${i}`} cx={8 - i * 4} cy={-15 + i * 12} r={1 + rng(i * 19) * 1.2} fill="white" opacity="0.25" />
+          ))}
+          {/* Tip curl */}
+          <path d="M0,-55 Q5,-58 3,-52" stroke={accentColor} strokeWidth="2" fill="none" opacity="0.5" strokeLinecap="round" />
+        </g>
+      );
+    }
+
+    case "hazard": {
+      // Toxic hazard with jagged cracks and burning/steam effects
+      const crackSeed = rng(90);
+      return (
+        <g transform="translate(60,88)">
+          {/* Outer glow */}
+          <ellipse cx="0" cy="0" rx="45" ry="55" fill={accentColor} opacity="0.08" />
+          {/* Warning triangle background */}
+          <path
+            d="M0,-50 L-40,35 Q0,50 40,35 Z"
+            fill={accentColor} opacity="0.85"
+          />
+          {/* Inner triangle - layered for depth */}
+          <path d="M0,-40 L-30,30 Q0,42 30,30 Z" fill={accentColor} opacity="0.5" />
+          {/* Jagged crack lines radiating outward */}
+          {[1,2,3,4].map((i) => {
+            const angle = (i - 1) * 90 + crackSeed * 30;
+            const rad = angle * Math.PI / 180;
+            const x2 = Math.cos(rad) * 38;
+            const y2 = Math.sin(rad) * 38;
+            const mx = Math.cos(rad) * 20 + (crackSeed - 0.5) * 10;
+            const my = Math.sin(rad) * 20 + (crackSeed - 0.5) * 10;
+            return (
+              <path key={i}
+                d={`M0,0 L${mx.toFixed(1)},${my.toFixed(1)} L${x2.toFixed(1)},${y2.toFixed(1)}`}
+                stroke="#1a0505" strokeWidth="1.5" fill="none" opacity="0.5" strokeLinecap="round" />
+            );
+          })}
+          {/* Crack patterns on triangle edges */}
+          {[1,2,3,4,5].map((i) => (
+            <path key={`ck-${i}`}
+              d={`M${-30 + i * 12},${25 + (i % 2) * 6} L${-28 + i * 12},${28 + (i % 3) * 4} L${-26 + i * 12},${25 + (i % 2) * 6}`}
+              stroke="#1a0505" strokeWidth="1" fill="none" opacity="0.35" strokeLinecap="round" />
+          ))}
+          {/* Biohazard symbol - center circles */}
+          <circle cx="0" cy="5" r="12" fill={accentColor} opacity="0.9" />
+          <circle cx="0" cy="5" r="6" fill="#1a0505" opacity="0.8" />
+          {/* Biohazard arcs */}
+          <path d="M0,-7 Q-18,-25 -18,-5 Q-18,15 0,15" stroke={accentColor} strokeWidth="4" fill="none" opacity="0.9" strokeLinecap="round" />
+          <path d="M0,-7 Q18,-25 18,-5 Q18,15 0,15" stroke={accentColor} strokeWidth="4" fill="none" opacity="0.9" strokeLinecap="round" />
+          <circle cx="0" cy="-5" r="3" fill={accentColor} opacity="0.9" />
+          {/* Burning flame wisps */}
+          {[1,2,3,4].map((i) => (
+            <path key={`flame-${i}`}
+              d={`M${-12 + i * 8},-20 Q${-10 + i * 8},-28 ${-8 + i * 8},-22 Q${-6 + i * 8},-30 ${-4 + i * 8},-24 Q${-2 + i * 8},-20 ${-12 + i * 8},-20`}
+              fill={accentColor} opacity={0.15 + i * 0.05}
+            />
+          ))}
+          {/* Steam/vapor wisps - more varied */}
+          {[1,2,3,4].map((i) => (
+            <path key={`w-${i}`}
+              d={`M${-16 + i * 10},-22 Q${-13 + i * 10},-30 ${-10 + i * 10},-22 Q${-7 + i * 10},-16 ${-16 + i * 10},-22`}
+              stroke="white" strokeWidth="1.5" fill="none" opacity="0.2" strokeLinecap="round"
+            />
+          ))}
+          {/* Additional wisps */}
+          {[1,2].map((i) => (
+            <path key={`w2-${i}`}
+              d={`M${-20 + i * 20},-18 Q${-18 + i * 20},-26 ${-15 + i * 20},-20 Q${-12 + i * 20},-14 ${-20 + i * 20},-18`}
+              stroke="white" strokeWidth="1" fill="none" opacity="0.15" strokeLinecap="round"
+            />
+          ))}
+          {/* Glow dot */}
+          <circle cx="0" cy="5" r="2" fill="white" opacity="0.5" />
+        </g>
+      );
+    }
+
+    default: {
+      // Generic circle fallback
+      return (
+        <g transform="translate(60,88)">
+          <circle r="35" fill={accentColor} opacity="0.7" />
+          <circle r="25" fill="white" opacity="0.15" />
+        </g>
+      );
+    }
+  }
+}
+
+function generateParticles(count: number, accent: string): ReactElement {
+  const particles: ReactElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const seed = i * 17 + 42;
+    const x = 10 + seededRandom(seed) * 100;
+    const y = 10 + seededRandom(seed + 1) * 140;
+    const r = 0.8 + seededRandom(seed + 2) * 2.8;
+    const dur = 2 + seededRandom(seed + 3) * 2.5;
+    const yDrift = -5 - seededRandom(seed + 4) * 15;
+    const xDrift = (seededRandom(seed + 5) - 0.5) * 8;
+    const orbit = seededRandom(seed + 6) > 0.6;
+    const orbitRx = 8 + seededRandom(seed + 7) * 12;
+    const orbitRy = 6 + seededRandom(seed + 8) * 10;
+    const orbitAngle = seededRandom(seed + 9) * 360;
+    const orbitDur = 3 + seededRandom(seed + 10) * 4;
+    particles.push(
+      <circle key={i} cx={x} cy={y} r={r} fill={accent} opacity={0.4 + seededRandom(seed + 5) * 0.4}>
+        {orbit ? (
+          <>
+            <animateTransform attributeName="transform" type="rotate"
+              from={`${orbitAngle} ${x} ${y}`}
+              to={`${orbitAngle + 360} ${x} ${y}`}
+              dur={`${orbitDur}s`} repeatCount="indefinite" />
+            <animateTransform attributeName="transform" type="translate"
+              values={`0,0; ${xDrift},${yDrift}; 0,0`}
+              dur={`${dur * 1.2}s`} repeatCount="indefinite" additive="sum" />
+          </>
+        ) : (
+          <>
+            <animate attributeName="opacity" values={`${0.2 + seededRandom(seed + 6) * 0.4};${0.6 + seededRandom(seed + 7) * 0.4};${0.2 + seededRandom(seed + 8) * 0.4}`} dur={`${dur}s`} repeatCount="indefinite" />
+            <animate attributeName="cy" values={`${y};${y + yDrift};${y}`} dur={`${dur * 1.5}s`} repeatCount="indefinite" />
+            <animate attributeName="cx" values={`${x - 3};${x + 3};${x - 3}`} dur={`${dur * 2}s`} repeatCount="indefinite" />
+          </>
+        )}
+      </circle>
+    );
+  }
+  return <g>{particles}</g>;
+}
+
+function generateRarityHalo(rarityId: string, cardId: number): ReactElement {
+  if (rarityId === "legendary") {
+    return (
+      <g>
+        <ellipse cx="60" cy="85" rx="44" ry="55" fill="none" stroke="#f59e0b" strokeWidth="2" opacity="0.3">
+          <animate attributeName="opacity" values="0.2;0.5;0.2" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="rx" values="44;46;44" dur="2s" repeatCount="indefinite" />
+        </ellipse>
+        <ellipse cx="60" cy="85" rx="38" ry="48" fill="none" stroke="#fbbf24" strokeWidth="1" opacity="0.2">
+          <animate attributeName="opacity" values="0.1;0.4;0.1" dur="2.5s" repeatCount="indefinite" begin="0.5s" />
+        </ellipse>
+      </g>
+    );
+  }
+  if (rarityId === "epic") {
+    return (
+      <g>
+        <ellipse cx="60" cy="85" rx="40" ry="50" fill="none" stroke="#a855f7" strokeWidth="1.5" opacity="0.25">
+          <animate attributeName="opacity" values="0.15;0.35;0.15" dur="2.5s" repeatCount="indefinite" />
+        </ellipse>
+      </g>
+    );
+  }
+  return <g />;
+}
+
+function generateCornerDecorations(accent: string, rarityId: string): ReactElement {
+  const color = rarityId === "common" ? "#94a3b8" : accent;
+  const w = rarityId === "rare" || rarityId === "epic" || rarityId === "legendary" ? 2.5 : 1.8;
+  return (
+    <g stroke={color} strokeWidth={w} fill="none" opacity="0.5" strokeLinecap="round">
+      <path d="M6,22 L6,6 L22,6" />
+      <path d="M114,22 L114,6 L98,6" />
+      <path d="M6,138 L6,154 L22,154" />
+      <path d="M114,138 L114,154 L98,154" />
+    </g>
+  );
+}
+
 export function getCardArt(
   cardId: number,
   elementId: string,
@@ -1005,227 +1491,261 @@ export function getCardArt(
 
   const element = ELEMENTS.find(e => e.id === elementId);
   const accent = element?.accent || "#94a3b8";
-
-  const rarityColors: Record<string, { border: string; glow: string; bg: string }> = {
-    common: { border: "#94a3b8", glow: "#cbd5e1", bg: "#f1f5f9" },
-    rare: { border: "#3b82f6", glow: "#60a5fa", bg: "#eff6ff" },
-    epic: { border: "#a855f7", glow: "#c084fc", bg: "#faf5ff" },
-    legendary: { border: "#f59e0b", glow: "#fbbf24", bg: "#fffbeb" },
-  };
-
-  const colors = rarityColors[rarityId] || rarityColors.common;
+  const colors = RARITY_COLORS[rarityId] || RARITY_COLORS.common;
   const isLegendary = rarityId === "legendary";
   const isEpic = rarityId === "epic" || isLegendary;
+  const particleCount = getParticleCount(rarityId);
 
   const variant = ((artVariant - 1) % 8) + 1;
-
-  const centralIcon = generateCentralIcon(rng(1), elementId, cardId);
-  const pattern = generatePattern(variant, rng(2), accent, colors.bg);
-  const particles = isLegendary ? generateParticles(rng(3), accent) : "";
+  const particleSeed = rng(3);
 
   return (
     <svg viewBox="0 0 120 160" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
       <defs>
         <linearGradient id={`bg-${cardId}`} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor={colors.bg} />
-          <stop offset="100%" stopColor={accent + "20"} />
+          <stop offset="60%" stopColor={colors.bg} />
+          <stop offset="100%" stopColor={accent + "18"} />
         </linearGradient>
-        <linearGradient id={`accent-${cardId}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={accent} />
-          <stop offset="100%" stopColor={colors.border} />
-        </linearGradient>
+        <radialGradient id={`radial-${cardId}`} cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="white" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
+        </radialGradient>
         <filter id={`glow-${cardId}`}>
-          <feGaussianBlur stdDeviation={isLegendary ? 4 : isEpic ? 3 : 2} result="coloredBlur" />
+          <feGaussianBlur stdDeviation={isLegendary ? 5 : isEpic ? 3.5 : 2} result="coloredBlur" />
           <feMerge>
             <feMergeNode in="coloredBlur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
         <filter id={`shadow-${cardId}`}>
-          <feDropShadow dx="2" dy="2" stdDeviation="2" floodColor={colors.border} floodOpacity="0.5" />
+          <feDropShadow dx="2" dy="3" stdDeviation="3" floodColor={colors.border} floodOpacity="0.4" />
+        </filter>
+        <filter id={`glow-strong-${cardId}`}>
+          <feGaussianBlur stdDeviation="6" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
 
       {/* Card Frame */}
-      <rect x="2" y="2" width="116" height="156" rx="8" ry="8" fill={`url(#bg-${cardId})`} stroke={colors.border} strokeWidth={isEpic ? 3 : 2} filter={`url(#shadow-${cardId})`} />
+      <rect x="2" y="2" width="116" height="156" rx="10" ry="10" fill={`url(#bg-${cardId})`} stroke={colors.border} strokeWidth={isEpic ? 3 : 2} filter={`url(#shadow-${cardId})`} />
 
-      {/* Pattern Background */}
-      {pattern}
+      {/* Radial light overlay */}
+      <rect x="2" y="2" width="116" height="156" rx="10" ry="10" fill={`url(#radial-${cardId})`} />
 
-      {/* Central Icon Area */}
-      <g transform="translate(60, 85)" filter={`url(#glow-${cardId})`}>
-        {centralIcon}
+      {/* Element-specific background textures */}
+      {elementId === "glass" && (
+        <g opacity="0.1">
+          {[10,25,40,55,70,85,100].map((cy, i) => (
+            <ellipse key={`ring-${i}`} cx="60" cy={cy} rx={55 - i * 4} ry="6"
+              fill="none" stroke={accent} strokeWidth="1.5" strokeDasharray="3,3" />
+          ))}
+        </g>
+      )}
+      {elementId === "metal" && (
+        <g opacity="0.07" stroke={accent} strokeWidth="0.8" fill="none">
+          <path d="M10,40 L35,40 L40,70 L80,70 L85,110 L110,110" />
+          <path d="M10,80 L50,80 L55,120 L95,120 L100,150 L120,150" />
+          <circle cx="35" cy="40" r="2" fill={accent} />
+          <circle cx="80" cy="70" r="2" fill={accent} />
+          <circle cx="50" cy="80" r="2" fill={accent} />
+          <circle cx="95" cy="120" r="2" fill={accent} />
+        </g>
+      )}
+      {elementId === "paper" && (
+        <g opacity="0.06">
+          {[...Array(5)].map((_, i) => (
+            <path key={`tear-${i}`}
+              d={`M${i * 25 + 5},0 Q${i * 25 + 15},8 ${i * 25 + 20},0 Q${i * 25 + 25},8 ${i * 25 + 30},0`}
+              stroke={accent} strokeWidth="1.5" fill="none" opacity="0.5"
+            />
+          ))}
+          {[...Array(5)].map((_, i) => (
+            <path key={`tear2-${i}`}
+              d={`M${i * 25 + 5},160 Q${i * 25 + 15},152 ${i * 25 + 20},160 Q${i * 25 + 25},152 ${i * 25 + 30},160`}
+              stroke={accent} strokeWidth="1.5" fill="none" opacity="0.5"
+            />
+          ))}
+        </g>
+      )}
+      {elementId === "organic" && (
+        <g opacity="0.08">
+          {[1,2,3].map((i) => (
+            <path key={`branch-${i}`}
+              d={`M${15 + i * 30},160 Q${20 + i * 30},100 ${35 + i * 25},60`}
+              stroke={accent} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+          ))}
+          {[1,2,3].map((i) => (
+            <circle key={`leaf-${i}`} cx={35 + i * 25} cy={60 + i * 15} r="3" fill={accent} opacity="0.6" />
+          ))}
+        </g>
+      )}
+      {elementId === "hazard" && (
+        <g opacity="0.06">
+          {[...Array(4)].map((_, i) => (
+            <path key={`crack-${i}`}
+              d={`M${i * 30 + 10},0 L${i * 30 + 20},${40 + (i % 2) * 20} L${i * 30 + 15},${80 + (i % 3) * 15} L${i * 30 + 25},120 L${i * 30 + 15},160`}
+              stroke={accent} strokeWidth="1" fill="none" strokeLinecap="round" />
+          ))}
+        </g>
+      )}
+      {elementId === "plastic" && (
+        <g opacity="0.06">
+          {[...Array(3)].map((_, i) => (
+            <path key={`crinkle-${i}`}
+              d={`M0,${i * 55 + 20} Q20,${i * 55 + 15} 40,${i * 55 + 22} Q60,${i * 55 + 28} 80,${i * 55 + 20} Q100,${i * 55 + 14} 120,${i * 55 + 20}`}
+              stroke={accent} strokeWidth="1.5" fill="none" />
+          ))}
+        </g>
+      )}
+
+      {/* Rarity Halo */}
+      {variant === 1 && (
+        <g opacity="0.1" stroke={accent} strokeWidth="2">
+          {[...Array(10)].map((_, i) => (
+            <line key={i} x1={i * 14 - 40} y1="0" x2={i * 14 + 20} y2="160" />
+          ))}
+        </g>
+      )}
+      {variant === 2 && (
+        <g opacity="0.08">
+          {[...Array(16)].map((_, i) =>
+            [...Array(20)].map((_, j) => (
+              <circle key={`${i}-${j}`} cx={i * 9 + 4} cy={j * 9 + 4} r="1.2" fill={accent} />
+            ))
+          )}
+        </g>
+      )}
+      {variant === 3 && (
+        <g opacity="0.08" stroke={accent} strokeWidth="1" fill="none">
+          <path d="M10,50 L30,50 L30,90 L50,90 L50,130 L70,130 L70,50 L90,50" />
+          <path d="M10,20 L50,20 L50,50 L70,50" />
+          <path d="M50,100 L90,100 L90,150" />
+          <circle cx="30" cy="50" r="4" fill={accent} />
+          <circle cx="70" cy="90" r="4" fill={accent} />
+          <circle cx="50" cy="130" r="4" fill={accent} />
+        </g>
+      )}
+      {variant === 4 && (
+        <g opacity="0.08" fill={accent}>
+          <ellipse cx="25" cy="55" rx="20" ry="16" />
+          <ellipse cx="95" cy="105" rx="25" ry="20" />
+          <ellipse cx="70" cy="35" rx="15" ry="12" />
+          <ellipse cx="20" cy="125" rx="18" ry="14" />
+        </g>
+      )}
+      {variant === 5 && (
+        <g opacity="0.1" fill={accent}>
+          <polygon points="60,10 80,40 60,70 40,40" />
+          <polygon points="25,65 45,85 25,105 5,85" />
+          <polygon points="95,70 110,88 95,106 80,88" />
+          <polygon points="50,105 70,130 50,155 30,130" />
+        </g>
+      )}
+      {variant === 6 && (
+        <g opacity="0.08" stroke={accent} strokeWidth="1.5">
+          {[...Array(10)].map((_, i) => {
+            const a = (i * 36) * Math.PI / 180;
+            return <line key={i} x1="60" y1="85" x2={60 + Math.cos(a) * 75} y2={85 + Math.sin(a) * 75} />;
+          })}
+        </g>
+      )}
+      {variant === 7 && (
+        <g opacity="0.08" fill="none" stroke={accent} strokeWidth="1.5">
+          <path d="M0,35 Q30,12 60,35 T120,35" />
+          <path d="M0,60 Q30,37 60,60 T120,60" />
+          <path d="M0,85 Q30,62 60,85 T120,85" />
+          <path d="M0,110 Q30,87 60,110 T120,110" />
+          <path d="M0,135 Q30,112 60,135 T120,135" />
+        </g>
+      )}
+      {variant === 8 && (
+        <g opacity="0.1" fill={accent}>
+          {[...Array(8)].map((_, i) => {
+            const a = (i * 45) * Math.PI / 180;
+            return <circle key={i} cx={60 + Math.cos(a) * 48} cy={85 + Math.sin(a) * 48} r="4" />;
+          })}
+          {[...Array(8)].map((_, i) => {
+            const a = (i * 45 + 22.5) * Math.PI / 180;
+            return <circle key={`b-${i}`} cx={60 + Math.cos(a) * 33} cy={85 + Math.sin(a) * 33} r="2" />;
+          })}
+        </g>
+      )}
+
+      {/* Rarity Halo */}
+      {generateRarityHalo(rarityId, cardId)}
+
+      {/* Main Element Art */}
+      <g filter={`url(#glow-${cardId})`}>
+        {generateElementArt(elementId, cardId, rng)}
       </g>
 
-      {/* Rarity Glow Effect */}
-      {isEpic && (
-        <ellipse cx="60" cy="85" rx="35" ry="45" fill={colors.glow} opacity="0.15" />
-      )}
-      {isLegendary && (
-        <ellipse cx="60" cy="85" rx="40" ry="50" fill={colors.glow} opacity="0.2">
-          <animate attributeName="opacity" values="0.15;0.3;0.15" dur="2s" repeatCount="indefinite" />
-        </ellipse>
-      )}
-
-      {/* Particles for Legendary */}
-      {particles}
+      {/* Floating Particles */}
+      {particleCount > 0 && generateParticles(particleCount, colors.glow)}
 
       {/* Corner Decorations */}
-      <path d="M8 20 L8 8 L20 8" fill="none" stroke={colors.border} strokeWidth="2" strokeLinecap="round" />
-      <path d="M112 20 L112 8 L100 8" fill="none" stroke={colors.border} strokeWidth="2" strokeLinecap="round" />
-      <path d="M8 140 L8 152 L20 152" fill="none" stroke={colors.border} strokeWidth="2" strokeLinecap="round" />
-      <path d="M112 140 L112 152 L100 152" fill="none" stroke={colors.border} strokeWidth="2" strokeLinecap="round" />
+      {generateCornerDecorations(colors.border, rarityId)}
 
       {/* Top Element Badge */}
-      <circle cx="60" cy="22" r="12" fill={accent} opacity="0.9" />
-      <circle cx="60" cy="22" r="8" fill={colors.bg} />
-      <text x="60" y="26" textAnchor="middle" fontSize="10" fontWeight="bold" fill={accent}>
+      <circle cx="60" cy="20" r="11" fill={accent} opacity="0.9" />
+      <circle cx="60" cy="20" r="7.5" fill={colors.bg} />
+      <text x="60" y="24" textAnchor="middle" fontSize="9" fontWeight="bold" fill={accent}>
         {elementId.charAt(0).toUpperCase()}
       </text>
 
-      {/* Rarity Indicator */}
-      <rect x="45" y="145" width="30" height="8" rx="4" fill={colors.border} opacity="0.8" />
-      <text x="60" y="151" textAnchor="middle" fontSize="5" fontWeight="bold" fill="white">
+      {/* Rarity bottom bar */}
+      <rect x="42" y="146" width="36" height="8" rx="4" fill={colors.border} opacity="0.7" />
+      <text x="60" y="152" textAnchor="middle" fontSize="5.5" fontWeight="bold" fill="white">
         {rarityId.toUpperCase().slice(0, 4)}
       </text>
+
+      {/* Legendary shimmer sweep */}
+      {isLegendary && (
+        <g>
+          <rect x="2" y="2" width="116" height="156" rx="10" fill="none" stroke={colors.glow} strokeWidth="1" opacity="0.4">
+            <animate attributeName="opacity" values="0.2;0.6;0.2" dur="1.5s" repeatCount="indefinite" />
+          </rect>
+        </g>
+      )}
+
+      {/* Memory scars — battle experience marks */}
+      {/* Rendered as scratch/gouge marks that grow with battle use count */}
+
+      {/* Epic shimmer */}
+      {isEpic && !isLegendary && (
+        <rect x="2" y="2" width="116" height="156" rx="10" fill="none" stroke={colors.glow} strokeWidth="1" opacity="0.25">
+          <animate attributeName="opacity" values="0.1;0.35;0.1" dur="2.2s" repeatCount="indefinite" />
+        </rect>
+      )}
+
+      {/* Memory scars — battle experience marks overlay */}
+      {/* Battle usage count determines scar intensity */}
+      {[1,2,3].map((i) => (
+        <g key={`scar-${i}`} opacity={i === 1 ? "0.3" : i === 2 ? "0.4" : "0.5"}>
+          <path
+            d={i === 1 ? "M20,80 L40,95 L35,110" : i === 2 ? "M85,60 L95,75 L90,88" : "M50,40 L60,52 L55,65"}
+            stroke="#dc2626"
+            strokeWidth="1.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="6,3"
+          />
+          <path
+            d={i === 1 ? "M22,82 L38,93 L34,108" : i === 2 ? "M83,62 L93,73 L88,86" : "M48,42 L58,50 L54,63"}
+            stroke="#ef4444"
+            strokeWidth="0.8"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray="3,4"
+          />
+        </g>
+      ))}
     </svg>
   );
-}
-
-function generateCentralIcon(rngVal: number, elementId: string, cardId: number): ReactElement {
-  const shapes = [
-    <circle r="20" fill="currentColor" opacity="0.9" />,
-    <rect x="-18" y="-18" width="36" height="36" rx="4" fill="currentColor" opacity="0.9" />,
-    <polygon points="0,-22 22,18 -22,18" fill="currentColor" opacity="0.9" />,
-    <path d="M0,-22 Q22,0 0,22 Q-22,0 0,-22" fill="currentColor" opacity="0.9" />,
-    <rect x="-15" y="-20" width="30" height="40" rx="8" fill="currentColor" opacity="0.9" />,
-    <circle r="18" fill="none" stroke="currentColor" strokeWidth="4" />,
-    <polygon points="0,-20 10,0 0,20 -10,0" fill="currentColor" opacity="0.9" />,
-    <path d="M-18,-10 L18,-10 L18,10 L-18,10 Z M-10,-18 L10,-18 L10,-10 L-10,-10 Z" fill="currentColor" opacity="0.9" />,
-  ];
-
-  const shapeIdx = Math.floor(rngVal * shapes.length);
-  const shape = shapes[shapeIdx];
-
-  const elementColors: Record<string, string> = {
-    plastic: "#06b6d4",
-    paper: "#f59e0b",
-    glass: "#14b8a6",
-    metal: "#64748b",
-    organic: "#22c55e",
-    hazard: "#ef4444",
-  };
-
-  const color = elementColors[elementId] || "#94a3b8";
-
-  return (
-    <g style={{ color }}>
-      {shape}
-      <circle r="8" fill="white" opacity="0.3" />
-      <circle cx="-5" cy="-5" r="3" fill="white" opacity="0.5" />
-    </g>
-  );
-}
-
-function generatePattern(variant: number, rngVal: number, accent: string, bgColor: string): ReactElement {
-  const patterns: Record<number, () => ReactElement> = {
-    1: () => ( // Diagonal stripes
-      <g opacity="0.15">
-        {[...Array(12)].map((_, i) => (
-          <line key={i} x1={i * 20 - 60} y1="0" x2={i * 20} y2="160" stroke={accent} strokeWidth="3" />
-        ))}
-      </g>
-    ),
-    2: () => ( // Dot grid
-      <g opacity="0.1">
-        {[...Array(20)].map((_, i) =>
-          [...Array(25)].map((_, j) => (
-            <circle key={`${i}-${j}`} cx={i * 8 + 4} cy={j * 8 + 4} r="1.5" fill={accent} />
-          ))
-        )}
-      </g>
-    ),
-    3: () => ( // Circuit board
-      <g opacity="0.12" stroke={accent} strokeWidth="1" fill="none">
-        <path d="M20,40 L40,40 L40,80 L60,80 L60,40 L80,40 L80,120 L100,120" />
-        <path d="M40,20 L40,40 L80,40 L80,60" />
-        <path d="M60,100 L60,120 L100,120 L100,140" />
-        <circle cx="40" cy="40" r="3" fill={accent} />
-        <circle cx="80" cy="40" r="3" fill={accent} />
-        <circle cx="60" cy="80" r="3" fill={accent} />
-        <circle cx="60" cy="120" r="3" fill={accent} />
-      </g>
-    ),
-    4: () => ( // Organic blob shapes
-      <g opacity="0.1" fill={accent}>
-        <ellipse cx="30" cy="50" rx="25" ry="20" />
-        <ellipse cx="90" cy="110" rx="30" ry="25" />
-        <ellipse cx="70" cy="30" rx="20" ry="15" />
-        <ellipse cx="25" cy="130" rx="22" ry="18" />
-      </g>
-    ),
-    5: () => ( // Crystal/geometric
-      <g opacity="0.15" fill={accent}>
-        <polygon points="60,15 75,40 60,65 45,40" />
-        <polygon points="30,70 50,85 30,100 10,85" />
-        <polygon points="90,75 105,90 90,105 75,90" />
-        <polygon points="55,110 70,130 55,150 40,130" />
-      </g>
-    ),
-    6: () => ( // Radiating lines
-      <g opacity="0.1" stroke={accent} strokeWidth="2">
-        {[...Array(12)].map((_, i) => {
-          const angle = (i * 30) * Math.PI / 180;
-          const x2 = 60 + Math.cos(angle) * 80;
-          const y2 = 85 + Math.sin(angle) * 80;
-          return <line key={i} x1="60" y1="85" x2={x2} y2={y2} />;
-        })}
-      </g>
-    ),
-    7: () => ( // Wave pattern
-      <g opacity="0.12" fill="none" stroke={accent} strokeWidth="2">
-        <path d="M0,30 Q30,10 60,30 T120,30" />
-        <path d="M0,60 Q30,40 60,60 T120,60" />
-        <path d="M0,90 Q30,70 60,90 T120,90" />
-        <path d="M0,120 Q30,100 60,120 T120,120" />
-      </g>
-    ),
-    8: () => ( // Star burst
-      <g opacity="0.15" fill={accent}>
-        {[...Array(8)].map((_, i) => {
-          const angle = (i * 45) * Math.PI / 180;
-          const x = 60 + Math.cos(angle) * 50;
-          const y = 85 + Math.sin(angle) * 50;
-          return <circle key={i} cx={x} cy={y} r="4" />;
-        })}
-        {[...Array(8)].map((_, i) => {
-          const angle = (i * 45 + 22.5) * Math.PI / 180;
-          const x = 60 + Math.cos(angle) * 35;
-          const y = 85 + Math.sin(angle) * 35;
-          return <circle key={`b-${i}`} cx={x} cy={y} r="2" />;
-        })}
-      </g>
-    ),
-  };
-
-  const patternFn = patterns[variant] || patterns[1];
-  return patternFn();
-}
-
-function generateParticles(rngVal: number, accent: string): ReactElement {
-  const particles: ReactElement[] = [];
-  for (let i = 0; i < 8; i++) {
-    const x = 10 + seededRandom(rngVal + i * 100) * 100;
-    const y = 10 + seededRandom(rngVal + i * 200) * 140;
-    const r = 1 + seededRandom(rngVal + i * 300) * 2;
-    particles.push(
-      <circle key={i} cx={x} cy={y} r={r} fill={accent} opacity="0.6">
-        <animate attributeName="opacity" values="0.3;0.8;0.3" dur={`${2 + seededRandom(rngVal + i) * 2}s`} repeatCount="indefinite" />
-        <animate attributeName="cy" values={`${y};${y - 10};${y}`} dur={`${3 + seededRandom(rngVal + i * 50) * 2}s`} repeatCount="indefinite" />
-      </circle>
-    );
-  }
-  return <g>{particles}</g>;
 }
 
 // ─── Element Counter & Damage Functions ─────────────────────────────────────

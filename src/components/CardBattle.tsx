@@ -283,7 +283,7 @@ function calcBattleDamage(
     const shieldBlock = Math.min(defender.shieldValue, dmg);
     dmg = Math.max(1, dmg - shieldBlock);
     notes.push("Khiên chặn!");
-  } else {
+    } else {
     dmg = Math.floor(dmg * (1 - defender.def * 0.003));
   }
   dmg = Math.max(1, dmg);
@@ -453,9 +453,9 @@ function BossHpDisplay({ boss, levelData }: { boss: BattleCard; levelData: { nam
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           />
-        </div>
+              </div>
         <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent" />
-      </div>
+              </div>
 
       {/* Shield row */}
       {boss.shieldActive && (
@@ -464,13 +464,13 @@ function BossHpDisplay({ boss, levelData }: { boss: BattleCard; levelData: { nam
             <span className="text-xs">🛡️</span>
             <span className="text-[10px] font-black text-blue-300">Khiên: {boss.shieldValue}</span>
             <span className="text-[9px] text-blue-400/70">({boss.shieldTurns}t)</span>
-          </div>
-        </div>
+              </div>
+            </div>
       )}
 
       {/* Status icons */}
       <StatusIcons card={boss} />
-    </div>
+        </div>
   );
 }
 
@@ -514,8 +514,8 @@ function MoveButton({
       {/* Type label */}
       <div className="absolute top-1 left-1 right-1 text-center">
         <span className="text-[6px] font-black uppercase tracking-wider text-white/60">{typeLabel}</span>
-      </div>
-
+          </div>
+          
       {/* Icon */}
       <span className="text-2xl leading-none mt-2">{move.icon}</span>
 
@@ -532,7 +532,7 @@ function MoveButton({
         {move.currentCooldown > 0 && (
           <span className="text-[8px] font-black text-yellow-400">CD{move.currentCooldown}</span>
         )}
-      </div>
+                  </div>
 
       {/* Ultimate ready pulse */}
       {move.type === "ultimate" && isReady && (
@@ -583,7 +583,7 @@ function ComboMeter({ combo, maxDmg }: { combo: number; maxDmg: number }) {
               ⚡ +{bonusMult}x DMG
             </p>
           )}
-        </div>
+                </div>
       </div>
     </motion.div>
   );
@@ -602,7 +602,7 @@ function TypeBadge({ elementId }: { elementId: string }) {
   );
 }
 
-// ─── Battle Avatar ─────────────────────────────────────────────────────────
+// ─── Battle Avatar (full card art) ───────────────────────────────────────────
 function BattleAvatar({
   card, team, isActive, shake, isHit,
   attackAnim, isDodging, showStatus,
@@ -624,12 +624,15 @@ function BattleAvatar({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function getAvatarAnim(): any {
-    if (dead) return { opacity: 0.3, scale: 0.85 };
-    if (isDodging) return { x: team === "player" ? 60 : -60, opacity: 0.3, transition: { duration: 0.2 } };
-    if (attackAnim) return { x: team === "player" ? 80 : -80, transition: { duration: 0.3, ease: "easeOut" } };
-    if (isActive) return { scale: [1, 1.05, 1], transition: { duration: 1.5, repeat: Infinity } };
-    return { opacity: 1, scale: 1 };
+    if (dead) return { opacity: 0.4, scale: 0.85, y: 0 };
+    if (isDodging) return { x: team === "player" ? 80 : -80, opacity: 0.2, transition: { duration: 0.2 } };
+    if (attackAnim) return { x: team === "player" ? 100 : -100, transition: { duration: 0.3, ease: "easeOut" } };
+    if (isActive) return { scale: [1, 1.04, 1], transition: { duration: 1.5, repeat: Infinity } };
+    return { opacity: 1, scale: 1, x: 0 };
   }
+
+  const isLegendary = card.rarityId === "legendary";
+  const isEpic = card.rarityId === "epic" || isLegendary;
 
   return (
     <motion.div
@@ -640,88 +643,93 @@ function BattleAvatar({
       <AnimatePresence>
         {isHit && (
           <motion.div
-            initial={{ opacity: 0.8 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0 rounded-2xl bg-white/60 z-10 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.7, 0] }}
+            transition={{ duration: 0.4 }}
+            className="absolute inset-0 z-30 pointer-events-none rounded-2xl"
+            style={{ background: `radial-gradient(circle, ${glowColor}60 0%, transparent 70%)` }}
           />
         )}
       </AnimatePresence>
-      {/* Name */}
-      <p className={`text-[10px] font-black whitespace-nowrap max-w-[90px] truncate ${
-        team === "boss" ? "text-red-400/80" : "text-emerald-400/80"
-      }`}>
-        {card.name}
-      </p>
 
-      {/* Avatar ring */}
+      {/* Card art frame */}
       <motion.div
         className="relative"
-        style={{ filter: dead ? "grayscale(1) brightness(0.4)" : undefined }}
+        style={{ filter: dead ? "grayscale(0.8) brightness(0.5)" : undefined }}
       >
-        {/* Active glow */}
+        {/* Active glow halo */}
         {isActive && card.isAlive && (
           <motion.div
-            className="absolute inset-0 rounded-full"
-            style={{ background: `radial-gradient(circle, ${glowColor}30, transparent 70%)` }}
-            animate={{ scale: [1, 1.5, 1], opacity: [0.6, 0.2, 0.6] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 rounded-2xl"
+            style={{ background: `radial-gradient(circle, ${glowColor}35 0%, transparent 70%)` }}
+            animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 1.8, repeat: Infinity }}
           />
         )}
-        {/* Dodge white flash */}
-        {isDodging && (
-          <motion.div
-            className="absolute inset-0 rounded-full bg-white/80 z-10"
-            animate={{ opacity: [0, 0.9, 0] }}
-            transition={{ duration: 0.4 }}
-          />
-        )}
-        {/* Main avatar circle */}
+
+        {/* Card art body */}
         <div
-          className="relative flex items-center justify-center rounded-full border-2 backdrop-blur-sm overflow-hidden"
+          className="relative flex items-center justify-center overflow-hidden rounded-xl border-2 backdrop-blur-sm"
           style={{
-            width: 100, height: 100,
-            background: `linear-gradient(135deg, ${glowColor}25, ${glowColor}10)`,
-            borderColor: isActive && card.isAlive ? glowColor : "rgba(255,255,255,0.1)",
+            width: 110, height: 148,
+            background: `linear-gradient(145deg, ${glowColor}18, ${glowColor}08, #0a0a1480)`,
+            borderColor: isActive && card.isAlive ? glowColor : "rgba(255,255,255,0.12)",
             boxShadow: isActive && card.isAlive
-              ? `0 0 30px ${glowColor}80, 0 0 60px ${glowColor}30, inset 0 0 20px ${glowColor}20`
-              : "none",
+              ? `0 0 25px ${glowColor}80, 0 0 50px ${glowColor}30, 0 0 80px ${glowColor}15`
+              : isEpic
+              ? `0 0 15px ${glowColor}30`
+              : "0 2px 10px rgba(0,0,0,0.4)",
           }}
         >
-          {/* Emoji character */}
-          <motion.span
-            className="text-5xl select-none"
-            animate={isHit ? { scale: [1, 1.3, 0.9, 1] } : attackAnim ? { scale: [1, 1.2, 1] } : {}}
-            transition={{ duration: 0.3 }}
-          >
-            {dead ? "💀" : emoji}
-          </motion.span>
+          {/* Element color stripe */}
+          <div className="absolute inset-x-0 top-0 h-1.5"
+            style={{ background: `linear-gradient(90deg, ${glowColor}50, ${glowColor})` }} />
+
+          {/* Card art SVG */}
+          <div className="absolute inset-0">
+            {getCardArt(card.id, card.elementId, 1, card.rarityId)}
+          </div>
 
           {/* KO overlay */}
           {dead && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60">
-              <span className="text-xs font-black text-red-400">KO</span>
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 rounded-xl">
+              <div className="flex flex-col items-center">
+                <span className="text-3xl">💀</span>
+                <span className="text-[8px] font-black text-red-400">KO</span>
+              </div>
             </div>
           )}
 
-          {/* Rarity indicator */}
-          <div className="absolute bottom-0 right-0 z-20 text-xs">
+          {/* Dodge flash */}
+          <AnimatePresence>
+            {isDodging && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.9, 0] }}
+                transition={{ duration: 0.5 }}
+                className="absolute inset-0 z-20 bg-white/40 rounded-xl"
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Rarity gem */}
+          <div className="absolute bottom-1 right-1 z-20 text-xs">
             {RARITY_EMOJI[card.rarityId]}
           </div>
-
-          {/* Level star */}
-          {card.level > 1 && !dead && (
-            <div className="absolute -right-1 -top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[8px] font-black text-white shadow-lg">
-              <Star size={7} className="fill-white" />
-            </div>
-          )}
         </div>
+
+        {/* Level badge */}
+        {card.level > 1 && !dead && (
+          <div className="absolute -top-1.5 -right-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-[8px] font-black text-white shadow-lg shadow-amber-500/40">
+            <Star size={6} className="fill-white" />
+          </div>
+        )}
       </motion.div>
 
       {/* HP Bar */}
-      <div className="w-[90px]">
-        <HpBar current={card.hp} max={card.maxHp} accent={glowColor} height={10} />
-        <div className="flex justify-between mt-0.5">
+      <div className="w-[108px]">
+        <HpBar current={card.hp} max={card.maxHp} accent={glowColor} height={9} />
+        <div className="flex justify-between">
           <span className={`text-[9px] font-black ${team === "player" ? "text-emerald-400" : "text-red-400"}`}>
             {Math.max(0, card.hp)}/{card.maxHp}
           </span>
@@ -729,19 +737,19 @@ function BattleAvatar({
         </div>
       </div>
 
-      {/* Status icons */}
-      {showStatus && card.isAlive && <StatusIcons card={card} />}
-
       {/* Active label */}
       {isActive && card.isAlive && team === "player" && (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="rounded-full bg-blue-600 px-2 py-0.5 text-[8px] font-black text-white shadow"
+          className="rounded-full bg-blue-600 px-2 py-0.5 text-[7px] font-black text-white shadow"
         >
           ĐẠI DIỆN
         </motion.div>
       )}
+
+      {/* Status icons */}
+      {showStatus && card.isAlive && <StatusIcons card={card} />}
     </motion.div>
   );
 }
@@ -844,9 +852,9 @@ function VictoryConfetti() {
   );
 }
 
-// ─── Hit Sparks ──────────────────────────────────────────────────────────────
+// ─── Hit Sparks (enhanced 16-particle burst) ─────────────────────────
 function HitSparks({ target, elementId }: { target: "player" | "boss"; elementId: string }) {
-  const sparkColors: Record<string, string> = {
+  const colorMap: Record<string, string> = {
     plastic: "#06b6d4",
     paper: "#f59e0b",
     glass: "#14b8a6",
@@ -854,20 +862,21 @@ function HitSparks({ target, elementId }: { target: "player" | "boss"; elementId
     organic: "#22c55e",
     hazard: "#ef4444",
   };
-  const color = sparkColors[elementId] || "#ffffff";
-  const sparks = Array.from({ length: 8 }, (_, i) => ({
+  const color = colorMap[elementId] || "#ffffff";
+  const sparks = Array.from({ length: 16 }, (_, i) => ({
     id: i,
-    angle: (i / 8) * 360,
-    distance: 40 + Math.random() * 30,
-    size: 3 + Math.random() * 4,
-    delay: Math.random() * 0.1,
+    angle: (i / 16) * 360 + Math.random() * 22 - 11,
+    distance: 35 + Math.random() * 50,
+    size: 2 + Math.random() * 5,
+    delay: Math.random() * 0.12,
+    duration: 0.4 + Math.random() * 0.25,
   }));
 
   return (
     <div
       className="absolute pointer-events-none z-40"
       style={{
-        top: target === "boss" ? "30%" : "58%",
+        top: target === "boss" ? "28%" : "55%",
         left: "50%",
         transform: "translate(-50%, -50%)",
       }}
@@ -878,22 +887,94 @@ function HitSparks({ target, elementId }: { target: "player" | "boss"; elementId
           initial={{ opacity: 1, scale: 0, x: 0, y: 0 }}
           animate={{
             opacity: [1, 1, 0],
-            scale: [0, 1, 0.5],
+            scale: [0, 1.2, 0.3],
             x: Math.cos((s.angle * Math.PI) / 180) * s.distance,
             y: Math.sin((s.angle * Math.PI) / 180) * s.distance,
           }}
-          transition={{ duration: 0.5, delay: s.delay, ease: "easeOut" }}
+          transition={{ duration: s.duration, delay: s.delay, ease: "easeOut" }}
           style={{
             width: s.size,
             height: s.size,
             borderRadius: "50%",
             background: color,
-            boxShadow: `0 0 ${s.size * 2}px ${color}`,
+            boxShadow: `0 0 ${s.size * 2}px ${color}, 0 0 ${s.size * 4}px ${color}80`,
             position: "absolute",
           }}
         />
       ))}
     </div>
+  );
+}
+
+// ─── Danger Vignette ─────────────────────────────────────────────────────
+function DangerVignette({ playerHpPercent }: { playerHpPercent: number }) {
+  const intensity = Math.max(0, (25 - playerHpPercent) / 25);
+  if (intensity <= 0) return null;
+  return (
+    <div
+      className="fixed inset-0 pointer-events-none z-50"
+      style={{
+        background: `radial-gradient(ellipse at center, transparent 40%, rgba(220,38,38,${0.25 * intensity}) 100%)`,
+        animation: intensity > 0.5 ? "danger-pulse 1.5s ease-in-out infinite" : "none",
+      }}
+    />
+  );
+}
+
+// ─── Boss Intro Slide ─────────────────────────────────────────────────
+function BossIntroSlide({ bossName, elementId, bossCardId, bossRarityId }: { bossName: string; elementId: string; bossCardId: number; bossRarityId: string }) {
+  const ELEM_COLOR_MAP: Record<string, string> = {
+    plastic: "#06b6d4", paper: "#f59e0b", glass: "#14b8a6",
+    metal: "#64748b", organic: "#22c55e", hazard: "#ef4444",
+  };
+  const glowColor = ELEM_COLOR_MAP[elementId] || "#ef4444";
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
+    >
+      {/* Dramatic glow ring */}
+      <motion.div
+        className="absolute rounded-full"
+        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        style={{
+          width: 300, height: 300,
+          background: `radial-gradient(circle, ${glowColor}20 0%, transparent 70%)`,
+          boxShadow: `0 0 80px ${glowColor}40`,
+        }
+      />
+      <motion.div
+        initial={{ y: -120, scale: 0.6, opacity: 0, filter: "blur(8px) brightness(2)" }}
+        animate={{ y: 0, scale: [0.6, 1.05, 0.98, 1], opacity: [0, 1, 1, 1], filter: ["blur(8px) brightness(2)", "blur(0px) brightness(1.3)", "blur(0px) brightness(1.1)", "blur(0px) brightness(1)"] }
+        transition={{ duration: 0.9, ease: [0.34, 1.56, 0.64, 1] }
+        className="relative flex flex-col items-center"
+      >
+        {/* Card art instead of emoji */}
+        <div className="relative mb-4" style={{ filter: `drop-shadow(0 0 30px ${glowColor}80) drop-shadow(0 0 60px ${glowColor}40)` }}>
+          <div className="w-[180px] h-[240px] rounded-2xl overflow-hidden border-4"
+            style={{ borderColor: glowColor + "80", background: `linear-gradient(145deg, ${glowColor}18, ${glowColor}08)` }}>
+            <div className="w-full h-full">
+              {getCardArt(bossCardId || 101, elementId, 1, bossRarityId)}
+            </div>
+          </div>
+          {/* Glow pulse behind card */}
+          <motion.div
+            className="absolute inset-0 rounded-2xl"
+            animate={{ boxShadow: [`0 0 20px ${glowColor}40`, `0 0 50px ${glowColor}80`, `0 0 20px ${glowColor}40`] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+        </div>
+        <div className="relative text-2xl font-black text-white text-center px-8 drop-shadow-lg">
+          {bossName}
+        </div>
+        <div className="relative text-sm text-red-400 font-bold mt-2 uppercase tracking-widest">
+          XUẤT HIỆN!
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -955,6 +1036,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   const [turnAnnounce, setTurnAnnounce] = useState<string | null>(null);
   const [announceColor, setAnnounceColor] = useState("#3b82f6");
   const [bossIntro, setBossIntro]      = useState<number>(-1);
+  const [bossIntroBoss, setBossIntroBoss] = useState<BattleCard | null>(null);
   const [maxDmg, setMaxDmg]            = useState(0);
   const [logVisible, setLogVisible]     = useState(true);
   const [playerEnergy, setPlayerEnergy] = useState(100);
@@ -970,6 +1052,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   const comboRef      = useRef(0);
   const maxComboRef   = useRef(0);
   const totalDmgRef   = useRef(0);
+  const perfectionRef = useRef(false); // true = no HP damage taken
 
   const level = CAMPAIGN_LEVELS.find((l) => l.id === selectedLevelId) || CAMPAIGN_LEVELS[0];
   const bossAlive = bossTeam.filter((c) => c.isAlive);
@@ -1123,10 +1206,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
     // Boss intro
     if (bossIntro === -1) {
       setBossIntro(bossIdx);
-      announce(`☠️ ${boss.name} xuất hiện!`, "#ef4444");
-      addLog(`Boss mới: ${boss.name} (Lv.${boss.level})`, "turn");
-      setTimeout(() => setBossIntro(-1), 1500);
-      setTimeout(() => executeBossAction(), 1600);
+      setBossIntroBoss(boss);
+      setTimeout(() => setBossIntro(-1), 1600);
+      setTimeout(() => { setBossIntroBoss(null); executeBossAction(); }, 1700);
     } else {
       executeBossAction();
     }
@@ -1217,6 +1299,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, chosenMove.power);
               const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
               if (advInfo) showBanner(advInfo, "player");
+              perfectionRef.current = false; // Player took damage - perfection lost
               spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1, isPoison, !isPoison);
               const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
               addLog(`${ELEMENT_EMOJI[boss.elementId] || "👹"} ${boss.name} dùng ${chosenMove.name}!${noteStr}`, "ability");
@@ -1261,6 +1344,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, chosenMove.power);
               const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
               if (advInfo) showBanner(advInfo, "player");
+              perfectionRef.current = false;
               spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1);
               const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
               addLog(`💥 ${boss.name} Đòn Nặng! → ${dmg} dmg${noteStr}`, "damage");
@@ -1292,6 +1376,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, chosenMove.power);
               const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
               if (advInfo) showBanner(advInfo, "player");
+              perfectionRef.current = false;
               spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1);
               const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
               addLog(`${ELEMENT_EMOJI[boss.elementId] || "👹"} ${boss.name} → ${dmg} dmg${noteStr}`, "damage");
@@ -1569,6 +1654,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
     comboRef.current = 0;
     maxComboRef.current = 0;
     totalDmgRef.current = 0;
+    perfectionRef.current = true; // Assume perfection until player takes damage
     setMaxDmg(0);
 
     const bosses = level.bossIds.map((bossId) => buildBattleCard(bossId, 1, level.bossAtkMult, level.bossHpMult));
@@ -1649,17 +1735,17 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                         )}
                         <TypeBadge elementId={lvl.element} />
                       </div>
-                    </div>
-                    {selectedLevelId === lvl.id && (
+                  </div>
+                  {selectedLevelId === lvl.id && (
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow shadow-amber-500/40">
                         <Play size={14} />
                       </div>
-                    )}
+                  )}
                   </div>
                 </button>
               );
             })}
-          </div>
+            </div>
           {deckCardIds.length >= 1 ? (
             <Button onClick={startBattle} size="lg"
               className="w-full max-w-sm text-sm sm:text-base font-black py-2.5 sm:py-3 shadow-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border-0">
@@ -1677,6 +1763,19 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       {stage === "battle" && (
         <ScreenShake active={isShaking}>
           <div className="relative flex flex-1 flex-col overflow-hidden">
+            {/* Danger vignette */}
+            {playerAlive.length > 0 && (
+              <DangerVignette
+                playerHpPercent={playerAlive[activePlayerIdx] ? (playerAlive[activePlayerIdx].hp / playerAlive[activePlayerIdx].maxHp) * 100 : 100}
+              />
+            )}
+
+            {/* Boss intro slide */}
+            <AnimatePresence>
+              {bossIntroBoss && (
+                <BossIntroSlide key="boss-intro" bossName={bossIntroBoss.name} elementId={bossIntroBoss.elementId} bossCardId={bossIntroBoss.id} bossRarityId={bossIntroBoss.rarityId} />
+              )}
+            </AnimatePresence>
 
             {/* Intro overlay */}
             <AnimatePresence>
@@ -1700,8 +1799,8 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                       <span className="text-xs text-slate-500">x3 Boss</span>
                     </div>
                   </motion.div>
-                </motion.div>
-              )}
+        </motion.div>
+      )}
             </AnimatePresence>
 
             {/* Turn announcement */}
@@ -1727,8 +1826,8 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                     showStatus
                   />
                 ))}
-              </div>
-            </div>
+                 </div>
+                 </div>
 
             {/* VS divider */}
             <div className="relative flex items-center justify-center py-1.5">
@@ -1755,7 +1854,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                                 <span className="text-lg">⚔️</span>
                                 <span className="text-xs font-black uppercase tracking-wider text-blue-300">Lượt của bạn!</span>
                                 <span className="text-lg">🛡️</span>
-                              </div>
+                    </div>
                             </motion.div>
                           )}
                           {(phase === "boss_turn" || phase === "animating") && (
@@ -1776,8 +1875,8 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                                 <span className="text-lg">👹</span>
                                 <span className="text-xs font-black uppercase tracking-wider text-red-300">Boss tấn công!</span>
                                 <span className="text-lg">💀</span>
-                              </div>
-                            </motion.div>
+                 </div>
+               </motion.div>
                           )}
                         </AnimatePresence>
                 </div>
@@ -1812,9 +1911,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                           Đổi
                         </motion.button>
                       )}
-                    </div>
+                 </div>
                   ))}
-                </div>
+                 </div>
 
                 {/* Energy + Ultimate bars */}
                 {activePlayer?.isAlive && (
@@ -1827,11 +1926,11 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                     <div className="flex items-center justify-between text-[7px] sm:text-[9px]">
                       <span className="text-amber-400 font-bold">💥</span>
                       <span className="text-amber-300 font-black">{activePlayer.ultimateCharge}%</span>
-                    </div>
+                 </div>
                     <UltimateBar charge={activePlayer.ultimateCharge} />
                   </div>
                 )}
-              </div>
+            </div>
 
               {/* Combo meter */}
               <div className="flex items-start pt-1 sm:pt-4">
@@ -1878,7 +1977,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                   onDone={() => setProjectile(null)}
                 />
               )}
-            </AnimatePresence>
+                 </AnimatePresence>
 
             {/* Hit Sparks */}
             <AnimatePresence>
@@ -1910,8 +2009,8 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                   <DamageNumber num={d} />
                 </div>
               ))}
-            </div>
-
+               </div>
+               
             {/* Battle log */}
             <div className="mx-2 sm:mx-3 mb-2 max-h-20 sm:max-h-24 overflow-y-auto rounded-xl border border-white/10 bg-black/60 px-2 sm:px-3 py-1.5 sm:py-2 backdrop-blur-sm scrollbar-thin scrollbar-track-black scrollbar-thumb-white/10">
               <div className="flex items-center justify-between mb-1">
@@ -1921,7 +2020,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                 </div>
                 <button onClick={() => setLogVisible(!logVisible)} className="text-slate-500 hover:text-slate-300">
                   {logVisible ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
-                </button>
+                    </button>
               </div>
               {logVisible && (
                 <div className="space-y-0.5">
@@ -1936,15 +2035,15 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                       <span className="text-[8px] text-white/20 mr-1">▸</span>{l.text}
                     </motion.p>
                   ))}
-                </div>
-              )}
-            </div>
-          </div>
+                            </div>
+                         )}
+                    </div>
+                 </div>
         </ScreenShake>
-      )}
-
+               )}
+            
       {/* ─── VICTORY ─────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
+            <AnimatePresence>
         {stage === "victory" && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -2009,7 +2108,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               {/* Combo banner */}
               {maxComboRef.current >= 2 && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                  initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }
                   transition={{ delay: 0.6 }}
                   className="relative mt-3 flex items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2"
                 >
@@ -2019,9 +2118,33 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                 </motion.div>
               )}
 
+              {/* Perfection Clear Reward */}
+              {perfectionRef.current && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }
+                  transition={{ delay: 0.6 }}
+                  className="relative mt-3 flex items-center justify-center gap-3 rounded-xl border-2 border-yellow-400 bg-gradient-to-r from-yellow-900/30 to-amber-900/30 px-4 py-3"
+                  style={{ boxShadow: "0 0 30px rgba(251, 191, 36, 0.3)" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg">
+                      <Trophy size={20} className="text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-black text-yellow-300">HOÀN HẢO!</p>
+                      <p className="text-[10px] text-yellow-500">Không nhận sát thương — Thử thách hoàn thành!</p>
+                    </div>
+                  </div>
+                  <div className="ml-auto flex items-center gap-1 rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-yellow-900 shadow">
+                    +{Math.floor(battleReward * 0.5)} EXP
+                  </div>
+                </motion.div>
+              )}
+
               {/* Reward */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }
                 transition={{ delay: 0.65 }}
                 className="relative mt-4 flex items-center justify-center gap-3 rounded-2xl border border-amber-400/40 bg-gradient-to-r from-amber-900/40 via-amber-800/30 to-amber-900/40 px-6 py-4 shadow-[0_0_30px_rgba(234,179,8,0.2)]"
               >
@@ -2029,11 +2152,11 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                 <div className="text-left">
                   <p className="text-[10px] text-amber-400/70 uppercase tracking-wider font-bold">Phần thưởng</p>
                   <p className="text-3xl font-black text-amber-300">+{battleReward} EXP</p>
-                </div>
+                   </div>
               </motion.div>
 
               <Button
-                onClick={() => { onWin(battleReward); onClose(); }}
+                onClick={() => { onWin(perfectionRef.current ? battleReward + Math.floor(battleReward * 0.5) : battleReward); onClose(); }}
                 size="lg"
                 className="relative mt-6 w-full text-base font-black py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-[0_0_30px_rgba(234,179,8,0.4)] rounded-2xl border-0"
               >
@@ -2041,9 +2164,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                 Nhận thưởng
               </Button>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                 </motion.div>
+               )}
+            </AnimatePresence>
 
       {/* ─── DEFEAT ─────────────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -2080,7 +2203,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500">
                 <AlertTriangle size={12} />
                 <span className="text-[11px]">Lên cấp thẻ hoặc đổi chiến thuật!</span>
-              </div>
+         </div>
               <div className="mt-3 text-xs text-slate-600">
                 <p>💡 Tận dụng lợi thế nguyên tố để tăng 50% sát thương!</p>
                 <p>💡 Né đòn để bảo toàn combo!</p>
