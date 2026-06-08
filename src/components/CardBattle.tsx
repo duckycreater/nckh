@@ -944,12 +944,12 @@ function BossIntroSlide({ bossName, elementId, bossCardId, bossRarityId }: { bos
           width: 300, height: 300,
           background: `radial-gradient(circle, ${glowColor}20 0%, transparent 70%)`,
           boxShadow: `0 0 80px ${glowColor}40`,
-        }
+        }}
       />
       <motion.div
         initial={{ y: -120, scale: 0.6, opacity: 0, filter: "blur(8px) brightness(2)" }}
-        animate={{ y: 0, scale: [0.6, 1.05, 0.98, 1], opacity: [0, 1, 1, 1], filter: ["blur(8px) brightness(2)", "blur(0px) brightness(1.3)", "blur(0px) brightness(1.1)", "blur(0px) brightness(1)"] }
-        transition={{ duration: 0.9, ease: [0.34, 1.56, 0.64, 1] }
+        animate={{ y: 0, scale: [0.6, 1.05, 0.98, 1], opacity: [0, 1, 1, 1], filter: ["blur(8px) brightness(2)", "blur(0px) brightness(1.3)", "blur(0px) brightness(1.1)", "blur(0px) brightness(1)"] }}
+        transition={{ duration: 0.9, ease: [0.34, 1.56, 0.64, 1] }}
         className="relative flex flex-col items-center"
       >
         {/* Card art instead of emoji */}
@@ -1681,7 +1681,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       <div className="relative z-30 flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 border-b border-white/10 bg-black/60 backdrop-blur-xl">
         <Button onClick={() => { isRunningRef.current = false; onClose(); }}
           variant="ghost" className="bg-white/8 text-white/80 border border-white/10 hover:bg-white/15 text-[10px] sm:text-xs px-2 sm:px-2.5 py-1 gap-1">
-          <ArrowLeft size={12} sm={13} /> <span className="hidden sm:inline">Thoát</span>
+          <ArrowLeft size={12} /> <span className="hidden sm:inline">Thoát</span>
         </Button>
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Badge tone="warning" className="text-[9px] sm:text-xs">⚔️ Đấu Trường</Badge>
@@ -1691,11 +1691,11 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
         </div>
         <div className="flex items-center gap-1 sm:gap-1.5">
           <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-black/50 px-1.5 sm:px-2 py-0.5 border border-white/10">
-            <Shield size={9} sm={10} className="text-red-400" />
+            <Shield size={9} className="text-red-400" />
             <span className="text-[9px] sm:text-[10px] font-black text-red-400">{bossAlive.length}/3</span>
           </div>
           <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-black/50 px-1.5 sm:px-2 py-0.5 border border-white/10">
-            <Heart size={9} sm={10} className="text-emerald-400" />
+            <Heart size={9} className="text-emerald-400" />
             <span className="text-[9px] sm:text-[10px] font-black text-emerald-400">{playerAlive.length}/{playerTeam.length}</span>
           </div>
         </div>
@@ -1720,7 +1720,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                   }`}>
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl ${selectedLevelId === lvl.id ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-slate-800 text-slate-500"}`}>
-                      <Trophy size={18} sm={20} />
+                      <Trophy size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-black text-white truncate">{lvl.name}</h3>
@@ -1749,7 +1749,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
           {deckCardIds.length >= 1 ? (
             <Button onClick={startBattle} size="lg"
               className="w-full max-w-sm text-sm sm:text-base font-black py-2.5 sm:py-3 shadow-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border-0">
-              <Swords size={16} sm={18} />Xông trận!
+              <Swords size={16} />Xông trận!
             </Button>
           ) : (
             <div className="w-full max-w-sm rounded-xl border border-red-900/50 bg-red-950/20 p-3 text-center">
@@ -2108,7 +2108,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               {/* Combo banner */}
               {maxComboRef.current >= 2 && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }
+                  initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.6 }}
                   className="relative mt-3 flex items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2"
                 >
@@ -2122,7 +2122,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               {perfectionRef.current && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }
+                  animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.6 }}
                   className="relative mt-3 flex items-center justify-center gap-3 rounded-xl border-2 border-yellow-400 bg-gradient-to-r from-yellow-900/30 to-amber-900/30 px-4 py-3"
                   style={{ boxShadow: "0 0 30px rgba(251, 191, 36, 0.3)" }}
@@ -2144,7 +2144,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
 
               {/* Reward */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }
+                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.65 }}
                 className="relative mt-4 flex items-center justify-center gap-3 rounded-2xl border border-amber-400/40 bg-gradient-to-r from-amber-900/40 via-amber-800/30 to-amber-900/40 px-6 py-4 shadow-[0_0_30px_rgba(234,179,8,0.2)]"
               >

@@ -1,12 +1,12 @@
 import React from "react";
 
 interface StatisticalPanelProps {
-  experimentResults: any;
-  experimentName: string;
+  data: any;
+  experimentName?: string;
 }
 
-export function StatisticalPanel({ experimentResults, experimentName }: StatisticalPanelProps) {
-  if (!experimentResults) {
+export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps) {
+  if (!data) {
     return (
       <div className="text-center py-8 text-gray-400 italic">
         No experiment data available yet.
@@ -14,7 +14,7 @@ export function StatisticalPanel({ experimentResults, experimentName }: Statisti
     );
   }
 
-  const { pairwiseComparisons, anova, groupCounts, retentionRate, analysis } = experimentResults;
+  const { pairwiseComparisons, anova, groupCounts, retentionRate, analysis } = data;
   const nComparisons = pairwiseComparisons?.length || 0;
 
   return (

@@ -300,7 +300,7 @@ if (secretRaw) {
 interface UserProgress {
   flashcardsRead: number[];
   flashcardCounts: Record<number, number>;
-  flashcardNames: Record<number, string>;
+  flashcardNames?: Record<number, string>;
   checkins: number[];
   traded: number[];
   crafted: (string | number)[];
@@ -328,7 +328,7 @@ interface User {
 interface GameProgress {
   flashcardsRead: number[];
   flashcardCounts: Record<string, number>;
-  flashcardNames: Record<number, string>;
+  flashcardNames?: Record<number, string>;
   checkins: number[];
   traded: (string | number)[];
   crafted: (string | number)[];
@@ -1175,11 +1175,11 @@ app.post("/api/admin/unlock-all-cards", requireAdmin, async (req, res) => {
     }
 
     const progress = await getGameProgress(nickname);
-    const updated: GameProgress = {
+    const updated = {
       ...(progress || {}),
       flashcardsRead: Array.from({ length: CARD_TOTAL }, (_, i) => i + 1),
       flashcardCounts,
-    };
+    } as GameProgress;
 
     await saveGameProgress(nickname, updated);
     console.log(`[unlock-all-cards] Unlocked ${CARD_TOTAL} cards for ${nickname}`);

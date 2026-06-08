@@ -6,7 +6,7 @@ import {
   Heart, Target, Wind, Crosshair, Brain, Flame,
   ChevronDown, Info, Plus, Check, RefreshCw,
   Activity, Award, Cpu, Skull, Eye, Search,
-  ChevronRight, Battery, Lightning, Gauge,
+  ChevronRight, Battery, Gauge,
   Filter, SortAsc, Sparkle,
 } from "lucide-react";
 import { UserProgress } from "../types";
@@ -22,7 +22,7 @@ import { Badge, Button, Card, EmptyState } from "../lib/ui";
 type Section = "collection" | "fusion" | "levelup" | "gacha" | "battle";
 
 // ─── Auth helper ────────────────────────────────────────────────────────────
-function getAuthHeaders() {
+function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -310,7 +310,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
                     <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full"
-                        style={{ backgroundColor: cfg.color, width: `${Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100}%`)}}
+                        style={{ backgroundColor: cfg.color, width: `${Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100)}%`}}
                       />
                     </div>
                     <span className="text-[7px] font-black tabular-nums" style={{ color: cfg.color }}>{val}</span>
@@ -374,7 +374,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
           {/* Close button */}
           <button onClick={onClose}
             className="absolute right-3 sm:right-4 top-6 sm:top-8 rounded-full border border-slate-200 bg-white/80 p-1.5 sm:p-2 text-slate-400 backdrop-blur-sm transition-all hover:border-slate-300 hover:text-slate-600 hover:bg-white">
-            <X size={14} sm:size={16} />
+            <X size={16} />
           </button>
 
           {/* Main content: Avatar + info */}
@@ -390,7 +390,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
             <div className="flex-1 min-w-0 pt-0.5 sm:pt-1">
               {/* Rarity row */}
               <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 flex-wrap">
-                <RarityStars rarityId={card.rarity.id} size={10} sm={12} />
+                <RarityStars rarityId={card.rarity.id} size={10} />
                 <span className="rounded-full px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider"
                   style={{ backgroundColor: rs.accent + "18", color: rs.accent, border: `1px solid ${rs.accent}40` }}>
                   {rs.name}
@@ -409,7 +409,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
                   </div>
                 )}
                 <div className="ml-auto flex items-center gap-1 rounded-full bg-slate-900 px-2 sm:px-3 py-1 sm:py-1.5">
-                  <Zap size={10} sm={12} className="text-amber-400" />
+                  <Zap size={10} className="text-amber-400" />
                   <span className="text-xs sm:text-sm font-black text-white" style={{ fontFamily: "monospace" }}>{power}</span>
                 </div>
               </div>
@@ -766,9 +766,9 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           const resolved = resolveCard(result.card);
           setGachaResult({ ...resolved, isNew: result.isNew });
           if (result.isNew) {
+            const id = Number(result.card.id);
             setUnlockedCards((prev) => {
               const next = [...prev];
-              const id = Number(result.card.id);
               if (!next.includes(id)) next.push(id);
               return next;
             });
@@ -792,6 +792,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const handleFuse = async (cardId: number) => {
     setFusing(true);
     setFuseMsg(null);
+    const card = ALL_CARDS.find((c) => c.id === cardId) || ALL_CARDS[0];
     try {
       const res = await fetch("/api/cards/fuse", {
         method: "POST",
@@ -944,9 +945,9 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               key={el.id}
               onClick={() => setSelectedElement(el.id === selectedElement ? null : el.id)}
               className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === el.id ? "ring-2 ring-offset-1" : "opacity-70 hover:opacity-100"}`}
-              style={{ backgroundColor: el.id === selectedElement ? el.accent || el.color : `${el.accent || el.color}22`, color: el.id === selectedElement ? "white" : (el.accent || el.color), borderColor: el.accent || el.color, ...(selectedElement !== el.id ? { border: `1px solid ${(el.accent || el.color)}44` } : {}) }}
+              style={{ backgroundColor: el.id === selectedElement ? el.accent : `${el.accent}22`, color: el.id === selectedElement ? "white" : (el.accent), borderColor: el.accent, ...(selectedElement !== el.id ? { border: `1px solid ${(el.accent)}44` } : {}) }}
             >
-              {el.icon} {el.name}
+              {getAvatarEmoji(el.id)} {el.name}
             </button>
           ))}
         </div>
@@ -985,7 +986,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           <div className="relative h-3 bg-slate-700 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, (collectedCount / Math.max(totalCards, 1)) * 100}%` }}
+              animate={{ width: `${Math.min(100, (collectedCount / Math.max(totalCards, 1)) * 100)}%` }}
               transition={{ duration: 1.2, ease: "easeOut" }}
               className="absolute inset-y-0 left-0 rounded-full"
               style={{ background: "linear-gradient(90deg, #06b6d4, #22c55e, #f59e0b, #a855f7, #ef4444)" }}
@@ -993,7 +994,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             {/* Milestone markers */}
             {[25, 50, 75, 100].map((milestone) => (
               <div key={milestone} className="absolute top-0 bottom-0 z-10"
-                style={{ left: `${milestone}%`, marginLeft: -1, width: 2, background: milestone <= (collectedCount / Math.max(totalCards, 1) * 100 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.2)" }}
+                style={{ left: `${milestone}%`, marginLeft: -1, width: 2, background: milestone <= (collectedCount / Math.max(totalCards, 1)) * 100 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.2)" }}
               />
             ))}
           </div>
@@ -1110,7 +1111,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                 {Array.isArray(ELEMENTS) && ELEMENTS.map((el) => (
                   <button key={el.id} onClick={() => setFilterElement(el.id)}
                     className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === el.id ? "text-white" : "bg-slate-100 text-slate-500"}`}
-                    style={filterElement === el.id ? { backgroundColor: el.accent || el.color } : {}}>
+                    style={filterElement === el.id ? { backgroundColor: el.accent } : {}}>
                     <span>{getAvatarEmoji(el.id)}</span>{el.name}
                   </button>
                 ))}
