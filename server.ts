@@ -309,6 +309,7 @@ interface UserProgress {
   guildDonated: boolean;
   streakDays?: number;
   lastUpdateDate: string;
+  shards?: number;
 }
 
 interface User {
@@ -323,6 +324,7 @@ interface User {
   selectedAvatar?: string;
   selectedFrame?: string;
   customAvatarUrl?: string;
+  shards?: number;
 }
 
 interface GameProgress {
@@ -337,6 +339,7 @@ interface GameProgress {
   guildDonated: boolean;
   streakDays?: number;
   lastUpdateDate: string;
+  shards?: number;
 }
 
 async function getGameProgress(nick: string): Promise<GameProgress | null> {
@@ -1152,6 +1155,90 @@ app.post("/api/cards/levelup", async (req, res) => {
   }
 });
 
+// ─── Shard purchase ───────────────────────────────────────────────────────────
+// Shard shop items (synchronized with client-side SHARD_SHOP_ITEMS)
+// type: "card" | "xp_boost" | "frame"
+const SHARD_SHOP_DEFINITIONS = [
+  { id: "xp_50", type: "xp_boost", cost: 5, xpBonus: 50 },
+  { id: "xp_200", type: "xp_boost", cost: 15, xpBonus: 200 },
+  { id: "xp_1000", type: "xp_boost", cost: 60, xpBonus: 1000 },
+];
+const CARD_SHOP_ITEMS: Record<string, { rarity: string; element: string; cardId: number }> = {
+  shard_rare_1:   { rarity: "rare",      element: "plastic", cardId: 11  },
+  shard_rare_2:   { rarity: "rare",      element: "organic", cardId: 151 },
+  shard_epic_1:   { rarity: "epic",      element: "hazard",  cardId: 201 },
+  shard_epic_2:   { rarity: "epic",      element: "metal",   cardId: 251 },
+  shard_legendary:{ rarity: "legendary", element: "hazard",  cardId: 301 },
+};
+
+app.post("/api/shards/purchase", requireAuth, async (req, res) => {
+  try {
+    const { nickname, itemId } = req.body;
+    if (!nickname || !itemId) {
+      return res.status(400).json({ success: false, error: "Missing fields" });
+    }
+
+    const progress = await getGameProgress(nickname);
+    const user = await getUser(nickname);
+    if (!user || !progress) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const shardCosts: Record<string, number> = {
+      xp_50: 5, xp_200: 15, xp_1000: 60,
+      shard_rare_1: 20, shard_rare_2: 20,
+      shard_epic_1: 50, shard_epic_2: 50,
+      shard_legendary: 120,
+    };
+    const cost = shardCosts[itemId];
+    if (!cost) {
+      return res.status(400).json({ success: false, error: "Item not found" });
+    }
+
+    const currentShards = progress.shards || 0;
+    if (currentShards < cost) {
+      return res.status(400).json({ success: false, error: `Need ${cost} shards. You have ${currentShards}.` });
+    }
+
+    progress.shards = currentShards - cost;
+
+    // Handle XP boost — add directly to user points
+    if (itemId.startsWith("xp_")) {
+      const def = SHARD_SHOP_DEFINITIONS.find((d) => d.id === itemId);
+      const xpBonus = def ? def.xpBonus : 0;
+      user.points = (user.points || 0) + xpBonus;
+      await saveGameProgress(nickname, progress);
+      await saveUser(user);
+      return res.json({ success: true, shardsRemaining: progress.shards, xpAwarded: xpBonus, remainingPoints: user.points });
+    }
+
+    // Handle card purchase
+    const cardDef = CARD_SHOP_ITEMS[itemId];
+    if (cardDef) {
+      const cardId = cardDef.cardId;
+      const serverCard = generateServerCard(cardId);
+      progress.flashcardCounts = progress.flashcardCounts || {};
+      progress.flashcardCounts[String(cardId)] = (progress.flashcardCounts[String(cardId)] || 0) + 1;
+      if (!progress.flashcardsRead.includes(cardId)) {
+        progress.flashcardsRead.push(cardId);
+      }
+      await saveGameProgress(nickname, progress);
+      await saveUser(user);
+      return res.json({
+        success: true,
+        shardsRemaining: progress.shards,
+        card: serverCard,
+        isNew: !progress.flashcardsRead.includes(cardId),
+      });
+    }
+
+    res.status(400).json({ success: false, error: "Unhandled item type" });
+  } catch (e) {
+    console.error("[shards:purchase] Error:", e);
+    res.status(500).json({ success: false, error: "Purchase failed" });
+  }
+});
+
 // ─── Get card levels ─────────────────────────────────────────────────────────
 app.get("/api/cards/levels/:nickname", async (req, res) => {
   try {
@@ -1278,6 +1365,7 @@ app.get("/api/user/:nick", async (req, res) => {
       progress: progress || user.progress || null,
       selectedAvatar: user.selectedAvatar,
       selectedFrame: user.selectedFrame,
+      shards: (progress?.shards ?? user.progress?.shards ?? user.shards ?? 0),
     });
   } else {
     res.status(404).json({ message: "Not found" });
@@ -1330,7 +1418,8 @@ app.post("/api/user-progress", async (req, res) => {
         challengesCompleted: [],
         guildDonated: false,
         streakDays: newStreak,
-        lastUpdateDate: todayStr
+        lastUpdateDate: todayStr,
+        shards: progress?.shards ?? 0,
       };
     }
 
@@ -1339,12 +1428,20 @@ app.post("/api/user-progress", async (req, res) => {
       const unlockedIds = progress.flashcardsRead || [];
       const pulledCardId = resolveGacha(unlockedIds);
       const pulledCard = generateServerCard(pulledCardId);
+      const isNew = !unlockedIds.includes(pulledCardId);
 
       progress.flashcardCounts = progress.flashcardCounts || {};
       progress.flashcardNames = progress.flashcardNames || {};
       progress.flashcardCounts[pulledCardId] = (progress.flashcardCounts[pulledCardId] || 0) + 1;
       if (!progress.flashcardsRead.includes(pulledCardId)) {
         progress.flashcardsRead.push(pulledCardId);
+      }
+
+      // Duplicate → award 3 shards
+      let shardsAwarded = 0;
+      if (!isNew) {
+        progress.shards = (progress.shards || 0) + 3;
+        shardsAwarded = 3;
       }
 
       // Save and return the resolved card
@@ -1355,8 +1452,9 @@ app.post("/api/user-progress", async (req, res) => {
         success: true,
         progress,
         card: pulledCard,
-        isNew: !unlockedIds.includes(pulledCardId),
+        isNew,
         cardLevel,
+        shardsAwarded,
       });
       return;
     } else if (type === "checkin") {
@@ -1452,47 +1550,6 @@ app.post("/api/user-progress", async (req, res) => {
   } catch (error) {
     console.error(`[user-progress] Error:`, error);
     res.status(500).json({ success: false, error: "Failed to update progress" });
-  }
-});
-
-// ─── World Map Game Progress ───────────────────────────────────────────────────
-
-app.get("/api/game-progress/:nickname", async (req, res) => {
-  try {
-    const nickname = (req.params.nickname || "").trim().toLowerCase();
-    if (db) {
-      const doc = await db.collection("user_game_progress").doc(nickname).get();
-      if (doc.exists) {
-        return res.json({ gameProgress: doc.data() });
-      }
-    }
-    res.json({ gameProgress: null });
-  } catch (e) {
-    res.status(500).json({ success: false, error: "Failed to load game progress" });
-  }
-});
-
-app.post("/api/game-progress", async (req, res) => {
-  try {
-    const { nickname, action, regionId, bonus, progress: clientProgress } = req.body;
-    if (!nickname) return res.status(400).json({ success: false, error: "nickname required" });
-
-    let existingProgress: Record<string, unknown> = {};
-    if (db) {
-      const doc = await db.collection("user_game_progress").doc(nickname.toLowerCase()).get();
-      if (doc.exists) existingProgress = doc.data() as Record<string, unknown>;
-    }
-
-    const updated = { ...existingProgress, ...(clientProgress || {}) };
-
-    if (db) {
-      await db.collection("user_game_progress").doc(nickname.toLowerCase()).set(updated, { merge: true });
-    }
-
-    res.json({ success: true, gameProgress: updated });
-  } catch (e) {
-    console.error("[game-progress] Error:", e);
-    res.status(500).json({ success: false, error: "Failed to save game progress" });
   }
 });
 

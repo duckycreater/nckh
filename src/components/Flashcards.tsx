@@ -18,7 +18,7 @@ import { CardBattle } from "./CardBattle";
 import { Badge, Button, Card, EmptyState } from "../lib/ui";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
-type Section = "collection" | "fusion" | "levelup" | "gacha" | "battle";
+type Section = "collection" | "fusion" | "levelup" | "gacha" | "battle" | "shards";
 
 // ─── Auth helper ────────────────────────────────────────────────────────────
 function getAuthHeaders(): Record<string, string> {
@@ -244,11 +244,11 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
               </div>
             </div>
             {/* Name */}
-            <p className="line-clamp-1 text-center text-[8px] font-black text-white leading-tight tracking-wide">{card.name}</p>
+            <p className="line-clamp-1 text-center text-[9px] sm:text-[10px] font-black text-white leading-tight tracking-wide">{card.name}</p>
             {/* Power */}
             <div className="flex items-center justify-center mt-0.5 gap-0.5">
-              <Zap size={7} className="text-amber-400" />
-              <span className="text-[8px] font-black text-amber-400" style={{ fontFamily: "monospace" }}>{power}</span>
+              <Zap size={8} className="text-amber-400" />
+              <span className="text-[9px] sm:text-[10px] font-black text-amber-400" style={{ fontFamily: "monospace" }}>{power}</span>
             </div>
           </div>
 
@@ -287,11 +287,11 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
 
           {/* Stats panel */}
           <div className="flex flex-col h-full p-2 pt-3">
-            <p className="text-[8px] font-black text-center text-white mb-1 leading-tight tracking-wide">{card.name}</p>
+            <p className="text-[9px] sm:text-[10px] font-black text-center text-white mb-1 leading-tight tracking-wide">{card.name}</p>
             {ability && (
               <div className="flex items-center justify-center gap-1 mb-1">
                 <span className="text-sm">{ability.icon}</span>
-                <span className="text-[7px] font-bold text-slate-400">{ability.name}</span>
+                <span className="text-[8px] sm:text-[9px] font-bold text-slate-400">{ability.name}</span>
               </div>
             )}
             <div className="flex-1 space-y-0.5 overflow-hidden">
@@ -301,17 +301,17 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
                 const barPct = Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100);
                 return (
                   <div key={stat} className="flex items-center gap-1.5">
-                    <div className="w-5 text-center text-[7px] font-black" style={{ color: cfg2.color }}>{cfg2.icon}</div>
+                    <div className="w-5 text-center text-[8px] sm:text-[9px] font-black" style={{ color: cfg2.color }}>{cfg2.icon}</div>
                     <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ backgroundColor: cfg2.color, width: `${barPct}%` }} />
                     </div>
-                    <span className="text-[7px] font-black tabular-nums w-6 text-right" style={{ color: cfg2.color }}>{val}</span>
+                    <span className="text-[8px] sm:text-[9px] font-black tabular-nums w-6 text-right" style={{ color: cfg2.color }}>{val}</span>
                   </div>
                 );
               })}
             </div>
             {ability && (
-              <p className="text-[6px] text-center text-slate-500 leading-tight mt-1 line-clamp-2">
+              <p className="text-[7px] sm:text-[8px] text-center text-slate-500 leading-tight mt-1 line-clamp-2">
                 {ability.desc}
               </p>
             )}
@@ -594,6 +594,18 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
           {result.isNew ? "Thẻ mới! Đã thêm vào bộ sưu tập" : "Bạn đã có thẻ này"}
         </motion.p>
 
+        {/* Shards awarded for duplicate */}
+        {result.shardsAwarded > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.1 }}
+            className="mt-2 flex items-center gap-1.5 rounded-full bg-purple-500/30 border border-purple-500/50 px-3 py-1"
+          >
+            <Cpu size={12} className="text-purple-400" />
+            <span className="text-xs font-black text-purple-300">+{result.shardsAwarded} Mảnh Ghép</span>
+          </motion.div>
+        )}
+
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}>
           <Button onClick={onClose} size="lg" className="mt-3 px-10 font-bold bg-white text-slate-900 hover:bg-slate-100">
             {result.isNew ? "Thu thập" : "Đóng"}
@@ -636,8 +648,19 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const [levelupMsg, setLevelupMsg] = useState<string | null>(null);
   const [fuseAnimCard, setFuseAnimCard] = useState<{ card: any; xpGained: number } | null>(null);
   const [newCardIds, setNewCardIds] = useState<Set<number>>(new Set());
+  const [shardCount, setShardCount] = useState(0);
+  const [shardMsg, setShardMsg] = useState<string | null>(null);
 
   // ─── Daily Challenge Card ─────────────────────────────────────────
+  // ─── Daily Challenge System ───────────────────────────────────────
+  const CHALLENGE_TYPES = [
+    { id: "multi_element",  label: "3 Nguyên Tố Khác Nhau",  desc: "Chiến thắng với 3 nguyên tố khác nhau trong đội",    reward: 150, icon: "🎨" },
+    { id: "speed_win",      label: "Thắng Nhanh",            desc: "Chiến thắng trong 5 lượt hoặc ít hơn",                reward: 100, icon: "⚡" },
+    { id: "no_damage",      label: "Không Nhận Sát Thương",   desc: "Chiến thắng mà không nhận sát thương nào",           reward: 200, icon: "🛡️" },
+    { id: "ko_all",         label: "Hạ Gục Tất Cả",          desc: "Hạ gục cả 3 boss trong một trận đấu",                reward: 180, icon: "💀" },
+    { id: "epic_win",       label: "Thắng Bằng Thẻ Siêu Hiếm", desc: "Chiến thắng chỉ dùng thẻ Siêu Hiếm hoặc Huyền Thoại", reward: 250, icon: "🌟" },
+  ];
+
   const getDailyChallenge = () => {
     const today = new Date().toDateString();
     const stored = localStorage.getItem("dailyChallenge");
@@ -648,14 +671,22 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       } catch { /* ignore */ }
     }
     if (unlockedCards.length === 0) return null;
-    const idx = Math.floor(Math.random() * unlockedCards.length);
-    const cardId = unlockedCards[idx];
-    const challenge = { date: today, cardId, buff: 2 };
+    const cardIdx = Math.floor(Math.random() * unlockedCards.length);
+    const cardId = unlockedCards[cardIdx];
+    const challengeIdx = Math.floor(Math.random() * CHALLENGE_TYPES.length);
+    const challenge = {
+      date: today,
+      cardId,
+      buff: 2,
+      type: CHALLENGE_TYPES[challengeIdx].id,
+      reward: CHALLENGE_TYPES[challengeIdx].reward,
+    };
     localStorage.setItem("dailyChallenge", JSON.stringify(challenge));
     return challenge;
   };
 
   const dailyChallenge = getDailyChallenge();
+  const activeChallengeInfo = dailyChallenge ? CHALLENGE_TYPES.find((c) => c.id === dailyChallenge.type) : null;
 
   // ─── Helpers ───────────────────────────────────────────────────────
   const getCardCount = (id: number) => {
@@ -670,7 +701,15 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
 
   const resolveCard = (card: any) => {
     const level = getCardLevel(card.id);
-    return { ...card, level };
+    // Normalize server card format → component format
+    const normalized = {
+      ...card,
+      level,
+      element: { id: card.element?.id ?? card.elementId ?? "plastic" },
+      rarity: { id: card.rarity?.id ?? card.rarityId ?? "common" },
+      abilityId: card.abilityId ?? "def_01",
+    };
+    return normalized;
   };
 
   const countByRarity = (rarityId: string) => {
@@ -698,6 +737,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     (Array.isArray(read) ? read : []).map(Number).forEach((n) => owned.add(n));
     Object.keys(counts).forEach((k) => owned.add(Number(k)));
     setUnlockedCards(Array.from(owned));
+    setShardCount((progress as any)?.shards ?? 0);
   }, [progress, userId, fetchCardLevels]);
 
   // ─── Filter & sort cards ────────────────────────────────────────────
@@ -744,6 +784,9 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           Object.keys(result.progress.flashcardCounts as Record<string, number>).forEach((k) => readSet.add(Number(k)));
         }
         setUnlockedCards(Array.from(readSet));
+        if (result.progress.shards !== undefined) {
+          setShardCount(result.progress.shards);
+        }
         if (onRefresh) onRefresh(result.progress);
       }
     } catch { /* silent */ }
@@ -763,7 +806,10 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       .then((result) => {
         if (result.success && result.card) {
           const resolved = resolveCard(result.card);
-          setGachaResult({ ...resolved, isNew: result.isNew });
+          setGachaResult({ ...resolved, isNew: result.isNew, shardsAwarded: result.shardsAwarded || 0 });
+          if (result.shardsAwarded > 0) {
+            setShardCount((prev) => prev + result.shardsAwarded);
+          }
           if (result.isNew) {
             const id = Number(result.card.id);
             setUnlockedCards((prev) => {
@@ -906,7 +952,59 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     { id: "levelup",   label: "Lên cấp",    icon: <ArrowUp size={13} /> },
     { id: "gacha",    label: "Mở gói",      icon: <Sparkles size={13} /> },
     { id: "battle",   label: "Đấu trường",  icon: <Swords size={13} /> },
+    { id: "shards",   label: "Mảnh ghép",   icon: <Cpu size={13} /> },
   ];
+
+  // ─── Shard Shop ────────────────────────────────────────────────────
+  const SHARD_SHOP_ITEMS: Array<{
+    id: string; name: string; desc: string; type: string;
+    cost: number; elementColor: string;
+    elementId?: string; rarity?: string; cardId?: number; icon?: React.ReactNode;
+  }> = [
+    { id: "xp_50",  name: "Bùa EXP nhỏ",   desc: "+50 EXP cho thẻ bất kỳ", type: "EXP",    cost: 5,  elementColor: "#22c55e", icon: <Zap size={16} className="text-emerald-400" /> },
+    { id: "xp_200", name: "Bùa EXP lớn",   desc: "+200 EXP cho thẻ bất kỳ", type: "EXP",    cost: 15, elementColor: "#3b82f6", icon: <Zap size={16} className="text-blue-400" /> },
+    { id: "xp_1000",name: "Bùa EXP khổng lồ", desc: "+1000 EXP cho thẻ bất kỳ", type: "EXP", cost: 60, elementColor: "#a855f7", icon: <Zap size={16} className="text-purple-400" /> },
+    { id: "shard_rare_1",   name: "Thẻ Hiếm: Nhựa",    desc: "Mua thẻ hiếm theo nguyên tố",   type: "Thẻ Hiếm", cost: 20, elementColor: "#06b6d4", elementId: "plastic", rarity: "rare", cardId: 11   },
+    { id: "shard_rare_2",   name: "Thẻ Hiếm: Hữu Cơ",  desc: "Mua thẻ hiếm theo nguyên tố",   type: "Thẻ Hiếm", cost: 20, elementColor: "#22c55e", elementId: "organic", rarity: "rare", cardId: 151 },
+    { id: "shard_epic_1",   name: "Thẻ Siêu Hiếm: Nguy Hại", desc: "Mua thẻ siêu hiếm theo nguyên tố", type: "Thẻ Siêu Hiếm", cost: 50, elementColor: "#ef4444", elementId: "hazard", rarity: "epic", cardId: 201 },
+    { id: "shard_epic_2",   name: "Thẻ Siêu Hiếm: Kim Loại", desc: "Mua thẻ siêu hiếm theo nguyên tố", type: "Thẻ Siêu Hiếm", cost: 50, elementColor: "#64748b", elementId: "metal", rarity: "epic", cardId: 251 },
+    { id: "shard_legendary", name: "Thẻ Huyền Thoại",     desc: "Mua thẻ huyền thoại cực hiếm",   type: "Thẻ Huyền Thoại", cost: 120, elementColor: "#f59e0b", elementId: "hazard", rarity: "legendary", cardId: 301 },
+  ];
+
+  const duplicateCount = (() => {
+    const counts = progress?.flashcardCounts || {};
+    let total = 0;
+    Object.entries(counts).forEach(([id, count]) => {
+      if (Number(count) > 1) total += Number(count) - 1;
+    });
+    return total;
+  })();
+
+  const handleShardPurchase = async (item: typeof SHARD_SHOP_ITEMS[0]) => {
+    setShardMsg(null);
+    try {
+      const res = await fetch("/api/shards/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ nickname: userId, itemId: item.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShardCount(data.shardsRemaining ?? 0);
+        if (data.xpAwarded) {
+          setShardMsg(`+${data.xpAwarded} EXP đã được thêm!`);
+        } else if (data.card) {
+          const id = Number(data.card.id);
+          setUnlockedCards((prev) => prev.includes(id) ? prev : [...prev, id]);
+          setShardMsg(data.isNew ? "Thẻ mới đã được thêm vào bộ sưu tập!" : "Thẻ đã được thêm vào bộ sưu tập!");
+        }
+        if (onRefresh) onRefresh(data.progress);
+      } else {
+        setShardMsg(data.error || "Mua thất bại.");
+      }
+    } catch { setShardMsg("Lỗi kết nối."); }
+    setTimeout(() => setShardMsg(null), 3500);
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-sm max-h-full">
@@ -1015,35 +1113,46 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         </div>
 
         {/* Daily Challenge Card */}
-        {dailyChallenge && (() => {
+        {dailyChallenge && activeChallengeInfo && (() => {
           const challengeCard = ALL_CARDS.find((c) => c.id === dailyChallenge.cardId);
           if (!challengeCard) return null;
           const elemColor2 = ELEM_COLOR[challengeCard.element.id] || "#94a3b8";
           return (
-            <div className="mt-2 flex items-center gap-2 rounded-xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-950/80 to-orange-950/80 p-2.5"
+            <div className="mt-2 rounded-xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-950/80 to-orange-950/80 overflow-hidden"
               style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
-              <div className="flex items-center gap-1.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/80 shadow">
-                  <Sparkle size={14} className="text-white" />
+              {/* Top bar */}
+              <div className="flex items-center gap-2 px-2.5 py-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/80 shadow">
+                    <Sparkle size={14} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-400 leading-none">Thử thách ngày</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-sm">{activeChallengeInfo.icon}</span>
+                      <p className="text-[10px] sm:text-[11px] font-black text-amber-300 leading-none">{activeChallengeInfo.label}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-amber-400">Thử thách ngày</p>
-                  <p className="text-[10px] font-bold text-amber-500">+100% EXP khi lên cấp</p>
+                <div className="ml-auto flex items-center gap-2">
+                  <div className="relative flex-shrink-0" style={{ width: 36, height: 48 }}>
+                    {getCardArt(challengeCard.id, challengeCard.element.id, challengeCard.artVariant || 1, challengeCard.rarity.id)}
+                  </div>
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[10px] font-bold text-white/60">Thẻ nền</p>
+                    <p className="text-[10px] font-black text-white leading-tight">{challengeCard.name}</p>
+                  </div>
                 </div>
               </div>
-              <div className="ml-auto flex items-center gap-2">
-                <div className="relative flex-shrink-0" style={{ width: 36, height: 48 }}>
-                  {getCardArt(challengeCard.id, challengeCard.element.id, challengeCard.artVariant || 1, challengeCard.rarity.id)}
+              {/* Challenge detail + reward row */}
+              <div className="flex items-center justify-between gap-2 border-t border-amber-500/20 bg-black/20 px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Trophy size={10} className="text-amber-400 flex-shrink-0" />
+                  <p className="text-[9px] sm:text-[10px] text-amber-400/80 truncate">{activeChallengeInfo.desc}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-white">{challengeCard.name}</p>
-                  <p className="text-[9px] font-bold" style={{ color: elemColor2 }}>
-                    {getAvatarEmoji(challengeCard.element.id)} {challengeCard.element.id === 'plastic' ? '🔵 Nhựa' :
-                     challengeCard.element.id === 'paper' ? '📄 Giấy' :
-                     challengeCard.element.id === 'glass' ? '🥛 Thủy Tinh' :
-                     challengeCard.element.id === 'metal' ? '🥫 Kim Loại' :
-                     challengeCard.element.id === 'organic' ? '🍃 Hữu Cơ' : '☣️ Nguy Hại'}
-                  </p>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Star size={9} className="fill-amber-400 text-amber-400" />
+                  <span className="text-[10px] sm:text-[11px] font-black text-amber-400">+{dailyChallenge.reward} EXP</span>
                 </div>
               </div>
             </div>
@@ -1279,18 +1388,18 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                         <RarityStars rarityId={card.rarity.id} size={7} />
 
                         {/* Name */}
-                        <p className="mt-1 text-[10px] font-black text-white leading-tight">{card.name}</p>
+                        <p className="mt-1 text-[11px] sm:text-xs font-black text-white leading-tight">{card.name}</p>
 
                         {/* Ability */}
                         {ability && (
-                          <p className="text-[9px] text-slate-400">{ability.icon} {ability.name}</p>
+                          <p className="text-[10px] text-slate-400">{ability.icon} {ability.name}</p>
                         )}
 
                         {/* Power */}
                         <PowerBadge power={power} />
 
                         {/* XP reward */}
-                        <div className="mt-1 flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[9px] font-bold text-amber-400">
+                        <div className="mt-1 flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[10px] sm:text-[11px] font-bold text-amber-400">
                           <Sparkles size={8} className="text-amber-400" />
                           +{xpGain} EXP
                         </div>
@@ -1440,18 +1549,18 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                       <RarityStars rarityId={card.rarity.id} size={7} />
 
                       {/* Name */}
-                      <p className="mt-1 text-[10px] font-black text-white leading-tight">{card.name}</p>
+                      <p className="mt-1 text-[11px] sm:text-xs font-black text-white leading-tight">{card.name}</p>
 
                       {/* Ability */}
                       {ability && (
-                        <p className="text-[9px] text-slate-400">{ability.icon} {ability.name}</p>
+                        <p className="text-[10px] text-slate-400">{ability.icon} {ability.name}</p>
                       )}
 
                       {/* Power */}
                       <PowerBadge power={power} />
 
                       {isMax ? (
-                        <div className="mt-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-[9px] font-bold text-amber-400">
+                        <div className="mt-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-[10px] sm:text-[11px] font-bold text-amber-400">
                           Cấp tối đa
                         </div>
                       ) : (
@@ -1459,7 +1568,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                           {/* Before/After stat comparison */}
                           <div className="mt-1 flex w-full flex-col gap-0.5 px-1">
                             {/* ATK */}
-                            <div className="flex justify-between text-[8px]">
+                            <div className="flex justify-between text-[9px]">
                               <span className="text-slate-500">ATK</span>
                               <span className="text-slate-300">{atkNow} <span className="text-emerald-400">→</span> <span className="text-emerald-400 font-black">{atkNext}</span></span>
                             </div>
@@ -1473,7 +1582,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                               />
                             </div>
                             {/* HP */}
-                            <div className="flex justify-between text-[8px]">
+                            <div className="flex justify-between text-[9px]">
                               <span className="text-slate-500">HP</span>
                               <span className="text-slate-300">{hpNow} <span className="text-emerald-400">→</span> <span className="text-emerald-400 font-black">{hpNext}</span></span>
                             </div>
@@ -1489,7 +1598,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                           </div>
 
                           {/* Cost */}
-                          <div className={`mt-1 flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold ${hasXp ? "text-amber-400 bg-amber-500/15 border border-amber-500/30" : "text-red-400 bg-red-500/15 border border-red-500/30"}`}>
+                          <div className={`mt-1 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] sm:text-[11px] font-bold ${hasXp ? "text-amber-400 bg-amber-500/15 border border-amber-500/30" : "text-red-400 bg-red-500/15 border border-red-500/30"}`}>
                             <Sparkles size={8} />{xpCost.toLocaleString()} EXP
                           </div>
 
@@ -1699,7 +1808,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             {/* Card picker */}
             <div>
               <h4 className="mb-3 font-black text-base text-white">Chọn thẻ vào đội hình</h4>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-1 sm:gap-2">
                 {unlockedCards.map((id) => {
                   const card = ALL_CARDS.find((c) => c.id === id)!;
                   if (!card) return null;
@@ -1790,6 +1899,112 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             onClose={() => setShowBattle(false)}
             onWin={(xp) => onReward(xp)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ─── Shard Shop ─── */}
+      <AnimatePresence>
+        {activeSection === "shards" && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-white">Cửa Hàng Mảnh Ghép</h3>
+                <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Đổi bản sao thừa lấy mảnh ghép</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-purple-500/20 border border-purple-500/40 px-3 py-1.5">
+                <Cpu size={14} className="text-purple-400" />
+                <span className="text-sm font-black text-purple-300">{shardCount}</span>
+                <span className="text-[10px] text-purple-500">mảnh</span>
+              </div>
+            </div>
+
+            {/* Shard message */}
+            {shardMsg && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-emerald-500/40 bg-emerald-500/20 p-2.5 text-center"
+              >
+                <p className="text-[11px] sm:text-xs font-black text-emerald-400">{shardMsg}</p>
+              </motion.div>
+            )}
+
+            {/* Info banner */}
+            <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-3">
+              <div className="flex items-start gap-2">
+                <Info size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
+                  <p>Khi bạn mở một <span className="text-purple-400 font-bold">bản sao</span> (thẻ đã có), nó sẽ được chuyển thành <span className="text-amber-400 font-bold">3 Mảnh Ghép</span>.</p>
+                  <p className="mt-1">Dùng mảnh ghép để mua thẻ hiếm hoặc vật phẩm nâng cấp!</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Shop items */}
+            <div className="space-y-2">
+              {SHARD_SHOP_ITEMS.map((item) => {
+                const canAfford = shardCount >= item.cost;
+                return (
+                  <motion.div
+                    key={item.id}
+                    whileHover={canAfford ? { scale: 1.01 } : {}}
+                    whileTap={canAfford ? { scale: 0.99 } : {}}
+                    className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
+                      canAfford
+                        ? "border-slate-600 bg-slate-800/80 cursor-pointer hover:border-purple-500/50 hover:bg-slate-800"
+                        : "border-slate-700/50 bg-slate-800/40 opacity-60 cursor-not-allowed"
+                    }`}
+                    onClick={() => canAfford && handleShardPurchase(item)}
+                  >
+                    {/* Item art */}
+                    <div className="relative flex-shrink-0 w-12 h-16 rounded-lg overflow-hidden border-2"
+                      style={{ borderColor: item.elementColor + "80", background: `linear-gradient(145deg, ${item.elementColor}20, ${item.elementColor}08)` }}>
+                      {item.cardId ? (
+                        getCardArt(item.cardId, item.elementId, 1, item.rarity)
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl">
+                          {item.icon}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] sm:text-xs font-black text-white truncate">{item.name}</p>
+                      <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5">{item.desc}</p>
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className="text-[9px] font-bold" style={{ color: item.elementColor }}>{item.type}</span>
+                        {item.rarity && <RarityStars rarityId={item.rarity} size={7} />}
+                      </div>
+                    </div>
+
+                    {/* Price */}
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-black ${canAfford ? "bg-purple-500/30 text-purple-300" : "bg-slate-700 text-slate-500"}`}>
+                        <Cpu size={9} />
+                        {item.cost}
+                      </div>
+                      {canAfford ? (
+                        <span className="text-[9px] text-emerald-400 font-bold">Mua</span>
+                      ) : (
+                        <span className="text-[9px] text-slate-600 font-bold">Không đủ</span>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Duplicate count info */}
+            {duplicateCount > 0 && (
+              <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-3 text-center">
+                <p className="text-[10px] sm:text-xs text-purple-400">
+                  Bạn có <span className="font-black text-purple-300">{duplicateCount}</span> bản sao thẻ có thể chuyển đổi
+                </p>
+                <p className="text-[9px] text-purple-500/60 mt-0.5">Mỗi bản sao = 3 Mảnh Ghép</p>
+              </div>
+            )}
+          </div>
         )}
       </AnimatePresence>
     </div>
