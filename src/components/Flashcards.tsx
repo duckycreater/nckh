@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Layers, Lock, Swords, X, Wand2,
   ArrowUp, GitMerge, Zap, Trophy, Star, Shield,
-  Heart, Target, Wind, Crosshair, Brain, Flame,
-  ChevronDown, Info, Plus, Check, RefreshCw,
+  Heart, ChevronDown, Info, Plus, Check, RefreshCw,
   Activity, Award, Cpu, Skull, Eye, Search,
   ChevronRight, Battery, Gauge,
   Filter, SortAsc, Sparkle,
@@ -34,11 +33,11 @@ const RARITY: Record<string, {
   border: string; glow: string; badgeBg: string; badgeText: string;
   shimmer: boolean; starCount: number;
 }> = {
-  common:    { name: "Phổ thông", shortName: "PT", accent: "#94a3b8", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-300", glow: "shadow-slate-200", badgeBg: "bg-slate-100", badgeText: "text-slate-600", shimmer: false, starCount: 1 },
-  rare:      { name: "Hiếm",     shortName: "HM", accent: "#3b82f6", bgLight: "#eff6ff", bgDark: "#1e3a8a", border: "border-blue-400", glow: "shadow-blue-200", badgeBg: "bg-blue-100", badgeText: "text-blue-700", shimmer: false, starCount: 2 },
-  uncommon:  { name: "Thường",   shortName: "T",  accent: "#64748b", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-300", glow: "shadow-slate-200", badgeBg: "bg-slate-100", badgeText: "text-slate-600", shimmer: false, starCount: 1 },
-  epic:      { name: "Siêu hiếm", shortName: "SH", accent: "#a855f7", bgLight: "#faf5ff", bgDark: "#581c87", border: "border-purple-400", glow: "shadow-purple-200", badgeBg: "bg-purple-100", badgeText: "text-purple-700", shimmer: true, starCount: 3 },
-  legendary:  { name: "Huyền thoại", shortName: "HT", accent: "#f59e0b", bgLight: "#fffbeb", bgDark: "#78350f", border: "border-amber-400", glow: "shadow-amber-200", badgeBg: "bg-amber-100", badgeText: "text-amber-700", shimmer: true, starCount: 4 },
+  common:    { name: "Phổ thông", shortName: "PT", accent: "#94a3b8", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-400/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-700", badgeText: "text-slate-300", shimmer: false, starCount: 1 },
+  rare:      { name: "Hiếm",     shortName: "HM", accent: "#3b82f6", bgLight: "#1e3a8a", bgDark: "#1e3a8a", border: "border-blue-500/60", glow: "shadow-blue-400/40", badgeBg: "bg-blue-600", badgeText: "text-blue-100", shimmer: false, starCount: 2 },
+  uncommon:  { name: "Thường",   shortName: "T",  accent: "#64748b", bgLight: "#1e293b", bgDark: "#1e293b", border: "border-slate-500/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-600", badgeText: "text-slate-200", shimmer: false, starCount: 1 },
+  epic:      { name: "Siêu hiếm", shortName: "SH", accent: "#a855f7", bgLight: "#581c87", bgDark: "#581c87", border: "border-purple-500/70", glow: "shadow-purple-400/50", badgeBg: "bg-purple-600", badgeText: "text-purple-100", shimmer: true, starCount: 3 },
+  legendary:  { name: "Huyền thoại", shortName: "HT", accent: "#f59e0b", bgLight: "#78350f", bgDark: "#78350f", border: "border-amber-400/80", glow: "shadow-amber-400/60", badgeBg: "bg-amber-600", badgeText: "text-amber-100", shimmer: true, starCount: 4 },
 };
 const RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
 const PULL_COST = 50;
@@ -52,16 +51,16 @@ const ELEM_COLOR: Record<string, string> = {
 
 // ─── Stat config ───────────────────────────────────────────────────────────
 const STAT_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
-  atk: { icon: "⚔️", label: "Tấn công", color: "#ef4444" },
-  hp:  { icon: "❤️", label: "Máu",     color: "#22c55e" },
-  def: { icon: "🛡️", label: "Phòng thủ", color: "#3b82f6" },
-  spd: { icon: "💨", label: "Tốc độ",  color: "#06b6d4" },
-  crt: { icon: "💥", label: "Bạo kích", color: "#f59e0b" },
-  int: { icon: "🧠", label: "Trí tuệ",  color: "#a855f7" },
+  atk: { icon: "ATK", label: "Tấn công", color: "#ef4444" },
+  hp:  { icon: "HP",  label: "Máu",     color: "#22c55e" },
+  def: { icon: "DEF", label: "Phòng thủ", color: "#3b82f6" },
+  spd: { icon: "SPD", label: "Tốc độ",  color: "#06b6d4" },
+  crt: { icon: "CRT", label: "Bạo kích", color: "#f59e0b" },
+  int: { icon: "INT", label: "Trí tuệ",  color: "#a855f7" },
 };
 
 // ─── Card Avatar Circle ────────────────────────────────────────────────────
-function CardAvatar({ elementId, size = 36, sm }: { elementId: string; size?: number; sm?: number }) {
+function CardAvatar({ elementId, size = 36 }: { elementId: string; size?: number }) {
   const emoji = getAvatarEmoji(elementId);
   const color = ELEM_COLOR[elementId] || "#94a3b8";
   return (
@@ -69,12 +68,12 @@ function CardAvatar({ elementId, size = 36, sm }: { elementId: string; size?: nu
       className="flex items-center justify-center rounded-full select-none flex-shrink-0"
       style={{
         width: size, height: size,
-        background: `linear-gradient(135deg, ${color}20, ${color}08)`,
-        border: `2px solid ${color}40`,
-        boxShadow: `0 0 12px ${color}20`,
+        background: `linear-gradient(135deg, ${color}30, ${color}10)`,
+        border: `2px solid ${color}50`,
+        boxShadow: `0 0 12px ${color}30`,
       }}
     >
-      <span className="text-[70%]" style={{ fontSize: sm ?? size * 0.55 }}>{emoji}</span>
+      <span className="text-[65%]" style={{ fontSize: Math.max(size ?? 36, 12) * 0.5 }}>{emoji}</span>
     </div>
   );
 }
@@ -82,16 +81,20 @@ function CardAvatar({ elementId, size = 36, sm }: { elementId: string; size?: nu
 // ─── Rarity Stars ──────────────────────────────────────────────────────────
 function RarityStars({ rarityId, size = 10 }: { rarityId: string; size?: number }) {
   const rs = RARITY[rarityId] || RARITY.common;
+  const colorCls = rarityId === "legendary" ? "fill-amber-400 text-amber-400"
+    : rarityId === "epic" ? "fill-purple-400 text-purple-400"
+    : rarityId === "rare" ? "fill-blue-400 text-blue-400"
+    : "fill-slate-400 text-slate-400";
   return (
     <div className="flex gap-0.5">
       {Array.from({ length: rs.starCount }).map((_, i) => (
-        <Star key={i} size={size} className={rarityId === "legendary" ? "fill-amber-400 text-amber-400" : rarityId === "epic" ? "fill-purple-400 text-purple-400" : rarityId === "rare" ? "fill-blue-400 text-blue-400" : "fill-slate-400 text-slate-400"} />
+        <Star key={i} size={size} className={colorCls} />
       ))}
     </div>
   );
 }
 
-// ─── Level indicator ────────────────────────────────────────────────────────
+// ─── Level Badge ────────────────────────────────────────────────────────────
 function LevelBadge({ level }: { level: number }) {
   if (level <= 1) return null;
   return (
@@ -120,13 +123,13 @@ function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?
   const barPct = Math.min(100, (value / max) * 100);
   return (
     <div className="flex items-center gap-3">
-      <div className="w-7 text-center text-[11px]">{cfg.icon}</div>
+      <div className="w-8 text-center text-[10px] font-black" style={{ color: cfg.color }}>{cfg.icon}</div>
       <div className="flex-1">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{cfg.label}</span>
           <span className="text-[11px] font-black tabular-nums" style={{ color: cfg.color }}>{value}</span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
           <motion.div
             className="h-full rounded-full"
             style={{ backgroundColor: cfg.color }}
@@ -140,7 +143,7 @@ function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?
   );
 }
 
-// ─── Card Tile (grid) ───────────────────────────────────────────────────────
+// ─── Card Tile (dark glassmorphism) ────────────────────────────────────────
 function CardTile({ card, level = 1, count = 1, selected = false, locked = false, inDeck = false, isNew = false, onClick }: {
   card: any; level?: number; count?: number; selected?: boolean; locked?: boolean; inDeck?: boolean; isNew?: boolean; onClick?: () => void;
 }) {
@@ -149,6 +152,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
   const isEpic = card.rarity.id === "epic" || card.rarity.id === "legendary";
   const isLegendary = card.rarity.id === "legendary";
+  const power = calcPower(card, level);
 
   const [flipped, setFlipped] = useState(false);
 
@@ -157,32 +161,21 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
       <motion.button
         whileHover={{ opacity: 0.7 }}
         onClick={onClick}
-        className="relative w-full cursor-pointer overflow-hidden rounded-2xl border-2 border-slate-200 text-left bg-slate-50"
+        className="relative w-full cursor-pointer overflow-hidden rounded-2xl border-2 border-slate-700 bg-slate-900 text-left"
         style={{ aspectRatio: "2/3" }}
       >
         <div className="absolute inset-0 flex items-center justify-center opacity-5">
           <CardAvatar elementId={card.element.id} size={48} />
         </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200">
-            <Lock size={16} className="text-slate-400" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800">
+            <Lock size={16} className="text-slate-500" />
           </div>
-          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Khóa</span>
+          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Khóa</span>
         </div>
       </motion.button>
     );
   }
-
-  const handleClick = () => {
-    setFlipped((f) => !f);
-    if (onClick) onClick();
-  };
-
-  const glowClass = isLegendary
-    ? "card-shimmer-glow"
-    : isEpic
-    ? "card-shimmer-glow"
-    : "";
 
   return (
     <div
@@ -192,84 +185,84 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
       <motion.button
         animate={{ rotateY: flipped ? 180 : 0 }}
         transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
-        onClick={handleClick}
+        onClick={() => { setFlipped((f) => !f); if (onClick) onClick(); }}
         onMouseLeave={() => setFlipped(false)}
         className={`
           absolute inset-0 w-full h-full cursor-pointer overflow-hidden rounded-2xl border-2 text-left
-          backface-hidden preserve-3d
           ${rs.border}
           ${selected ? "ring-2 ring-amber-400 ring-offset-2" : ""}
           ${inDeck ? "ring-2 ring-amber-400 ring-offset-1" : ""}
         `}
         style={{
-          background: `linear-gradient(145deg, ${rs.bgLight}, ${elemColor}10)`,
-          boxShadow: `0 4px 20px ${rs.accent}25, 0 1px 4px rgba(0,0,0,0.08)`,
-          ["--glow-color" as string]: `${rs.accent}60`,
+          background: `linear-gradient(180deg, ${rs.bgDark} 0%, ${rs.bgDark}BB 60%, ${elemColor}15 100%)`,
+          boxShadow: `0 4px 24px ${rs.accent}30, 0 1px 4px rgba(0,0,0,0.4), inset 0 1px 0 ${rs.accent}30`,
         }}
       >
         {/* ── FRONT ── */}
-        <div className="absolute inset-0 backface-hidden">
-          {/* Element top bar */}
-          <div className="absolute inset-x-0 top-0 z-10 h-1.5 rounded-t-[14px]"
-            style={{ background: `linear-gradient(90deg, ${elemColor}50, ${elemColor})` }} />
-
-          {/* Legendary outer glow */}
-          {isLegendary && (
-            <div className="absolute inset-0 z-0 rounded-2xl"
-              style={{ boxShadow: `0 0 16px ${rs.accent}40, inset 0 0 30px ${rs.accent}10` }} />
-          )}
+        <div className="absolute inset-0">
+          {/* Neon element accent bar at top */}
+          <div className="absolute inset-x-0 top-0 z-10 h-1 rounded-t-2xl"
+            style={{ background: `linear-gradient(90deg, ${elemColor}CC, ${rs.accent}CC, ${elemColor}CC)` }} />
 
           {/* NEW badge */}
           {isNew && (
             <motion.div
               initial={{ scale: 0, rotate: -20 }}
               animate={{ scale: 1, rotate: 0 }}
-              className="absolute left-1 top-1 z-20 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[7px] font-black text-white shadow-lg"
+              className="absolute left-1 top-2 z-20 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[7px] font-black text-white shadow-lg"
             >
               NEW
             </motion.div>
           )}
 
-          {/* Card art area */}
-          <div className="absolute inset-0 flex items-center justify-center pt-3 pb-14 px-1">
-            <div className="w-full h-full">
-              {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
+          {/* Level badge top-left */}
+          {level > 1 && (
+            <div className="absolute left-1 top-2 z-20">
+              <LevelBadge level={level} />
             </div>
+          )}
+
+          {/* Card art area */}
+          <div className="absolute inset-0 flex items-center justify-center pt-3 pb-12 px-1">
+            {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
           </div>
 
-          {/* Bottom info */}
-          <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-2xl bg-white/95 backdrop-blur-sm px-2 pt-4 pb-1.5">
+          {/* Glassmorphism bottom panel */}
+          <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-2xl border-t border-white/10 bg-black/70 backdrop-blur-md px-2 pt-3 pb-1.5">
+            {/* Rarity stars + count row */}
             <div className="flex items-center justify-between mb-0.5">
               <RarityStars rarityId={card.rarity.id} size={7} />
               <div className="flex items-center gap-1">
                 {count > 1 && (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-black text-amber-700">x{count}</span>
+                  <span className="rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[8px] font-black text-white shadow">x{count}</span>
                 )}
                 {inDeck && (
-                  <span className="rounded-full bg-amber-400 p-0.5">
+                  <span className="rounded-full bg-emerald-500 p-0.5">
                     <Check size={8} className="text-white" />
                   </span>
                 )}
               </div>
             </div>
-            <p className="line-clamp-1 text-center text-[8px] font-black text-slate-800 leading-tight">{card.name}</p>
-            {level > 1 && (
-              <div className="flex items-center justify-center">
-                <LevelBadge level={level} />
-              </div>
-            )}
+            {/* Name */}
+            <p className="line-clamp-1 text-center text-[8px] font-black text-white leading-tight tracking-wide">{card.name}</p>
+            {/* Power */}
+            <div className="flex items-center justify-center mt-0.5 gap-0.5">
+              <Zap size={7} className="text-amber-400" />
+              <span className="text-[8px] font-black text-amber-400" style={{ fontFamily: "monospace" }}>{power}</span>
+            </div>
           </div>
 
-          {/* Flip hint */}
-          <div className="absolute bottom-1 right-1 z-20 opacity-0 group-hover:opacity-30 transition-opacity">
-            <span className="text-[6px] text-slate-400">tap to flip</span>
-          </div>
+          {/* Legendary outer glow */}
+          {isLegendary && (
+            <div className="pointer-events-none absolute inset-0 z-0 rounded-2xl"
+              style={{ boxShadow: `0 0 20px ${rs.accent}50, inset 0 0 30px ${rs.accent}15` }} />
+          )}
 
           {/* Shimmer overlay for epic+ */}
           {isEpic && (
-            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl opacity-50">
+            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl opacity-60">
               <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/70 to-transparent"
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
                 animate={{ x: ["-100%", "200%"] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
                 style={{ width: "30%", transform: "skewX(-15deg)" }}
@@ -280,55 +273,49 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
 
         {/* ── BACK (flipped) ── */}
         <div
-          className="absolute inset-0 backface-hidden rounded-2xl border-2 overflow-hidden"
+          className="absolute inset-0 overflow-hidden rounded-2xl border-2"
           style={{
-            background: `linear-gradient(145deg, ${elemColor}15, ${rs.bgLight})`,
+            background: `linear-gradient(180deg, ${elemColor}25, ${rs.bgDark})`,
             borderColor: rs.accent,
             transform: "rotateY(180deg)",
+            boxShadow: `0 0 20px ${rs.accent}30`,
           }}
         >
-          {/* Element color bar */}
-          <div className="absolute inset-x-0 top-0 h-1.5"
+          {/* Neon top bar */}
+          <div className="absolute inset-x-0 top-0 h-1"
             style={{ background: `linear-gradient(90deg, ${elemColor}, ${rs.accent})` }} />
 
           {/* Stats panel */}
-          <div className="flex flex-col h-full p-2 pt-4">
-            <p className="text-[8px] font-black text-center text-slate-800 mb-1 leading-tight">{card.name}</p>
+          <div className="flex flex-col h-full p-2 pt-3">
+            <p className="text-[8px] font-black text-center text-white mb-1 leading-tight tracking-wide">{card.name}</p>
             {ability && (
               <div className="flex items-center justify-center gap-1 mb-1">
                 <span className="text-sm">{ability.icon}</span>
-                <span className="text-[7px] font-bold text-slate-600">{ability.name}</span>
+                <span className="text-[7px] font-bold text-slate-400">{ability.name}</span>
               </div>
             )}
             <div className="flex-1 space-y-0.5 overflow-hidden">
               {(["atk", "hp", "def", "spd"] as const).map((stat) => {
-                const cfg = STAT_CONFIG[stat];
+                const cfg2 = STAT_CONFIG[stat];
                 const val = card[stat] * (stat === "atk" || stat === "hp" ? level : 1);
+                const barPct = Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100);
                 return (
                   <div key={stat} className="flex items-center gap-1.5">
-                    <span className="text-[8px] w-4 text-center">{cfg.icon}</span>
-                    <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: cfg.color, width: `${Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100)}%`}}
-                      />
+                    <div className="w-5 text-center text-[7px] font-black" style={{ color: cfg2.color }}>{cfg2.icon}</div>
+                    <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ backgroundColor: cfg2.color, width: `${barPct}%` }} />
                     </div>
-                    <span className="text-[7px] font-black tabular-nums" style={{ color: cfg.color }}>{val}</span>
+                    <span className="text-[7px] font-black tabular-nums w-6 text-right" style={{ color: cfg2.color }}>{val}</span>
                   </div>
                 );
               })}
             </div>
             {ability && (
-              <p className="text-[6px] text-center text-slate-400 leading-tight mt-1 line-clamp-2">
+              <p className="text-[6px] text-center text-slate-500 leading-tight mt-1 line-clamp-2">
                 {ability.desc}
               </p>
             )}
           </div>
-
-          {/* Back glow */}
-          {isLegendary && (
-            <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 20px ${rs.accent}30` }} />
-          )}
         </div>
       </motion.button>
     </div>
@@ -349,66 +336,77 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4"
+      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4"
       onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-xs sm:max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
-        style={{ boxShadow: `0 0 0 1.5px ${rs.accent}40, 0 25px 80px rgba(0,0,0,0.18)` }}
+        className="relative w-full max-w-sm sm:max-w-md overflow-hidden rounded-3xl"
+        style={{ boxShadow: `0 0 0 1.5px ${rs.accent}50, 0 25px 80px rgba(0,0,0,0.25)` }}
       >
-        {/* ── Hero Header ── */}
-        <div className="relative px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6" style={{ background: `linear-gradient(145deg, ${elemColor}12, ${elemColor}05, transparent)` }}>
-          {/* Element color accent bar */}
-          <div className="absolute inset-x-0 top-0 h-1.5 rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${elemColor}80, ${rs.accent})` }} />
+        {/* ── Dark Hero Header ── */}
+        <div className="relative px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-5"
+          style={{ background: `linear-gradient(145deg, ${rs.bgDark}, ${elemColor}20, ${rs.bgDark})` }}>
 
-          {/* Count badge */}
-          {count > 1 && (
-            <div className="absolute right-3 sm:right-5 top-6 sm:top-8 z-20 flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] sm:text-xs font-black text-white shadow-lg">
-              <span>x{count}</span>
-            </div>
-          )}
+          {/* Neon accent bar */}
+          <div className="absolute inset-x-0 top-0 h-1.5 rounded-t-3xl"
+            style={{ background: `linear-gradient(90deg, ${elemColor}AA, ${rs.accent}, ${elemColor}AA)` }} />
+
+          {/* NEW + Count badges */}
+          <div className="absolute right-3 sm:right-5 top-6 sm:top-8 z-20 flex items-center gap-1.5">
+            {count > 1 && (
+              <div className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] sm:text-xs font-black text-white shadow-lg">
+                x{count}
+              </div>
+            )}
+          </div>
 
           {/* Close button */}
           <button onClick={onClose}
-            className="absolute right-3 sm:right-4 top-6 sm:top-8 rounded-full border border-slate-200 bg-white/80 p-1.5 sm:p-2 text-slate-400 backdrop-blur-sm transition-all hover:border-slate-300 hover:text-slate-600 hover:bg-white">
-            <X size={16} />
+            className="absolute left-3 sm:left-4 top-6 sm:top-8 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/60 backdrop-blur-sm transition-all hover:border-white/20 hover:text-white">
+            <X size={14} />
           </button>
 
-          {/* Main content: Avatar + info */}
+          {/* Main: Art + Info */}
           <div className="flex items-start gap-3 sm:gap-5">
             {/* SVG Card Art */}
-            <div className="flex-shrink-0 w-24 sm:w-32 h-32 sm:h-44">
+            <div className="flex-shrink-0 w-24 sm:w-32 h-32 sm:h-44 relative">
               <div className="relative w-full h-full transform scale-[0.85] sm:scale-100 origin-top-left">
                 {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
               </div>
+              {/* Art glow */}
+              <div className="absolute inset-0 rounded-2xl pointer-events-none"
+                style={{ boxShadow: `0 0 30px ${elemColor}40, inset 0 0 20px ${elemColor}20` }} />
             </div>
 
-            {/* Info */}
+            {/* Info panel */}
             <div className="flex-1 min-w-0 pt-0.5 sm:pt-1">
-              {/* Rarity row */}
+              {/* Rarity + Level */}
               <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 flex-wrap">
                 <RarityStars rarityId={card.rarity.id} size={10} />
                 <span className="rounded-full px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider"
-                  style={{ backgroundColor: rs.accent + "18", color: rs.accent, border: `1px solid ${rs.accent}40` }}>
+                  style={{ backgroundColor: rs.accent + "25", color: rs.accent, border: `1px solid ${rs.accent}60` }}>
                   {rs.name}
                 </span>
                 {level > 1 && <LevelBadge level={level} />}
               </div>
+
               {/* Name */}
-              <h3 className="text-base sm:text-xl font-black text-slate-900 leading-tight truncate">{card.name}</h3>
+              <h3 className="text-base sm:text-xl font-black text-white leading-tight truncate">{card.name}</h3>
               {card.subtitle && <p className="text-xs sm:text-sm text-slate-400 font-medium truncate">{card.subtitle}</p>}
+
               {/* Element + Power */}
               <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                 {elem && (
-                  <div className="flex items-center gap-1 rounded-full px-1.5 sm:px-2.5 py-0.5" style={{ backgroundColor: elemColor + "18" }}>
+                  <div className="flex items-center gap-1 rounded-full px-1.5 sm:px-2.5 py-0.5"
+                    style={{ backgroundColor: elemColor + "25", border: `1px solid ${elemColor}50` }}>
                     <span className="text-xs">{getAvatarEmoji(card.element.id)}</span>
                     <span className="text-[9px] sm:text-[10px] font-bold" style={{ color: elemColor }}>{elem.name}</span>
                   </div>
                 )}
-                <div className="ml-auto flex items-center gap-1 rounded-full bg-slate-900 px-2 sm:px-3 py-1 sm:py-1.5">
+                <div className="ml-auto flex items-center gap-1 rounded-full bg-black/60 px-2 sm:px-3 py-1 sm:py-1.5 border border-white/10">
                   <Zap size={10} className="text-amber-400" />
                   <span className="text-xs sm:text-sm font-black text-white" style={{ fontFamily: "monospace" }}>{power}</span>
                 </div>
@@ -416,9 +414,9 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
             </div>
           </div>
 
-          {/* Shimmer for epic */}
+          {/* Shimmer for epic+ */}
           {isEpic && (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-20">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-25">
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
                 animate={{ x: ["-100%", "200%"] }}
@@ -430,7 +428,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
         </div>
 
         {/* ── Stats Section ── */}
-        <div className="px-4 sm:px-6 pb-4">
+        <div className="px-4 sm:px-6 pb-4" style={{ background: `linear-gradient(180deg, ${rs.bgDark}, ${rs.bgDark}CC)` }}>
           <div className="mb-1 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chỉ số</span>
             <span className="text-xs font-bold text-slate-300">Level {level}</span>
@@ -444,18 +442,20 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
 
         {/* ── Ability Section ── */}
         {ability && (
-          <div className="mx-3 sm:mx-6 mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-3 sm:p-4">
+          <div className="mx-3 sm:mx-6 mb-4 rounded-2xl border border-white/10 p-3 sm:p-4"
+            style={{ background: `linear-gradient(145deg, ${rs.bgDark}CC, ${elemColor}10)` }}>
             <div className="flex items-center gap-2 sm:gap-3 mb-2">
-              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-slate-100">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/10"
+                style={{ backgroundColor: rs.accent + "25", boxShadow: `0 0 12px ${rs.accent}30` }}>
                 <span className="text-xl sm:text-2xl">{ability.icon}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm font-black text-slate-900">{ability.name}</p>
+                <p className="text-xs sm:text-sm font-black text-white">{ability.name}</p>
                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                   <span className={`rounded-full px-1.5 py-0.5 text-[7px] sm:text-[8px] font-black uppercase ${
-                    ability.type === "ultimate" ? "bg-amber-100 text-amber-700" :
-                    ability.type === "active" ? "bg-blue-100 text-blue-700" :
-                    "bg-slate-100 text-slate-600"
+                    ability.type === "ultimate" ? "bg-amber-500/30 text-amber-300" :
+                    ability.type === "active" ? "bg-blue-500/30 text-blue-300" :
+                    "bg-slate-700 text-slate-300"
                   }`}>
                     {ability.type === "ultimate" ? "Tuyệt chiêu" : ability.type === "active" ? "Chủ động" : "Bị động"}
                   </span>
@@ -467,7 +467,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
                 </div>
               </div>
             </div>
-            <p className="text-[10px] sm:text-xs leading-relaxed text-slate-500 pl-[36px] sm:pl-[44px]">{ability.desc}</p>
+            <p className="text-[10px] sm:text-xs leading-relaxed text-slate-400 pl-[36px] sm:pl-[44px]">{ability.desc}</p>
           </div>
         )}
 
@@ -475,8 +475,8 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
         {onAddDeck && (
           <div className="mx-3 sm:mx-6 mb-4 sm:mb-6">
             <Button onClick={onAddDeck} size="lg"
-              className="w-full text-xs sm:text-sm font-bold shadow-md py-2 sm:py-3"
-              style={{ backgroundColor: rs.accent, color: "#fff" }}>
+              className="w-full text-xs sm:text-sm font-bold shadow-lg py-2 sm:py-3"
+              style={{ background: `linear-gradient(135deg, ${rs.accent}, ${elemColor})`, color: "#fff" }}>
               <Plus size={14} />Thêm vào đội hình
             </Button>
           </div>
@@ -537,12 +537,11 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
           initial={{ rotateY: 180 }} animate={{ rotateY: flipped ? 0 : 180 }}
           transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1], delay: 0.2 }}
           className="relative w-44 sm:w-56 overflow-hidden rounded-2xl sm:rounded-3xl"
-          style={{ perspective: "1000px", background: `linear-gradient(145deg, ${elemColor}20, ${rs.accent}15)`, border: `3px solid ${rs.accent}60`, boxShadow: `0 0 40px ${rs.accent}40, 0 20px 60px rgba(0,0,0,0.4)` }}
+          style={{ perspective: "1000px", background: `linear-gradient(145deg, ${elemColor}30, ${rs.accent}20)`, border: `3px solid ${rs.accent}70`, boxShadow: `0 0 50px ${rs.accent}50, 0 20px 60px rgba(0,0,0,0.5)` }}
         >
-          {/* Color bar */}
+          {/* Neon bar */}
           <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${elemColor}, ${rs.accent})` }} />
 
-          {/* Avatar */}
           <div className="flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-6">
             <div className="w-20 sm:w-24 h-28 sm:h-32">
               {getCardArt(result.id || 1, result.element?.id || "plastic", result.artVariant || 1, result.rarity?.id ?? "common")}
@@ -550,14 +549,14 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
             <div className="text-center">
               <RarityStars rarityId={result.rarity?.id ?? "common"} size={12} />
               <h3 className="mt-2 text-xl font-black text-white">{result.name}</h3>
-              {result.subtitle && <p className="text-xs text-white/60">{result.subtitle}</p>}
+              {result.subtitle && <p className="text-xs text-white/50">{result.subtitle}</p>}
             </div>
 
             {/* Quick stats */}
             <div className="grid w-full grid-cols-3 gap-1.5 sm:gap-2">
               {(["atk", "hp", "def"] as const).map((stat) => (
-                <div key={stat} className="flex flex-col items-center rounded-lg sm:rounded-xl bg-black/30 p-1.5 sm:p-2">
-                  <span className="text-[7px] sm:text-[9px] font-bold uppercase text-white/50">{STAT_CONFIG[stat].label}</span>
+                <div key={stat} className="flex flex-col items-center rounded-lg sm:rounded-xl bg-black/40 p-1.5 sm:p-2">
+                  <span className="text-[7px] sm:text-[9px] font-bold uppercase text-white/40">{STAT_CONFIG[stat].icon}</span>
                   <span className="text-sm sm:text-base font-black" style={{ color: STAT_CONFIG[stat].color }}>{result[stat]}</span>
                 </div>
               ))}
@@ -565,17 +564,17 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
 
             {/* Ability */}
             {ability && (
-              <div className="w-full rounded-xl bg-black/40 p-2.5 sm:p-3 text-center">
+              <div className="w-full rounded-xl bg-black/50 p-2.5 sm:p-3 text-center">
                 <span className="text-xl sm:text-2xl">{ability.icon}</span>
                 <p className="mt-1 text-xs font-black text-white">{ability.name}</p>
-                <p className="text-[9px] sm:text-[10px] text-white/50">{ability.desc}</p>
+                <p className="text-[9px] sm:text-[10px] text-white/40">{ability.desc}</p>
               </div>
             )}
           </div>
 
           {/* Shimmer */}
           {rs.shimmer && (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-50">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60">
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
                 animate={{ x: ["-100%", "200%"] }}
@@ -772,7 +771,6 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               if (!next.includes(id)) next.push(id);
               return next;
             });
-            // Mark card as new in localStorage
             try {
               const stored = localStorage.getItem("newCardIds");
               const current = stored ? JSON.parse(stored) : [];
@@ -848,7 +846,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     setTimeout(() => setLevelupMsg(null), 4000);
   };
 
-  // ─── Deck Slot (clean horizontal) ──────────────────────────────────
+  // ─── Deck Slot ──────────────────────────────────────────────────────────
   function DeckSlot({ cardId, index }: { cardId: number; index: number }) {
     const card = ALL_CARDS.find((c) => c.id === cardId)!;
     if (!card) return null;
@@ -861,12 +859,12 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       <motion.div
         initial={{ scale: 0.8, opacity: 0, x: -10 }}
         animate={{ scale: 1, opacity: 1, x: 0 }}
-        className="group relative flex items-center gap-3 rounded-2xl border-2 p-3 bg-white transition-all hover:shadow-md"
-        style={{ borderColor: rs.accent + "60", boxShadow: `0 2px 8px ${rs.accent}15` }}
+        className="group relative flex items-center gap-3 rounded-2xl border p-3 transition-all hover:shadow-md"
+        style={{ borderColor: rs.accent + "60", boxShadow: `0 2px 8px ${rs.accent}15`, background: `linear-gradient(135deg, ${rs.bgDark}CC, ${elemColor}15)` }}
       >
         {/* Slot number */}
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-black"
-          style={{ backgroundColor: elemColor + "20", color: elemColor }}>
+          style={{ backgroundColor: elemColor + "25", color: elemColor }}>
           {index + 1}
         </div>
 
@@ -876,7 +874,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-xs font-black text-slate-800">{card.name}</p>
+            <p className="truncate text-xs font-black text-white">{card.name}</p>
             {level > 1 && <LevelBadge level={level} />}
           </div>
           <div className="flex items-center gap-2">
@@ -893,7 +891,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* Remove */}
         <button
           onClick={() => setDeck((d) => d.filter((x) => x !== cardId))}
-          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-red-50 text-red-400 opacity-0 transition-all hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400 opacity-0 transition-all hover:bg-red-500/40 hover:text-red-300 group-hover:opacity-100"
         >
           <X size={12} />
         </button>
@@ -911,25 +909,25 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   ];
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-h-full">
+    <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-sm max-h-full">
 
       {/* ─── Header ─── */}
-      <div className="flex-shrink-0 border-b border-slate-100 bg-white px-3 sm:px-5 pt-3 sm:pt-4 pb-2 sm:pb-3">
+      <div className="flex-shrink-0 border-b border-slate-700 bg-slate-900 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 sm:pb-3">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
             <Badge tone="accent">Thẻ bài</Badge>
-            <span className="text-xs sm:text-sm font-medium text-slate-500 whitespace-nowrap">{collectedCount}/{totalCards}</span>
+            <span className="text-xs sm:text-sm font-medium text-slate-400 whitespace-nowrap">{collectedCount}/{totalCards}</span>
             {collectionPower > 0 && <PowerBadge power={collectionPower} />}
             {fuseableCount > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-purple-600">
+              <span className="flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-purple-400">
                 <GitMerge size={10} />{fuseableCount}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="text-right">
-              <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-slate-400">EXP</p>
-              <p className="text-base sm:text-lg font-black leading-none tabular-nums text-slate-900">{points}</p>
+              <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-slate-500">EXP</p>
+              <p className="text-base sm:text-lg font-black leading-none tabular-nums text-amber-400">{points.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -938,14 +936,14 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         <div className="flex gap-1.5 mt-2 flex-wrap">
           <button
             onClick={() => setSelectedElement(null)}
-            className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === null ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+            className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === null ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}
           >Tất cả</button>
           {Array.isArray(ELEMENTS) && ELEMENTS.map((el) => (
             <button
               key={el.id}
               onClick={() => setSelectedElement(el.id === selectedElement ? null : el.id)}
-              className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === el.id ? "ring-2 ring-offset-1" : "opacity-70 hover:opacity-100"}`}
-              style={{ backgroundColor: el.id === selectedElement ? el.accent : `${el.accent}22`, color: el.id === selectedElement ? "white" : (el.accent), borderColor: el.accent, ...(selectedElement !== el.id ? { border: `1px solid ${(el.accent)}44` } : {}) }}
+              className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === el.id ? "ring-2 ring-offset-1 ring-offset-slate-900" : "opacity-70 hover:opacity-100"}`}
+              style={{ backgroundColor: selectedElement === el.id ? el.accent : `${el.accent}22`, color: selectedElement === el.id ? "white" : el.accent, borderColor: el.accent, ...(selectedElement !== el.id ? { border: `1px solid ${el.accent}44` } : {}) }}
             >
               {getAvatarEmoji(el.id)} {el.name}
             </button>
@@ -955,17 +953,17 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* Search & Sort Row */}
         <div className="relative mt-2 flex gap-2">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm thẻ theo tên..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pl-9 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+              className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 pl-9 text-sm font-medium text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
             />
           </div>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-400 cursor-pointer"
+            className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500 cursor-pointer"
           >
             <option value="power">Power</option>
             <option value="level">Level</option>
@@ -975,15 +973,14 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         </div>
 
         {/* Collection progress map */}
-        <div className="mt-2 p-3 rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 shadow-inner">
+        <div className="mt-2 p-3 rounded-2xl bg-black/60 border border-slate-700">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bộ sưu tập</span>
             <span className="text-[10px] font-black text-white tabular-nums">
               {collectedCount}/{totalCards}
             </span>
           </div>
-          {/* Progress bar */}
-          <div className="relative h-3 bg-slate-700 rounded-full overflow-hidden">
+          <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, (collectedCount / Math.max(totalCards, 1)) * 100)}%` }}
@@ -991,43 +988,47 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               className="absolute inset-y-0 left-0 rounded-full"
               style={{ background: "linear-gradient(90deg, #06b6d4, #22c55e, #f59e0b, #a855f7, #ef4444)" }}
             />
-            {/* Milestone markers */}
-            {[25, 50, 75, 100].map((milestone) => (
-              <div key={milestone} className="absolute top-0 bottom-0 z-10"
-                style={{ left: `${milestone}%`, marginLeft: -1, width: 2, background: milestone <= (collectedCount / Math.max(totalCards, 1)) * 100 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.2)" }}
-              />
-            ))}
+            {[25, 50, 75, 100].map((milestone) => {
+              const pct = milestone <= (collectedCount / Math.max(totalCards, 1)) * 100;
+              return (
+                <div key={milestone}
+                  className="absolute top-0 bottom-0 z-10"
+                  style={{ left: `${milestone}%`, marginLeft: -1, width: 2, background: pct ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.2)" }}
+                />
+              );
+            })}
           </div>
           {/* Milestone labels */}
           <div className="flex justify-between mt-0.5 px-0.5">
             {[25, 50, 75, 100].map((m) => (
-              <span key={m} className={`text-[7px] font-bold ${m <= (collectedCount / Math.max(totalCards, 1) * 100) ? "text-white" : "text-slate-500"}`}>
+              <span key={m} className={`text-[7px] font-bold ${m <= (collectedCount / Math.max(totalCards, 1)) * 100 ? "text-white" : "text-slate-600"}`}>
                 {m}%
               </span>
             ))}
           </div>
-          {/* Power total */}
-          {collectionPower > 0 && <div className="mt-1.5 flex items-center justify-between">
-            <span className="text-[9px] font-medium text-slate-500">Tổng Power</span>
-            <PowerBadge power={collectionPower} />
-          </div>}
+          {collectionPower > 0 && (
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="text-[9px] font-medium text-slate-500">Tổng Power</span>
+              <PowerBadge power={collectionPower} />
+            </div>
+          )}
         </div>
 
         {/* Daily Challenge Card */}
         {dailyChallenge && (() => {
           const challengeCard = ALL_CARDS.find((c) => c.id === dailyChallenge.cardId);
           if (!challengeCard) return null;
-          const elemColor = ELEM_COLOR[challengeCard.element.id] || "#94a3b8";
+          const elemColor2 = ELEM_COLOR[challengeCard.element.id] || "#94a3b8";
           return (
-            <div className="mt-2 flex items-center gap-2 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-2.5"
-              style={{ boxShadow: "0 0 20px rgba(245, 158, 11, 0.2)" }}>
+            <div className="mt-2 flex items-center gap-2 rounded-xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-950/80 to-orange-950/80 p-2.5"
+              style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
               <div className="flex items-center gap-1.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 shadow">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/80 shadow">
                   <Sparkle size={14} className="text-white" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-amber-600">Thử thách ngày</p>
-                  <p className="text-[10px] font-bold text-amber-700">+100% EXP khi lên cấp</p>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-amber-400">Thử thách ngày</p>
+                  <p className="text-[10px] font-bold text-amber-500">+100% EXP khi lên cấp</p>
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-2">
@@ -1035,9 +1036,9 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   {getCardArt(challengeCard.id, challengeCard.element.id, challengeCard.artVariant || 1, challengeCard.rarity.id)}
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-800">{challengeCard.name}</p>
-                  <p className="text-[9px] font-bold" style={{ color: elemColor }}>
-                    {challengeCard.element.id === 'plastic' ? '🔵 Nhựa' :
+                  <p className="text-[10px] font-black text-white">{challengeCard.name}</p>
+                  <p className="text-[9px] font-bold" style={{ color: elemColor2 }}>
+                    {getAvatarEmoji(challengeCard.element.id)} {challengeCard.element.id === 'plastic' ? '🔵 Nhựa' :
                      challengeCard.element.id === 'paper' ? '📄 Giấy' :
                      challengeCard.element.id === 'glass' ? '🥛 Thủy Tinh' :
                      challengeCard.element.id === 'metal' ? '🥫 Kim Loại' :
@@ -1057,8 +1058,8 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               onClick={() => setActiveSection(tab.id)}
               className={`flex flex-shrink-0 items-center gap-1 rounded-xl px-2 sm:px-3.5 py-1.5 text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${
                 activeSection === tab.id
-                  ? "bg-slate-900 text-white shadow-md"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  ? "bg-indigo-500 text-white shadow-md"
+                  : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"
               }`}
             >
               {tab.icon}
@@ -1078,25 +1079,25 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <button onClick={() => setFilterRarity("all")}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${filterRarity === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${filterRarity === "all" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}>
                   Tất cả
                 </button>
                 {RARITY_ORDER.map((rid) => (
                   <button key={rid} onClick={() => setFilterRarity(rid)}
                     className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
-                      filterRarity === rid ? "text-white" : "text-slate-500 bg-slate-100 border-transparent hover:bg-slate-200"
+                      filterRarity === rid ? "text-white" : "text-slate-400 bg-slate-800 border-slate-700 hover:bg-slate-700"
                     }`}
                     style={filterRarity === rid ? { backgroundColor: RARITY[rid].accent, borderColor: RARITY[rid].accent } : {}}>
-                    {RARITY[rid].name}
+                    {RarityStars && <RarityStars rarityId={rid} size={8} />} {RARITY[rid].name}
                   </button>
                 ))}
                 <button onClick={() => setShowLocked(!showLocked)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${showLocked ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${showLocked ? "bg-slate-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}>
                   <Lock size={10} className="inline mr-1" />
                   {showLocked ? "Ẩn khóa" : "Hiện khóa"}
                 </button>
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}
-                  className="ml-auto rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-600 outline-none focus:border-indigo-400">
+                  className="ml-auto rounded-xl border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500 cursor-pointer">
                   <option value="power">PWR</option>
                   <option value="atk">ATK</option>
                   <option value="hp">HP</option>
@@ -1105,12 +1106,12 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               {/* Element filter */}
               <div className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-0.5">
                 <button onClick={() => setFilterElement("all")}
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"}`}>
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === "all" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 border border-slate-700"}`}>
                   Tất cả
                 </button>
                 {Array.isArray(ELEMENTS) && ELEMENTS.map((el) => (
                   <button key={el.id} onClick={() => setFilterElement(el.id)}
-                    className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === el.id ? "text-white" : "bg-slate-100 text-slate-500"}`}
+                    className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === el.id ? "text-white" : "text-slate-400 bg-slate-800 border border-slate-700"}`}
                     style={filterElement === el.id ? { backgroundColor: el.accent } : {}}>
                     <span>{getAvatarEmoji(el.id)}</span>{el.name}
                   </button>
@@ -1118,10 +1119,10 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               </div>
             </div>
 
-            <p className="text-[10px] sm:text-xs text-slate-400">{displayCards.length} thẻ · {collectedCount} đã mở</p>
+            <p className="text-[10px] sm:text-xs text-slate-500">{displayCards.length} thẻ · {collectedCount} đã mở</p>
 
             {displayCards.length === 0 ? (
-              <EmptyState icon={<Layers size={40} className="text-slate-300" />} title="Không có thẻ" subtitle="Thử thay đổi bộ lọc." />
+              <EmptyState icon={<Layers size={40} className="text-slate-600" />} title="Không có thẻ" subtitle="Thử thay đổi bộ lọc." />
             ) : (
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 overflow-x-auto pb-3 thin-scrollbar">
                 {displayCards.map((card) => {
@@ -1149,89 +1150,166 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* FUSION */}
         {activeSection === "fusion" && (
           <div className="space-y-3 p-4">
+            {/* Status message */}
             {fuseMsg && (
               <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
                 className={`rounded-xl border px-4 py-3 text-sm font-bold ${
-                  fuseMsg.includes("thành") ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+                  fuseMsg.includes("thành") ? "border-emerald-500/50 bg-emerald-950/60 text-emerald-300" : "border-red-500/50 bg-red-950/60 text-red-300"
                 }`}>
                 {fuseMsg}
               </motion.div>
             )}
-            {/* Dramatic Fusion Animation */}
+
+            {/* Fusion Animation overlay */}
             {fuseAnimCard && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
                 onClick={() => setFuseAnimCard(null)}
               >
                 <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: [0, 1.2, 1] }}
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                  className="relative flex flex-col items-center gap-4"
+                  className="flex flex-col items-center gap-6"
                 >
-                  {/* Flash effect */}
+                  {/* Flash burst */}
                   <motion.div
-                    animate={{ opacity: [0, 1, 0], scale: [1, 2, 1] }}
-                    transition={{ duration: 0.5 }}
-                    className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-400 via-yellow-300 to-orange-500 blur-xl"
+                    animate={{ opacity: [0, 1, 0], scale: [1, 2.5, 1] }}
+                    transition={{ duration: 0.6, repeat: 2 }}
+                    className="absolute inset-0 -m-20 rounded-full bg-gradient-to-br from-amber-400 via-yellow-300 to-orange-500 blur-3xl"
                   />
-                  {/* XP Indicator */}
+                  {/* Stars burst */}
+                  {[...Array(12)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 1, scale: 0 }}
+                      animate={{ opacity: 0, scale: 3, x: Math.cos(i * Math.PI / 6) * 120, y: Math.sin(i * Math.PI / 6) * 120 }}
+                      transition={{ duration: 1, delay: i * 0.04 }}
+                      className="absolute text-xl"
+                    >
+                      <Star size={16} className="fill-amber-400 text-amber-400" />
+                    </motion.div>
+                  ))}
+                  {/* XP badge */}
                   <motion.div
-                    animate={{ y: [0, -20, 0] }}
+                    animate={{ y: [0, -20, 0], scale: [1, 1.1, 1] }}
                     transition={{ repeat: 3, duration: 0.5, ease: "easeInOut" }}
-                    className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-6 py-2 text-xl font-black text-white shadow-lg"
+                    className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-8 py-3 text-2xl font-black text-white shadow-2xl z-10"
+                    style={{ boxShadow: "0 0 60px rgba(245,158,11,0.5)" }}
                   >
                     +{fuseAnimCard.xpGained} EXP
                   </motion.div>
-                  {/* Result Card */}
-                  <div className="relative">
-                    <CardAvatar elementId={fuseAnimCard.card.element.id} size={80} />
+                  {/* Card */}
+                  <div className="relative z-10">
+                    <CardAvatar elementId={fuseAnimCard.card.element.id} size={100} />
                     <motion.div
-                      animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
-                      transition={{ duration: 0.5 }}
-                      className="absolute -inset-2 rounded-2xl border-4 border-amber-400 bg-amber-400/20"
+                      animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.1, 1] }}
+                      transition={{ duration: 0.8 }}
+                      className="absolute -inset-4 rounded-3xl border-4 border-amber-400"
+                      style={{ boxShadow: "0 0 40px rgba(245,158,11,0.4)" }}
                     />
                   </div>
-                  <p className="text-lg font-black text-white">{fuseAnimCard.card.name}</p>
-                  <p className="text-sm text-amber-300">Hợp nhất thành công!</p>
+                  <div className="text-center z-10">
+                    <p className="text-2xl font-black text-white">{fuseAnimCard.card.name}</p>
+                    <p className="text-amber-300 font-bold">Hợp nhất thành công!</p>
+                  </div>
                 </motion.div>
               </motion.div>
             )}
+
             {unlockedCards.filter((id) => getCardCount(id) >= 3).length === 0 ? (
-              <EmptyState icon={<GitMerge size={40} className="text-slate-300" />} title="Chưa có thẻ hợp nhất" subtitle="Cần 3 bản sao trở lên để hợp nhất." />
-            ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {unlockedCards.filter((id) => getCardCount(id) >= 3).map((id) => {
-                  const card = ALL_CARDS.find((c) => c.id === id)!;
-                  const count = getCardCount(id);
-                  const xpGain = getFusedXp(card.atk + card.hp);
-                  const rs = RARITY[card.rarity.id] || RARITY.common;
-                  const ability = getCardAbility(card);
-                  const power = calcPower(card, getCardLevel(id));
-                  return (
-                    <div key={id} className={`flex flex-col items-center rounded-2xl border-2 p-3 bg-white text-center ${rs.border}`}
-                      style={{ boxShadow: `0 2px 8px ${rs.accent}15` }}>
-                      <div className="relative mb-2">
-                        <CardAvatar elementId={card.element.id} size={52} />
-                        <div className="absolute -right-2 -top-2 z-10 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-black text-white shadow">x{count}</div>
-                      </div>
-                      <RarityStars rarityId={card.rarity.id} size={8} />
-                      <p className="mt-1 text-[10px] font-black text-slate-800 leading-tight">{card.name}</p>
-                      {ability && <p className="text-[9px] text-slate-400">{ability.icon} {ability.name}</p>}
-                      <PowerBadge power={power} />
-                      <div className="mt-1.5 flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[9px] font-bold text-amber-600">
-                        <Sparkles size={8} />+{xpGain} EXP
-                      </div>
-                      <Button onClick={() => handleFuse(id)} disabled={fusing}
-                        size="sm" className="mt-2 w-full text-[10px] py-1.5 font-bold bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-lg">
-                        <GitMerge size={9} />Hợp nhất
-                      </Button>
-                    </div>
-                  );
-                })}
+              <div className="flex flex-col items-center gap-4 py-12">
+                <div className="relative">
+                  <GitMerge size={64} className="text-slate-700" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-3xl font-black text-slate-600">3x</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-black text-slate-300">Chưa có thẻ hợp nhất</p>
+                  <p className="text-sm text-slate-500 mt-1">Thu thập 3 bản sao cùng loại để hợp nhất</p>
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <GitMerge size={14} className="text-purple-400" />
+                  <p className="text-xs font-bold text-slate-400">Chọn thẻ để hợp nhất — tiêu tốn 3 bản sao</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {unlockedCards.filter((id) => getCardCount(id) >= 3).map((id) => {
+                    const card = ALL_CARDS.find((c) => c.id === id)!;
+                    const count = getCardCount(id);
+                    const xpGain = getFusedXp(card.atk + card.hp);
+                    const rs = RARITY[card.rarity.id] || RARITY.common;
+                    const ability = getCardAbility(card);
+                    const power = calcPower(card, getCardLevel(id));
+                    const elemColor2 = ELEM_COLOR[card.element.id] || "#94a3b8";
+                    const copiesNeeded = Math.min(count, 3);
+
+                    return (
+                      <div key={id}
+                        className="relative flex flex-col items-center rounded-2xl border p-3 text-center transition-all hover:scale-[1.02]"
+                        style={{
+                          background: `linear-gradient(180deg, ${rs.bgDark} 0%, ${elemColor2}15 100%)`,
+                          borderColor: rs.accent + "70",
+                          boxShadow: `0 4px 20px ${rs.accent}25`,
+                        }}
+                      >
+                        {/* Top neon bar */}
+                        <div className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"
+                          style={{ background: `linear-gradient(90deg, ${elemColor2}, ${rs.accent})` }} />
+
+                        {/* Count badges */}
+                        <div className="absolute -right-1 -top-1 z-10 flex gap-0.5">
+                          {Array.from({ length: copiesNeeded }).map((_, i) => (
+                            <div key={i} className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-slate-800 bg-amber-500 text-[8px] font-black text-white shadow">
+                              {i + 1}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Card art */}
+                        <div className="relative mb-2 mt-1">
+                          <CardAvatar elementId={card.element.id} size={56} />
+                        </div>
+
+                        {/* Stars */}
+                        <RarityStars rarityId={card.rarity.id} size={7} />
+
+                        {/* Name */}
+                        <p className="mt-1 text-[10px] font-black text-white leading-tight">{card.name}</p>
+
+                        {/* Ability */}
+                        {ability && (
+                          <p className="text-[9px] text-slate-400">{ability.icon} {ability.name}</p>
+                        )}
+
+                        {/* Power */}
+                        <PowerBadge power={power} />
+
+                        {/* XP reward */}
+                        <div className="mt-1 flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[9px] font-bold text-amber-400">
+                          <Sparkles size={8} className="text-amber-400" />
+                          +{xpGain} EXP
+                        </div>
+
+                        {/* Fuse button */}
+                        <Button
+                          onClick={() => handleFuse(id)}
+                          disabled={fusing}
+                          size="sm"
+                          className="mt-2 w-full text-[10px] py-1.5 font-bold"
+                          style={{ background: `linear-gradient(135deg, ${rs.accent}, ${elemColor2})`, color: "#fff" }}
+                        >
+                          <GitMerge size={9} />Hợp nhất
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -1239,33 +1317,33 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* LEVEL UP */}
         {activeSection === "levelup" && (
           <div className="space-y-3 p-4">
-            {/* Level Up Animation */}
+            {/* Success animation */}
             {levelupMsg && levelupMsg.includes("thành") && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
                 onClick={() => setLevelupMsg(null)}
               >
                 <motion.div
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: "spring", stiffness: 150, damping: 12 }}
-                  className="flex flex-col items-center gap-4"
+                  className="relative flex flex-col items-center gap-4"
                 >
-                  {/* Stars Burst */}
+                  {/* Stars burst */}
                   {[...Array(8)].map((_, i) => (
                     <motion.div
                       key={i}
                       initial={{ opacity: 1, scale: 0 }}
-                      animate={{ opacity: 0, scale: 2, x: Math.cos(i * Math.PI / 4) * 100, y: Math.sin(i * Math.PI / 4) * 100 }}
+                      animate={{ opacity: 0, scale: 2.5, x: Math.cos(i * Math.PI / 4) * 100, y: Math.sin(i * Math.PI / 4) * 100 }}
                       transition={{ duration: 1, delay: i * 0.05 }}
                       className="absolute text-2xl"
                     >
-                      ⭐
+                      <Star size={16} className="fill-amber-400 text-amber-400" />
                     </motion.div>
                   ))}
-                  <div className="rounded-3xl border-4 border-amber-400 bg-gradient-to-br from-amber-400 to-orange-500 p-8 shadow-2xl">
+                  <div className="relative rounded-3xl border-4 border-amber-400 bg-gradient-to-br from-amber-400 to-orange-500 p-8 shadow-2xl"
+                    style={{ boxShadow: "0 0 80px rgba(245,158,11,0.5)" }}>
                     <motion.div
                       animate={{ scale: [1, 1.2, 1] }}
                       transition={{ repeat: Infinity, duration: 1.5 }}
@@ -1273,19 +1351,36 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                       <Star size={64} className="text-white drop-shadow-lg" />
                     </motion.div>
                   </div>
-                  <p className="text-2xl font-black text-white drop-shadow-lg">{levelupMsg}</p>
-                  <p className="text-sm text-amber-300">Nâng cấp thành công!</p>
+                  <p className="relative text-2xl font-black text-white drop-shadow-lg">{levelupMsg}</p>
+                  <p className="relative text-sm text-amber-300">Nâng cấp thành công!</p>
                 </motion.div>
               </motion.div>
             )}
+
+            {/* Error message */}
             {levelupMsg && !levelupMsg.includes("thành") && (
               <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border px-4 py-3 text-sm font-bold border-red-200 bg-red-50 text-red-700">
+                className="rounded-xl border border-red-500/50 bg-red-950/60 px-4 py-3 text-sm font-bold text-red-300">
                 {levelupMsg}
               </motion.div>
             )}
+
+            {/* Header info */}
+            <div className="flex items-center gap-2">
+              <ArrowUp size={14} className="text-amber-400" />
+              <p className="text-xs font-bold text-slate-400">
+                Chọn thẻ để nâng cấp · EXP hiện có: <span className="text-amber-400 font-black">{points.toLocaleString()}</span>
+              </p>
+            </div>
+
             {collectedCount === 0 ? (
-              <EmptyState icon={<ArrowUp size={40} className="text-slate-300" />} title="Chưa có thẻ" subtitle="Thu thập thẻ để nâng cấp." />
+              <div className="flex flex-col items-center gap-4 py-12">
+                <ArrowUp size={64} className="text-slate-700" />
+                <div className="text-center">
+                  <p className="text-lg font-black text-slate-300">Chưa có thẻ</p>
+                  <p className="text-sm text-slate-500 mt-1">Thu thập thẻ để nâng cấp</p>
+                </div>
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {unlockedCards.map((id) => {
@@ -1297,44 +1392,115 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   const rs = RARITY[card.rarity.id] || RARITY.common;
                   const ability = getCardAbility(card);
                   const power = calcPower(card, level);
+                  const elemColor2 = ELEM_COLOR[card.element.id] || "#94a3b8";
+                  const nextPower = calcPower(card, level + 1);
+                  const atkNow = card.atk * level;
+                  const atkNext = card.atk * (level + 1);
+                  const hpNow = card.hp * level;
+                  const hpNext = card.hp * (level + 1);
+
                   return (
-                    <div key={id} className={`flex flex-col items-center rounded-2xl border-2 p-3 bg-white text-center ${rs.border}`}
-                      style={{ boxShadow: `0 2px 8px ${rs.accent}15` }}>
-                      <div className="relative mb-2">
-                        <CardAvatar elementId={card.element.id} size={52} />
-                        {isMax && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[8px] font-black text-white shadow">MAX</div>
+                    <div key={id}
+                      className="relative flex flex-col items-center rounded-2xl border p-3 text-center transition-all hover:scale-[1.02]"
+                      style={{
+                        background: `linear-gradient(180deg, ${rs.bgDark} 0%, ${elemColor2}10 100%)`,
+                        borderColor: rs.accent + "70",
+                        boxShadow: isMax ? `0 0 20px ${rs.accent}40` : `0 4px 16px ${rs.accent}20`,
+                      }}
+                    >
+                      {/* Top neon bar */}
+                      <div className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"
+                        style={{ background: `linear-gradient(90deg, ${elemColor2}, ${rs.accent})` }} />
+
+                      {/* MAX badge */}
+                      {isMax && (
+                        <div className="absolute -right-1 -top-1 z-10 rounded-full bg-amber-400 px-2 py-0.5 text-[8px] font-black text-slate-900 shadow-lg">
+                          MAX
+                        </div>
+                      )}
+
+                      {/* Level badge */}
+                      {!isMax && (
+                        <div className="absolute -right-1 -top-1 z-10 rounded-full bg-slate-800 border border-slate-600 px-1.5 py-0.5 text-[8px] font-black text-slate-300">
+                          Lv.{level}
+                        </div>
+                      )}
+
+                      {/* Card avatar */}
+                      <div className="relative mb-2 mt-1">
+                        <CardAvatar elementId={card.element.id} size={56} />
+                        {level > 1 && (
+                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
+                            <LevelBadge level={level} />
                           </div>
                         )}
                       </div>
-                      <RarityStars rarityId={card.rarity.id} size={8} />
-                      <p className="mt-1 text-[10px] font-black text-slate-800 leading-tight">{card.name}</p>
-                      {ability && <p className="text-[9px] text-slate-400">{ability.icon} {ability.name}</p>}
-                      <div className="mt-1 flex items-center gap-1">
-                        <LevelBadge level={level} />
-                        <span className="text-[9px] font-bold text-slate-400">Lv.{level}</span>
-                      </div>
+
+                      {/* Stars */}
+                      <RarityStars rarityId={card.rarity.id} size={7} />
+
+                      {/* Name */}
+                      <p className="mt-1 text-[10px] font-black text-white leading-tight">{card.name}</p>
+
+                      {/* Ability */}
+                      {ability && (
+                        <p className="text-[9px] text-slate-400">{ability.icon} {ability.name}</p>
+                      )}
+
+                      {/* Power */}
                       <PowerBadge power={power} />
+
                       {isMax ? (
-                        <div className="mt-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[9px] font-bold text-amber-700">Cấp tối đa</div>
+                        <div className="mt-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-[9px] font-bold text-amber-400">
+                          Cấp tối đa
+                        </div>
                       ) : (
                         <>
-                          {/* Before/After Stats */}
-                          <div className="mt-1 flex flex-col gap-0.5 w-full px-1">
-                            <div className="flex justify-between text-[8px] text-slate-400">
-                              <span>ATK</span><span>{card.atk * level} → {card.atk * (level + 1)}</span>
+                          {/* Before/After stat comparison */}
+                          <div className="mt-1 flex w-full flex-col gap-0.5 px-1">
+                            {/* ATK */}
+                            <div className="flex justify-between text-[8px]">
+                              <span className="text-slate-500">ATK</span>
+                              <span className="text-slate-300">{atkNow} <span className="text-emerald-400">→</span> <span className="text-emerald-400 font-black">{atkNext}</span></span>
                             </div>
-                            <div className="flex justify-between text-[8px] text-slate-400">
-                              <span>HP</span><span>{card.hp * level} → {card.hp * (level + 1)}</span>
+                            {/* ATK bar */}
+                            <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: `${Math.min(100, (atkNow / (card.atk * 20)) * 100)}%` }}
+                                animate={{ width: `${Math.min(100, (atkNext / (card.atk * 20)) * 100)}%` }}
+                                transition={{ duration: 0.5 }}
+                                className="h-full rounded-full bg-red-500"
+                              />
+                            </div>
+                            {/* HP */}
+                            <div className="flex justify-between text-[8px]">
+                              <span className="text-slate-500">HP</span>
+                              <span className="text-slate-300">{hpNow} <span className="text-emerald-400">→</span> <span className="text-emerald-400 font-black">{hpNext}</span></span>
+                            </div>
+                            {/* HP bar */}
+                            <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: `${Math.min(100, (hpNow / (card.hp * 20)) * 100)}%` }}
+                                animate={{ width: `${Math.min(100, (hpNext / (card.hp * 20)) * 100)}%` }}
+                                transition={{ duration: 0.5 }}
+                                className="h-full rounded-full bg-emerald-500"
+                              />
                             </div>
                           </div>
-                          <div className={`mt-1.5 flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold ${hasXp ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
-                            <Sparkles size={8} className={hasXp ? "text-amber-500" : "text-red-400"} />{xpCost} EXP
+
+                          {/* Cost */}
+                          <div className={`mt-1 flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold ${hasXp ? "text-amber-400 bg-amber-500/15 border border-amber-500/30" : "text-red-400 bg-red-500/15 border border-red-500/30"}`}>
+                            <Sparkles size={8} />{xpCost.toLocaleString()} EXP
                           </div>
-                          <Button onClick={() => handleLevelUp(id)} disabled={!hasXp || levelingUp}
+
+                          {/* Upgrade button */}
+                          <Button
+                            onClick={() => handleLevelUp(id)}
+                            disabled={!hasXp || levelingUp}
                             size="sm"
-                            className={`mt-1.5 w-full text-[10px] py-1.5 font-bold ${hasXp ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-lg" : "bg-slate-100 text-slate-400"}`}>
+                            className={`mt-1.5 w-full text-[10px] py-1.5 font-bold ${hasXp ? "text-white" : "text-slate-500"}`}
+                            style={hasXp ? { background: `linear-gradient(135deg, #f59e0b, #ef4444)` } : { background: "#1e293b" }}
+                          >
                             <ArrowUp size={9} />Nâng cấp
                           </Button>
                         </>
@@ -1350,6 +1516,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* GACHA */}
         {activeSection === "gacha" && (
           <div className="flex flex-col items-center gap-5 p-6 text-center">
+            {/* Animated orb */}
             <motion.div
               animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
               transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
@@ -1367,8 +1534,9 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   className="absolute rounded-full animate-pulse"
                 />
               ))}
-              <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl">
-                <Wand2 size={48} className="text-white/90" />
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl border border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl"
+                style={{ boxShadow: "0 0 40px rgba(99,102,241,0.3)" }}>
+                <Wand2 size={48} className="text-indigo-400" />
               </div>
               <div className="absolute -right-3 -top-3 z-10 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
                 {PULL_COST} EXP
@@ -1376,35 +1544,44 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             </motion.div>
 
             <div>
-              <h3 className="text-2xl font-black text-slate-900">Mở gói thẻ bài</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Dùng <span className="font-black text-slate-900">{PULL_COST} EXP</span> để nhận thẻ ngẫu nhiên
+              <h3 className="text-2xl font-black text-white">Mở gói thẻ bài</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Dùng <span className="font-black text-amber-400">{PULL_COST} EXP</span> để nhận thẻ ngẫu nhiên
               </p>
             </div>
 
-            <div className="w-full max-w-xs space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            {/* Pull panel */}
+            <div className="w-full max-w-xs space-y-3 rounded-2xl border border-slate-700 bg-slate-800/80 p-5">
               <div>
-                <p className="text-xs text-slate-400">EXP hiện có</p>
-                <p className="text-3xl font-black text-slate-900">{points}</p>
+                <p className="text-xs text-slate-500">EXP hiện có</p>
+                <p className="text-3xl font-black text-amber-400">{points.toLocaleString()}</p>
               </div>
               {points < PULL_COST && (
-                <p className="text-xs font-medium text-red-500">Cần thêm {PULL_COST - points} EXP để mở gói</p>
+                <p className="text-xs font-medium text-red-400">Cần thêm {(PULL_COST - points).toLocaleString()} EXP để mở gói</p>
               )}
-              <Button onClick={handlePullGacha} disabled={points < PULL_COST || isPulling}
-                loading={isPulling} size="lg" className="w-full text-sm font-bold bg-slate-900 text-white hover:bg-slate-800">
+              <Button
+                onClick={handlePullGacha}
+                disabled={points < PULL_COST || isPulling}
+                loading={isPulling}
+                size="lg"
+                className="w-full text-sm font-bold py-3"
+                style={points >= PULL_COST ? { background: "linear-gradient(135deg, #6366f1, #8b5cf6)" } : {}}
+              >
                 <Sparkles size={14} />
-                {points < PULL_COST ? `Cần ${PULL_COST} EXP` : isPulling ? "Đang mở..." : `Mở gói (${PULL_COST} EXP)`}
+                {points < PULL_COST ? `Cần ${PULL_COST.toLocaleString()} EXP` : isPulling ? "Đang mở..." : `Mở gói (${PULL_COST} EXP)`}
               </Button>
             </div>
 
             {/* Rarity rates */}
             <div className="w-full max-w-xs space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tỉ lệ rơi</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tỉ lệ rơi</p>
               <div className="grid grid-cols-4 gap-2">
                 {RARITY_ORDER.map((rid) => (
-                  <div key={rid} className={`flex flex-col items-center rounded-2xl border-2 p-2.5 ${RARITY[rid].border} ${RARITY[rid].bgLight}`}>
+                  <div key={rid} className="flex flex-col items-center rounded-2xl border p-2.5"
+                    style={{ backgroundColor: RARITY[rid].bgDark + "CC", borderColor: RARITY[rid].accent + "50" }}>
                     <RarityStars rarityId={rid} size={8} />
-                    <span className={`mt-1 rounded-full px-1.5 py-0.5 text-[7px] font-black uppercase ${RARITY[rid].badgeBg} ${RARITY[rid].badgeText}`}>
+                    <span className="mt-1 rounded-full px-1.5 py-0.5 text-[7px] font-black uppercase"
+                      style={{ backgroundColor: RARITY[rid].accent + "30", color: RARITY[rid].accent }}>
                       {RARITY[rid].shortName}
                     </span>
                     <p className="mt-1 text-sm font-black" style={{ color: RARITY[rid].accent }}>
@@ -1423,7 +1600,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             {/* Deck display */}
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="font-black text-base text-slate-900">Đội hình chiến đấu</h4>
+                <h4 className="font-black text-base text-white">Đội hình chiến đấu</h4>
                 <div className="flex items-center gap-3">
                   {deck.length > 0 && <PowerBadge power={deckPower} />}
                   <span className="text-xs font-medium text-slate-400">{deck.length}/{DECK_SIZE} thẻ</span>
@@ -1434,12 +1611,12 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   const cardId = deck[i];
                   if (!cardId) {
                     return (
-                      <div key={i} className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-3 text-slate-400">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-black">{i + 1}</div>
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-slate-300">
-                          <Plus size={16} className="text-slate-300" />
+                      <div key={i} className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/40 p-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-xs font-black text-slate-500">{i + 1}</div>
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-slate-700">
+                          <Plus size={16} className="text-slate-600" />
                         </div>
-                        <span className="text-sm font-medium text-slate-400">Chọn thẻ</span>
+                        <span className="text-sm font-medium text-slate-500">Chọn thẻ</span>
                       </div>
                     );
                   }
@@ -1448,37 +1625,38 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               </div>
             </div>
 
-            {/* Battle Tips */}
+            {/* Synergy + Battle Tips */}
             <div className="space-y-2">
               {!canBattle && (
-                <div className="flex items-center gap-2 rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-2">
-                  <Trophy size={16} className="text-amber-500" />
-                  <p className="text-xs font-bold text-amber-700">Cần 5 thẻ để chiến đấu tốt nhất</p>
+                <div className="flex items-center gap-2 rounded-xl border-2 border-amber-500/30 bg-amber-950/40 px-4 py-2">
+                  <Trophy size={16} className="text-amber-400" />
+                  <p className="text-xs font-bold text-amber-300">Cần {DECK_SIZE} thẻ để chiến đấu tốt nhất</p>
                 </div>
               )}
-              {/* Element Synergy Bonus */}
+
+              {/* Element Synergy */}
               {deckCards.length >= 3 && (() => {
                 const elements = deckCards.map((c) => c.element.id);
                 const counts: Record<string, number> = {};
                 elements.forEach((e) => { counts[e] = (counts[e] || 0) + 1; });
                 const synergyEntries = Object.entries(counts).filter(([, n]) => n >= 3);
                 if (synergyEntries.length === 0) {
-                  // Show composition hint when no synergy
                   const unique = new Set(elements).size;
-                  const balanceRatio = unique / deckCards.length;
-                  if (balanceRatio >= 0.6) return (
-                    <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2">
-                      <Sparkles size={14} className="text-amber-500" />
-                      <p className="text-xs font-medium text-amber-700">Đội hình cân bằng nguyên tố — cần 3+ thẻ cùng loại để kích hoạt Synergy!</p>
-                    </div>
-                  );
-                  const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+                  if (unique >= 3) {
+                    const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+                    return (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2">
+                        <Sparkles size={14} className="text-indigo-400" />
+                        <p className="text-xs font-medium text-slate-400">
+                          Thế mạnh: {dominant?.[0]} ({dominant?.[1]}/5) — cần thêm thẻ cùng loại để kích hoạt Synergy!
+                        </p>
+                      </div>
+                    );
+                  }
                   return (
-                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2">
-                      <Zap size={14} className="text-indigo-500" />
-                      <p className="text-xs font-medium text-slate-600">
-                        Thế mạnh: {dominant?.[0]} ({dominant?.[1]}/5) — cần thêm thẻ cùng loại để kích hoạt Synergy!
-                      </p>
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2">
+                      <Zap size={14} className="text-amber-400" />
+                      <p className="text-xs font-medium text-slate-400">Cần 3+ thẻ cùng nguyên tố để kích hoạt Synergy!</p>
                     </div>
                   );
                 }
@@ -1489,28 +1667,30 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2 rounded-xl border-2 border-emerald-400 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-2 shadow-md"
-                    style={{ boxShadow: `0 0 20px ${synElem?.accent || '#22c55e'}25` }}
+                    className="flex items-center gap-2 rounded-xl border-2 px-4 py-2"
+                    style={{ borderColor: synElem?.accent || '#22c55e', background: `linear-gradient(135deg, ${synElem?.accent || '#22c55e'}15, transparent)`, boxShadow: `0 0 20px ${synElem?.accent || '#22c55e'}25` }}
                   >
                     <div className="flex items-center gap-1.5">
-                      <Sparkles size={16} className="text-emerald-500 animate-pulse" />
-                      <span className="text-lg">{synElem?.id === 'plastic' ? '🔵' : synElem?.id === 'paper' ? '📄' : synElem?.id === 'glass' ? '🥛' : synElem?.id === 'metal' ? '🥫' : synElem?.id === 'organic' ? '🍃' : '☣️'}</span>
+                      <Sparkles size={16} className="text-emerald-400 animate-pulse" />
+                      <span className="text-lg">{getAvatarEmoji(synEl)}</span>
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-black text-emerald-700">SYNERGY KÍCH HOẠT!</p>
-                      <p className="text-[10px] text-emerald-600">
+                      <p className="text-xs font-black text-white">SYNERGY KÍCH HOẠT!</p>
+                      <p className="text-[10px] text-slate-400">
                         {synCount}x {synElem?.name || synEl} — +{bonus}% ATK tất cả thẻ {synElem?.name || synEl}
                       </p>
                     </div>
-                    <div className="rounded-full bg-emerald-500 px-2 py-1 text-xs font-black text-white shadow">
+                    <div className="rounded-full px-2 py-1 text-xs font-black text-white"
+                      style={{ backgroundColor: synElem?.accent || '#22c55e' }}>
                       +{bonus}%
                     </div>
                   </motion.div>
                 );
               })()}
+
               {deck.length > 0 && (
-                <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2">
-                  <span className="text-xs font-bold text-emerald-700">Tổng sức mạnh đội hình</span>
+                <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2">
+                  <span className="text-xs font-bold text-slate-300">Tổng sức mạnh đội hình</span>
                   <PowerBadge power={deckPower} />
                 </div>
               )}
@@ -1518,7 +1698,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
 
             {/* Card picker */}
             <div>
-              <h4 className="mb-3 font-black text-base text-slate-900">Chọn thẻ vào đội hình</h4>
+              <h4 className="mb-3 font-black text-base text-white">Chọn thẻ vào đội hình</h4>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8">
                 {unlockedCards.map((id) => {
                   const card = ALL_CARDS.find((c) => c.id === id)!;
@@ -1531,20 +1711,17 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
-                        if (inDeck) {
-                          setDeck((d) => d.filter((x) => x !== id));
-                        } else if (deck.length < DECK_SIZE) {
-                          setDeck((d) => [...d, id]);
-                        }
+                        if (inDeck) setDeck((d) => d.filter((x) => x !== id));
+                        else if (deck.length < DECK_SIZE) setDeck((d) => [...d, id]);
                       }}
                       className={`relative flex flex-col items-center rounded-xl border-2 p-1.5 transition-all overflow-hidden ${
-                        inDeck ? `${rs.border} ring-2 ring-amber-400` : "border-slate-200 hover:border-slate-300"
+                        inDeck ? `${rs.border} ring-2 ring-amber-400` : "border-slate-700 hover:border-slate-500"
                       }`}
-                      style={{ aspectRatio: "3/4" }}
+                      style={{ aspectRatio: "3/4", background: inDeck ? rs.bgDark : rs.bgDark + "99" }}
                     >
-                      <CardAvatar elementId={card.element.id} size={40} />
-                      <p className="mt-1 line-clamp-1 text-center text-[8px] font-bold text-slate-700 leading-tight">{card.name}</p>
-                      <RarityStars rarityId={card.rarity.id} size={7} />
+                      <CardAvatar elementId={card.element.id} size={36} />
+                      <p className="mt-1 line-clamp-1 text-center text-[8px] font-bold text-white leading-tight">{card.name}</p>
+                      <RarityStars rarityId={card.rarity.id} size={6} />
                       {inDeck && (
                         <div className="absolute -left-0.5 -top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
                           <Check size={8} className="text-white" />
@@ -1561,7 +1738,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               </div>
             </div>
 
-            {/* Dramatic Battle Button */}
+            {/* Battle Button */}
             <motion.div
               whileHover={canBattle ? { scale: 1.02 } : {}}
               whileTap={canBattle ? { scale: 0.98 } : {}}
@@ -1570,7 +1747,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                 onClick={() => setShowBattle(true)}
                 disabled={!canBattle}
                 size="lg"
-                className={`w-full text-sm font-black py-4 rounded-2xl shadow-xl ${canBattle ? "bg-gradient-to-r from-red-600 via-rose-500 to-pink-500 hover:from-red-700 hover:via-rose-600 hover:to-pink-600 text-white animate-pulse" : "bg-slate-200 text-slate-400"}`}
+                className={`w-full text-sm font-black py-4 rounded-2xl shadow-xl ${canBattle ? "bg-gradient-to-r from-red-600 via-rose-500 to-pink-500 hover:from-red-700 hover:via-rose-600 hover:to-pink-600 text-white animate-pulse" : "bg-slate-800 text-slate-500 border border-slate-700"}`}
               >
                 <Swords size={18} className="mr-2" />
                 {canBattle ? "⚔️ XÔNG TRẬN! ⚔️" : `Chọn thêm ${DECK_SIZE - deck.length} thẻ`}
@@ -1597,22 +1774,24 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         )}
       </AnimatePresence>
 
-      {/* ─── Gacha Reveal ─── */}
+      {/* ─── Gacha Result Reveal ─── */}
       <AnimatePresence>
         {gachaResult && (
-          <GachaReveal key="gacha-reveal" result={gachaResult} onClose={() => setGachaResult(null)} />
+          <GachaReveal result={gachaResult} onClose={() => setGachaResult(null)} />
         )}
       </AnimatePresence>
 
-      {/* ─── Battle ─── */}
-      {showBattle && deck.length === DECK_SIZE && (
-        <CardBattle
-          deckCardIds={deck}
-          cardLevels={cardLevels}
-          onClose={() => setShowBattle(false)}
-          onWin={(exp) => { onReward(exp); }}
-        />
-      )}
+      {/* ─── CardBattle Modal ─── */}
+      <AnimatePresence>
+        {showBattle && (
+          <CardBattle
+            deckCardIds={deck}
+            cardLevels={Object.fromEntries(deck.map((id) => [id, getCardLevel(id)]))}
+            onClose={() => setShowBattle(false)}
+            onWin={(xp) => onReward(xp)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
