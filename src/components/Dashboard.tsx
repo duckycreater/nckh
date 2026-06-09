@@ -22,6 +22,7 @@ import {
   User as UserIcon,
   LogOut,
   Settings as SettingsIcon,
+  ArrowLeft,
   Hammer,
   Flame,
   Zap
@@ -150,89 +151,85 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const avatarImage = user.customAvatarUrl || null;
 
   return (
-    <div className="flex h-screen bg-gray-100 items-center justify-center sm:p-4 perspective-1000">
-        <div className="w-full h-full sm:h-[90vh] sm:max-w-md bg-white sm:rounded-3xl shadow-xl flex flex-col relative overflow-hidden">
+    <div className="flex min-h-screen sm:min-h-0 bg-gray-100 items-center justify-center sm:p-2 lg:p-4">
+      <div className="w-full max-w-md sm:max-w-lg lg:max-w-xl bg-white sm:rounded-3xl shadow-xl flex flex-col relative overflow-hidden"
+        style={{ maxHeight: "100dvh" }}>
         {/* Header Content inside App Layout */}
-        <div className="flex-1 overflow-y-auto w-full">
-          <div className="p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto w-full" style={{ maxHeight: "calc(100dvh - 56px)" }}>
+          <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
             {/* Header info */}
             {activeTab === "home" && (
               <div className="animate-[fadeIn_0.4s_ease-out]">
-                <div className="flex items-center justify-between mb-4 mt-2 px-2">
-                  <div className="flex-1 pr-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-emerald-800 text-xl font-bold uppercase tracking-wide truncate">
-                        {user.name}
-                      </h2>
-                      <p className="text-[10px] text-gray-400 font-medium truncate">
-                        @{user.account_id}
-                      </p>
-                      <StreakBadge streakDays={user.progress?.streakDays || 1} />
-                    </div>
-                    <div className="relative pt-1">
-                      <div className="flex mb-1 items-center justify-between">
-                        <div>
-                          <span className="text-xs font-semibold inline-block text-emerald-600">
-                            Cấp {level}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-semibold inline-block text-gray-500">
-                            {currentExp}/200 EXP
-                          </span>
-                        </div>
-                      </div>
-                      <div className="overflow-hidden h-2 mb-4 text-xs flex rounded-full bg-emerald-100 w-full relative">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progress}%` }}
-                          transition={{ duration: 1, ease: "easeOut" }}
-                          className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full relative"
-                        >
-                          <div className="absolute top-0 right-0 bottom-0 left-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMCcgaGVpZ2h0PScxMCc+CiAgPHJlY3Qgd2lkdGg9JzEwJyBoZWlnaHQ9JzEwJyBmaWxsPSd0cmFuc3BhcmVudCcgLz4KICA8bGluZSB4MT0nMCcgeTE9JzEwJyB4Mj0nMTAnIHkyPScwJyBzdHJva2U9J3doaXRlJyBzdHJva2Utd2lkdGg9JzEnIG9wYWNpdHk9JzAuMyc+PC9saW5lPgo8L3N2Zz4=')] bg-repeat" />
-                        </motion.div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center gap-2 shrink-0">
+                {/* Header: Avatar + Name + Level compact row */}
+                <div className="flex items-center justify-between gap-2 mb-3 mt-1">
+                  {/* Left: Avatar button + Name/Level col */}
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <button
                       onClick={() => setViewingProfile(user.account_id)}
-                      className="transition-all hover:scale-105"
-                      title="Xem hồ sơ của tôi"
+                      className="transition-all hover:scale-105 shrink-0"
+                      title="Xem hồ sơ"
                     >
                       {avatarImage ? (
-                        <img
-                          src={avatarImage}
-                          alt={user.name}
-                          className={`w-11 h-11 rounded-full object-cover border border-emerald-200 shadow-sm ${frameStyle ? `${frameStyle.border} ${frameStyle.shadow}` : ""}`}
-                        />
+                        <img src={avatarImage} alt={user.name}
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 ${frameStyle ? frameStyle.border : "border-emerald-200"} shadow-sm`} />
                       ) : avatarEmoji ? (
-                        <div
-                          className={`w-11 h-11 rounded-full flex items-center justify-center text-2xl bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 font-black border border-emerald-200 ${frameStyle ? `${frameStyle.border} ${frameStyle.shadow}` : ""}`}
-                        >
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl sm:text-2xl bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 font-black border-2 ${frameStyle ? frameStyle.border : "border-emerald-200"}`}>
                           {avatarEmoji}
                         </div>
                       ) : (
-                        <div
-                          className={`w-11 h-11 rounded-full flex items-center justify-center text-xl font-black bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 border border-emerald-200 shadow-sm ${frameStyle ? `${frameStyle.border} ${frameStyle.shadow}` : ""}`}
-                        >
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-lg sm:text-xl font-black bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 border-2 ${frameStyle ? frameStyle.border : "border-emerald-200"}`}>
                           {user.name[0]}
                         </div>
                       )}
                     </button>
-                    <button
-                      onClick={() => setShowSettings(true)}
-                      className="p-2 bg-gray-50 text-gray-600 rounded-full hover:bg-gray-100 border border-gray-200 shadow-sm transition-all hover:scale-105"
-                    >
-                      <SettingsIcon size={20} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h2 className="text-emerald-800 text-sm sm:text-base font-bold truncate">{user.name}</h2>
+                        <StreakBadge streakDays={user.progress?.streakDays || 1} />
+                      </div>
+                      {/* XP bar */}
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-[10px] sm:text-xs font-semibold text-emerald-600 shrink-0">Cấp {level}</span>
+                        <div className="flex-1 h-1.5 sm:h-2 bg-emerald-100 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ duration: 1, ease: "easeOut" }}
+                            className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full"
+                          />
+                        </div>
+                        <span className="text-[9px] sm:text-[10px] text-gray-400 shrink-0 tabular-nums">{currentExp}/200</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Right: Settings + Logout */}
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <button onClick={() => setShowSettings(true)}
+                      className="p-1.5 sm:p-2 bg-gray-50 text-gray-500 rounded-lg hover:bg-gray-100 border border-gray-200 transition-all hover:scale-105">
+                      <SettingsIcon size={16} />
                     </button>
-                    <button
-                      onClick={onLogout}
-                      className="p-2 bg-red-50 text-red-500 rounded-full hover:bg-red-100 border border-red-100 shadow-sm transition-all hover:scale-105"
-                    >
-                      <LogOut size={20} />
+                    <button onClick={onLogout}
+                      className="p-1.5 sm:p-2 bg-red-50 text-red-400 rounded-lg hover:bg-red-100 border border-red-100 transition-all hover:scale-105">
+                      <LogOut size={16} />
                     </button>
                   </div>
+                </div>
+
+                {/* Points + Actions Row */}
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="bg-slate-800 rounded-lg px-2.5 py-1 flex items-center gap-1">
+                      <Zap size={12} className="text-amber-400" />
+                      <span className="text-xs font-black text-amber-400 tabular-nums">{user.points.toLocaleString()}</span>
+                      <span className="text-[10px] text-slate-400">EXP</span>
+                    </div>
+                    <StreakBadge streakDays={user.progress?.streakDays || 1} />
+                  </div>
+                  {user.progress?.streakDays && user.progress.streakDays >= 3 && (
+                    <span className="text-[9px] font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 animate-pulse">
+                      🔥 Streak {user.progress.streakDays}ngày!
+                    </span>
+                  )}
                 </div>
 
                 <VirtualGarden points={user.points} />
@@ -244,25 +241,27 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
                 <AdaptiveRewardBanner userId={user.account_id} />
 
-                <div className="mt-4 flex gap-3">
+                <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => setShowScanner(true)}
-                    className="flex-1 p-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-md transition-all hover:-translate-y-1"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95"
                   >
-                    📷 AI Quét & Thưởng (+50đ)
+                    <span className="text-base">📷</span>
+                    <span>AI Quét <span className="font-black">+50đ</span></span>
                   </button>
                   <button
                     onClick={() => setShowLeaderboard(!showLeaderboard)}
-                    className="flex-1 p-3 bg-gradient-to-r from-orange-400 to-amber-500 text-white rounded-xl font-bold text-sm shadow-md transition-all hover:-translate-y-1"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-gradient-to-r from-orange-400 to-amber-500 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95"
                   >
-                    🏆 Bảng Xếp Hạng
+                    <span className="text-base">🏆</span>
+                    <span>Xếp hạng</span>
                   </button>
                 </div>
 
                 {showLeaderboard && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                    <h4 className="font-bold text-gray-800 mb-2 border-b-2 border-orange-400 inline-block">
-                      TOP 10 CAO THỦ
+                  <div className="mt-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                    <h4 className="font-bold text-gray-700 text-xs mb-2 flex items-center gap-1">
+                      <span>🏆</span> TOP 10 CAO THỦ
                     </h4>
                     <Leaderboard
                       refreshTrigger={refreshTrigger}
@@ -279,7 +278,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   onRefresh={triggerRefresh}
                 />
 
-                <div className="mt-4">
+                <div className="mt-2">
                   <Minigame user={user} onComplete={handleMinigameComplete} />
                 </div>
               </div>
@@ -293,20 +292,27 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
             {activeTab === "craft" && (
               <div className="animate-[fadeIn_0.4s_ease-out]">
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100 mb-4 flex justify-between items-center shadow-sm">
+                {/* Energy Core header */}
+                <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-3 mb-3 flex justify-between items-center shadow-lg">
                   <div>
-                    <h4 className="font-black text-emerald-900 text-lg uppercase tracking-wide">Kho Lõi Năng Lượng</h4>
-                    <p className="text-xs font-bold text-emerald-600/70 uppercase">Trạng thái: Đang hoạt động</p>
+                    <h4 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      Kho Lõi Năng Lượng
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">Trạng thái: Hoạt động</p>
                   </div>
-                  <div className="bg-white px-4 py-2 rounded-2xl shadow-sm border border-emerald-100 flex flex-col items-end">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">Hiện có</span>
-                    <span className="font-black text-emerald-600 text-xl">{user.points} <span className="text-sm">EXP</span></span>
+                  <div className="bg-black/40 rounded-xl px-3 py-1.5 flex flex-col items-end border border-white/10">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase">Hiện có</span>
+                    <div className="flex items-center gap-1">
+                      <Zap size={14} className="text-amber-400" />
+                      <span className="font-black text-amber-400 text-lg leading-none tabular-nums">{user.points.toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
                 <CraftingStation points={user.points} onCraft={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
-                <div className="mt-4">
+                <div className="mt-2">
                   <RewardStore points={user.points} onPurchase={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
-                  <div className="mt-4">
+                  <div className="mt-2">
                     <RewardHistory userId={user.nick} currentBalance={user.points} />
                   </div>
                 </div>
@@ -316,45 +322,36 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 flex shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-20">
+        <div className="flex-none bg-white border-t border-gray-100 flex shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-20" style={{ height: 56 }}>
           <button
             onClick={() => navigate("/home")}
-            className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors relative ${activeTab === "home" ? "text-emerald-600" : "text-gray-400 hover:text-emerald-500"}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors relative ${activeTab === "home" ? "text-emerald-600" : "text-gray-400 hover:text-emerald-500"}`}
           >
             {activeTab === "home" && user.progress?.streakDays && user.progress.streakDays >= 3 && (
-              <span className="absolute top-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+              <span className="absolute top-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse" />
             )}
-            <motion.div
-              animate={activeTab === "home" ? { y: [-1, -4, -1] } : {}}
-              transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}
-            >
-              <Home size={22} />
+            <motion.div animate={activeTab === "home" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}>
+              <Home size={20} />
             </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">Chính</span>
+            <span className="text-[9px] font-bold leading-none">Chính</span>
           </button>
           <button
             onClick={() => navigate("/cards")}
-            className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors ${activeTab === "cards" ? "text-teal-600" : "text-gray-400 hover:text-teal-500"}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${activeTab === "cards" ? "text-teal-600" : "text-gray-400 hover:text-teal-500"}`}
           >
-            <motion.div
-              animate={activeTab === "cards" ? { y: [-1, -4, -1] } : {}}
-              transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}
-            >
-              <Compass size={22} />
+            <motion.div animate={activeTab === "cards" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}>
+              <Compass size={20} />
             </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">Sưu tập</span>
+            <span className="text-[9px] font-bold leading-none">Sưu tập</span>
           </button>
           <button
             onClick={() => navigate("/craft")}
-            className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors ${activeTab === "craft" ? "text-amber-600" : "text-gray-400 hover:text-amber-500"}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${activeTab === "craft" ? "text-amber-600" : "text-gray-400 hover:text-amber-500"}`}
           >
-            <motion.div
-              animate={activeTab === "craft" ? { y: [-1, -4, -1] } : {}}
-              transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}
-            >
-              <Hammer size={22} />
+            <motion.div animate={activeTab === "craft" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}>
+              <Hammer size={20} />
             </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">Chế tạo</span>
+            <span className="text-[9px] font-bold leading-none">Chế tạo</span>
           </button>
         </div>
 
@@ -379,13 +376,14 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         )}
 
         {showSettings && (
-          <div className="absolute inset-0 z-50 bg-white overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-            <div className="p-4">
-              <button 
+          <div className="absolute inset-0 z-50 bg-white overflow-y-auto animate-[fadeIn_0.3s_ease-out]"
+            style={{ maxHeight: "100dvh" }}>
+            <div className="p-3 sm:p-4">
+              <button
                 onClick={() => setShowSettings(false)}
-                className="mb-6 flex items-center text-gray-500 hover:text-gray-800 font-bold text-sm bg-gray-100 px-3 py-1.5 rounded-full"
+                className="mb-4 flex items-center gap-1.5 text-gray-500 hover:text-gray-800 font-bold text-xs bg-gray-100 px-3 py-1.5 rounded-full transition-colors"
               >
-                ← Quay lại
+                <ArrowLeft size={14} /> Quay lại
               </button>
               <Settings user={user} onUpdate={onUpdateUser} />
             </div>
