@@ -23,6 +23,7 @@ interface WorldMapProps {
   cardPower: number;
   onEarnPoints: (pts: number) => void;
   onBossBattle: (bossCardIds: number[], regionName: string, rewardXP: number) => void;
+  onStoryIntro: (chapterId: number) => void;
 }
 
 interface RegionDetailState {
@@ -1116,6 +1117,7 @@ export function WorldMap({
   cardPower,
   onEarnPoints,
   onBossBattle,
+  onStoryIntro,
 }: WorldMapProps) {
   const [progress, setProgress] = useState<GameProgressData>(DEFAULT_GAME_PROGRESS);
   const [showFull, setShowFull] = useState(false);
@@ -1194,6 +1196,13 @@ export function WorldMap({
     const nextChapter = nextChapterId <= 5 ? getChapterById(nextChapterId) ?? null : null;
     setVictoryData({ region, xpEarned: xp, nextChapter });
     setShowBossVictory(true);
+
+    // If there's a next chapter, show story intro after victory
+    if (nextChapter) {
+      setTimeout(() => {
+        onStoryIntro(nextChapterId);
+      }, 100);
+    }
 
     setProgress((prev) => {
       const updated = {

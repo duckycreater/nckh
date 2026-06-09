@@ -275,6 +275,10 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     );
                     navigate("/cards");
                   }}
+                  onStoryIntro={(chapterId) => {
+                    setActiveChapterId(chapterId);
+                    setShowStoryIntro(true);
+                  }}
                 />
 
                 <VirtualGarden points={user.points} />
