@@ -14,6 +14,9 @@ import { ProfileView } from "./ProfileView";
 import { Settings } from "./Settings";
 import { AdaptiveRewardBanner } from "./AdaptiveRewardBanner";
 import { StreakCalendar } from "./StreakCalendar";
+import { WorldMap } from "./WorldMap";
+import { StoryIntro } from "./StoryIntro";
+import { getChapterById } from "../data/storyChapters";
 import { saveStreakToCache } from "../lib/streakPersistence";
 import { PointsToastContainer } from "../lib/toast";
 import {
@@ -70,6 +73,11 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const [viewingProfile, setViewingProfile] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
+  // World Map state
+  const [showStoryIntro, setShowStoryIntro] = useState(false);
+  const [activeChapterId, setActiveChapterId] = useState(1);
+  const [seenScenes, setSeenScenes] = useState<Set<string>>(new Set());
+
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Sync user state from backend occasionally
@@ -109,6 +117,29 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
       onUpdateUser({ progress: updatedProgress });
     }
     setRefreshTrigger((prev) => prev + 1);
+  };
+
+  // Compute card power for map unlock conditions
+  const totalCardPower = (() => {
+    const cards = user.progress?.flashcardsRead || [];
+    const counts = user.progress?.flashcardCounts || {};
+    let power = 0;
+    for (const id of cards) {
+      power += (counts[String(id)] || 1) * 10;
+    }
+    return power;
+  })();
+
+  // Compute user level
+  const userLevel = Math.floor(user.points / 200) + 1;
+
+  // Boss battle handler — called from WorldMap
+  const handleBossBattle = (bossCardIds: number[], regionName: string, rewardXP: number) => {
+    // Navigate to cards tab and open battle
+    navigate("/cards");
+    // The WorldMap component handles battle via onBossBattle prop
+    // We store the battle params in session for Flashcards to pick up
+    sessionStorage.setItem("pending_battle", JSON.stringify({ bossCardIds, regionName, rewardXP }));
   };
 
   const handleBuyOrCraft = (cost: number, reason: string = "Tiêu điểm chế tạo/đổi quà") => {
@@ -231,6 +262,20 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     </span>
                   )}
                 </div>
+
+                <WorldMap
+                  userId={user.account_id}
+                  userLevel={userLevel}
+                  cardPower={totalCardPower}
+                  onEarnPoints={handleEarnPoints}
+                  onBossBattle={(bossCardIds, regionName, rewardXP) => {
+                    sessionStorage.setItem(
+                      "pending_battle",
+                      JSON.stringify({ bossCardIds, regionName, rewardXP })
+                    );
+                    navigate("/cards");
+                  }}
+                />
 
                 <VirtualGarden points={user.points} />
 
@@ -356,6 +401,28 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         </div>
 
         <PointsToastContainer />
+
+        <AnimatePresence>
+          {showStoryIntro && (() => {
+            const chapter = getChapterById(activeChapterId);
+            if (!chapter) return null;
+            return (
+              <StoryIntro
+                key={activeChapterId}
+                chapter={chapter}
+                seenScenes={seenScenes}
+                onContinue={() => {
+                  setSeenScenes((prev) => new Set([...prev, chapter.scene]));
+                  setShowStoryIntro(false);
+                }}
+                onSkip={() => {
+                  setSeenScenes((prev) => new Set([...prev, chapter.scene]));
+                  setShowStoryIntro(false);
+                }}
+              />
+            );
+          })()}
+        </AnimatePresence>
 
         {showScanner && (
           <AIScanner

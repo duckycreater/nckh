@@ -41,6 +41,19 @@ export function showToast(title: string, description?: string, tone: ToastTone =
   window.dispatchEvent(event);
 }
 
+export function showMapToast(title: string, description?: string, icon?: string) {
+  const event = new CustomEvent<ToastItem>("ecoquest:toast", {
+    detail: {
+      id: ++toastId,
+      title,
+      description,
+      tone: "success",
+      points: 0,
+    },
+  });
+  window.dispatchEvent(event);
+}
+
 function toneMeta(tone: ToastTone) {
   if (tone === "success") {
     return {

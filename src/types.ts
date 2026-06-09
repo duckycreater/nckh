@@ -1,3 +1,13 @@
+export interface GameProgressData {
+  currentRegion: string;
+  completedRegions: string[];
+  pollutionLevels: Record<string, number>;
+  unlockedChapters: number[];
+  activeChapter: number;
+  visitedLocations: string[];
+  totalCleanedPoints: number;
+}
+
 export interface UserProgress {
   flashcardsRead: number[];
   flashcardCounts: Record<string, number>;
@@ -10,6 +20,7 @@ export interface UserProgress {
   purchased: (string | number)[];
   streakDays?: number;
   lastUpdateDate: string;
+  gameProgress?: GameProgressData;
 }
 
 export interface User {

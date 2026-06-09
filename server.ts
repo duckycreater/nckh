@@ -1455,6 +1455,47 @@ app.post("/api/user-progress", async (req, res) => {
   }
 });
 
+// ─── World Map Game Progress ───────────────────────────────────────────────────
+
+app.get("/api/game-progress/:nickname", async (req, res) => {
+  try {
+    const nickname = (req.params.nickname || "").trim().toLowerCase();
+    if (db) {
+      const doc = await db.collection("user_game_progress").doc(nickname).get();
+      if (doc.exists) {
+        return res.json({ gameProgress: doc.data() });
+      }
+    }
+    res.json({ gameProgress: null });
+  } catch (e) {
+    res.status(500).json({ success: false, error: "Failed to load game progress" });
+  }
+});
+
+app.post("/api/game-progress", async (req, res) => {
+  try {
+    const { nickname, action, regionId, bonus, progress: clientProgress } = req.body;
+    if (!nickname) return res.status(400).json({ success: false, error: "nickname required" });
+
+    let existingProgress: Record<string, unknown> = {};
+    if (db) {
+      const doc = await db.collection("user_game_progress").doc(nickname.toLowerCase()).get();
+      if (doc.exists) existingProgress = doc.data() as Record<string, unknown>;
+    }
+
+    const updated = { ...existingProgress, ...(clientProgress || {}) };
+
+    if (db) {
+      await db.collection("user_game_progress").doc(nickname.toLowerCase()).set(updated, { merge: true });
+    }
+
+    res.json({ success: true, gameProgress: updated });
+  } catch (e) {
+    console.error("[game-progress] Error:", e);
+    res.status(500).json({ success: false, error: "Failed to save game progress" });
+  }
+});
+
 let globalGuildProgress = 380; // memory fallback
 app.get("/api/guild-progress", async (req, res) => {
   try {
