@@ -31,6 +31,14 @@ export function StreakCalendar({ streakDays, lastUpdateDate }: Props) {
 
   const dayNames = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
+  const getFireLevel = () => {
+    if (streakDays >= 7) return 3;
+    if (streakDays >= 4) return 2;
+    if (streakDays >= 2) return 1;
+    return 0;
+  };
+  const fireLevel = getFireLevel();
+
   return (
     <div className="bg-gradient-to-b from-sky-50 to-blue-100 rounded-3xl p-5 shadow-sm border border-blue-100/50 flex flex-col items-center text-center relative overflow-hidden">
       {/* Decorative sun */}
@@ -129,10 +137,38 @@ export function StreakCalendar({ streakDays, lastUpdateDate }: Props) {
           animate={{ opacity: 1, y: 0 }}
           className="mt-4 bg-white/70 backdrop-blur rounded-xl px-4 py-2 border border-blue-200/50 relative z-10"
         >
+          {/* Fire animation based on streak level */}
+          {fireLevel > 0 && (
+            <motion.div
+              animate={fireLevel === 3 ? {
+                scale: [1, 1.08, 1],
+                filter: ["brightness(1)", "brightness(1.3)", "brightness(1)"],
+              } : { scale: [1, 1.04, 1] }}
+              transition={fireLevel === 3 ? { duration: 0.8, repeat: Infinity } : { duration: 1.2, repeat: Infinity }}
+              className="inline-block mr-2 align-middle"
+            >
+              {fireLevel === 1 ? (
+                <span className="text-orange-400 text-base">🔥</span>
+              ) : fireLevel === 2 ? (
+                <span className="text-orange-500 text-lg">🔥</span>
+              ) : (
+                <span className="text-red-500 text-xl">🔥</span>
+              )}
+            </motion.div>
+          )}
           <span className="text-sm font-black text-blue-700">
             Chuỗi hiện tại:{" "}
             <span className="text-orange-500">{streakDays}</span> ngày liên tiếp
           </span>
+          {fireLevel === 3 && (
+            <motion.div
+              animate={{ y: [0, -4, 0], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="absolute -top-1 right-2 text-red-400 text-xs"
+            >
+              ⚡
+            </motion.div>
+          )}
         </motion.div>
       )}
     </div>

@@ -511,6 +511,88 @@ async function getUser(nick: string): Promise<User | undefined> {
   return users.find((u) => u.nick.toLowerCase() === normNick);
 }
 
+async function getUserFromToken(token: string): Promise<User | undefined> {
+  const session = sessionTokens.get(token);
+  if (!session || session.expires < Date.now()) return undefined;
+  return getUser(session.nick);
+}
+
+function formatTimeRemaining(endDate: Date): string {
+  const now = new Date();
+  const diff = endDate.getTime() - now.getTime();
+  if (diff <= 0) return "Đã kết thúc";
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return `${days}ngày ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins} phút`;
+}
+
+interface PvPMatch {
+  id: string; challengerId: string; opponentId: string;
+  challengerName: string; opponentName: string;
+  challengerWager: number; opponentWager: number;
+  winnerId?: string; challengerResult?: "win" | "lose" | "pending";
+  opponentResult?: "win" | "lose" | "pending";
+  stake: number; status: "matched" | "battle" | "completed";
+  createdAt: number; updatedAt: number; rounds: any[];
+}
+
+interface TournamentParticipant { userId: string; name: string; points: number; weeklyScore: number; joinedAt: number; }
+interface TournamentMatch { id: string; player1Id: string; player1Name: string; player2Id: string | null; player2Name: string | null; winnerId?: string; status: "pending" | "live" | "completed"; player1Score?: number; player2Score?: number; }
+
+function generateBracket(participants: TournamentParticipant[]): { rounds: { round: number; name: string; matches: TournamentMatch[] }[] } {
+  // Single-elimination bracket: round of 8 → quarter → semi → final
+  const byes = 8 - participants.length;
+  const bracket: { rounds: { round: number; name: string; matches: TournamentMatch[] }[] } = { rounds: [] };
+
+  // Round 1 (Quarter-finals or pre-qualifier if < 8)
+  const qfMatches: TournamentMatch[] = [];
+  const sorted = [...participants].sort((a, b) => b.weeklyScore - a.weeklyScore);
+  for (let i = 0; i < 8; i += 2) {
+    const p1 = sorted[i];
+    const p2 = i + 1 < sorted.length ? sorted[i + 1] : null;
+    if (p1) {
+      qfMatches.push({
+        id: `qf_${i}`,
+        player1Id: p1.userId, player1Name: p1.name,
+        player2Id: p2?.userId || null, player2Name: p2?.name || "BYE",
+        status: p2 ? "pending" : "completed",
+        winnerId: p2 ? undefined : p1.userId,
+        player1Score: p2 ? undefined : 1,
+        player2Score: 0,
+      });
+    }
+  }
+  bracket.rounds.push({ round: 1, name: "Tứ kết", matches: qfMatches });
+
+  // Semi-finals
+  const sfMatches: TournamentMatch[] = [];
+  for (let i = 0; i < 4; i += 2) {
+    sfMatches.push({
+      id: `sf_${i}`,
+      player1Id: "", player1Name: "???",
+      player2Id: null, player2Name: "???",
+      status: "pending",
+    });
+  }
+  bracket.rounds.push({ round: 2, name: "Bán kết", matches: sfMatches });
+
+  // Finals
+  bracket.rounds.push({
+    round: 3, name: "Chung kết",
+    matches: [{
+      id: "final",
+      player1Id: "", player1Name: "???",
+      player2Id: null, player2Name: "???",
+      status: "pending",
+    }],
+  });
+
+  return bracket;
+}
+
 async function saveUser(user: User, isNew: boolean = false): Promise<void> {
   const normNick = user.nick.toLowerCase();
   if (db) {
@@ -1375,7 +1457,7 @@ app.get("/api/user/:nick", async (req, res) => {
 // User Progress & Guild Progress APIs
 app.post("/api/user-progress", async (req, res) => {
   try {
-    const { nickname, type, data, redeemInfo } = req.body;
+    const { nickname, type, data, redeemInfo, pullCount } = req.body;
     console.log(`[user-progress] type=${type} data=${data} nickname=${nickname}`);
 
     // Read progress from dedicated user_progress collection (not users/{nick})
@@ -1426,7 +1508,7 @@ app.post("/api/user-progress", async (req, res) => {
     if (type === "flashcard") {
       // Server-side gacha: resolve which card is awarded
       const unlockedIds = progress.flashcardsRead || [];
-      const pulledCardId = resolveGacha(unlockedIds);
+      const pulledCardId = resolveGacha(unlockedIds, pullCount);
       const pulledCard = generateServerCard(pulledCardId);
       const isNew = !unlockedIds.includes(pulledCardId);
 
@@ -2484,6 +2566,744 @@ async function startServer() {
       res.json({ totalEarned, totalSpent, netChange: totalEarned - totalSpent, txCount: rows.length });
     } catch (e) {
       res.status(500).json({ error: "Failed to fetch reward summary" });
+    }
+  });
+
+  // ─── Weekly Tournament ──────────────────────────────────────────────────────
+  app.get("/api/tournament/current", async (_req, res) => {
+    try {
+      const db = getDb();
+      // Get current week's Monday 00:00 Vietnam time (UTC+7)
+      const now = new Date();
+      const vnOffset = 7 * 60;
+      const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const vnNow = new Date(localMs + vnOffset * 60000);
+      const dayOfWeek = vnNow.getDay(); // 0=Sun, 1=Mon
+      const mondayMs = vnNow.getTime() - ((dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+      const weekStart = new Date(mondayMs);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      const weekStartStr = weekStart.toISOString().split("T")[0];
+      const weekEndStr = weekEnd.toISOString().split("T")[0];
+
+      const tournamentRef = db.collection("tournaments").doc(`${weekStartStr}_${weekEndStr}`);
+      const tournamentDoc = await tournamentRef.get();
+
+      if (!tournamentDoc.exists) {
+        // Create new tournament for this week
+        await tournamentRef.set({
+          id: `${weekStartStr}_${weekEndStr}`,
+          weekStart: weekStart.toISOString(),
+          weekEnd: weekEnd.toISOString(),
+          status: "active",
+          participants: [],
+          bracket: null,
+          rewards: {
+            first: { exp: 1000, badgeId: "weekly_champion", badgeName: "Vô Địch Tuần" },
+            second: { exp: 500 },
+            third: { exp: 250 },
+            top8: { exp: 100 },
+          },
+          createdAt: Date.now(),
+        });
+        return res.json({ tournament: null, userJoined: false, userPosition: null, timeRemaining: formatTimeRemaining(weekEnd) });
+      }
+
+      const tournamentData = tournamentDoc.data()!;
+      const user = _req.headers.authorization
+        ? await getUserFromToken(_req.headers.authorization.replace("Bearer ", ""))
+        : null;
+
+      let userJoined = false;
+      let userPosition: number | null = null;
+      if (user && tournamentData.participants) {
+        const participant = tournamentData.participants.find((p: any) => p.userId === user.nick);
+        if (participant) {
+          userJoined = true;
+          const sorted = [...tournamentData.participants].sort((a: any, b: any) => b.weeklyScore - a.weeklyScore);
+          userPosition = sorted.findIndex((p: any) => p.userId === user.nick) + 1;
+        }
+      }
+
+      res.json({
+        tournament: tournamentData,
+        userJoined,
+        userPosition,
+        timeRemaining: formatTimeRemaining(new Date(tournamentData.weekEnd)),
+      });
+    } catch (e) {
+      console.error("[tournament/current]", e);
+      res.status(500).json({ error: "Failed to get tournament" });
+    }
+  });
+
+  app.post("/api/tournament/join", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const db = getDb();
+      const now = new Date();
+      const vnOffset = 7 * 60;
+      const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const vnNow = new Date(localMs + vnOffset * 60000);
+      const dayOfWeek = vnNow.getDay();
+      const mondayMs = vnNow.getTime() - ((dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+      const weekStart = new Date(mondayMs);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+      weekEnd.setHours(23, 59, 59, 999);
+      const weekStartStr = weekStart.toISOString().split("T")[0];
+      const weekEndStr = weekEnd.toISOString().split("T")[0];
+
+      const tournamentRef = db.collection("tournaments").doc(`${weekStartStr}_${weekEndStr}`);
+      const tournamentDoc = await tournamentRef.get();
+      const user = await getUser(nick);
+
+      if (!tournamentDoc.exists) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      const tournamentData = tournamentDoc.data()!;
+
+      if (tournamentData.status === "completed") {
+        return res.status(400).json({ error: "Tournament has ended" });
+      }
+
+      const alreadyJoined = tournamentData.participants?.some((p: any) => p.userId === nick);
+      if (alreadyJoined) {
+        return res.json({ joined: true, message: "Already joined" });
+      }
+
+      const weeklyScore = user?.points || 0;
+      const newParticipant = {
+        userId: nick,
+        name: user?.name || nick,
+        points: weeklyScore,
+        weeklyScore,
+        joinedAt: Date.now(),
+      };
+
+      await tournamentRef.update({
+        participants: [...(tournamentData.participants || []), newParticipant],
+      });
+
+      res.json({ joined: true, participant: newParticipant });
+    } catch (e) {
+      console.error("[tournament/join]", e);
+      res.status(500).json({ error: "Failed to join tournament" });
+    }
+  });
+
+  app.get("/api/tournament/bracket", async (req, res) => {
+    try {
+      const { id } = req.query;
+      const db = getDb();
+      let docRef;
+      if (id) {
+        docRef = db.collection("tournaments").doc(id as string);
+      } else {
+        // Get most recent active tournament
+        const now = new Date();
+        const vnOffset = 7 * 60;
+        const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const vnNow = new Date(localMs + vnOffset * 60000);
+        const dayOfWeek = vnNow.getDay();
+        const mondayMs = vnNow.getTime() - ((dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+        const weekStart = new Date(mondayMs);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekStartStr = weekStart.toISOString().split("T")[0];
+        const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+        const weekEndStr = weekEnd.toISOString().split("T")[0];
+        docRef = db.collection("tournaments").doc(`${weekStartStr}_${weekEndStr}`);
+      }
+
+      const doc = await docRef.get();
+      if (!doc.exists) return res.json({ bracket: null, participants: [] });
+
+      const data = doc.data()!;
+      const participants = data.participants || [];
+      const sorted = [...participants].sort((a: any, b: any) => b.weeklyScore - a.weeklyScore);
+      const top8 = sorted.slice(0, 8);
+
+      // Generate bracket if not exists
+      let bracket = data.bracket;
+      if (!bracket && top8.length >= 2) {
+        bracket = generateBracket(top8);
+        await docRef.update({ bracket });
+      }
+
+      res.json({ bracket, participants: sorted });
+    } catch (e) {
+      console.error("[tournament/bracket]", e);
+      res.status(500).json({ error: "Failed to get bracket" });
+    }
+  });
+
+  // ─── PvP Arena ──────────────────────────────────────────────────────────────
+  app.post("/api/pvp/match", requireAuth, async (req, res) => {
+    try {
+      const challengerNick = (req as any).userNick;
+      const db = getDb();
+      const WAGER = 20;
+
+      const challenger = await getUser(challengerNick);
+      if (!challenger) return res.status(404).json({ error: "User not found" });
+      if ((challenger.points || 0) < WAGER) {
+        return res.status(400).json({ error: "Not enough EXP to enter (need 20 EXP)" });
+      }
+
+      // Get all users and pick a random opponent with similar rank (nearby points)
+      const allUsers = await getAllUsers();
+      const eligibleOpponents = allUsers.filter(
+        (u) => u.nick !== challengerNick && (u.points || 0) >= WAGER
+      );
+
+      if (eligibleOpponents.length === 0) {
+        return res.status(404).json({ error: "No opponents available. Be the first to enter the arena!" });
+      }
+
+      // Pick opponent with closest points (rank matchmaking)
+      eligibleOpponents.sort((a, b) => Math.abs((a.points || 0) - (challenger.points || 0)) - Math.abs((b.points || 0) - (challenger.points || 0)));
+      const opponent = eligibleOpponents[Math.floor(Math.random() * Math.min(3, eligibleOpponents.length))];
+
+      const matchId = `pvp_${Date.now()}_${challengerNick}`;
+      const match: PvPMatch = {
+        id: matchId,
+        challengerId: challengerNick,
+        challengerName: challenger.name || challengerNick,
+        opponentId: opponent.nick,
+        opponentName: opponent.name || opponent.nick,
+        challengerWager: WAGER,
+        opponentWager: 0, // opponent hasn't accepted
+        stake: WAGER, // challenger already wagered
+        status: "matched",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        rounds: [],
+      };
+
+      await db.collection("pvp_matches").doc(matchId).set(match);
+
+      // Deduct wager from challenger
+      await db.collection("users").doc(challengerNick).update({
+        points: admin.firestore.FieldValue.increment(-WAGER),
+      });
+
+      res.json({
+        matchId,
+        opponentId: opponent.nick,
+        opponentName: opponent.name || opponent.nick,
+        opponentPoints: opponent.points || 0,
+        stake: WAGER,
+        status: "matched",
+      });
+    } catch (e) {
+      console.error("[pvp/match]", e);
+      res.status(500).json({ error: "Failed to create match" });
+    }
+  });
+
+  app.post("/api/pvp/result", requireAuth, async (req, res) => {
+    try {
+      const { matchId, playerWon, rounds } = req.body;
+      const nick = (req as any).userNick;
+      const db = getDb();
+
+      const matchRef = db.collection("pvp_matches").doc(matchId);
+      const matchDoc = await matchRef.get();
+      if (!matchDoc.exists) return res.status(404).json({ error: "Match not found" });
+
+      const match = matchDoc.data() as PvPMatch;
+
+      if (match.status === "completed") {
+        return res.json({ alreadyProcessed: true });
+      }
+
+      // Determine winner
+      let winnerId: string;
+      if (playerWon) {
+        winnerId = nick;
+      } else {
+        // Opponent wins
+        winnerId = match.challengerId === nick ? match.opponentId : match.challengerId;
+      }
+
+      // Award EXP: winner gets double stake, loser loses their wager
+      const totalStake = match.stake * 2; // winner takes all
+      const winnerRef = db.collection("users").doc(winnerId);
+      await winnerRef.update({
+        points: admin.firestore.FieldValue.increment(totalStake),
+      });
+
+      await matchRef.update({
+        status: "completed",
+        winnerId,
+        challengerResult: match.challengerId === winnerId ? "win" : "lose",
+        opponentResult: match.opponentId === winnerId ? "win" : "lose",
+        rounds: rounds || [],
+        updatedAt: Date.now(),
+      });
+
+      res.json({ winnerId, reward: totalStake });
+    } catch (e) {
+      console.error("[pvp/result]", e);
+      res.status(500).json({ error: "Failed to submit result" });
+    }
+  });
+
+  app.get("/api/pvp/history", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const db = getDb();
+      const matches: FirebaseFirestore.QuerySnapshot = await db
+        .collection("pvp_matches")
+        .where("status", "==", "completed")
+        .orderBy("updatedAt", "desc")
+        .limit(20)
+        .get();
+
+      const userMatches = matches.docs
+        .map((d) => d.data())
+        .filter((m: any) => m.challengerId === nick || m.opponentId === nick);
+
+      res.json(userMatches);
+    } catch (e) {
+      console.error("[pvp/history]", e);
+      res.status(500).json({ error: "Failed to get history" });
+    }
+  });
+
+  // ─── CLAN SYSTEM ────────────────────────────────────────────────────────────
+  const MAX_CLANS = 50;
+  const MAX_MEMBERS = 20;
+
+  function getMondayTimestamp(): number {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday.getTime();
+  }
+
+  app.get("/api/clans", async (_req, res) => {
+    try {
+      const db = getDb();
+      const clansSnap = await db.collection("clans").orderBy("exp", "desc").limit(50).get();
+      const clans = clansSnap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name,
+          tag: data.tag,
+          leaderId: data.leaderId,
+          memberCount: (data.memberIds || []).length,
+          maxMembers: MAX_MEMBERS,
+          exp: data.exp || 0,
+          level: data.level || 1,
+          bio: data.bio || "",
+          avatarSeed: data.avatarSeed || data.name || "",
+          weeklyDonations: data.weeklyDonations || 0,
+          weeklyGoal: data.weeklyGoal || 500,
+        };
+      });
+      res.json({ clans, total: clans.length });
+    } catch (e) {
+      console.error("[clans]", e);
+      res.status(500).json({ error: "Failed to get clans" });
+    }
+  });
+
+  app.post("/api/clans", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { name, tag, bio } = req.body || {};
+      if (!name || name.trim().length < 2) return res.status(400).json({ error: "Tên clan quá ngắn" });
+      if (!tag || tag.trim().length < 2 || tag.trim().length > 5) return res.status(400).json({ error: "Tag clan phải 2-5 ký tự" });
+
+      const db = getDb();
+
+      // Check if user already in a clan
+      const userClanSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
+      if (userClanSnap.exists) return res.status(400).json({ error: "Bạn đã ở trong một clan" });
+
+      // Check clan count limit
+      const clanCount = (await db.collection("clans").count().get()).data().count;
+      if (clanCount >= MAX_CLANS) return res.status(400).json({ error: "Đã đạt giới hạn clan. Hãy tham gia clan hiện có." });
+
+      // Check tag uniqueness
+      const tagSnap = await db.collection("clans").where("tag", "==", tag.trim().toUpperCase()).limit(1).get();
+      if (!tagSnap.empty) return res.status(400).json({ error: "Tag clan đã tồn tại" });
+
+      const clanRef = db.collection("clans").doc();
+      const clanData = {
+        name: name.trim(),
+        tag: tag.trim().toUpperCase(),
+        leaderId: nick,
+        memberIds: [nick],
+        exp: 0,
+        level: 1,
+        bio: (bio || "").trim().slice(0, 200),
+        createdAt: Date.now(),
+        weeklyDonations: 0,
+        weeklyGoal: 500,
+        avatarSeed: name.trim(),
+      };
+      await clanRef.set(clanData);
+
+      // Create member profile
+      await db.collection("clans").doc(clanRef.id).collection("members").doc(nick).set({
+        userId: nick,
+        role: "owner",
+        expContributed: 0,
+        weeklyDonation: 0,
+        joinedAt: Date.now(),
+        level: 1,
+      });
+
+      // Link user to clan
+      await db.collection("users").doc(nick).collection("profile").doc("clan").set({
+        clanId: clanRef.id,
+        role: "owner",
+        joinedAt: Date.now(),
+      });
+
+      res.json({ id: clanRef.id, ...clanData });
+    } catch (e) {
+      console.error("[clans/create]", e);
+      res.status(500).json({ error: "Failed to create clan" });
+    }
+  });
+
+  app.get("/api/clan/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = getDb();
+      const clanSnap = await db.collection("clans").doc(id).get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+
+      const clanData = clanSnap.data()!;
+
+      // Get members
+      const membersSnap = await db.collection("clans").doc(id).collection("members").get();
+      const members = membersSnap.docs.map((d) => d.data());
+
+      // Get quests
+      const questsSnap = await db.collection("clans").doc(id).collection("quests")
+        .where("expiresAt", ">", Date.now())
+        .limit(5).get();
+      const quests = questsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      // Get recent messages
+      const msgsSnap = await db.collection("clans").doc(id).collection("messages")
+        .orderBy("createdAt", "desc").limit(30).get();
+      const messages = msgsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse();
+
+      res.json({
+        id,
+        name: clanData.name,
+        tag: clanData.tag,
+        leaderId: clanData.leaderId,
+        memberIds: clanData.memberIds || [],
+        exp: clanData.exp || 0,
+        level: clanData.level || 1,
+        bio: clanData.bio || "",
+        avatarSeed: clanData.avatarSeed || clanData.name || "",
+        weeklyDonations: clanData.weeklyDonations || 0,
+        weeklyGoal: clanData.weeklyGoal || 500,
+        createdAt: clanData.createdAt,
+        members,
+        quests,
+        messages,
+      });
+    } catch (e) {
+      console.error("[clan/:id]", e);
+      res.status(500).json({ error: "Failed to get clan" });
+    }
+  });
+
+  app.post("/api/clan/:id/join", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { id } = req.params;
+      const db = getDb();
+
+      // Check if already in a clan
+      const existingClan = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
+      if (existingClan.exists) return res.status(400).json({ error: "Bạn đã ở trong một clan khác" });
+
+      const clanRef = db.collection("clans").doc(id);
+      const clanSnap = await clanRef.get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      const clanData = clanSnap.data()!;
+
+      const memberIds: string[] = clanData.memberIds || [];
+      if (memberIds.length >= MAX_MEMBERS) return res.status(400).json({ error: "Clan đã đầy" });
+
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(clanRef);
+        const data = snap.data()!;
+        const ids: string[] = data.memberIds || [];
+        if (ids.length >= MAX_MEMBERS) throw new Error("Clan đã đầy");
+        tx.update(clanRef, { memberIds: [...ids, nick] });
+        tx.set(clanRef.collection("members").doc(nick), {
+          userId: nick,
+          role: "member",
+          expContributed: 0,
+          weeklyDonation: 0,
+          joinedAt: Date.now(),
+          level: 1,
+        });
+        tx.set(db.collection("users").doc(nick).collection("profile").doc("clan"), {
+          clanId: id,
+          role: "member",
+          joinedAt: Date.now(),
+        });
+      });
+
+      res.json({ success: true, clanId: id });
+    } catch (e: any) {
+      console.error("[clan/join]", e);
+      if (e.message === "Clan đã đầy") return res.status(400).json({ error: e.message });
+      res.status(500).json({ error: "Failed to join clan" });
+    }
+  });
+
+  app.post("/api/clan/:id/leave", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { id } = req.params;
+      const db = getDb();
+
+      const clanRef = db.collection("clans").doc(id);
+      const clanSnap = await clanRef.get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      const clanData = clanSnap.data()!;
+
+      if (clanData.leaderId === nick) return res.status(400).json({ error: "Chủ tịch không thể rời clan. Hãy chuyển giao hoặc giải tán clan." });
+
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(clanRef);
+        const data = snap.data()!;
+        tx.update(clanRef, { memberIds: (data.memberIds || []).filter((m: string) => m !== nick) });
+        tx.delete(clanRef.collection("members").doc(nick));
+        tx.delete(db.collection("users").doc(nick).collection("profile").doc("clan"));
+      });
+
+      res.json({ success: true });
+    } catch (e) {
+      console.error("[clan/leave]", e);
+      res.status(500).json({ error: "Failed to leave clan" });
+    }
+  });
+
+  app.post("/api/clan/:id/donate", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { id } = req.params;
+      const { amount } = req.body || {};
+      const donateAmount = Math.max(10, Math.min(10000, Number(amount) || 0));
+      if (donateAmount < 10) return res.status(400).json({ error: "Tối thiểu 10 EXP" });
+
+      const db = getDb();
+
+      // Deduct from user
+      const userSnap = await db.collection("users").doc(nick).get();
+      const userData = userSnap.data()!;
+      const userPoints = userData.points || 0;
+      if (userPoints < donateAmount) return res.status(400).json({ error: "Không đủ EXP" });
+
+      const clanRef = db.collection("clans").doc(id);
+      const clanSnap = await clanRef.get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+
+      const clanData = clanSnap.data()!;
+      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: "Bạn không phải thành viên clan" });
+
+      await db.runTransaction(async (tx) => {
+        // Deduct user points
+        const uSnap = await tx.get(db.collection("users").doc(nick));
+        const uData = uSnap.data()!;
+        if ((uData.points || 0) < donateAmount) throw new Error("Không đủ EXP");
+        tx.update(db.collection("users").doc(nick), { points: (uData.points || 0) - donateAmount });
+
+        // Add to clan
+        const cSnap = await tx.get(clanRef);
+        const cData = cSnap.data()!;
+        const newExp = (cData.exp || 0) + donateAmount;
+        const newLevel = Math.floor(newExp / 1000) + 1;
+        const newWeekly = (cData.weeklyDonations || 0) + donateAmount;
+        tx.update(clanRef, { exp: newExp, level: newLevel, weeklyDonations: newWeekly });
+
+        // Update member donation
+        const memberRef = clanRef.collection("members").doc(nick);
+        const mSnap = await tx.get(memberRef);
+        const mData = mSnap.data() || {};
+        tx.update(memberRef, {
+          expContributed: (mData.expContributed || 0) + donateAmount,
+          weeklyDonation: (mData.weeklyDonation || 0) + donateAmount,
+        });
+      });
+
+      res.json({ success: true, donated: donateAmount });
+    } catch (e: any) {
+      console.error("[clan/donate]", e);
+      if (e.message === "Không đủ EXP") return res.status(400).json({ error: e.message });
+      res.status(500).json({ error: "Failed to donate" });
+    }
+  });
+
+  app.post("/api/clan/:id/messages", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { id } = req.params;
+      const { text } = req.body || {};
+      if (!text || text.trim().length === 0) return res.status(400).json({ error: "Tin nhắn trống" });
+      if (text.trim().length > 500) return res.status(400).json({ error: "Tin nhắn quá dài" });
+
+      const db = getDb();
+      const clanSnap = await db.collection("clans").doc(id).get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      const clanData = clanSnap.data()!;
+      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: "Bạn không phải thành viên clan" });
+
+      const userSnap = await db.collection("users").doc(nick).get();
+      const userData = userSnap.data() || {};
+
+      const msgRef = db.collection("clans").doc(id).collection("messages").doc();
+      await msgRef.set({
+        userId: nick,
+        nick: userData.nick || nick,
+        text: text.trim(),
+        createdAt: Date.now(),
+      });
+
+      res.json({ id: msgRef.id, userId: nick, nick: userData.nick || nick, text: text.trim(), createdAt: Date.now() });
+    } catch (e) {
+      console.error("[clan/messages]", e);
+      res.status(500).json({ error: "Failed to post message" });
+    }
+  });
+
+  app.post("/api/clan/:id/assign-officer", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { id } = req.params;
+      const { targetNick } = req.body || {};
+      if (!targetNick) return res.status(400).json({ error: "Thiếu tên thành viên" });
+
+      const db = getDb();
+      const clanRef = db.collection("clans").doc(id);
+      const clanSnap = await clanRef.get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      const clanData = clanSnap.data()!;
+      if (clanData.leaderId !== nick) return res.status(403).json({ error: "Chỉ chủ tịch mới có quyền" });
+      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: "Thành viên không tồn tại trong clan" });
+
+      await clanRef.collection("members").doc(targetNick).update({ role: "officer" });
+      res.json({ success: true });
+    } catch (e) {
+      console.error("[clan/assign-officer]", e);
+      res.status(500).json({ error: "Failed to assign officer" });
+    }
+  });
+
+  app.post("/api/clan/:id/transfer-owner", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { id } = req.params;
+      const { targetNick } = req.body || {};
+      if (!targetNick) return res.status(400).json({ error: "Thiếu tên thành viên" });
+
+      const db = getDb();
+      const clanRef = db.collection("clans").doc(id);
+      const clanSnap = await clanRef.get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      const clanData = clanSnap.data()!;
+      if (clanData.leaderId !== nick) return res.status(403).json({ error: "Chỉ chủ tịch mới có quyền" });
+      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: "Thành viên không tồn tại trong clan" });
+
+      await db.runTransaction(async (tx) => {
+        tx.update(clanRef, { leaderId: targetNick });
+        tx.update(clanRef.collection("members").doc(nick), { role: "officer" });
+        tx.update(clanRef.collection("members").doc(targetNick), { role: "owner" });
+        tx.update(db.collection("users").doc(nick).collection("profile").doc("clan"), { role: "officer" });
+        tx.update(db.collection("users").doc(targetNick).collection("profile").doc("clan"), { role: "owner" });
+      });
+
+      res.json({ success: true });
+    } catch (e) {
+      console.error("[clan/transfer]", e);
+      res.status(500).json({ error: "Failed to transfer ownership" });
+    }
+  });
+
+  app.delete("/api/clan/:id", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const { id } = req.params;
+      const db = getDb();
+      const clanRef = db.collection("clans").doc(id);
+      const clanSnap = await clanRef.get();
+      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (clanSnap.data()!.leaderId !== nick) return res.status(403).json({ error: "Chỉ chủ tịch mới có quyền giải tán" });
+
+      const memberIds: string[] = clanSnap.data()!.memberIds || [];
+      await db.runTransaction(async (tx) => {
+        // Remove clan link from all members
+        for (const mId of memberIds) {
+          tx.delete(db.collection("users").doc(mId).collection("profile").doc("clan"));
+        }
+        // Delete all subcollections
+        const membersSnap = await tx.get(clanRef.collection("members"));
+        for (const d of membersSnap.docs) tx.delete(d.ref);
+        const questsSnap = await tx.get(clanRef.collection("quests"));
+        for (const d of questsSnap.docs) tx.delete(d.ref);
+        const msgsSnap = await tx.get(clanRef.collection("messages"));
+        for (const d of msgsSnap.docs) tx.delete(d.ref);
+        // Delete clan
+        tx.delete(clanRef);
+      });
+
+      res.json({ success: true });
+    } catch (e) {
+      console.error("[clan/delete]", e);
+      res.status(500).json({ error: "Failed to delete clan" });
+    }
+  });
+
+  app.get("/api/user-clan", requireAuth, async (req, res) => {
+    try {
+      const nick = (req as any).userNick;
+      const db = getDb();
+      const profileSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
+      if (!profileSnap.exists) return res.json({ inClan: false, clanId: null, role: null });
+
+      const { clanId, role, joinedAt } = profileSnap.data()!;
+      const clanSnap = await db.collection("clans").doc(clanId).get();
+      if (!clanSnap.exists) return res.json({ inClan: false, clanId: null, role: null });
+
+      const clanData = clanSnap.data()!;
+      res.json({
+        inClan: true,
+        clanId,
+        role,
+        joinedAt,
+        clan: {
+          id: clanId,
+          name: clanData.name,
+          tag: clanData.tag,
+          level: clanData.level || 1,
+          exp: clanData.exp || 0,
+          memberCount: (clanData.memberIds || []).length,
+          maxMembers: MAX_MEMBERS,
+          leaderId: clanData.leaderId,
+        },
+      });
+    } catch (e) {
+      console.error("[user-clan]", e);
+      res.status(500).json({ error: "Failed to get user clan" });
     }
   });
 

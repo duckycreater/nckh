@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
-import { Badge, Button, Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
+import { Badge, Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
+import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface LeaderboardEntry {
   name: string;
@@ -12,6 +13,11 @@ interface LeaderboardEntry {
   streak_days?: number;
   improvement_pct?: number;
   eco_impact_score?: number;
+  weekly_points?: number;
+  monthly_points?: number;
+  rank_change?: number;
+  clan_id?: string;
+  clan_name?: string;
 }
 
 interface Props {
@@ -20,39 +26,76 @@ interface Props {
   onUserClick?: (nickname: string) => void;
 }
 
-const LEADERBOARD_TYPES = [
-  { key: "total", label: "Tổng điểm", emoji: "🏆" },
-  { key: "weekly", label: "Tuần này", emoji: "📅" },
-  { key: "consistency", label: "Kiên trì", emoji: "🔥" },
-  { key: "improvement", label: "Cải thiện", emoji: "📈" },
-  { key: "eco_impact", label: "Eco Impact", emoji: "🌿" },
-] as const;
+type LbTab = "total" | "weekly" | "monthly" | "clans";
+type SortKey = "total" | "weekly" | "monthly";
+
+const LB_TABS: { key: LbTab; label: string; emoji: string }[] = [
+  { key: "total", label: "Tổng", emoji: "🏆" },
+  { key: "weekly", label: "Tuần", emoji: "📅" },
+  { key: "monthly", label: "Tháng", emoji: "🗓️" },
+  { key: "clans", label: "Bang hội", emoji: "⚔️" },
+];
+
+const PODIUM_BG: Record<number, string> = {
+  0: "from-amber-300 via-amber-200 to-amber-100",
+  1: "from-slate-300 via-slate-200 to-slate-100",
+  2: "from-orange-300 via-orange-200 to-orange-100",
+};
+const PODIUM_CROWN: Record<number, string> = {
+  0: "👑",
+  1: "🥈",
+  2: "🥉",
+};
+const PODIUM_HEIGHT: Record<number, string> = {
+  0: "h-32",
+  1: "h-24",
+  2: "h-20",
+};
+const PODIUM_NAME_TOP: Record<number, string> = {
+  0: "-top-16",
+  1: "-top-12",
+  2: "-top-10",
+};
 
 export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props) {
   const [users, setUsers] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
-  const [lbType, setLbType] = useState<typeof LEADERBOARD_TYPES[number]["key"]>("total");
+  const [activeTab, setActiveTab] = useState<LbTab>("total");
+  const [clans, setClans] = useState<{ name: string; tag: string; exp: number; member_count: number }[]>([]);
+  const [currentRank, setCurrentRank] = useState<number | null>(null);
   const { width, height } = useWindowSize();
+
+  const sortKey: SortKey = activeTab === "clans" ? "total" : activeTab;
 
   useEffect(() => {
     const fetchBoard = async () => {
       setLoading(true);
       setError(null);
       try {
-        if (lbType === "total") {
-          const res = await fetch("/api/leaderboard");
-          if (!res.ok) throw new Error("Không thể tải bảng xếp hạng");
-          const data = await res.json();
-          setUsers(data);
-        } else {
-          const res = await fetch(`/api/research/leaderboard/${lbType}`);
+        if (activeTab === "clans") {
+          const res = await fetch("/api/clans");
           if (res.ok) {
+            const data = await res.json();
+            setClans(Array.isArray(data) ? data : []);
+          } else {
+            setClans([]);
+          }
+        } else {
+          if (activeTab === "total") {
+            const res = await fetch("/api/leaderboard");
+            if (!res.ok) throw new Error("Không thể tải bảng xếp hạng");
             const data = await res.json();
             setUsers(data);
           } else {
-            setUsers([]);
+            const res = await fetch(`/api/research/leaderboard/${activeTab}`);
+            if (res.ok) {
+              const data = await res.json();
+              setUsers(data);
+            } else {
+              setUsers([]);
+            }
           }
         }
       } catch (err: unknown) {
@@ -62,28 +105,155 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
       }
     };
     fetchBoard();
-  }, [refreshTrigger, refetchKey, lbType]);
+  }, [refreshTrigger, refetchKey, activeTab]);
 
   const isTop1 = currentUser && users[0] && users[0].nick === currentUser;
 
-  const getBadge = (points: number) => {
-    if (points > 200) return <Badge tone="accent">Hiệp sĩ môi trường</Badge>;
-    if (points > 50) return <Badge tone="success">Người bảo vệ</Badge>;
-    return <Badge>Mầm non</Badge>;
-  };
+  const rankedUsers = React.useMemo(() => {
+    if (activeTab === "clans") return [];
+    const sorted = [...users].sort((a, b) => {
+      const aScore = sortKey === "total" ? a.points : sortKey === "weekly" ? a.weekly_points ?? a.score ?? 0 : a.monthly_points ?? 0;
+      const bScore = sortKey === "total" ? b.points : sortKey === "weekly" ? b.weekly_points ?? b.score ?? 0 : b.monthly_points ?? 0;
+      return bScore - aScore;
+    });
+    return sorted;
+  }, [users, sortKey, activeTab]);
+
+  const rankedClans = React.useMemo(() => {
+    if (activeTab !== "clans") return [];
+    return [...clans].sort((a, b) => b.exp - a.exp);
+  }, [clans, activeTab]);
+
+  useEffect(() => {
+    if (rankedUsers.length > 0 && currentUser) {
+      const idx = rankedUsers.findIndex((u) => u.nick === currentUser);
+      setCurrentRank(idx >= 0 ? idx + 1 : null);
+    } else {
+      setCurrentRank(null);
+    }
+  }, [rankedUsers, currentUser]);
 
   const getScoreDisplay = (user: LeaderboardEntry) => {
-    if (lbType === "consistency") return user.streak_days || 0;
-    if (lbType === "improvement") return user.improvement_pct || 0;
-    if (lbType === "eco_impact") return user.eco_impact_score || 0;
-    if (lbType === "weekly") return user.score || user.points;
+    if (sortKey === "weekly") return user.weekly_points ?? user.score ?? user.points;
+    if (sortKey === "monthly") return user.monthly_points ?? 0;
     return user.points;
   };
 
   const getScoreLabel = () => {
-    if (lbType === "consistency") return "Ngày";
-    if (lbType === "improvement") return "%";
+    if (sortKey === "weekly") return "Điểm tuần";
+    if (sortKey === "monthly") return "Điểm tháng";
     return "Điểm";
+  };
+
+  const getRankIcon = (change: number | undefined) => {
+    if (change === undefined || change === 0) return <Minus size={14} className="text-slate-400" />;
+    if (change > 0) return <TrendingUp size={14} className="text-emerald-500" />;
+    return <TrendingDown size={14} className="text-red-400" />;
+  };
+
+  const RankChangeBadge = ({ change }: { change: number | undefined }) => {
+    if (change === undefined || change === 0) return null;
+    return (
+      <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${change > 0 ? "text-emerald-500" : "text-red-400"}`}>
+        {getRankIcon(change)}
+        {change > 0 ? `+${change}` : change}
+      </span>
+    );
+  };
+
+  const UserRow = ({ user, rank }: { user: LeaderboardEntry; rank: number }) => {
+    const scoreDisplay = getScoreDisplay(user);
+    const isCurrent = user.nick === currentUser;
+    return (
+      <div className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition-all ${isCurrent ? "border-amber-200 bg-amber-50 shadow-sm ring-2 ring-amber-100" : "border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200"}`}>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-black text-slate-500">
+            #{rank}
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button onClick={() => onUserClick && onUserClick(user.nick)} className="truncate text-left font-bold text-slate-800 hover:text-emerald-600 hover:underline">
+                {user.name}
+              </button>
+              {user.clan_name && (
+                <span className="text-[10px] rounded-full bg-violet-100 px-2 py-0.5 font-bold text-violet-600">
+                  {user.clan_name}
+                </span>
+              )}
+              {isCurrent && <span className="text-[11px] font-bold italic text-amber-600">(Bạn)</span>}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <RankChangeBadge change={user.rank_change} />
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-base font-black text-emerald-600">
+            {typeof scoreDisplay === "number" ? scoreDisplay.toLocaleString() : scoreDisplay}
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{getScoreLabel()}</p>
+        </div>
+      </div>
+    );
+  };
+
+  const Podium = () => {
+    const top3 = rankedUsers.slice(0, 3);
+    if (top3.length === 0) return null;
+    return (
+      <div className="mb-6 flex items-end justify-center gap-3 px-4">
+        {[1, 0, 2].map((pos) => {
+          const user = top3[pos];
+          if (!user) return <div key={pos} className="w-24" />;
+          const isCurrent = user.nick === currentUser;
+          return (
+            <div key={pos} className={`flex w-24 flex-col items-center ${pos === 0 ? "-mb-2 z-10" : ""}`}>
+              <div className={`relative flex h-10 w-10 items-center justify-center rounded-full text-lg ${isCurrent ? "ring-4 ring-amber-300" : ""}`}>
+                <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${PODIUM_BG[pos]}`} />
+                <span className="relative z-10">{PODIUM_CROWN[pos]}</span>
+              </div>
+              <div className={`relative mt-1.5 ${PODIUM_NAME_TOP[pos]} flex flex-col items-center`}>
+                <p className={`max-w-20 truncate text-center text-xs font-bold leading-tight ${isCurrent ? "text-amber-700" : "text-slate-600"}`}>{user.name}</p>
+                <p className="text-[10px] font-black text-emerald-600">{getScoreDisplay(user).toLocaleString()}</p>
+              </div>
+              <div className={`relative mt-1 w-full rounded-t-2xl rounded-b-lg bg-gradient-to-b ${PODIUM_BG[pos]} flex flex-col items-center justify-end pb-3 pt-4 ${PODIUM_HEIGHT[pos]}`}>
+                <p className="text-xl font-black text-white drop-shadow-sm">{pos + 1}</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-white/80">#{pos + 1}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const YourRankCard = () => {
+    if (!currentUser || currentRank === null) return null;
+    const restUsers = rankedUsers.slice(3);
+    const myEntry = rankedUsers[currentRank - 1];
+    const nextUser = restUsers[currentRank - 4];
+    const pointsToNext = nextUser ? getScoreDisplay(nextUser) - getScoreDisplay(myEntry) : 0;
+    return (
+      <div className="sticky bottom-0 z-20 mt-4 rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-lg font-black text-white shadow">
+              #{currentRank}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Xếp hạng của bạn</p>
+              <p className="text-xs text-slate-400">Hạng #{currentRank} {getScoreLabel().toLowerCase()}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-black text-emerald-600">{getScoreDisplay(myEntry).toLocaleString()}</p>
+            {pointsToNext > 0 && (
+              <p className="text-[10px] text-slate-400">Cần {pointsToNext.toLocaleString()} để vượt #{currentRank - 1}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -95,15 +265,18 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
       )}
 
       <Card className="rounded-[28px] p-0 border-0 shadow-none">
-        <div className="border-b border-slate-100 px-0 pb-4">
-          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-            {LEADERBOARD_TYPES.map((type) => (
-              <TabButton key={type.key} active={lbType === type.key} onClick={() => { setLbType(type.key); setRefetchKey((k) => k + 1); }} className="shrink-0 gap-1.5 px-4 py-2.5 whitespace-nowrap">
-                <span>{type.emoji}</span>
-                <span>{type.label}</span>
-              </TabButton>
-            ))}
-          </div>
+        <div className="mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          {LB_TABS.map((tab) => (
+            <TabButton
+              key={tab.key}
+              active={activeTab === tab.key}
+              onClick={() => { setActiveTab(tab.key); setRefetchKey((k) => k + 1); }}
+              className="shrink-0 gap-1.5 whitespace-nowrap px-4 py-2"
+            >
+              <span>{tab.emoji}</span>
+              <span>{tab.label}</span>
+            </TabButton>
+          ))}
         </div>
 
         {loading ? (
@@ -112,50 +285,50 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
           </div>
         ) : error ? (
           <ErrorRetry message={error} onRetry={() => setRefetchKey((k) => k + 1)} />
-        ) : users.length === 0 ? (
+        ) : activeTab === "clans" ? (
+          rankedClans.length === 0 ? (
+            <EmptyState title="Chưa có bang hội" subtitle="Hãy là người đầu tiên tạo bang!" />
+          ) : (
+            <div className="space-y-3 py-4">
+              <div className="mb-2 flex items-center gap-2 px-1">
+                <Trophy size={16} className="text-amber-500" />
+                <p className="text-sm font-bold text-slate-600">Bảng xếp hạng Bang hội</p>
+              </div>
+              {rankedClans.map((clan, index) => {
+                const isTop3 = index < 3;
+                return (
+                  <div key={clan.tag || index} className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition ${isTop3 ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${isTop3 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-500"}`}>
+                        {isTop3 ? PODIUM_CROWN[index] : `#${index + 1}`}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-slate-800">{clan.name}</p>
+                        <p className="text-xs text-slate-400">[{clan.tag}] · {clan.member_count} thành viên</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-violet-600">{clan.exp.toLocaleString()}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">EXP</p>
+                    </div>
+                  </div>
+                );
+              })}
+              <YourRankCard />
+            </div>
+          )
+        ) : rankedUsers.length === 0 ? (
           <EmptyState title="Chưa có dữ liệu" subtitle="Hãy là người đầu tiên ghi danh!" />
         ) : (
           <div className="space-y-3 py-4">
-            {users.map((user, index) => {
-              const scoreDisplay = getScoreDisplay(user);
-              const isCurrent = user.nick === currentUser;
-              const rankLabel = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
-
-              return (
-                <div key={`${user.nick}-${index}`} className={`flex items-center justify-between rounded-[24px] border px-4 py-3 transition ${isCurrent ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-black ${index === 0 ? "bg-yellow-100 text-yellow-700" : index === 1 ? "bg-slate-100 text-slate-600" : index === 2 ? "bg-orange-100 text-orange-600" : "bg-slate-100 text-slate-500"}`}>
-                      {rankLabel}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button onClick={() => onUserClick && onUserClick(user.nick)} className="truncate text-left font-bold text-slate-800 hover:text-emerald-600 hover:underline" title={`Xem hồ sơ của ${user.name}`}>
-                          {user.name}
-                        </button>
-                        {getBadge(lbType === "total" ? user.points : (scoreDisplay as number))}
-                        {isCurrent && <span className="text-[11px] font-bold italic text-slate-500">(Bạn)</span>}
-                      </div>
-                      <p className="mt-1 text-xs text-slate-400">{typeLabel(lbType)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-black text-emerald-600">{typeof scoreDisplay === "number" ? lbType === "improvement" ? `${scoreDisplay > 0 ? "+" : ""}${scoreDisplay.toFixed(1)}%` : scoreDisplay.toLocaleString() : scoreDisplay}</p>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{getScoreLabel()}</p>
-                  </div>
-                </div>
-              );
-            })}
+            <Podium />
+            {rankedUsers.slice(3).map((user, i) => (
+              <UserRow key={`${user.nick}-${i}`} user={user} rank={i + 4} />
+            ))}
+            <YourRankCard />
           </div>
         )}
       </Card>
     </>
   );
-}
-
-function typeLabel(type: typeof LEADERBOARD_TYPES[number]["key"]) {
-  if (type === "total") return "Xếp hạng theo tổng điểm";
-  if (type === "weekly") return "Xếp hạng theo điểm tuần";
-  if (type === "consistency") return "Xếp hạng theo streak";
-  if (type === "improvement") return "Xếp hạng theo mức cải thiện";
-  return "Xếp hạng theo tác động sinh thái";
 }

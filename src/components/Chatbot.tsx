@@ -13,10 +13,25 @@ const WELCOME_MESSAGE: Message = {
     "Xin chào! Mình là **Robot Siêu Cấp Xanh**. Bạn có thể hỏi mình về phân loại rác, tái chế và cách xử lý thân thiện với môi trường.",
 };
 
+const SUGGESTED_QUESTIONS = [
+  "Rác nhựa xử lý sao?",
+  "Rác nguy hại là gì?",
+  "Cách tái chế?",
+  "Mẹo phân loại rác",
+];
+
 export function Chatbot({ currentUser }: { currentUser?: string }) {
   const storageKey = `ecoquest:chat:${currentUser || "guest"}`;
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const getWelcomeMessage = (user?: string): Message => ({
+    role: "assistant",
+    content: user
+      ? `Chào ${user}! Mình là **Robot Siêu Cấp Xanh**. Bạn có thể hỏi mình về phân loại rác, tái chế và cách xử lý thân thiện với môi trường.`
+      : WELCOME_MESSAGE.content,
+  });
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [initialized, setInitialized] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,17 +41,22 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
   };
 
   useEffect(() => {
+    if (initialized) return;
+    setInitialized(true);
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as Message[];
         if (parsed.length > 0) {
           setMessages(parsed);
+          return;
         }
       }
-    } catch {
+    } catch (e) {
+      console.warn('[Chatbot] Failed to load chat history:', e);
     }
-  }, [storageKey]);
+    setMessages([getWelcomeMessage(currentUser)]);
+  }, [storageKey, initialized, currentUser]);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(messages));
@@ -82,12 +102,16 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
   };
 
   const handleClear = () => {
-    setMessages([WELCOME_MESSAGE]);
+    setMessages([getWelcomeMessage(currentUser)]);
     localStorage.removeItem(storageKey);
   };
 
+  const handleSuggestion = (question: string) => {
+    setInput(question);
+  };
+
   return (
-    <div className="fixed bottom-[5.5rem] right-4 z-50 sm:bottom-6 sm:right-6">
+    <div className="fixed bottom-[5.5rem] right-2 z-50 sm:bottom-6 sm:right-6 md:bottom-6 md:right-6">
       {isOpen && (
         <div className="mb-4 flex h-[34rem] w-80 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl sm:w-96">
           <div className="bg-[linear-gradient(135deg,#0f8f68,#179a73)] px-4 py-4 text-white">
@@ -127,6 +151,21 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
               </span>
               <span className="text-xs font-medium text-slate-400">Lưu theo phiên người dùng</span>
             </div>
+
+            {/* Quick reply suggestions — shown when user has only seen the welcome message */}
+            {messages.length <= 1 && (
+              <div className="flex flex-wrap gap-2">
+                {SUGGESTED_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => handleSuggestion(q)}
+                    className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 hover:border-emerald-300"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>

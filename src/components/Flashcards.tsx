@@ -6,7 +6,7 @@ import {
   Heart, ChevronDown, Info, Plus, Check, RefreshCw,
   Activity, Award, Cpu, Skull, Eye, Search,
   ChevronRight, Battery, Gauge,
-  Filter, SortAsc, Sparkle,
+  Filter, SortAsc, Sparkle, Brain, Coffee, Timer,
 } from "lucide-react";
 import { UserProgress } from "../types";
 import {
@@ -15,10 +15,11 @@ import {
   getCardArt, getAvatarEmoji,
 } from "../lib/cards";
 import { CardBattle } from "./CardBattle";
+import { RoguelikeRun } from "./RoguelikeRun";
 import { Badge, Button, Card, EmptyState } from "../lib/ui";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
-type Section = "collection" | "fusion" | "levelup" | "gacha" | "battle" | "shards";
+type Section = "collection" | "fusion" | "levelup" | "gacha" | "battle" | "shards" | "practice" | "roguelike";
 
 // ─── Auth helper ────────────────────────────────────────────────────────────
 function getAuthHeaders(): Record<string, string> {
@@ -42,6 +43,8 @@ const RARITY: Record<string, {
 const RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
 const PULL_COST = 50;
 const DECK_SIZE = 5;
+const PITY_EPIC = 30; // guaranteed epic every 30 pulls
+const PITY_LEGENDARY = 100; // guaranteed legendary every 100 pulls
 
 // ─── Element colors ────────────────────────────────────────────────────────
 const ELEM_COLOR: Record<string, string> = {
@@ -487,7 +490,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
 }
 
 // ─── Gacha Reveal ──────────────────────────────────────────────────────────
-function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) {
+function GachaReveal({ result, onClose, pullCount = 0 }: { result: any; onClose: () => void; pullCount?: number }) {
   const [flipped, setFlipped] = useState(false);
   useEffect(() => { const t = setTimeout(() => setFlipped(true), 600); return () => clearTimeout(t); }, []);
   if (!result) return null;
@@ -519,6 +522,22 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
             />
           );
         })}
+        {/* Sparkle trail — follows card during flip */}
+        {flipped && Array.from({ length: 20 }).map((_, i) => {
+          const colors = ["#f59e0b","#a855f7","#3b82f6","#22c55e","#ef4444","#06b6d4","#ec4899"];
+          const c = colors[i % colors.length];
+          const a = (i / 20) * 360;
+          const d = 30 + Math.random() * 80;
+          return (
+            <motion.div key={`trail-${i}`}
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: [0, 1, 0], scale: [0, 1.2, 0], x: `calc(50% + ${Math.cos(a * Math.PI / 180) * d}%)`, y: `calc(50% + ${Math.sin(a * Math.PI / 180) * d}%)` }}
+              transition={{ duration: 1.8, delay: 0.2 + i * 0.05, ease: "easeOut" }}
+              className="absolute h-1.5 w-1.5 rounded-full"
+              style={{ background: c, boxShadow: `0 0 6px ${c}` }}
+            />
+          );
+        })}
       </div>
 
       <div className="flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
@@ -531,6 +550,18 @@ function GachaReveal({ result, onClose }: { result: any; onClose: () => void }) 
         >
           {rs.name}!
         </motion.div>
+
+        {/* Pull count */}
+        {pullCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="mb-4 rounded-full border border-slate-600/50 bg-slate-900/80 px-4 py-1.5 text-xs font-black text-slate-400"
+          >
+            Lần mở #{pullCount}
+          </motion.div>
+        )}
 
         {/* Card */}
         <motion.div
@@ -631,6 +662,10 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const [unlockedCards, setUnlockedCards] = useState<number[]>([]);
   const [gachaResult, setGachaResult] = useState<any>(null);
   const [isPulling, setIsPulling] = useState(false);
+  const [pullCount, setPullCount] = useState(() => {
+    try { return parseInt(localStorage.getItem("bmo:gacha:pullCount") || "0", 10); } catch { return 0; }
+  });
+  const [showPullCount, setShowPullCount] = useState(false);
   const [filterRarity, setFilterRarity] = useState<string>("all");
   const [filterElement, setFilterElement] = useState<string>("all");
   const [viewingCard, setViewingCard] = useState<any>(null);
@@ -641,6 +676,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const [cardLevels, setCardLevels] = useState<Record<string, number>>({});
   const [deck, setDeck] = useState<number[]>([]);
   const [showBattle, setShowBattle] = useState(false);
+  const [showRoguelike, setShowRoguelike] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [fuseMsg, setFuseMsg] = useState<string | null>(null);
   const [fusing, setFusing] = useState(false);
@@ -650,6 +686,77 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   const [newCardIds, setNewCardIds] = useState<Set<number>>(new Set());
   const [shardCount, setShardCount] = useState(0);
   const [shardMsg, setShardMsg] = useState<string | null>(null);
+
+  // ─── Practice / Zen Mode ───────────────────────────────────────────
+  const [practiceCards, setPracticeCards] = useState<any[]>([]);
+  const [practiceIndex, setPracticeIndex] = useState(0);
+  const [practiceFlipped, setPracticeFlipped] = useState(false);
+  const [practiceCount, setPracticeCount] = useState(0);
+  const [practiceSpeedLabel, setPracticeSpeedLabel] = useState<string | null>(null);
+  const [practiceStartTime, setPracticeStartTime] = useState<number>(0);
+  const [practiceSessionCount, setPracticeSessionCount] = useState(() => {
+    try { return parseInt(localStorage.getItem("bmo:practice:sessionCount") || "0", 10); } catch { return 0; }
+  });
+
+  const bestTimesKey = "bmo:practice:bestTimes";
+  const [bestTimes, setBestTimes] = useState<Record<number, number>>(() => {
+    try { return JSON.parse(localStorage.getItem(bestTimesKey) || "{}"); } catch { return {}; }
+  });
+
+  const startPractice = () => {
+    if (unlockedCards.length === 0) return;
+    const shuffled = [...unlockedCards]
+      .map((id) => ALL_CARDS.find((c) => c.id === id))
+      .filter(Boolean) as any[];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setPracticeCards(shuffled);
+    setPracticeIndex(0);
+    setPracticeFlipped(false);
+    setPracticeCount(0);
+    setPracticeSpeedLabel(null);
+    const now = Date.now();
+    setPracticeStartTime(now);
+  };
+
+  const handleFlipCard = () => {
+    if (!practiceFlipped) {
+      const elapsed = Date.now() - practiceStartTime;
+      const isQuick = elapsed < 2000;
+      setPracticeSpeedLabel(isQuick ? "Nhanh!" : null);
+      setPracticeCount((c) => c + 1);
+    }
+    setPracticeFlipped((f) => !f);
+  };
+
+  const handleNextCard = () => {
+    const next = practiceIndex + 1;
+    if (next >= practiceCards.length) {
+      // session done
+      setPracticeSessionCount((c) => {
+        const next2 = c + 1;
+        localStorage.setItem("bmo:practice:sessionCount", String(next2));
+        return next2;
+      });
+      setPracticeFlipped(false);
+      return;
+    }
+    setPracticeIndex(next);
+    setPracticeFlipped(false);
+    setPracticeSpeedLabel(null);
+    setPracticeStartTime(Date.now());
+  };
+
+  const setBestTime = (cardId: number, time: number) => {
+    const existing = bestTimes[cardId];
+    if (!existing || time < existing) {
+      const updated = { ...bestTimes, [cardId]: time };
+      setBestTimes(updated);
+      localStorage.setItem(bestTimesKey, JSON.stringify(updated));
+    }
+  };
 
   // ─── Daily Challenge Card ─────────────────────────────────────────
   // ─── Daily Challenge System ───────────────────────────────────────
@@ -794,13 +901,18 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
 
   const handlePullGacha = () => {
     if (points < PULL_COST) return;
+    const nextPull = pullCount + 1;
+    setPullCount(nextPull);
+    localStorage.setItem("bmo:gacha:pullCount", String(nextPull));
+    setShowPullCount(true);
+    setTimeout(() => setShowPullCount(false), 2000);
     setIsPulling(true);
     setGachaResult(null);
     if (onSpend) onSpend(PULL_COST, "Mở Gói Thẻ Bài");
     fetch("/api/user-progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: userId, type: "flashcard", data: null }),
+      body: JSON.stringify({ nickname: userId, type: "flashcard", data: null, pullCount: nextPull }),
     })
       .then((r) => r.json())
       .then((result) => {
@@ -950,9 +1062,11 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     { id: "collection", label: "Bộ sưu tập", icon: <Layers size={13} /> },
     { id: "fusion",    label: "Hợp nhất",   icon: <GitMerge size={13} /> },
     { id: "levelup",   label: "Lên cấp",    icon: <ArrowUp size={13} /> },
-    { id: "gacha",    label: "Mở gói",      icon: <Sparkles size={13} /> },
-    { id: "battle",   label: "Đấu trường",  icon: <Swords size={13} /> },
-    { id: "shards",   label: "Mảnh ghép",   icon: <Cpu size={13} /> },
+    { id: "practice",  label: "Luyện tập",   icon: <Brain size={13} /> },
+    { id: "gacha",     label: "Mở gói",       icon: <Sparkles size={13} /> },
+    { id: "battle",    label: "Đấu trường",   icon: <Swords size={13} /> },
+    { id: "roguelike",  label: "Sinh Tồn",     icon: <Skull size={13} /> },
+    { id: "shards",    label: "Mảnh ghép",    icon: <Cpu size={13} /> },
   ];
 
   // ─── Shard Shop ────────────────────────────────────────────────────
@@ -1622,9 +1736,281 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           </div>
         )}
 
+        {/* PRACTICE / ZEN MODE */}
+        {activeSection === "practice" && (
+          <div className="flex flex-col items-center gap-6 p-4">
+            {practiceCards.length === 0 ? (
+              /* ── Start screen ── */
+              <div className="flex w-full max-w-sm flex-col items-center gap-6 text-center">
+                <motion.div
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className="relative"
+                >
+                  <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-indigo-500/50 bg-gradient-to-br from-indigo-950 to-purple-950 shadow-2xl"
+                    style={{ boxShadow: "0 0 30px rgba(99,102,241,0.3)" }}>
+                    <Brain size={44} className="text-indigo-400" />
+                  </div>
+                  <div className="absolute -right-2 -top-2 z-10 rounded-full bg-indigo-500 px-2 py-1 text-[10px] font-black text-white shadow">
+                    Zen
+                  </div>
+                </motion.div>
+
+                <div>
+                  <h3 className="text-2xl font-black text-white">Chế Độ Luyện Tập</h3>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Không có giới hạn thời gian. Lật thẻ để ghi nhớ. Lật nhanh dưới 2 giây để nhận nhãn "Nhanh!".
+                  </p>
+                </div>
+
+                <div className="grid w-full grid-cols-3 gap-3 rounded-2xl border border-slate-700 bg-slate-800/80 p-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <Coffee size={18} className="text-indigo-400" />
+                    <p className="text-xs font-bold text-slate-300">Thư giãn</p>
+                    <p className="text-[10px] text-slate-500">Không đếm ngược</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 border-x border-slate-700">
+                    <Zap size={18} className="text-amber-400" />
+                    <p className="text-xs font-bold text-slate-300">Nhanh!</p>
+                    <p className="text-[10px] text-slate-500">Lật dưới 2s</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <Timer size={18} className="text-emerald-400" />
+                    <p className="text-xs font-bold text-slate-300">Kỷ lục</p>
+                    <p className="text-[10px] text-slate-500">Lưu thời gian</p>
+                  </div>
+                </div>
+
+                {unlockedCards.length > 0 ? (
+                  <div className="w-full space-y-3">
+                    <p className="text-xs text-slate-500">{unlockedCards.length} thẻ đã mở khóa</p>
+                    <Button
+                      onClick={startPractice}
+                      size="lg"
+                      className="w-full font-bold py-3"
+                      style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                    >
+                      <Brain size={16} />
+                      Bắt đầu luyện tập
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium text-slate-400">
+                    Mở khóa thẻ bài để bắt đầu luyện tập.
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* ── Active practice ── */
+              <div className="flex w-full flex-col items-center gap-4">
+                {/* Progress bar */}
+                <div className="flex w-full max-w-sm items-center justify-between text-xs font-bold text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <Brain size={12} className="text-indigo-400" />
+                    {practiceIndex + 1} / {practiceCards.length}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Activity size={12} className="text-indigo-400" />
+                    {practiceCount} lần lật
+                  </span>
+                </div>
+                <div className="h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-slate-800">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                    animate={{ width: `${((practiceIndex + 1) / practiceCards.length) * 100}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
+
+                {/* Card */}
+                {practiceCards[practiceIndex] && (() => {
+                  const card = practiceCards[practiceIndex];
+                  const level = getCardLevel(card.id);
+                  const rs = RARITY[card.rarity.id] || RARITY.common;
+                  const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
+                  const ability = getCardAbility(card);
+                  const power = calcPower(card, level);
+                  const currentBest = bestTimes[card.id];
+
+                  return (
+                    <div className="flex w-full max-w-sm flex-col items-center gap-3">
+                      {/* Speed label */}
+                      <AnimatePresence>
+                        {practiceSpeedLabel && (
+                          <motion.div
+                            key="speed"
+                            initial={{ opacity: 0, y: -10, scale: 0.8 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.8 }}
+                            className="flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-amber-950/80 px-4 py-1.5 text-xs font-black text-amber-400 shadow"
+                            style={{ boxShadow: "0 0 20px rgba(245,158,11,0.3)" }}
+                          >
+                            <Zap size={12} />
+                            {practiceSpeedLabel}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Card flip */}
+                      <div
+                        className="relative w-full cursor-pointer"
+                        style={{ perspective: "800px", aspectRatio: "2/3" }}
+                        onClick={handleFlipCard}
+                      >
+                        <motion.div
+                          animate={{ rotateY: practiceFlipped ? 180 : 0 }}
+                          transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+                          className="absolute inset-0 w-full overflow-hidden rounded-2xl border-2"
+                          style={{
+                            background: practiceFlipped
+                              ? `linear-gradient(180deg, ${rs.bgDark} 0%, ${rs.bgDark}BB 60%, ${elemColor}15 100%)`
+                              : `linear-gradient(180deg, #1e293b 0%, #1e293bBB 60%, ${elemColor}15 100%)`,
+                            borderColor: practiceFlipped ? rs.accent + "CC" : elemColor + "80",
+                            boxShadow: `0 4px 24px ${practiceFlipped ? rs.accent + "30" : elemColor + "30"}, 0 1px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)`,
+                          }}
+                        >
+                          {!practiceFlipped ? (
+                            /* Front — hint */
+                            <div className="flex h-full flex-col items-center justify-center gap-4 p-6">
+                              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-slate-600 bg-slate-800">
+                                <CardAvatar elementId={card.element.id} size={52} />
+                              </div>
+                              <p className="text-center text-sm font-bold text-slate-400">
+                                Nhấn để lật thẻ
+                              </p>
+                              {currentBest && (
+                                <p className="text-xs text-emerald-400/70">
+                                  Kỷ lục: {currentBest}ms
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            /* Back — full card info */
+                            <div className="flex h-full flex-col p-4">
+                              {/* Element bar */}
+                              <div className="h-1.5 w-full rounded-full"
+                                style={{ background: `linear-gradient(90deg, ${elemColor}, ${rs.accent})` }} />
+                              <div className="mt-3 flex items-start justify-between">
+                                <div>
+                                  <p className="text-base font-black text-white leading-tight">{card.name}</p>
+                                  <p className="mt-0.5 text-[10px] font-bold capitalize text-slate-400">{card.element.name}</p>
+                                </div>
+                                <RarityStars rarityId={card.rarity.id} size={9} />
+                              </div>
+                              <div className="mt-3 flex items-center gap-2">
+                                <CardAvatar elementId={card.element.id} size={52} />
+                                <div className="flex-1 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-slate-400">Tấn công</span>
+                                    <span className="text-xs font-black text-red-400">{card.attack}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-slate-400">HP</span>
+                                    <span className="text-xs font-black text-emerald-400">{card.hp}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-slate-400">Power</span>
+                                    <PowerBadge power={power} />
+                                  </div>
+                                </div>
+                              </div>
+                              {ability && (
+                                <div className="mt-3 flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-950/40 p-2">
+                                  <span className="text-sm">{ability.icon}</span>
+                                  <div>
+                                    <p className="text-[10px] font-black text-indigo-300">{ability.name}</p>
+                                    <p className="text-[9px] text-slate-400">{ability.desc}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </motion.div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex w-full max-w-sm items-center justify-between">
+                        <span className="text-[10px] text-slate-500">
+                          Tap to flip
+                        </span>
+                        {practiceFlipped && (
+                          <Button
+                            onClick={handleNextCard}
+                            size="sm"
+                            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                          >
+                            {practiceIndex + 1 < practiceCards.length ? (
+                              <>
+                                <ChevronRight size={14} />
+                                Tiếp theo
+                              </>
+                            ) : (
+                              <>
+                                <Check size={14} />
+                                Xong
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Session counter */}
+                      <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                        <Activity size={10} />
+                        Lần luyện tập #{practiceSessionCount + 1}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* GACHA */}
         {activeSection === "gacha" && (
-          <div className="flex flex-col items-center gap-5 p-6 text-center">
+          <div className="flex flex-col items-center gap-5 p-4 text-center">
+            {/* Pull counter badge */}
+            <AnimatePresence>
+              {showPullCount && (
+                <motion.div
+                  key="pullcnt"
+                  initial={{ opacity: 0, scale: 0.5, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.5, y: -10 }}
+                  className="absolute left-1/2 top-4 -translate-x-1/2 z-30 rounded-full border-2 border-amber-400/60 bg-amber-950/90 px-4 py-1.5 text-sm font-black text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                >
+                  Lần #{pullCount}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Pity progress */}
+            <div className="w-full max-w-xs space-y-2">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold text-purple-400">Cần {PITY_EPIC - (pullCount % PITY_EPIC)} lượt để guaranteed Siêu Hiếm</span>
+                <span className="text-slate-500">{pullCount % PITY_EPIC}/{PITY_EPIC}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                  animate={{ width: `${((pullCount % PITY_EPIC) / PITY_EPIC) * 100}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold text-amber-400">Cần {PITY_LEGENDARY - (pullCount % PITY_LEGENDARY)} lượt để guaranteed Huyền Thoại</span>
+                <span className="text-slate-500">{pullCount % PITY_LEGENDARY}/{PITY_LEGENDARY}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+                  animate={{ width: `${((pullCount % PITY_LEGENDARY) / PITY_LEGENDARY) * 100}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+            </div>
+
             {/* Animated orb */}
             <motion.div
               animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
@@ -1864,6 +2250,55 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             </motion.div>
           </div>
         )}
+
+        {/* ROGUELIKE */}
+        {activeSection === "roguelike" && (
+          <div className="flex flex-col items-center gap-5 p-4">
+            <div className="w-full max-w-sm text-center space-y-4">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl ring-2 ring-amber-400/50"
+              >
+                <span className="text-4xl">🏰</span>
+              </motion.div>
+              <div>
+                <h3 className="mb-1 text-xl font-black text-white">Chế Độ Sinh Tồn</h3>
+                <p className="text-sm text-slate-400">Đấu boss liên tiếp — build deck mạnh dần</p>
+              </div>
+            </div>
+
+            {/* Rules */}
+            <div className="w-full max-w-sm space-y-2 rounded-2xl border border-slate-700 bg-slate-800/50 p-4 text-sm text-slate-400">
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[9px] font-black text-amber-400">1</div>
+                <span>Bắt đầu với <strong className="text-white">5 thẻ cơ bản</strong></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[9px] font-black text-amber-400">2</div>
+                <span>Đánh bại <strong className="text-white">3 boss</strong> để hoàn thành lượt chơi</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[9px] font-black text-amber-400">3</div>
+                <span>Chọn <strong className="text-white">thẻ mới</strong> hoặc <strong className="text-white">nâng cấp</strong> sau mỗi chiến thắng</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[9px] font-black text-amber-400">4</div>
+                <span>Nhận <strong className="text-amber-400">thưởng EXP</strong> tùy số boss đánh bại</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setShowRoguelike(true)}
+              size="lg"
+              className="w-full max-w-sm font-black text-sm py-4 rounded-2xl bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 hover:from-amber-700 hover:via-orange-600 hover:to-amber-700 text-white shadow-xl"
+            >
+              <Skull size={18} className="mr-2" />
+              Bắt đầu lượt chơi
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ─── Card Detail Modal ─── */}
@@ -1886,7 +2321,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       {/* ─── Gacha Result Reveal ─── */}
       <AnimatePresence>
         {gachaResult && (
-          <GachaReveal result={gachaResult} onClose={() => setGachaResult(null)} />
+          <GachaReveal result={gachaResult} onClose={() => setGachaResult(null)} pullCount={pullCount} />
         )}
       </AnimatePresence>
 
@@ -1898,6 +2333,17 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             cardLevels={Object.fromEntries(deck.map((id) => [id, getCardLevel(id)]))}
             onClose={() => setShowBattle(false)}
             onWin={(xp) => onReward(xp)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─── Roguelike Run Modal ─── */}
+      <AnimatePresence>
+        {showRoguelike && (
+          <RoguelikeRun
+            onClose={() => setShowRoguelike(false)}
+            onReward={(xp) => onReward(xp)}
+            userCards={unlockedCards}
           />
         )}
       </AnimatePresence>

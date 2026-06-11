@@ -156,7 +156,7 @@ function generateMoves(
     desc: "Sát thương khủng khiếp!",
     icon: "💥",
     type: "ultimate",
-    energyCost: 0,
+    energyCost: 100,
     cooldown: 0,
     currentCooldown: 0,
     power: atk * 3,
@@ -170,7 +170,7 @@ function generateMoves(
     desc: "Né sát thương, bảo toàn combo",
     icon: "💨",
     type: "dodge",
-    energyCost: 30,
+    energyCost: 20,
     cooldown: 2,
     currentCooldown: 0,
     power: 0,
@@ -272,18 +272,12 @@ function calcBattleDamage(
 
   let dmg = Math.floor(baseDmg * critMult * advMult);
 
-  // Speed down / slowed penalty
-  if (attacker.speedBoost === false) {
-    dmg = Math.floor(dmg * 0.8);
-    notes.push("Chậm 20%!");
-  }
-
   // Shield reduction
   if (defender.shieldActive) {
     const shieldBlock = Math.min(defender.shieldValue, dmg);
     dmg = Math.max(1, dmg - shieldBlock);
     notes.push("Khiên chặn!");
-    } else {
+  } else {
     dmg = Math.floor(dmg * (1 - defender.def * 0.003));
   }
   dmg = Math.max(1, dmg);
@@ -424,13 +418,13 @@ function BossHpDisplay({ boss, levelData }: { boss: BattleCard; levelData: { nam
         <div className="flex items-center gap-2">
           <span className="text-2xl">{emoji}</span>
           <div>
-            <p className="text-sm font-black text-white leading-none">{boss.name}</p>
+            <p className="text-xs sm:text-sm font-black text-white leading-none">{boss.name}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="rounded-full bg-red-900/80 border border-red-500/40 px-1.5 py-0.5 text-[9px] font-black text-red-300">
+              <span className="rounded-full bg-red-900/80 border border-red-500/40 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black text-red-300">
                 Lv.{boss.level}
               </span>
               {el && (
-                <span className="text-[9px] font-bold" style={{ color: el.accent }}>
+                <span className="text-[8px] sm:text-[9px] font-bold" style={{ color: el.accent }}>
                   {el.name}
                 </span>
               )}
@@ -438,9 +432,9 @@ function BossHpDisplay({ boss, levelData }: { boss: BattleCard; levelData: { nam
           </div>
         </div>
         <div className="text-right">
-          <p className="text-lg font-black text-white leading-none">{Math.max(0, boss.hp)}</p>
-          <p className="text-[9px] text-slate-500">/ {boss.maxHp} HP</p>
-          <p className="text-[10px] font-black" style={{ color: barColor }}>{pct.toFixed(0)}%</p>
+          <p className="text-base sm:text-lg font-black text-white leading-none">{Math.max(0, boss.hp)}</p>
+          <p className="text-[8px] sm:text-[9px] text-slate-500">/ {boss.maxHp} HP</p>
+          <p className="text-[9px] sm:text-[10px] font-black" style={{ color: barColor }}>{pct.toFixed(0)}%</p>
         </div>
       </div>
 
@@ -462,9 +456,9 @@ function BossHpDisplay({ boss, levelData }: { boss: BattleCard; levelData: { nam
         <div className="flex items-center gap-2 mb-1.5">
           <div className="flex items-center gap-1 rounded-full bg-blue-900/80 border border-blue-500/40 px-2 py-0.5">
             <span className="text-xs">🛡️</span>
-            <span className="text-[10px] font-black text-blue-300">Khiên: {boss.shieldValue}</span>
-            <span className="text-[9px] text-blue-400/70">({boss.shieldTurns}t)</span>
-              </div>
+            <span className="text-[9px] sm:text-[10px] font-black text-blue-300">Khiên: {boss.shieldValue}</span>
+            <span className="text-[8px] sm:text-[9px] text-blue-400/70">({boss.shieldTurns}t)</span>
+          </div>
             </div>
       )}
 
@@ -493,12 +487,11 @@ function MoveButton({
       onClick={onClick}
       disabled={!isReady}
       className={`
-        relative flex flex-col items-center justify-center rounded-2xl border-2 p-2.5
-        transition-all duration-150 select-none overflow-hidden
+        relative flex flex-col items-center justify-center rounded-2xl border-2 p-2 sm:p-2.5
+        transition-all duration-150 select-none overflow-hidden min-w-[64px] sm:min-w-[76px] min-h-[60px] sm:min-h-[72px]
         ${isReady ? "cursor-pointer shadow-lg" : "cursor-not-allowed opacity-40"}
       `}
       style={{
-        minWidth: 76, minHeight: 72,
         background: `linear-gradient(135deg, ${glowColor}30, ${glowColor}15)`,
         borderColor: glowColor + "80",
         boxShadow: isReady ? `0 0 16px ${glowColor}40` : undefined,
@@ -513,26 +506,26 @@ function MoveButton({
 
       {/* Type label */}
       <div className="absolute top-1 left-1 right-1 text-center">
-        <span className="text-[6px] font-black uppercase tracking-wider text-white/60">{typeLabel}</span>
-          </div>
-          
+        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white/60">{typeLabel}</span>
+      </div>
+
       {/* Icon */}
-      <span className="text-2xl leading-none mt-2">{move.icon}</span>
+      <span className="text-xl sm:text-2xl leading-none mt-2">{move.icon}</span>
 
       {/* Name */}
-      <span className="text-[8px] font-black text-white/90 leading-tight text-center mt-0.5">{move.name}</span>
+      <span className="text-[9px] sm:text-[10px] font-black text-white/90 leading-tight text-center mt-0.5 px-0.5">{move.name}</span>
 
       {/* Energy + Cooldown */}
       <div className="flex items-center gap-1 mt-0.5">
         {move.energyCost > 0 && (
-          <span className={`text-[8px] font-black ${noEnergy ? "text-red-400" : "text-cyan-300"}`}>
+          <span className={`text-[9px] sm:text-[10px] font-black ${noEnergy ? "text-red-400" : "text-cyan-300"}`}>
             ⚡{move.energyCost}
           </span>
         )}
         {move.currentCooldown > 0 && (
-          <span className="text-[8px] font-black text-yellow-400">CD{move.currentCooldown}</span>
+          <span className="text-[9px] sm:text-[10px] font-black text-yellow-400">CD{move.currentCooldown}</span>
         )}
-                  </div>
+      </div>
 
       {/* Ultimate ready pulse */}
       {move.type === "ultimate" && isReady && (
@@ -573,13 +566,13 @@ function ComboMeter({ combo, maxDmg }: { combo: number; maxDmg: number }) {
           transition={{ duration: 0.6, repeat: Infinity }}
         />
         <div className="relative">
-          <p className="text-center text-xl font-black text-amber-200 leading-none">
+          <p className="text-center text-lg sm:text-xl font-black text-amber-200 leading-none">
             🔥 {combo}x
           </p>
-          <p className="text-[7px] font-black text-amber-600 uppercase tracking-wider text-center">COMBO</p>
-          <p className="text-[8px] font-black text-red-300 text-center mt-0.5">MAX {maxDmg} DMG</p>
+          <p className="text-[8px] sm:text-[9px] font-black text-amber-600 uppercase tracking-wider text-center">COMBO</p>
+          <p className="text-[9px] sm:text-[10px] font-black text-red-300 text-center mt-0.5">MAX {maxDmg} DMG</p>
           {combo >= 2 && (
-            <p className="text-[7px] font-black text-yellow-300 text-center bg-yellow-900/50 rounded px-1 mt-0.5">
+            <p className="text-[8px] sm:text-[9px] font-black text-yellow-300 text-center bg-yellow-900/50 rounded px-1 mt-0.5">
               ⚡ +{bonusMult}x DMG
             </p>
           )}
@@ -669,9 +662,8 @@ function BattleAvatar({
 
         {/* Card art body */}
         <div
-          className="relative flex items-center justify-center overflow-hidden rounded-xl border-2 backdrop-blur-sm"
+          className="relative flex items-center justify-center overflow-hidden rounded-xl border-2 backdrop-blur-sm w-16 h-24 sm:w-20 sm:h-28 md:w-[110px] md:h-[148px]"
           style={{
-            width: 110, height: 148,
             background: `linear-gradient(145deg, ${glowColor}18, ${glowColor}08, #0a0a1480)`,
             borderColor: isActive && card.isAlive ? glowColor : "rgba(255,255,255,0.12)",
             boxShadow: isActive && card.isAlive
@@ -694,8 +686,8 @@ function BattleAvatar({
           {dead && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 rounded-xl">
               <div className="flex flex-col items-center">
-                <span className="text-3xl">💀</span>
-                <span className="text-[8px] font-black text-red-400">KO</span>
+                <span className="text-2xl sm:text-3xl">💀</span>
+                <span className="text-[9px] sm:text-[10px] font-black text-red-400">KO</span>
               </div>
             </div>
           )}
@@ -716,6 +708,87 @@ function BattleAvatar({
           <div className="absolute bottom-1 right-1 z-20 text-xs">
             {RARITY_EMOJI[card.rarityId]}
           </div>
+
+          {/* Status effect overlays */}
+          {card.isAlive && (
+            <>
+              {/* Poison — green droplets */}
+              {card.poisonStacks > 0 && (
+                <div className="absolute inset-0 z-10 pointer-events-none rounded-xl overflow-hidden">
+                  {[...Array(card.poisonStacks)].map((_, i) => (
+                    <motion.div
+                      key={`poison-${i}`}
+                      className="absolute text-[6px]"
+                      style={{
+                        left: `${15 + (i * 17) % 70}%`,
+                        top: `${10 + (i * 23) % 70}%`,
+                        filter: "drop-shadow(0 0 3px #22c55e)",
+                      }}
+                      animate={{ y: [-2, 4, -2], opacity: [0.4, 0.8, 0.4] }}
+                      transition={{ duration: 1.5 + i * 0.2, repeat: Infinity, delay: i * 0.3 }}
+                    >
+                      💧
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+              {/* Burn — orange flames */}
+              {card.burnStacks > 0 && (
+                <div className="absolute inset-0 z-10 pointer-events-none rounded-xl overflow-hidden">
+                  {[...Array(card.burnStacks)].map((_, i) => (
+                    <motion.div
+                      key={`burn-${i}`}
+                      className="absolute text-[7px]"
+                      style={{
+                        left: `${20 + (i * 19) % 60}%`,
+                        bottom: `${5 + (i * 11) % 50}%`,
+                        filter: "drop-shadow(0 0 4px #f97316)",
+                      }}
+                      animate={{ y: [0, -6, 0], opacity: [0.5, 0.9, 0.5], scale: [0.9, 1.1, 0.9] }}
+                      transition={{ duration: 0.8 + i * 0.15, repeat: Infinity, delay: i * 0.2 }}
+                    >
+                      🔥
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+              {/* Shield — blue bubble */}
+              {card.shieldActive && (
+                <div className="absolute inset-0 z-10 pointer-events-none rounded-xl">
+                  <motion.div
+                    className="absolute inset-0 rounded-xl border-2"
+                    animate={{ opacity: [0.3, 0.7, 0.3], scale: [0.98, 1.02, 0.98] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    style={{ borderColor: "#60a5fa", boxShadow: "0 0 12px #60a5fa60" }}
+                  />
+                </div>
+              )}
+              {/* Stun — yellow lightning */}
+              {card.stunned > 0 && (
+                <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+                  <motion.div
+                    animate={{ opacity: [0, 0.8, 0], scale: [0.8, 1.1, 0.8] }}
+                    transition={{ duration: 0.6, repeat: Infinity }}
+                    className="absolute text-xl"
+                    style={{ filter: "drop-shadow(0 0 6px #f59e0b)" }}
+                  >
+                    ⚡
+                  </motion.div>
+                </div>
+              )}
+              {/* Regen — green pulse glow */}
+              {card.regenStacks > 0 && (
+                <div className="absolute inset-0 z-10 pointer-events-none rounded-xl">
+                  <motion.div
+                    className="absolute inset-0 rounded-xl"
+                    animate={{ opacity: [0.1, 0.35, 0.1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    style={{ background: "radial-gradient(circle, #22c55e30 0%, transparent 70%)" }}
+                  />
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Level badge */}
@@ -727,13 +800,13 @@ function BattleAvatar({
       </motion.div>
 
       {/* HP Bar */}
-      <div className="w-[108px]">
+      <div className="w-16 sm:w-[108px]">
         <HpBar current={card.hp} max={card.maxHp} accent={glowColor} height={9} />
         <div className="flex justify-between">
-          <span className={`text-[9px] font-black ${team === "player" ? "text-emerald-400" : "text-red-400"}`}>
+          <span className={`text-[9px] sm:text-[10px] font-black ${team === "player" ? "text-emerald-400" : "text-red-400"}`}>
             {Math.max(0, card.hp)}/{card.maxHp}
           </span>
-          <span className="text-[8px] font-black text-slate-500">LV{card.level}</span>
+          <span className="text-[8px] sm:text-[9px] font-black text-slate-500">LV{card.level}</span>
         </div>
       </div>
 
@@ -780,10 +853,10 @@ function DamageNumber({ num }: { num: DmgNum }) {
       style={{ color, textShadow: `0 0 20px ${color}, 0 0 8px rgba(0,0,0,1), 0 3px 10px rgba(0,0,0,1)` }}
     >
       <div
-        className="text-5xl leading-none font-black drop-shadow-lg"
+        className="text-3xl sm:text-5xl leading-none font-black drop-shadow-lg"
         style={{ WebkitTextStroke: num.isCrit ? "1px rgba(0,0,0,0.6)" : "0px", textShadow: `0 0 20px ${color}, 0 0 10px rgba(0,0,0,1), 0 3px 10px rgba(0,0,0,1)` }}
       >{valueStr}</div>
-      {label && <div className="text-[12px] font-black uppercase tracking-wider mt-0.5" style={{ textShadow: `0 2px 6px rgba(0,0,0,1)` }}>{label}</div>}
+      {label && <div className="text-[10px] sm:text-[12px] font-black uppercase tracking-wider mt-0.5" style={{ textShadow: `0 2px 6px rgba(0,0,0,1)` }}>{label}</div>}
     </motion.div>
   );
 }
@@ -941,7 +1014,7 @@ function BossIntroSlide({ bossName, elementId, bossCardId, bossRarityId }: { bos
         animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
         transition={{ duration: 2, repeat: Infinity }}
         style={{
-          width: 300, height: 300,
+          width: "clamp(180px, 50vw, 300px)", height: "clamp(240px, 66vw, 400px)",
           background: `radial-gradient(circle, ${glowColor}20 0%, transparent 70%)`,
           boxShadow: `0 0 80px ${glowColor}40`,
         }}
@@ -953,8 +1026,8 @@ function BossIntroSlide({ bossName, elementId, bossCardId, bossRarityId }: { bos
         className="relative flex flex-col items-center"
       >
         {/* Card art instead of emoji */}
-        <div className="relative mb-4" style={{ filter: `drop-shadow(0 0 30px ${glowColor}80) drop-shadow(0 0 60px ${glowColor}40)` }}>
-          <div className="w-[180px] h-[240px] rounded-2xl overflow-hidden border-4"
+          <div className="relative mb-4" style={{ filter: `drop-shadow(0 0 30px ${glowColor}80) drop-shadow(0 0 60px ${glowColor}40)` }}>
+          <div className="w-32 h-44 sm:w-40 sm:h-56 md:w-[180px] md:h-[240px] rounded-2xl overflow-hidden border-4"
             style={{ borderColor: glowColor + "80", background: `linear-gradient(145deg, ${glowColor}18, ${glowColor}08)` }}>
             <div className="w-full h-full">
               {getCardArt(bossCardId || 101, elementId, 1, bossRarityId)}
@@ -1024,6 +1097,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   const [activePlayerIdx, setActivePlayerIdx] = useState<number>(0);
   const [turnCount, setTurnCount]      = useState(0);
   const [battleReward, setBattleReward] = useState(0);
+  const [firstTimeClears, setFirstTimeClears] = useState<Set<number>>(new Set());
   const [phase, setPhase]              = useState<TurnPhase>("idle");
   const [log, setLog]                  = useState<BattleLogEntry[]>([]);
   const [dmgNums, setDmgNums]          = useState<DmgNum[]>([]);
@@ -1043,6 +1117,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   const [showIntro, setShowIntro]       = useState(false);
   const [turnIndicator, setTurnIndicator] = useState<"player" | "boss" | null>(null);
   const [hitSparks, setHitSparks] = useState<{ target: "player" | "boss"; elementId: string } | null>(null);
+  const [bossEnraged, setBossEnraged] = useState(false);
+  const [bossTelegraph, setBossTelegraph] = useState(false);
+  const [bossNextMove, setBossNextMove] = useState<string | null>(null);
 
   const pRef          = useRef<BattleCard[]>([]);
   const bRef          = useRef<BattleCard[]>([]);
@@ -1214,6 +1291,70 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
     }
 
     function executeBossAction() {
+      // ── ENRAGE CHECK ──
+      const bossHpPct = boss.hp / boss.maxHp;
+      if (bossHpPct <= 0.25 && !bossEnraged) {
+        setBossEnraged(true);
+        announce("🔥 NỔI GIẬN!", "#ef4444");
+        addLog(`⚠️ ${boss.name} nổi giận! ATK +30%!`, "status");
+        setBossTeam((prev) => prev.map((c, i) => i === bossIdx ? { ...c, atk: Math.floor(c.atk * 1.3) } : c));
+      }
+
+      // ── TELEGRAPH: if previous turn telegraphed a heavy attack, execute it now ──
+      if (bossTelegraph && bossNextMove === "boss-heavy") {
+        setBossTelegraph(false);
+        setBossNextMove(null);
+        executeHeavyAttack();
+        return;
+      }
+
+      // ── Helper: execute heavy attack ──
+      function executeHeavyAttack() {
+        const heavyMove = { ...bossMoves[3], power: Math.floor(boss.atk * 1.6) };
+        setProjectile({ from: "boss", to: "player", elementId: boss.elementId });
+        setTimeout(() => {
+          setProjectile(null);
+          triggerHit("player");
+          triggerShake();
+          setHitSparks({ target: "player", elementId: boss.elementId });
+          setTimeout(() => setHitSparks(null), 600);
+          const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, heavyMove.power);
+          const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
+          if (advInfo) showBanner(advInfo, "player");
+          perfectionRef.current = false;
+          spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1);
+          const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
+          addLog(`💥 ${boss.name} Đòn Nặng! → ${dmg} dmg${noteStr}`, "damage");
+          const { died } = applyDamage("player", targetIdx, dmg);
+          comboRef.current = 0;
+          if (died) {
+            addLog(`${targetPlayer.name} đã bị đánh bại!`, "ko");
+            announce("💀 KO!", "#f59e0b");
+            setTimeout(() => {
+              const nextAlive = pRef.current.findIndex((c, i) => i > targetIdx && c.isAlive);
+              const newIdx = nextAlive !== -1 ? nextAlive : pRef.current.findIndex((c) => c.isAlive);
+              if (newIdx !== -1) setActivePlayerIdx(newIdx);
+            }, 300);
+          }
+          // End-of-turn cleanup
+          setTimeout(() => {
+            tickStatus("boss", bossIdx, boss);
+            setTimeout(() => {
+              setPlayerTeam((prev) => prev.map((c) => ({
+                ...c, dodgeActive: false, energy: c.maxEnergy,
+                moves: c.moves.map((m) => ({ ...m, currentCooldown: Math.max(0, m.currentCooldown - 1) })),
+                ultimateCharge: Math.min(100, c.ultimateCharge + 33),
+                stunned: Math.max(0, c.stunned - 1), silenced: Math.max(0, c.silenced - 1),
+              })));
+              setBossTeam((prev) => prev.map((c) => ({ ...c, ultimateCharge: Math.min(100, c.ultimateCharge + 33), dodgeCooldown: Math.max(0, c.dodgeCooldown - 1) })));
+              setPlayerEnergy(100);
+              if (!checkEnd()) { setPhase("idle"); setTurnCount((t) => t + 1); }
+            }, 500);
+          }, 600);
+        }, 400);
+      }
+      // ── End helper ──
+
       // ── Status: stun check ──
       if (boss.stunned > 0) {
         addLog(`${boss.name} bị choáng, bỏ lượt!`, "status");
@@ -1243,7 +1384,6 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       const targetIdx = p.findIndex((c) => c.id === targetPlayer.id && c.isAlive);
 
       // ── Decide boss move ──
-      const bossHpPct = boss.hp / boss.maxHp;
       const bossMoves: BattleMove[] = [
         { id: "boss-tackle", name: "Tấn Công", desc: "Đòn tấn công", icon: "⚔️", type: "tackle", energyCost: 0, cooldown: 0, currentCooldown: 0, power: boss.atk, effect: { type: "damage", value: boss.atk } },
         { id: "boss-elemental", name: boss.elementId === "hazard" ? "Chất Độc" : boss.elementId === "organic" ? "Hơi Nóng" : "Bão Nguyên Tố", desc: "Đòn nguyên tố", icon: "🌪️", type: "skill", energyCost: 0, cooldown: 2, currentCooldown: 0, power: Math.floor(boss.atk * 0.7), effect: { type: boss.elementId === "hazard" ? "poison" : "burn", value: 2, duration: 2 } },
@@ -1269,6 +1409,25 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       // Skip elemental if already poisoned/burning (prefer damage)
       if (chosenMove.id === "boss-elemental" && (boss.poisonStacks > 0 || boss.burnStacks > 0)) {
         chosenMove = roll < 0.6 ? bossMoves[0] : bossMoves[3];
+      }
+
+      // ── TELEGRAPH: warn before heavy attack ──
+      if (chosenMove.id === "boss-heavy" && !bossTelegraph) {
+        setBossTelegraph(true);
+        setBossNextMove("boss-heavy");
+        announce("⚠️ ĐÒN NẶNG!", "#ef4444");
+        addLog(`${boss.name} chuẩn bị đòn nặng!`, "info");
+        // Show warning overlay
+        setTimeout(() => {
+          setBossTelegraph(false);
+          setBossNextMove(null);
+          setAttackAnim("boss");
+          setTimeout(() => {
+            setAttackAnim(null);
+            executeHeavyAttack();
+          }, 350);
+        }, 900);
+        return;
       }
 
       setAttackAnim("boss");
@@ -1331,37 +1490,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               : c
             ));
           }
-          // Heavy attack (multi-hit feel)
+          // Heavy attack — telegraphed / called from helper
           else if (chosenMove.id === "boss-heavy") {
-            setProjectile({ from: "boss", to: "player", elementId: boss.elementId });
-            setTimeout(() => {
-              setProjectile(null);
-              triggerHit("player");
-              triggerShake();
-              setHitSparks({ target: "player", elementId: boss.elementId });
-              setTimeout(() => setHitSparks(null), 600);
-
-              const { dmg, isCrit, notes } = calcBattleDamage(boss, targetPlayer, chosenMove.power);
-              const advInfo = getAdvantageInfo(boss.elementId, targetPlayer.elementId);
-              if (advInfo) showBanner(advInfo, "player");
-              perfectionRef.current = false;
-              spawnDmg(dmg, "player", isCrit, !!advInfo && advInfo.mult > 1, !!advInfo && advInfo.mult < 1);
-              const noteStr = notes.length > 0 ? ` [${notes.join(", ")}]` : "";
-              addLog(`💥 ${boss.name} Đòn Nặng! → ${dmg} dmg${noteStr}`, "damage");
-
-              const { died } = applyDamage("player", targetIdx, dmg);
-              comboRef.current = 0;
-
-              if (died) {
-                addLog(`${targetPlayer.name} đã bị đánh bại!`, "ko");
-                announce("💀 KO!", "#f59e0b");
-                setTimeout(() => {
-                  const nextAlive = pRef.current.findIndex((c, i) => i > targetIdx && c.isAlive);
-                  const newIdx = nextAlive !== -1 ? nextAlive : pRef.current.findIndex((c) => c.isAlive);
-                  if (newIdx !== -1) setActivePlayerIdx(newIdx);
-                }, 300);
-              }
-            }, 400);
+            executeHeavyAttack();
           }
           // Normal tackle
           else {
@@ -1426,7 +1557,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
         }, 600);
       }, 350);
     }
-  }, [bossIntro, triggerHit, triggerShake, spawnDmg, showBanner, addLog, applyDamage, tickStatus, announce, checkEnd]);
+  }, [bossIntro, triggerHit, triggerShake, spawnDmg, showBanner, addLog, applyDamage, tickStatus, announce, checkEnd, bossEnraged]);
 
   // ─── Execute player move ─────────────────────────────────────────────────
   const executeMove = useCallback((move: BattleMove) => {
@@ -1792,7 +1923,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                     className="text-center"
                   >
                     <p className="text-sm font-bold text-amber-400 mb-1">Chiến Dịch</p>
-                    <h2 className="text-4xl font-black text-white">{level.name}</h2>
+                    <h2 className="text-2xl sm:text-4xl font-black text-white">{level.name}</h2>
                     <p className="mt-3 text-sm text-slate-400">Đánh bại tất cả boss!</p>
                     <div className="mt-3 flex items-center justify-center gap-2">
                       <TypeBadge elementId={level.element} />
@@ -1813,7 +1944,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               {/* Prominent boss HP display */}
               {bossAlive[0] && <BossHpDisplay boss={bossAlive[0]} levelData={level} />}
               {/* Boss lineup */}
-              <div className="flex items-end justify-center gap-2 sm:gap-4 mt-2">
+              <div className="flex items-end justify-center gap-1 sm:gap-2 mt-2 overflow-x-auto thin-scrollbar px-1">
                 {bossTeam.map((b, i) => (
                   <BattleAvatar
                     key={b.id}
@@ -1827,6 +1958,59 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                   />
                 ))}
                  </div>
+
+              {/* Enrage warning banner */}
+              {bossEnraged && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-red-900/60 border border-red-500/50 px-3 py-1"
+                >
+                  <motion.div
+                    animate={{ rotate: [-5, 5, -5], scale: [1, 1.2, 1] }}
+                    transition={{ duration: 0.4, repeat: Infinity }}
+                    className="text-lg"
+                  >
+                    🔥
+                  </motion.div>
+                  <span className="text-[9px] sm:text-[10px] font-black text-red-300 uppercase tracking-wider">Boss đã nổi giận! ATK +30%</span>
+                  <motion.div
+                    animate={{ rotate: [5, -5, 5], scale: [1.2, 1, 1.2] }}
+                    transition={{ duration: 0.4, repeat: Infinity }}
+                    className="text-lg"
+                  >
+                    🔥
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {/* Telegraph warning */}
+              {bossTelegraph && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-orange-900/60 border-2 border-orange-400/60 px-3 py-1.5"
+                  style={{ boxShadow: "0 0 20px rgba(249,115,22,0.4)" }}
+                >
+                  <motion.div
+                    animate={{ y: [-3, 3, -3], rotate: [-10, 10, -10] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                    className="text-lg"
+                  >
+                    ⚠️
+                  </motion.div>
+                  <span className="text-[10px] sm:text-[11px] font-black text-orange-300 uppercase tracking-wider">Cẩn thận! Đòn nặng sắp tới!</span>
+                  <motion.div
+                    animate={{ y: [3, -3, 3], rotate: [10, -10, 10] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                    className="text-lg"
+                  >
+                    ⚠️
+                  </motion.div>
+                </motion.div>
+              )}
                  </div>
 
             {/* VS divider */}
@@ -1889,7 +2073,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               {/* Main card + stats */}
               <div className="flex flex-col items-center gap-1 sm:gap-2 flex-1">
                 {/* Team lineup */}
-                <div className="flex items-start justify-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                <div className="flex items-start justify-center gap-1 sm:gap-2 mb-0.5 sm:mb-1 overflow-x-auto thin-scrollbar px-1">
                   {playerTeam.map((p, i) => (
                     <div key={p.id} className="relative">
                       <BattleAvatar
@@ -2047,7 +2231,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
         {stage === "victory" && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md"
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md overflow-y-auto"
           >
             <VictoryConfetti />
             <motion.div
@@ -2073,7 +2257,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               <motion.h2
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45 }}
-                className="relative text-4xl font-black uppercase tracking-widest text-amber-400 drop-shadow-[0_0_20px_rgba(234,179,8,0.6)]"
+                className="relative text-2xl sm:text-4xl font-black uppercase tracking-widest text-amber-400 drop-shadow-[0_0_20px_rgba(234,179,8,0.6)]"
               >
                 Chiến Thắng!
               </motion.h2>
@@ -2118,6 +2302,29 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                 </motion.div>
               )}
 
+              {/* First-time clear bonus */}
+              {(() => {
+                const key = `bmo:firstclear:${selectedLevelId}`;
+                const wasFirst = localStorage.getItem(key) === "1";
+                return !wasFirst ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.7, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ delay: 0.5, type: "spring", stiffness: 300 }}
+                    className="relative mt-3 flex items-center justify-center gap-2 rounded-xl border-2 border-cyan-400 bg-gradient-to-r from-cyan-900/40 to-blue-900/40 px-4 py-2"
+                    style={{ boxShadow: "0 0 20px rgba(6,182,212,0.3)" }}
+                  >
+                    <span className="text-2xl animate-bounce">🌟</span>
+                    <span className="text-sm font-black uppercase tracking-wider text-cyan-300">
+                      Lần Đầu Tiên!
+                    </span>
+                    <span className="ml-2 rounded-full bg-cyan-400 px-2 py-0.5 text-xs font-black text-cyan-900">
+                      x2 EXP
+                    </span>
+                  </motion.div>
+                ) : null;
+              })()}
+
               {/* Perfection Clear Reward */}
               {perfectionRef.current && (
                 <motion.div
@@ -2151,12 +2358,20 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                 <Sparkles size={24} className="text-amber-400" />
                 <div className="text-left">
                   <p className="text-[10px] text-amber-400/70 uppercase tracking-wider font-bold">Phần thưởng</p>
-                  <p className="text-3xl font-black text-amber-300">+{battleReward} EXP</p>
+                  <p className="text-xl sm:text-3xl font-black text-amber-300">+{battleReward} EXP</p>
                    </div>
               </motion.div>
 
               <Button
-                onClick={() => { onWin(perfectionRef.current ? battleReward + Math.floor(battleReward * 0.5) : battleReward); onClose(); }}
+                onClick={() => {
+                  const key = `bmo:firstclear:${selectedLevelId}`;
+                  const isFirst = localStorage.getItem(key) !== "1";
+                  if (isFirst) localStorage.setItem(key, "1");
+                  const firstBonus = isFirst ? battleReward : 0;
+                  const perfBonus = perfectionRef.current ? Math.floor(battleReward * 0.5) : 0;
+                  onWin(battleReward + firstBonus + perfBonus);
+                  onClose();
+                }}
                 size="lg"
                 className="relative mt-6 w-full text-base font-black py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-[0_0_30px_rgba(234,179,8,0.4)] rounded-2xl border-0"
               >

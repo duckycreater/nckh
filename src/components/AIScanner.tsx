@@ -123,7 +123,8 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
       hazard: "Không bỏ cùng rác thường. Hãy mang đến điểm thu gom rác nguy hại.",
     };
 
-    const analysis = `**Phân loại: ${labels[result.category] || result.category}**\n\n${result.category === "plastic" ? "Đây là loại rác nhựa có thể tái chế được." : result.category === "hazard" ? "Đây là loại rác nguy hại cần xử lý đặc biệt." : "Đây là loại rác " + labels[result.category] + " có thể được xử lý đúng quy trình."}\n\n**Hướng dẫn xử lý:**\n${instructions[result.category] || ""}`;
+    const analysis = `**Phân loại: ${labels[result.category] || result.category}**\n\n${result.category === "plastic" ? "Đây là loại rác nhựa có thể tái chế được." : result.category === "hazard" ? "Đây là loại rác nguy hại cần xử lý đặc biệt." : "Đây là loại rác " + labels[result.category] + " có thể được xử lý đúng quy trình."}\n\n**Hướng dẫn xử lý:**
+${instructions[result.category] || ""}`;
 
     return { analysis, metrics: { model: selectedModel, latencyMs: result.latencyMs, confidence: result.confidence } };
   };
@@ -143,6 +144,22 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
         setResult(analysis + rewardText);
         onUpdatePoints(updatedUser.points + 50);
 
+        // Auto-complete challenges 1 & 3 on first successful scan
+        try {
+          await fetch("/api/user-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nickname: user.account_id, type: "challenge", data: 1 }),
+          });
+          await fetch("/api/user-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nickname: user.account_id, type: "challenge", data: 3 }),
+          });
+        } catch (e) {
+          console.warn('[AIScanner] Failed to auto-complete challenges:', e);
+        }
+
         try {
           await fetch("/api/research/log-event", {
             method: "POST",
@@ -153,7 +170,9 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
               metadata: { eco_type: "local_ai", model: selectedModel },
             }),
           });
-        } catch {}
+        } catch (e) {
+          console.warn('[AIScanner] Failed to log scan event:', e);
+        }
       } else {
         const startTime = Date.now();
         const res = await fetch("/api/scan-garbage", {
@@ -168,6 +187,22 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
           if (data.rewarded) {
             finalResult += "\n\n**Thưởng 50 điểm nhờ quét thành công bằng Cloud AI.**";
             onUpdatePoints(data.points);
+
+            // Auto-complete challenges 1 & 3 on first successful scan
+            try {
+              await fetch("/api/user-progress", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nickname: user.account_id, type: "challenge", data: 1 }),
+              });
+              await fetch("/api/user-progress", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nickname: user.account_id, type: "challenge", data: 3 }),
+              });
+            } catch (e) {
+              console.warn('[AIScanner] Failed to auto-complete challenges:', e);
+            }
           }
           setResult(finalResult);
           if (data.aiMetrics) {

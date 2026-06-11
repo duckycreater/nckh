@@ -58,19 +58,43 @@ export function generateServerCard(id: number) {
   };
 }
 
-export function resolveGacha(unlockedCardIds: number[]): number {
-  // 70% chance: pick from locked cards
-  // 30% chance: any card
+export function resolveGacha(unlockedCardIds: number[], pullCount: number = 0): number {
+  // Pity system: guaranteed epic every PITY_EPIC pulls, legendary every PITY_LEGENDARY pulls
+  const PITY_EPIC = 30;
+  const PITY_LEGENDARY = 100;
+
+  // Determine rarity tier based on pity
+  let guaranteedRarity: string | null = null;
+  if (pullCount > 0 && pullCount % PITY_LEGENDARY === 0) {
+    guaranteedRarity = "legendary";
+  } else if (pullCount > 0 && pullCount % PITY_EPIC === 0) {
+    guaranteedRarity = "epic";
+  }
+
   const lockedCards = [];
+  const lockedByRarity: Record<string, number[]> = {};
   for (let i = 1; i <= CARD_TOTAL; i++) {
     if (!unlockedCardIds.includes(i)) {
       lockedCards.push(i);
+      const rarityId = seededRandom(i * 2.2);
+      let r = CARD_RARITIES[0];
+      for (const rr of CARD_RARITIES) {
+        if (rarityId <= rr.chance) { r = rr; break; }
+      }
+      if (!lockedByRarity[r.id]) lockedByRarity[r.id] = [];
+      lockedByRarity[r.id].push(i);
     }
   }
 
   const pool = lockedCards.length > 0 && Math.random() > 0.3
     ? lockedCards
     : Array.from({ length: CARD_TOTAL }, (_, i) => i + 1);
+
+  if (guaranteedRarity) {
+    // Force from pity pool
+    const pityPool = lockedByRarity[guaranteedRarity] || pool;
+    return pityPool[Math.floor(Math.random() * pityPool.length)];
+  }
 
   return pool[Math.floor(Math.random() * pool.length)];
 }
