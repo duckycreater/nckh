@@ -28,6 +28,7 @@ export interface User {
   selectedFrame?: string;
   customAvatarUrl?: string;
   level?: number;
+  totalExpEarned?: number;
   unlockedRegions?: string[];
   currentRegion?: string;
   // Research fields

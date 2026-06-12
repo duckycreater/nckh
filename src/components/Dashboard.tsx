@@ -16,6 +16,7 @@ import { AdaptiveRewardBanner } from "./AdaptiveRewardBanner";
 import { StreakCalendar } from "./StreakCalendar";
 import { MilestoneBurst, MilestoneProgress, checkMilestones } from "./MilestoneBurst";
 import { LevelUpCelebration } from "./LevelUpCelebration";
+import { calculateLevel, getExpForNextLevel, TIER_NAMES, levelToTier } from "../lib/useLevel";
 import { AchievementPopup } from "./AchievementPopup";
 import { SurpriseGift, STREAK_GIFT_TIERS } from "./SurpriseGift";
 import { DailyWheel } from "./DailyWheel";
@@ -186,8 +187,14 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const [showClanLobby, setShowClanLobby] = useState(false);
   const [lastWheelDate, setLastWheelDate] = useState<string>("");
   const [lastGiftMilestone, setLastGiftMilestone] = useState<number>(0);
-  const prevPointsRef = useRef(user.points);
-  const prevLevelRef = useRef(Math.floor(user.points / 200));
+
+  // High-water mark of earned EXP — only goes up, never decreases on spend
+  const totalExpEarned = user.totalExpEarned ?? user.points;
+  const highWaterRef = useRef<number>(totalExpEarned);
+  if (totalExpEarned > highWaterRef.current) highWaterRef.current = totalExpEarned;
+
+  const prevPointsRef = useRef<number>(highWaterRef.current);
+  const prevLevelRef = useRef<number>(calculateLevel(highWaterRef.current).level);
 
   // Sync user state from backend occasionally
   useEffect(() => {
@@ -208,20 +215,21 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     fetchUser();
   }, [refreshTrigger, user.account_id, onUpdateUser]);
 
-  // Check for milestone/level-up on point changes
+  // Check for level-up and milestone on earned EXP changes
   useEffect(() => {
-    const newLevel = Math.floor(user.points / 200);
+    const totalExp = highWaterRef.current;
+    const { level } = calculateLevel(totalExp);
     const oldLevel = prevLevelRef.current;
-    if (newLevel > oldLevel) {
-      setPendingLevelUp({ oldLevel, newLevel });
-      prevLevelRef.current = newLevel;
+    if (level > oldLevel) {
+      setPendingLevelUp({ oldLevel, newLevel: level });
+      prevLevelRef.current = level;
     }
-    const milestone = checkMilestones(user.points, prevPointsRef.current);
-    if (milestone) {
-      setPendingMilestone(milestone);
+    const milestone = checkMilestones(prevPointsRef.current, totalExp);
+    if (milestone.length > 0) {
+      setPendingMilestone(milestone[0]);
     }
-    prevPointsRef.current = user.points;
-  }, [user.points]);
+    prevPointsRef.current = totalExp;
+  }, [totalExpEarned, user.points]);
 
   // Check daily wheel eligibility on mount
   useEffect(() => {
@@ -273,14 +281,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     setRefreshTrigger((prev) => prev + 1);
   };
 
-  const calculateLevel = (points: number) => {
-    const level = Math.floor(points / 200) + 1;
-    const currentExp = points % 200;
-    const progress = (currentExp / 200) * 100;
-    return { level, currentExp, progress };
-  };
-
-  const { level, currentExp, progress } = calculateLevel(user.points);
+  const { level, currentExpInLevel, expToNextLevel, progress, tier, tierData, isMaxLevel } = calculateLevel(highWaterRef.current);
 
   const purchased = user.progress?.purchased || [];
   const hasPurchased = (id: string) => purchased.includes(id) || purchased.includes(Number(id));
@@ -352,19 +353,32 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                       <StreakBadge streakDays={user.progress?.streakDays || 1} />
                     </div>
                     <div className="relative pt-1">
-                      <div className="flex mb-1 items-center justify-between">
-                        <div>
-                          <span className="text-xs font-semibold inline-block text-emerald-600">
-                            {t("dashboard.level", { level })}
-                          </span>
+                      {/* Tier badge + Level */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5">
+                          <span className="text-sm">{tierData.emoji}</span>
+                          <span className={`text-[10px] font-bold ${tierData.color}`}>{tierData.short}</span>
                         </div>
-                        <div className="text-right">
-                          <span className="text-xs font-semibold inline-block text-gray-500">
-                            {currentExp}/200 EXP
-                          </span>
-                        </div>
+                        <span className="text-xs font-semibold text-emerald-600">
+                          {t("dashboard.level", { level })}
+                        </span>
+                        {isMaxLevel && (
+                          <span className="text-[10px] font-bold text-amber-500">MAX</span>
+                        )}
                       </div>
-                      <div className="overflow-hidden h-2 mb-4 text-xs flex rounded-full bg-emerald-100 w-full relative">
+
+                      {/* EXP bar */}
+                      <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
+                        <span className="font-medium">
+                          {currentExpInLevel.toLocaleString()} EXP
+                        </span>
+                        {!isMaxLevel && (
+                          <span className="text-gray-400">
+                            {expToNextLevel.toLocaleString()} EXP / cấp
+                          </span>
+                        )}
+                      </div>
+                      <div className="overflow-hidden h-2.5 mb-1 text-xs flex rounded-full bg-emerald-100 w-full relative">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${progress}%` }}
@@ -374,6 +388,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                           <div className="absolute top-0 right-0 bottom-0 left-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMCcgaGVpZ2h0PScxMCc+CiAgPHJlY3Qgd2lkdGg9JzEwJyBoZWlnaHQ9JzEwJyBmaWxsPSd0cmFuc3BhcmVudCcgLz4KICA8bGluZSB4MT0nMCcgeTE9JzEwJyB4Mj0nMTAnIHkyPScwJyBzdHJva2U9J3doaXRlJyBzdHJva2Utd2lkdGg9JzEnIG9wYWNpdHk9JzAuMyc+PC9saW5lPgo8L3N2Zz4=')] bg-repeat" />
                         </motion.div>
                       </div>
+                      <MilestoneProgress totalExpEarned={highWaterRef.current} className="mb-1" />
                     </div>
                   </div>
                   <div className="flex flex-col items-center gap-2 shrink-0">
@@ -763,8 +778,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         {pendingMilestone && (
           <MilestoneBurst
             milestone={pendingMilestone}
-            newPoints={user.points}
-            oldPoints={prevPointsRef.current - pendingMilestone.bonus}
+            totalExpEarned={highWaterRef.current}
             onComplete={() => setPendingMilestone(null)}
           />
         )}
@@ -773,7 +787,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
           <LevelUpCelebration
             oldLevel={pendingLevelUp.oldLevel}
             newLevel={pendingLevelUp.newLevel}
-            streakDays={streakDays}
+            totalExpEarned={highWaterRef.current}
+            streakDays={user.progress?.streakDays}
             onClose={() => setPendingLevelUp(null)}
           />
         )}
