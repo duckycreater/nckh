@@ -749,6 +749,7 @@ app.post("/api/login", async (req, res) => {
           } catch (e) {
             console.warn("[NoveltyDecay] Intervention check failed:", e);
           }
+        }, 5000);
       }
 
       res.json({
