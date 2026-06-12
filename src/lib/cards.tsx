@@ -106,8 +106,8 @@ export const CARDS_I18N: Record<string, string> = {
   "Đồng xu": "card_094",
   "Vỏ đạn": "card_095",
   "Xương": "card_096",
-  "Dây điện": "card_097",
-  "Ống nước": "card_098",
+  "Dây điện (organic)": "card_097",
+  "Ống nước (organic)": "card_098",
   "Chảo": "card_099",
   "Nồi": "card_100",
   "Dao": "card_101",
@@ -203,7 +203,7 @@ export const CARDS_I18N: Record<string, string> = {
   "Cáp sạc": "card_301",
   "Ổ cắm điện": "card_302",
   "Cầu dao điện": "card_303",
-  "Dây điện": "card_304",
+  "Dây điện (energy)": "card_304",
   "Bóng đèn LED": "card_305",
   "Quạt điện": "card_306",
   "Máy sạc dự phòng": "card_307",
@@ -219,7 +219,7 @@ export const CARDS_I18N: Record<string, string> = {
   "Ly trà sữa": "card_317",
   "Hộp sữa": "card_318",
   "Nồi nước": "card_319",
-  "Ống nước": "card_320",
+  "Ống nước (water)": "card_320",
   "Chip máy tính": "card_321",
   "Màn hình LCD": "card_322",
   "Bàn phím": "card_323",
@@ -2719,6 +2719,9 @@ const AVATAR_EMOJI: Record<string, string> = {
   metal: "🥫",
   organic: "🍃",
   hazard: "☣️",
+  energy: "⚡",
+  water: "💧",
+  tech: "🔧",
 };
 
 const AVATAR_FACES: Record<string, Record<string, string>> = {
@@ -2729,6 +2732,9 @@ const AVATAR_FACES: Record<string, Record<string, string>> = {
     metal: "◉_◉",
     organic: "◕◡◕",
     hazard: "◉_◉",
+    energy: "◕‿◕",
+    water: "◠‿◠",
+    tech: "◉_◉",
   },
   attacking: {
     plastic: "◕ω◕",
@@ -2737,6 +2743,9 @@ const AVATAR_FACES: Record<string, Record<string, string>> = {
     metal: "◉ω◉",
     organic: "◕ω◕",
     hazard: "◉ω◉",
+    energy: "◕ω◕",
+    water: "◔◡◔",
+    tech: "◉ω◉",
   },
   hurt: {
     plastic: "◕︿◕",
@@ -2745,6 +2754,9 @@ const AVATAR_FACES: Record<string, Record<string, string>> = {
     metal: "◉︿◉",
     organic: "◕︿◕",
     hazard: "◉︿◉",
+    energy: "◕︿◕",
+    water: "◔︿◔",
+    tech: "◉︿◉",
   },
   ko: {
     plastic: "×_×",
@@ -2753,14 +2765,20 @@ const AVATAR_FACES: Record<string, Record<string, string>> = {
     metal: "×_×",
     organic: "×_×",
     hazard: "×_×",
+    energy: "×_×",
+    water: "×_×",
+    tech: "×_×",
   },
 };
 
 const RARITY_GLOW: Record<string, { color: string; shadow: string }> = {
   common:   { color: "#94a3b8", shadow: "0 0 12px #94a3b880" },
+  uncommon: { color: "#22c55e", shadow: "0 0 14px #22c55e80" },
   rare:     { color: "#3b82f6", shadow: "0 0 16px #3b82f680, 0 0 32px #3b82f640" },
   epic:     { color: "#a855f7", shadow: "0 0 20px #a855f780, 0 0 40px #a855f740" },
   legendary: { color: "#f59e0b", shadow: "0 0 24px #f59e0b80, 0 0 48px #f59e0b40, 0 0 72px #f59e0b20" },
+  mythical:  { color: "#dc2626", shadow: "0 0 28px #dc262680, 0 0 56px #dc262640, 0 0 84px #dc262620" },
+  event:    { color: "#ec4899", shadow: "0 0 24px #ec489980, 0 0 48px #ec489940" },
 };
 
 export function getAvatarEmoji(elementId: string): string {

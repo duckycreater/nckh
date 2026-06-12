@@ -52,6 +52,7 @@ const PITY_LEGENDARY = 100; // guaranteed legendary every 100 pulls
 const ELEM_COLOR: Record<string, string> = {
   plastic: "#06b6d4", paper: "#f59e0b", glass: "#14b8a6",
   metal: "#64748b", organic: "#22c55e", hazard: "#ef4444",
+  energy: "#f97316", water: "#0ea5e9", tech: "#8b5cf6",
 };
 
 // ─── Stat config (translation key → config) ──────────────────────────────────
@@ -1236,7 +1237,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               const card = ALL_CARDS.find((c) => c.id === id);
               return card && card.rarity.id === 'legendary';
             }).length), color: 'text-amber-400' },
-            { label: t('campaign.totalStars') || 'Total Stars', value: String(userProgress?.totalStars || 0), color: 'text-blue-400' },
+            { label: t('campaign.totalStars') || 'Total Stars', value: String(progress?.totalStars || 0), color: 'text-blue-400' },
           ].map(stat => (
             <div key={stat.label} className="rounded-xl bg-white/5 p-3 text-center">
               <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>

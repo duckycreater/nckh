@@ -1,18 +1,23 @@
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getRegionById, getStageById } from '../data/worldMap';
 
 // ─── Campaign Stage Component ─────────────────────────────────────────────────────
-// Stage battle UI placeholder - shows stage info, enemy cards, and back button
+// Stage battle UI - receives params from route or direct props
 
 interface CampaignStageProps {
-  regionId: string;
-  stageId: string;
+  regionId?: string;
+  stageId?: string;
   onBack: () => void;
 }
 
-export default function CampaignStage({ regionId, stageId, onBack }: CampaignStageProps) {
+export default function CampaignStage({ regionId: regionIdProp, stageId: stageIdProp, onBack }: CampaignStageProps) {
   const { t } = useTranslation();
+  // Support both direct props (from route wrapper) and useParams (direct usage)
+  const params = useParams<{ regionId: string; stageId: string }>();
+  const regionId = regionIdProp || params.regionId || '';
+  const stageId = stageIdProp || params.stageId || '';
   const region = getRegionById(regionId);
   const stage = getStageById(regionId, stageId);
 

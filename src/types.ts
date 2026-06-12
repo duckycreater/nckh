@@ -11,6 +11,9 @@ export interface UserProgress {
   streakDays?: number;
   lastUpdateDate: string;
   shards?: number;
+  stamina?: number;
+  maxStamina?: number;
+  totalStars?: number;
 }
 
 export interface User {
@@ -24,6 +27,9 @@ export interface User {
   selectedAvatar?: string;
   selectedFrame?: string;
   customAvatarUrl?: string;
+  level?: number;
+  unlockedRegions?: string[];
+  currentRegion?: string;
   // Research fields
   dominantProfile?: string;
   personalityMode?: string;

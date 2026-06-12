@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Auth } from "./components/Auth";
 import { Dashboard } from "./components/Dashboard";
@@ -12,6 +12,35 @@ import { User } from "./types";
 import { AppScreenShell, Badge, Card, LoadingSpinner } from "./lib/ui";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
 import { Globe } from "lucide-react";
+
+// ─── Campaign Route Wrappers (useNavigate must be called inside Router context) ───
+function WorldMapRoute({ user }: { user: User }) {
+  const navigate = useNavigate();
+  return (
+    <WorldMap
+      playerLevel={user.level || 1}
+      unlockedRegions={user.unlockedRegions || ["region_01"]}
+      currentRegion={user.currentRegion || ""}
+      onSelectRegion={(regionId) => {
+        const stageId = `s${regionId.split("_")[1]}_01`;
+        navigate(`/campaign/${regionId}/${stageId}`);
+      }}
+      onBack={() => navigate("/home")}
+    />
+  );
+}
+
+function CampaignStageRoute() {
+  const navigate = useNavigate();
+  const { regionId, stageId } = useParams<{ regionId: string; stageId: string }>();
+  return (
+    <CampaignStage
+      regionId={regionId || ""}
+      stageId={stageId || ""}
+      onBack={() => navigate("/world-map")}
+    />
+  );
+}
 
 function LanguageSwitcher() {
   const { t } = useTranslation();
@@ -150,30 +179,8 @@ export default function App() {
           />
         )}
         {/* Campaign Routes */}
-        <Route
-          path="/world-map"
-          element={
-            <WorldMap
-              playerLevel={user.level || 1}
-              unlockedRegions={user.unlockedRegions || ['region_01']}
-              currentRegion={user.currentRegion || ''}
-              onSelectRegion={(regionId) => {
-                // Navigate to first stage of region
-                window.location.hash = `/campaign/${regionId}/s${regionId.split('_')[1]}_01`;
-                window.location.reload();
-              }}
-              onBack={() => window.history.back()}
-            />
-          }
-        />
-        <Route
-          path="/campaign/:regionId/:stageId"
-          element={
-            <CampaignStage
-              onBack={() => window.history.back()}
-            />
-          }
-        />
+        <Route path="/world-map" element={<WorldMapRoute user={user} />} />
+        <Route path="/campaign/:regionId/:stageId" element={<CampaignStageRoute />} />
         <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
       </Routes>
       <Chatbot currentUser={user.account_id} />
