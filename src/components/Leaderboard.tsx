@@ -261,7 +261,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
   return (
     <>
       {isTop1 && (
-        <div className="pointer-events-none fixed inset-0 z-50">
+        <div key="confetti-celebration" className="pointer-events-none fixed inset-0 z-50">
           <Confetti width={width} height={height} numberOfPieces={260} recycle={false} />
         </div>
       )}

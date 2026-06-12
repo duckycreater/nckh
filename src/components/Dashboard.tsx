@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { User } from "../types";
@@ -9,7 +9,6 @@ import { VirtualGarden } from "./VirtualGarden";
 import { DailyChallenges } from "./DailyChallenges";
 import { RewardStore } from "./RewardStore";
 import { RewardHistory } from "./RewardHistory";
-import { Flashcards } from "./Flashcards";
 import { CraftingStation } from "./CraftingStation";
 import { ProfileView } from "./ProfileView";
 import { Settings } from "./Settings";
@@ -44,6 +43,10 @@ import {
   Crown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const LazyFlashcards = lazy(() =>
+  import("./Flashcards").then((m) => ({ default: m.Flashcards }))
+);
 
 function getFireLevel(streakDays: number) {
   if (streakDays >= 7) return 3;
@@ -192,7 +195,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
       }
     };
     fetchUser();
-  }, [refreshTrigger, user.account_id]);
+  }, [refreshTrigger, user.account_id, onUpdateUser]);
 
   // Check for milestone/level-up on point changes
   useEffect(() => {
@@ -466,14 +469,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                             <span className="text-[10px] font-bold text-orange-700 leading-tight">{t("common.rank")}</span>
                           </button>
                           <button
-                            onClick={() => setViewingProfile(user.account_id)}
-                            className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title={t("profile.myProfile")}
-                          >
-                            <UserCircle size={18} className="text-blue-500" />
-                            <span className="text-[10px] font-bold text-blue-700 leading-tight">{t("profile.profile")}</span>
-                          </button>
-                          <button
                             onClick={() => setShowTournament(true)}
                             className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
                             title={t("dashboard.weeklyTournament")}
@@ -488,14 +483,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                           >
                             <Swords size={18} className="text-red-500" />
                             <span className="text-[10px] font-bold text-red-700 leading-tight">{t("dashboard.pvpArena")}</span>
-                          </button>
-                          <button
-                            onClick={() => setShowSettings(true)}
-                            className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title={t("settings.settings")}
-                          >
-                            <SettingsIcon size={18} className="text-slate-500" />
-                            <span className="text-[10px] font-bold text-slate-600 leading-tight">{t("settings.settings")}</span>
                           </button>
                         </div>
                         <AdaptiveRewardBanner userId={user.account_id} />
@@ -585,7 +572,9 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
             {activeTab === "cards" && (
               <div className="animate-[fadeIn_0.4s_ease-out]">
-                <Flashcards onReward={handleEarnPoints} points={user.points} onSpend={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
+                <Suspense fallback={<LoadingFallback message="Đang tải bộ sưu tập thẻ..." />}>
+                  <LazyFlashcards onReward={handleEarnPoints} points={user.points} onSpend={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
+                </Suspense>
               </div>
             )}
 

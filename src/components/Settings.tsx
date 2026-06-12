@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../lib/i18n";
 import { Globe } from "lucide-react";
+import { useTheme } from "../App";
 
 interface SettingsProps {
   user: User;
@@ -25,6 +26,7 @@ const ALL_PURCHASE_IDS = ["av1", "av2", "av3", "fr1", "fr2", "fr3"];
 
 export function Settings({ user, onUpdate }: SettingsProps) {
   const { t } = useTranslation();
+  const { theme, toggle } = useTheme();
   const [activeTab, setActiveTab] = useState<"appearance" | "name" | "password" | "language">("appearance");
   const [lang, setLang] = useState<LanguageCode>(getCurrentLanguage());
   const [savingPref, setSavingPref] = useState(false);
@@ -275,11 +277,36 @@ export function Settings({ user, onUpdate }: SettingsProps) {
             </div>
           </div>
 
+          {/* Dark mode toggle */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Chế độ giao diện</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Chọn chế độ sáng hoặc tối cho ứng dụng.</p>
+            <button
+              onClick={toggle}
+              className="relative flex items-center gap-3 w-full p-4 rounded-2xl border-2 transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+            >
+              <span className="text-2xl">{theme === "dark" ? "🌙" : "☀️"}</span>
+              <div className="text-left flex-1">
+                <div className="font-bold text-gray-900 dark:text-gray-100">
+                  {theme === "dark" ? "Chế độ Tối" : "Chế độ Sáng"}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {theme === "dark" ? "Giao diện tối, giảm mỏi mắt" : "Giao diện sáng mặc định"}
+                </div>
+              </div>
+              <div className={`relative w-12 h-6 rounded-full transition-colors ${theme === "dark" ? "bg-emerald-500" : "bg-gray-300"}`}>
+                <div
+                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${theme === "dark" ? "translate-x-6" : "translate-x-0.5"}`}
+                />
+              </div>
+            </button>
+          </div>
+
           <div className="flex items-center gap-3">
             <button
               onClick={handleSaveAppearance}
               disabled={savingPref}
-              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-500 disabled:opacity-60 transition-colors"
+              className="px-6 py-2.5 bg-emerald-600 dark:bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-500 disabled:opacity-60 transition-colors"
             >
               {savingPref ? "Đang lưu..." : "Lưu thay đổi"}
             </button>

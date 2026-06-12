@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, createContext, useContext, useCallback, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Auth } from "./components/Auth";
 import { Dashboard } from "./components/Dashboard";
 import { Chatbot } from "./components/Chatbot";
-import { AdminDashboard } from "./components/AdminDashboard";
 import { ResearchDashboard } from "./components/ResearchDashboard";
 import WorldMap from "./components/WorldMap";
 import CampaignStage from "./components/CampaignStage";
@@ -13,7 +12,65 @@ import { AppScreenShell, Badge, Card, LoadingSpinner } from "./lib/ui";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
 import { Globe } from "lucide-react";
 
-// ─── Campaign Route Wrappers (useNavigate must be called inside Router context) ───
+// ─── Lazy Imports ──────────────────────────────────────────────────────
+const LazyAdminDashboard = lazy(() =>
+  import("./components/AdminDashboard").then((m) => ({ default: m.AdminDashboard }))
+);
+const LazyFlashcards = lazy(() =>
+  import("./components/Flashcards").then((m) => ({ default: m.Flashcards }))
+);
+
+function LoadingFallback({ message = "Đang tải..." }: { message?: string }) {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-3 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Theme Context ─────────────────────────────────────────────────────
+type Theme = "light" | "dark";
+
+interface ThemeContextValue {
+  theme: Theme;
+  toggle: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextValue>({
+  theme: "light",
+  toggle: () => {},
+});
+
+export function useTheme() {
+  return useContext(ThemeContext);
+}
+
+function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem("theme") as Theme;
+    return saved === "dark" || saved === "light" ? saved : "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggle = useCallback(() => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  }, []);
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggle }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+// ─── Campaign Route Wrappers
 function WorldMapRoute({ user }: { user: User }) {
   const navigate = useNavigate();
   return (
@@ -109,6 +166,7 @@ function RestoringScreen() {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [restoring, setRestoring] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -158,32 +216,41 @@ export default function App() {
   const isAdmin = user.role === "admin";
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/home" replace />} />
-        {isAdmin ? (
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          {isAdmin ? (
           <>
             <Route path="/research" element={<ResearchDashboard user={user} />} />
-            <Route path="/:tab" element={<AdminDashboard user={user} onLogout={handleLogout} />} />
+            <Route
+              path="/:tab"
+              element={
+                <Suspense fallback={<LoadingFallback message="Đang tải dashboard..." />}>
+                  <LazyAdminDashboard user={user} onLogout={handleLogout} />
+                </Suspense>
+              }
+            />
           </>
-        ) : (
-          <Route
-            path="/:tab"
-            element={
-              <Dashboard
-                user={user}
-                onLogout={handleLogout}
-                onUpdateUser={handleUpdateUser}
-              />
-            }
-          />
-        )}
-        {/* Campaign Routes */}
-        <Route path="/world-map" element={<WorldMapRoute user={user} />} />
-        <Route path="/campaign/:regionId/:stageId" element={<CampaignStageRoute />} />
-        <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
-      </Routes>
-      <Chatbot currentUser={user.account_id} />
-    </BrowserRouter>
+          ) : (
+            <Route
+              path="/:tab"
+              element={
+                <Dashboard
+                  user={user}
+                  onLogout={handleLogout}
+                  onUpdateUser={handleUpdateUser}
+                />
+              }
+            />
+          )}
+          {/* Campaign Routes */}
+          <Route path="/world-map" element={<WorldMapRoute user={user} />} />
+          <Route path="/campaign/:regionId/:stageId" element={<CampaignStageRoute />} />
+          <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
+        </Routes>
+        {chatOpen && <Chatbot currentUser={user.account_id} />}
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -892,33 +892,39 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   }, [progress, userId, fetchCardLevels]);
 
   // ─── Filter & sort cards ────────────────────────────────────────────
-  const RARITY_SCORE: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
-  let displayCards = ALL_CARDS.filter((c) =>
-    (filterRarity === "all" || c.rarity.id === filterRarity) &&
-    (filterElement === "all" || c.element.id === filterElement) &&
-    (selectedElement === null || c.element.id === selectedElement) &&
-    (searchQuery === "" || c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.subtitle && c.subtitle.toLowerCase().includes(searchQuery.toLowerCase())))
-  );
-  if (!showLocked) displayCards = displayCards.filter((c) => unlockedCards.includes(c.id));
-  displayCards = [...displayCards].sort((a, b) => {
-    const la = getCardLevel(a.id), lb = getCardLevel(b.id);
-    if (sortBy === "atk") return (b.atk * lb) - (a.atk * la);
-    if (sortBy === "hp") return (b.hp * lb) - (a.hp * la);
-    if (sortBy === "level") return lb - la;
-    if (sortBy === "rarity") return (RARITY_SCORE[b.rarity.id] || 0) - (RARITY_SCORE[a.rarity.id] || 0);
-    if (sortBy === "name") return a.name.localeCompare(b.name);
-    return calcPower(b, lb) - calcPower(a, la);
-  });
+  const RARITY_SCORE = useMemo(() => ({ legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 }), []);
+  const displayCards = useMemo(() => {
+    const filtered = ALL_CARDS.filter((c) =>
+      (filterRarity === "all" || c.rarity.id === filterRarity) &&
+      (filterElement === "all" || c.element.id === filterElement) &&
+      (selectedElement === null || c.element.id === selectedElement) &&
+      (searchQuery === "" || c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.subtitle && c.subtitle.toLowerCase().includes(searchQuery.toLowerCase())))
+    );
+    const base = !showLocked ? filtered.filter((c) => unlockedCards.includes(c.id)) : filtered;
+    return [...base].sort((a, b) => {
+      const la = getCardLevel(a.id), lb = getCardLevel(b.id);
+      if (sortBy === "atk") return (b.atk * lb) - (a.atk * la);
+      if (sortBy === "hp") return (b.hp * lb) - (a.hp * la);
+      if (sortBy === "level") return lb - la;
+      if (sortBy === "rarity") return (RARITY_SCORE[b.rarity.id] || 0) - (RARITY_SCORE[a.rarity.id] || 0);
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      return calcPower(b, lb) - calcPower(a, la);
+    });
+  }, [filterRarity, filterElement, selectedElement, searchQuery, showLocked, unlockedCards, sortBy]);
 
-  const collectedCount = unlockedCards.length;
+  const collectedCount = useMemo(() => unlockedCards.length, [unlockedCards]);
   const totalCards = ALL_CARDS.length;
-  const collectionPower = unlockedCards.reduce((s, id) => {
-    const card = ALL_CARDS.find((c) => c.id === id);
-    return s + (card ? calcPower(card, getCardLevel(id)) : 0);
-  }, 0);
-  const fuseableCount = unlockedCards.filter((id) => getCardCount(id) >= 3).length;
-  const deckCards = deck.map((id) => ALL_CARDS.find((c) => c.id === id)!).filter(Boolean);
-  const deckPower = deckCards.reduce((s, card) => s + calcPower(card, getCardLevel(card.id)), 0);
+  const collectionPower = useMemo(() =>
+    unlockedCards.reduce((s, id) => {
+      const card = ALL_CARDS.find((c) => c.id === id);
+      return s + (card ? calcPower(card, getCardLevel(id)) : 0);
+    }, 0), [unlockedCards]);
+  const fuseableCount = useMemo(() =>
+    unlockedCards.filter((id) => getCardCount(id) >= 3).length, [unlockedCards]);
+  const deckCards = useMemo(() =>
+    deck.map((id) => ALL_CARDS.find((c) => c.id === id)!).filter(Boolean), [deck]);
+  const deckPower = useMemo(() =>
+    deckCards.reduce((s, card) => s + calcPower(card, getCardLevel(card.id)), 0), [deckCards]);
   const canBattle = deck.length === DECK_SIZE;
 
   const refreshProgress = useCallback(async () => {

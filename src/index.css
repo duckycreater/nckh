@@ -63,6 +63,76 @@
   --backdrop-blur: blur(20px);
 }
 
+/* ─── Dark Mode ─────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --background: #0b0e14;
+  --background-elevated: rgba(22, 28, 44, 0.95);
+  --surface: rgba(20, 26, 40, 0.96);
+  --surface-muted: #111827;
+  --surface-soft: #1a2235;
+  --surface-strong: #243044;
+  --surface-inverse: #f1f5f9;
+
+  --text-primary: #e8edf5;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
+
+  --primary: #10b981;
+  --primary-hover: #059669;
+  --primary-strong: #047857;
+  --primary-soft: #064e3b;
+  --primary-soft-strong: #065f46;
+  --primary-ring: rgba(16, 185, 129, 0.24);
+
+  --secondary: #1e293b;
+  --secondary-hover: #0f172a;
+  --secondary-soft: #1e293b;
+  --accent: #818cf8;
+  --accent-hover: #6366f1;
+  --accent-soft: #1e1b4b;
+  --warning: #f59e0b;
+  --warning-soft: #1c1408;
+  --danger: #ef4444;
+  --danger-soft: #1f0a0a;
+  --success: #22c55e;
+  --success-soft: #0a1f14;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-inverse: rgba(15, 23, 42, 0.3);
+
+  --shadow-soft: 0 16px 40px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --shadow-strong: 0 34px 90px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 18px 42px rgba(16, 185, 129, 0.3);
+  --shadow-panel: 0 26px 75px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.06), transparent 32%),
+    radial-gradient(circle at top right, rgba(129, 140, 248, 0.06), transparent 24%),
+    linear-gradient(180deg, rgba(11, 14, 20, 0.96), rgba(11, 14, 20, 0.98)),
+    #0b0e14;
+}
+
+[data-theme="dark"] ::selection {
+  background: rgba(16, 185, 129, 0.28);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #0b0e14;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -416,6 +486,8 @@ button:disabled {
 .card-grid-item {
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: center bottom;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 200px;
 }
 
 .card-grid-item:hover {

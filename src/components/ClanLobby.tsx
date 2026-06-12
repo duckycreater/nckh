@@ -619,7 +619,7 @@ export function ClanLobby({ onClose, userNick, onClanLeft }: Props) {
             </div>
           </div>
 
-          <div className="bg-slate-50 p-5 dark:bg-slate-900">
+          <div className="p-5" style={{ background: "var(--surface-muted, #f6faf8)" }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 size={28} className="animate-spin text-emerald-400" />
