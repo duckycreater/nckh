@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { User } from "../types";
 import { Minigame } from "./Minigame";
@@ -52,6 +53,7 @@ function getFireLevel(streakDays: number) {
 }
 
 function StreakBadge({ streakDays }: { streakDays: number }) {
+  const { t } = useTranslation();
   const multiplier = Math.min(1 + (streakDays - 1) * 0.1, 2);
   const isActive = streakDays > 1;
   const fireLevel = getFireLevel(streakDays);
@@ -107,10 +109,10 @@ function StreakBadge({ streakDays }: { streakDays: number }) {
       className={`relative flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold border shadow-sm transition-all shrink-0 ${config.bg} ${config.border} ${atRisk ? `shadow-red-500/20 ${config.shadow}` : config.shadow} ${atRisk ? "animate-pulse" : fireLevel >= 3 ? "animate-pulse" : ""}`}
       title={
         fireLevel === 0
-          ? "Bắt đầu streak ngay hôm nay!"
+          ? t("dashboard.startStreakToday")
           : fireLevel === 3
-          ? `🔥 Streak nguy hiểm! Giữ streak để nhận quà!`
-          : `🔥 Streak ${streakDays} ngày - Cấp lửa ${fireLevel}`
+          ? t("dashboard.streakDanger")
+          : t("dashboard.streakInfo", { days: streakDays, level: fireLevel })
       }
     >
       <div className={`relative ${fireLevel >= 2 ? "drop-shadow-[0_0_6px_rgba(255,100,0,0.8)]" : ""}`}>
@@ -147,6 +149,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
+  const { t } = useTranslation();
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
 
@@ -226,7 +229,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
       body: JSON.stringify({
         nickname: user.account_id,
         points: newPointsOffset,
-        reason: "Hoàn thành thử thách xanh",
+        reason: t("dashboard.completeGreen"),
       }),
     })
       .then(() => setRefreshTrigger((prev) => prev + 1))
@@ -240,7 +243,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     setRefreshTrigger((prev) => prev + 1);
   };
 
-  const handleBuyOrCraft = (cost: number, reason: string = "Tiêu điểm chế tạo/đổi quà") => {
+  const handleBuyOrCraft = (cost: number, reason: string = t("dashboard.craftFocus")) => {
     onUpdateUser({ points: user.points - cost });
     fetch("/api/reward", {
       method: "POST",
@@ -290,10 +293,10 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
       fetch("/api/reward", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: user.account_id, points: result.amount, reason: `Vòng quay: ${result.label}` }),
+        body: JSON.stringify({ nickname: user.account_id, points: result.amount, reason: t("dashboard.wheelResult", { label: result.label }) }),
       }).catch(console.error);
     }
-    showPointsToast(result.amount, 1, `Vòng quay: ${result.label}`);
+    showPointsToast(result.amount, 1, t("dashboard.wheelResult", { label: result.label }));
   };
 
   const handleSurpriseClaim = (gift: import("./SurpriseGift").SurpriseGiftDef) => {
@@ -304,7 +307,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     fetch("/api/reward", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: user.account_id, points: gift.reward, reason: `Quà streak ${gift.streakDays} ngày` }),
+      body: JSON.stringify({ nickname: user.account_id, points: gift.reward, reason: t("dashboard.streakGift", { days: gift.streakDays }) }),
     }).catch(console.error);
   };
 
@@ -338,7 +341,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                       <div className="flex mb-1 items-center justify-between">
                         <div>
                           <span className="text-xs font-semibold inline-block text-emerald-600">
-                            Cấp {level}
+                            {t("dashboard.level", { level })}
                           </span>
                         </div>
                         <div className="text-right">
@@ -363,7 +366,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     <button
                       onClick={() => setViewingProfile(user.account_id)}
                       className="transition-all hover:scale-105"
-                      title="Xem hồ sơ của tôi"
+                      title={t("profile.viewProfile")}
                     >
                       {avatarImage ? (
                         <img
@@ -407,6 +410,27 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   lastUpdateDate={user.progress?.lastUpdateDate || new Date().toDateString()}
                 />
 
+                {/* Stamina Bar */}
+                <div className="rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">⚡</span>
+                      <span className="font-bold text-amber-400">{t("stamina.stamina") || "Stamina"}</span>
+                    </div>
+                    <span className="text-sm text-white/60">
+                      {(user.progress?.stamina ?? 100)} / {(user.progress?.maxStamina ?? 100)}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full"
+                      initial={{ width: '100%' }}
+                      animate={{ width: `${Math.round(((user.progress?.stamina ?? 100) / (user.progress?.maxStamina ?? 100)) * 100)}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+
                 {/* Quick-access bar — collapsible */}
                 <div>
                   <button
@@ -414,7 +438,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 hover:from-emerald-100 hover:to-teal-100 transition-all text-xs font-bold text-emerald-700"
                     aria-expanded={quickAccessOpen}
                   >
-                    <span>Tiện ích nhanh</span>
+                    <span>{t("dashboard.quickTools")}</span>
                     <motion.div
                       animate={{ rotate: quickAccessOpen ? 0 : 180 }}
                       transition={{ duration: 0.2 }}
@@ -436,42 +460,42 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                           <button
                             onClick={() => navigate("/leaderboard")}
                             className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title="Bảng xếp hạng"
+                            title={t("dashboard.leaderboard")}
                           >
                             <Trophy size={18} className="text-orange-500" />
-                            <span className="text-[10px] font-bold text-orange-700 leading-tight">Xếp Hạng</span>
+                            <span className="text-[10px] font-bold text-orange-700 leading-tight">{t("common.rank")}</span>
                           </button>
                           <button
                             onClick={() => setViewingProfile(user.account_id)}
                             className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title="Hồ sơ của tôi"
+                            title={t("profile.myProfile")}
                           >
                             <UserCircle size={18} className="text-blue-500" />
-                            <span className="text-[10px] font-bold text-blue-700 leading-tight">Hồ Sơ</span>
+                            <span className="text-[10px] font-bold text-blue-700 leading-tight">{t("profile.profile")}</span>
                           </button>
                           <button
                             onClick={() => setShowTournament(true)}
                             className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title="Giải đấu tuần"
+                            title={t("dashboard.weeklyTournament")}
                           >
                             <Trophy size={18} className="text-violet-500" />
-                            <span className="text-[10px] font-bold text-violet-700 leading-tight">Giải Đấu</span>
+                            <span className="text-[10px] font-bold text-violet-700 leading-tight">{t("dashboard.weeklyTournament")}</span>
                           </button>
                           <button
                             onClick={() => setShowPvPArena(true)}
                             className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title="PvP Arena"
+                            title={t("dashboard.pvpArena")}
                           >
                             <Swords size={18} className="text-red-500" />
-                            <span className="text-[10px] font-bold text-red-700 leading-tight">PvP</span>
+                            <span className="text-[10px] font-bold text-red-700 leading-tight">{t("dashboard.pvpArena")}</span>
                           </button>
                           <button
                             onClick={() => setShowSettings(true)}
                             className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title="Cài đặt"
+                            title={t("settings.settings")}
                           >
                             <SettingsIcon size={18} className="text-slate-500" />
-                            <span className="text-[10px] font-bold text-slate-600 leading-tight">Cài Đặt</span>
+                            <span className="text-[10px] font-bold text-slate-600 leading-tight">{t("settings.settings")}</span>
                           </button>
                         </div>
                         <AdaptiveRewardBanner userId={user.account_id} />
@@ -486,19 +510,34 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     className="flex-1 p-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-md transition-all hover:-translate-y-1"
                   >
                     <Camera className="inline-block w-4 h-4 mr-1.5" />
-                    AI Quét & Thưởng (+50đ)
+                    {t("dashboard.aiScanReward")}
                   </button>
                   <button
                     onClick={() => navigate("/leaderboard")}
                     className="flex-1 p-3 bg-gradient-to-r from-orange-400 to-amber-500 text-white rounded-xl font-bold text-sm shadow-md transition-all hover:-translate-y-1"
                   >
                     <Trophy className="inline-block w-4 h-4 mr-1.5" />
-                    Bảng Xếp Hạng
+                    {t("leaderboard.leaderboard")}
                   </button>
                 </div>
 
                 {/* Competitive section */}
                 <div className="mt-4 grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => navigate("/world-map")}
+                    className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 text-white shadow-lg shadow-orange-500/20 group cursor-pointer"
+                  >
+                    <div className="absolute inset-0 bg-white/10 group-hover:bg-white/20 transition-all" />
+                    <div className="relative flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-2xl">
+                        🗺️
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-bold">{t("campaign.worldMap")}</h3>
+                        <p className="text-xs text-white/80">{t("campaign.worldMapSubtitle")}</p>
+                      </div>
+                    </div>
+                  </button>
                   <button
                     onClick={() => setShowPvPArena(true)}
                     className="flex flex-col items-center gap-1.5 p-4 bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-sm"
@@ -506,8 +545,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
                       <Swords size={20} className="text-red-500" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700">PvP Arena</span>
-                    <span className="text-[10px] font-bold text-red-400">Đấu 1v1 · Cược EXP</span>
+                    <span className="text-xs font-bold text-slate-700">{t("dashboard.pvpArena")}</span>
+                    <span className="text-[10px] font-bold text-red-400">{t("dashboard.arena")}</span>
                   </button>
                   <button
                     onClick={() => setShowTournament(true)}
@@ -516,8 +555,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
                       <Trophy size={20} className="text-violet-500" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700">Giải Đấu Tuần</span>
-                    <span className="text-[10px] font-bold text-violet-400">Top 8 · Phần thưởng lớn</span>
+                    <span className="text-xs font-bold text-slate-700">{t("dashboard.tournament")}</span>
+                    <span className="text-[10px] font-bold text-violet-400">{t("dashboard.tournamentDesc")}</span>
                   </button>
                   <button
                     onClick={() => setShowClanLobby(true)}
@@ -526,8 +565,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
                       <Users size={20} className="text-emerald-500" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700">Clan</span>
-                    <span className="text-[10px] font-bold text-emerald-400">Cộng đồng · Đóng góp</span>
+                    <span className="text-xs font-bold text-slate-700">{t("dashboard.clanTitle")}</span>
+                    <span className="text-[10px] font-bold text-emerald-400">{t("dashboard.clan")}</span>
                   </button>
                 </div>
               </div>
@@ -554,12 +593,12 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               <div className="animate-[fadeIn_0.4s_ease-out]">
                 <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100 mb-4 flex justify-between items-center shadow-sm">
                   <div>
-                    <h4 className="font-black text-emerald-900 text-lg uppercase tracking-wide">Kho Lõi Năng Lượng</h4>
-                    <p className="text-xs font-bold text-emerald-600/70 uppercase">Trạng thái: Đang hoạt động</p>
+                    <h4 className="font-black text-emerald-900 text-lg uppercase tracking-wide">{t("dashboard.energyCore")}</h4>
+                    <p className="text-xs font-bold text-emerald-600/70 uppercase">{t("dashboard.energyStatus")}</p>
                   </div>
                   <div className="bg-white px-4 py-2 rounded-2xl shadow-sm border border-emerald-100 flex flex-col items-end">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">Hiện có</span>
-                    <span className="font-black text-emerald-600 text-xl">{user.points} <span className="text-sm">EXP</span></span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">{t("dashboard.available")}</span>
+                    <span className="font-black text-emerald-600 text-xl">{user.points} <span className="text-sm">{t("common.exp")}</span></span>
                   </div>
                 </div>
                 <CraftingStation points={user.points} onCraft={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
@@ -579,7 +618,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     onClick={() => navigate("/home")}
                     className="text-sm text-emerald-600 hover:text-emerald-700 font-bold"
                   >
-                    ← Quay lại
+                    ← {t("common.back")}
                   </button>
                 </div>
                 <Leaderboard
@@ -607,7 +646,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             >
               <Home size={22} />
             </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">Chính</span>
+            <span className="text-[10px] font-bold mt-0.5">{t("nav.home")}</span>
           </button>
           <button
             onClick={() => navigate("/cards")}
@@ -619,7 +658,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             >
               <Compass size={22} />
             </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">Sưu tập</span>
+            <span className="text-[10px] font-bold mt-0.5">{t("nav.cards")}</span>
           </button>
           <button
             onClick={() => navigate("/craft")}
@@ -631,14 +670,14 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             >
               <Hammer size={22} />
             </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">Chế tạo</span>
+            <span className="text-[10px] font-bold mt-0.5">{t("nav.craft")}</span>
           </button>
           <button
             onClick={() => navigate("/leaderboard")}
             className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors ${activeTab === "leaderboard" ? "text-orange-600" : "text-gray-400 hover:text-orange-500"}`}
           >
             <Trophy size={22} />
-            <span className="text-[10px] font-bold mt-0.5">Hạng</span>
+            <span className="text-[10px] font-bold mt-0.5">{t("nav.leaderboard")}</span>
           </button>
         </div>
 
@@ -675,7 +714,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 onClick={() => setShowSettings(false)}
                 className="mb-6 flex items-center text-gray-500 hover:text-gray-800 font-bold text-sm bg-gray-100 px-3 py-1.5 rounded-full"
               >
-                ← Quay lại
+                ← {t("common.back")}
               </button>
               <Settings user={user} onUpdate={onUpdateUser} />
             </div>

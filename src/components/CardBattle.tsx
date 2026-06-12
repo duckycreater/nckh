@@ -81,13 +81,19 @@ const ELEMENT_EMOJI: Record<string, string> = {
   metal: "🥫",
   organic: "🍃",
   hazard: "☣️",
+  energy: "⚡",
+  water: "💧",
+  tech: "🔧",
 };
 
 const RARITY_EMOJI: Record<string, string> = {
   common: "⚪",
   rare: "🔵",
+  uncommon: "🟢",
   epic: "🟣",
   legendary: "🟡",
+  mythical: "🔴",
+  event: "🌈",
 };
 
 // ─── Move Generator ────────────────────────────────────────────────────────
@@ -242,6 +248,12 @@ function buildBattleCard(
 }
 
 // ─── Element advantage ────────────────────────────────────────────────────
+const ELEM_COLOR_MAP: Record<string, string> = {
+  plastic: "#06b6d4", paper: "#f59e0b", glass: "#14b8a6",
+  metal: "#64748b", organic: "#22c55e", hazard: "#ef4444",
+  energy: "#f97316", water: "#0ea5e9", tech: "#8b5cf6",
+};
+
 function getAdvantageInfo(
   attackerEl: string, defenderEl: string,
 ): { mult: number; label: string; color: string } | null {
@@ -999,6 +1011,7 @@ function BossIntroSlide({ bossName, elementId, bossCardId, bossRarityId }: { bos
   const ELEM_COLOR_MAP: Record<string, string> = {
     plastic: "#06b6d4", paper: "#f59e0b", glass: "#14b8a6",
     metal: "#64748b", organic: "#22c55e", hazard: "#ef4444",
+    energy: "#f97316", water: "#0ea5e9", tech: "#8b5cf6",
   };
   const glowColor = ELEM_COLOR_MAP[elementId] || "#ef4444";
   return (

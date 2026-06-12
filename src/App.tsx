@@ -1,25 +1,75 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Auth } from "./components/Auth";
 import { Dashboard } from "./components/Dashboard";
 import { Chatbot } from "./components/Chatbot";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { ResearchDashboard } from "./components/ResearchDashboard";
+import WorldMap from "./components/WorldMap";
+import CampaignStage from "./components/CampaignStage";
 import { User } from "./types";
 import { AppScreenShell, Badge, Card, LoadingSpinner } from "./lib/ui";
+import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
+import { Globe } from "lucide-react";
+
+function LanguageSwitcher() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState<LanguageCode>(getCurrentLanguage());
+
+  const handleSelect = (code: LanguageCode) => {
+    changeLanguage(code);
+    setCurrent(code);
+    setOpen(false);
+  };
+
+  const currentLang = LANGUAGES.find((l) => l.code === current);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 transition-colors"
+        title={t("settings.settings")}
+      >
+        <Globe size={15} />
+        <span>{currentLang?.flag}</span>
+        <span className="hidden sm:inline">{currentLang?.label}</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-44 rounded-2xl border border-gray-100 bg-white shadow-xl z-50 overflow-hidden">
+          {LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => handleSelect(lang.code)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition-colors ${
+                lang.code === current ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-700"
+              }`}
+            >
+              <span className="text-base">{lang.flag}</span>
+              <span>{lang.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function RestoringScreen() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen px-4 py-6 sm:px-6">
       <AppScreenShell
         badge={<Badge tone="success">BMO Robot</Badge>}
-        title="Đang khôi phục phiên làm việc"
-        subtitle="Chuẩn bị lại bảng điều khiển, tiến trình học tập và không gian trải nghiệm của bạn."
+        title={t("app.restoringSession")}
+        subtitle={t("app.restoringHint")}
       >
         <Card className="glass-panel rounded-[32px] border-white/60 p-8 sm:p-10">
           <LoadingSpinner
-            message="Đang đồng bộ phiên đăng nhập"
-            subtitle="Việc này chỉ mất trong chốc lát để bạn quay lại đúng nơi đang dở dang."
+            message={t("app.syncingLogin")}
+            subtitle={t("app.syncingHint")}
           />
         </Card>
       </AppScreenShell>
@@ -99,6 +149,31 @@ export default function App() {
             }
           />
         )}
+        {/* Campaign Routes */}
+        <Route
+          path="/world-map"
+          element={
+            <WorldMap
+              playerLevel={user.level || 1}
+              unlockedRegions={user.unlockedRegions || ['region_01']}
+              currentRegion={user.currentRegion || ''}
+              onSelectRegion={(regionId) => {
+                // Navigate to first stage of region
+                window.location.hash = `/campaign/${regionId}/s${regionId.split('_')[1]}_01`;
+                window.location.reload();
+              }}
+              onBack={() => window.history.back()}
+            />
+          }
+        />
+        <Route
+          path="/campaign/:regionId/:stageId"
+          element={
+            <CampaignStage
+              onBack={() => window.history.back()}
+            />
+          }
+        />
         <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
       </Routes>
       <Chatbot currentUser={user.account_id} />

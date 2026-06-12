@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Layers, Lock, Swords, X, Wand2,
@@ -12,7 +13,7 @@ import { UserProgress } from "../types";
 import {
   ALL_CARDS, RARITIES, getElementIcon, ELEMENTS, calcPower,
   getXpForLevel, getFusedXp, getCardAbility, getCardById,
-  getCardArt, getAvatarEmoji,
+  getCardArt, getAvatarEmoji, tCardName,
 } from "../lib/cards";
 import { CardBattle } from "./CardBattle";
 import { RoguelikeRun } from "./RoguelikeRun";
@@ -28,17 +29,18 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 // ─── Rarity tokens ─────────────────────────────────────────────────────────
+// Note: `name` stores a translation key; call `t("cards.rarity.xxx")` inside components
 const RARITY: Record<string, {
   name: string; shortName: string;
   accent: string; bgLight: string; bgDark: string;
   border: string; glow: string; badgeBg: string; badgeText: string;
   shimmer: boolean; starCount: number;
 }> = {
-  common:    { name: "Phổ thông", shortName: "PT", accent: "#94a3b8", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-400/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-700", badgeText: "text-slate-300", shimmer: false, starCount: 1 },
-  rare:      { name: "Hiếm",     shortName: "HM", accent: "#3b82f6", bgLight: "#1e3a8a", bgDark: "#1e3a8a", border: "border-blue-500/60", glow: "shadow-blue-400/40", badgeBg: "bg-blue-600", badgeText: "text-blue-100", shimmer: false, starCount: 2 },
-  uncommon:  { name: "Thường",   shortName: "T",  accent: "#64748b", bgLight: "#1e293b", bgDark: "#1e293b", border: "border-slate-500/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-600", badgeText: "text-slate-200", shimmer: false, starCount: 1 },
-  epic:      { name: "Siêu hiếm", shortName: "SH", accent: "#a855f7", bgLight: "#581c87", bgDark: "#581c87", border: "border-purple-500/70", glow: "shadow-purple-400/50", badgeBg: "bg-purple-600", badgeText: "text-purple-100", shimmer: true, starCount: 3 },
-  legendary:  { name: "Huyền thoại", shortName: "HT", accent: "#f59e0b", bgLight: "#78350f", bgDark: "#78350f", border: "border-amber-400/80", glow: "shadow-amber-400/60", badgeBg: "bg-amber-600", badgeText: "text-amber-100", shimmer: true, starCount: 4 },
+  common:    { name: "cards.rarity.common",    shortName: "PT", accent: "#94a3b8", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-400/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-700", badgeText: "text-slate-300", shimmer: false, starCount: 1 },
+  rare:      { name: "cards.rarity.rare",      shortName: "HM", accent: "#3b82f6", bgLight: "#1e3a8a", bgDark: "#1e3a8a", border: "border-blue-500/60", glow: "shadow-blue-400/40", badgeBg: "bg-blue-600", badgeText: "text-blue-100", shimmer: false, starCount: 2 },
+  uncommon:  { name: "cards.rarity.uncommon",   shortName: "T",  accent: "#64748b", bgLight: "#1e293b", bgDark: "#1e293b", border: "border-slate-500/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-600", badgeText: "text-slate-200", shimmer: false, starCount: 1 },
+  epic:      { name: "cards.rarity.superRare",  shortName: "SH", accent: "#a855f7", bgLight: "#581c87", bgDark: "#581c87", border: "border-purple-500/70", glow: "shadow-purple-400/50", badgeBg: "bg-purple-600", badgeText: "text-purple-100", shimmer: true, starCount: 3 },
+  legendary:  { name: "cards.rarity.legendary", shortName: "HT", accent: "#f59e0b", bgLight: "#78350f", bgDark: "#78350f", border: "border-amber-400/80", glow: "shadow-amber-400/60", badgeBg: "bg-amber-600", badgeText: "text-amber-100", shimmer: true, starCount: 4 },
 };
 const RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
 const PULL_COST = 50;
@@ -52,14 +54,14 @@ const ELEM_COLOR: Record<string, string> = {
   metal: "#64748b", organic: "#22c55e", hazard: "#ef4444",
 };
 
-// ─── Stat config ───────────────────────────────────────────────────────────
-const STAT_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
-  atk: { icon: "ATK", label: "Tấn công", color: "#ef4444" },
-  hp:  { icon: "HP",  label: "Máu",     color: "#22c55e" },
-  def: { icon: "DEF", label: "Phòng thủ", color: "#3b82f6" },
-  spd: { icon: "SPD", label: "Tốc độ",  color: "#06b6d4" },
-  crt: { icon: "CRT", label: "Bạo kích", color: "#f59e0b" },
-  int: { icon: "INT", label: "Trí tuệ",  color: "#a855f7" },
+// ─── Stat config (translation key → config) ──────────────────────────────────
+const STAT_CONFIG: Record<string, { icon: string; key: string; color: string }> = {
+  atk: { icon: "ATK", key: "flashcards.stats.atk",   color: "#ef4444" },
+  hp:  { icon: "HP",  key: "flashcards.stats.hp",    color: "#22c55e" },
+  def: { icon: "DEF", key: "flashcards.stats.def",   color: "#3b82f6" },
+  spd: { icon: "SPD", key: "flashcards.stats.spd",   color: "#06b6d4" },
+  crt: { icon: "CRT", key: "flashcards.stats.crt",   color: "#f59e0b" },
+  int: { icon: "INT", key: "flashcards.stats.int",   color: "#a855f7" },
 };
 
 // ─── Card Avatar Circle ────────────────────────────────────────────────────
@@ -97,6 +99,13 @@ function RarityStars({ rarityId, size = 10 }: { rarityId: string; size?: number 
   );
 }
 
+// ─── Rarity Label (with i18n) ──────────────────────────────────────────
+function RarityLabel({ rarityId }: { rarityId: string }) {
+  const { t } = useTranslation();
+  const key = RARITY[rarityId]?.name || "cards.rarity.common";
+  return <>{t(key)}</>;
+}
+
 // ─── Level Badge ────────────────────────────────────────────────────────────
 function LevelBadge({ level }: { level: number }) {
   if (level <= 1) return null;
@@ -122,6 +131,7 @@ function PowerBadge({ power, size = "sm" }: { power: number; size?: "sm" | "lg" 
 
 // ─── Stat Bar ─────────────────────────────────────────────────────────
 function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?: number }) {
+  const { t } = useTranslation();
   const cfg = STAT_CONFIG[stat];
   const barPct = Math.min(100, (value / max) * 100);
   return (
@@ -129,7 +139,7 @@ function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?
       <div className="w-8 text-center text-[10px] font-black" style={{ color: cfg.color }}>{cfg.icon}</div>
       <div className="flex-1">
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{cfg.label}</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{t(cfg.key)}</span>
           <span className="text-[11px] font-black tabular-nums" style={{ color: cfg.color }}>{value}</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
@@ -150,6 +160,7 @@ function StatBar({ stat, value, max = 200 }: { stat: string; value: number; max?
 function CardTile({ card, level = 1, count = 1, selected = false, locked = false, inDeck = false, isNew = false, onClick }: {
   card: any; level?: number; count?: number; selected?: boolean; locked?: boolean; inDeck?: boolean; isNew?: boolean; onClick?: () => void;
 }) {
+  const { t } = useTranslation();
   const rs = RARITY[card.rarity.id] || RARITY.common;
   const ability = getCardAbility(card);
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
@@ -174,7 +185,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800">
             <Lock size={16} className="text-slate-500" />
           </div>
-          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Khóa</span>
+          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">{t("flashcards.locked")}</span>
         </div>
       </motion.button>
     );
@@ -247,7 +258,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
               </div>
             </div>
             {/* Name */}
-            <p className="line-clamp-1 text-center text-[9px] sm:text-[10px] font-black text-white leading-tight tracking-wide">{card.name}</p>
+            <p className="line-clamp-1 text-center text-[9px] sm:text-[10px] font-black text-white leading-tight tracking-wide">{tCardName(card.name)}</p>
             {/* Power */}
             <div className="flex items-center justify-center mt-0.5 gap-0.5">
               <Zap size={8} className="text-amber-400" />
@@ -290,7 +301,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
 
           {/* Stats panel */}
           <div className="flex flex-col h-full p-2 pt-3">
-            <p className="text-[9px] sm:text-[10px] font-black text-center text-white mb-1 leading-tight tracking-wide">{card.name}</p>
+            <p className="text-[9px] sm:text-[10px] font-black text-center text-white mb-1 leading-tight tracking-wide">{tCardName(card.name)}</p>
             {ability && (
               <div className="flex items-center justify-center gap-1 mb-1">
                 <span className="text-sm">{ability.icon}</span>
@@ -329,6 +340,7 @@ function CardTile({ card, level = 1, count = 1, selected = false, locked = false
 function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
   card: any; level: number; count: number; onClose: () => void; onAddDeck?: () => void;
 }) {
+  const { t } = useTranslation();
   const rs = RARITY[card.rarity.id] || RARITY.common;
   const ability = getCardAbility(card);
   const power = calcPower(card, level);
@@ -391,13 +403,13 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
                 <RarityStars rarityId={card.rarity.id} size={10} />
                 <span className="rounded-full px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider"
                   style={{ backgroundColor: rs.accent + "25", color: rs.accent, border: `1px solid ${rs.accent}60` }}>
-                  {rs.name}
+                  {t(rs.name)}
                 </span>
                 {level > 1 && <LevelBadge level={level} />}
               </div>
 
               {/* Name */}
-              <h3 className="text-base sm:text-xl font-black text-white leading-tight truncate">{card.name}</h3>
+              <h3 className="text-base sm:text-xl font-black text-white leading-tight truncate">{tCardName(card.name)}</h3>
               {card.subtitle && <p className="text-xs sm:text-sm text-slate-400 font-medium truncate">{card.subtitle}</p>}
 
               {/* Element + Power */}
@@ -433,7 +445,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
         {/* ── Stats Section ── */}
         <div className="px-4 sm:px-6 pb-4" style={{ background: `linear-gradient(180deg, ${rs.bgDark}, ${rs.bgDark}CC)` }}>
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chỉ số</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t("flashcards.stats")}</span>
             <span className="text-xs font-bold text-slate-300">Level {level}</span>
           </div>
           <div className="space-y-2">
@@ -491,6 +503,7 @@ function CardDetail({ card, level = 1, count = 1, onClose, onAddDeck }: {
 
 // ─── Gacha Reveal ──────────────────────────────────────────────────────────
 function GachaReveal({ result, onClose, pullCount = 0 }: { result: any; onClose: () => void; pullCount?: number }) {
+  const { t } = useTranslation();
   const [flipped, setFlipped] = useState(false);
   useEffect(() => { const t = setTimeout(() => setFlipped(true), 600); return () => clearTimeout(t); }, []);
   if (!result) return null;
@@ -548,7 +561,7 @@ function GachaReveal({ result, onClose, pullCount = 0 }: { result: any; onClose:
           className="mb-6 rounded-2xl px-8 py-3 text-center font-black uppercase tracking-[0.2em]"
           style={{ backgroundColor: rs.accent + "20", color: rs.accent, border: `2px solid ${rs.accent}60`, boxShadow: `0 0 40px ${rs.accent}40` }}
         >
-          {rs.name}!
+          {t(rs.name)}!
         </motion.div>
 
         {/* Pull count */}
@@ -579,7 +592,7 @@ function GachaReveal({ result, onClose, pullCount = 0 }: { result: any; onClose:
             </div>
             <div className="text-center">
               <RarityStars rarityId={result.rarity?.id ?? "common"} size={12} />
-              <h3 className="mt-2 text-xl font-black text-white">{result.name}</h3>
+              <h3 className="mt-2 text-xl font-black text-white">{tCardName(result.name)}</h3>
               {result.subtitle && <p className="text-xs text-white/50">{result.subtitle}</p>}
             </div>
 
@@ -622,7 +635,7 @@ function GachaReveal({ result, onClose, pullCount = 0 }: { result: any; onClose:
           transition={{ delay: 1.0 }}
           className={`mt-4 sm:mt-6 text-xs sm:text-base font-black ${result.isNew ? "text-amber-400" : "text-slate-400"}`}
         >
-          {result.isNew ? "Thẻ mới! Đã thêm vào bộ sưu tập" : "Bạn đã có thẻ này"}
+          {result.isNew ? t("flashcards.gacha.newCard") : t("flashcards.gacha.duplicate")}
         </motion.p>
 
         {/* Shards awarded for duplicate */}
@@ -633,13 +646,13 @@ function GachaReveal({ result, onClose, pullCount = 0 }: { result: any; onClose:
             className="mt-2 flex items-center gap-1.5 rounded-full bg-purple-500/30 border border-purple-500/50 px-3 py-1"
           >
             <Cpu size={12} className="text-purple-400" />
-            <span className="text-xs font-black text-purple-300">+{result.shardsAwarded} Mảnh Ghép</span>
+            <span className="text-xs font-black text-purple-300">{t("flashcards.shardCount", { count: result.shardsAwarded })}</span>
           </motion.div>
         )}
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}>
           <Button onClick={onClose} size="lg" className="mt-3 px-10 font-bold bg-white text-slate-900 hover:bg-slate-100">
-            {result.isNew ? "Thu thập" : "Đóng"}
+            {result.isNew ? t("flashcards.gacha.collect") : t("common.close")}
           </Button>
         </motion.div>
       </div>
@@ -658,6 +671,26 @@ interface Props {
 }
 
 export function Flashcards({ onReward, onSpend, points = 0, userId, progress, onRefresh }: Props) {
+  const { t } = useTranslation();
+
+  // ─── Rarity & stat labels (computed from translations) ──────────────────
+  const rarityLabels = {
+    common:    { name: t("cards.rarity.common"),    shortName: "PT", accent: "#94a3b8", bgLight: "#f8fafc", bgDark: "#1e293b", border: "border-slate-400/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-700", badgeText: "text-slate-300", shimmer: false, starCount: 1 },
+    rare:      { name: t("cards.rarity.rare"),       shortName: "HM", accent: "#3b82f6", bgLight: "#1e3a8a", bgDark: "#1e3a8a", border: "border-blue-500/60", glow: "shadow-blue-400/40", badgeBg: "bg-blue-600", badgeText: "text-blue-100", shimmer: false, starCount: 2 },
+    uncommon:  { name: t("cards.rarity.uncommon"),   shortName: "T",  accent: "#64748b", bgLight: "#1e293b", bgDark: "#1e293b", border: "border-slate-500/50", glow: "shadow-slate-400/30", badgeBg: "bg-slate-600", badgeText: "text-slate-200", shimmer: false, starCount: 1 },
+    epic:      { name: t("cards.rarity.epic"),        shortName: "SH", accent: "#a855f7", bgLight: "#581c87", bgDark: "#581c87", border: "border-purple-500/70", glow: "shadow-purple-400/50", badgeBg: "bg-purple-600", badgeText: "text-purple-100", shimmer: true, starCount: 3 },
+    legendary: { name: t("cards.rarity.legendary"),   shortName: "HT", accent: "#f59e0b", bgLight: "#78350f", bgDark: "#78350f", border: "border-amber-400/80", glow: "shadow-amber-400/60", badgeBg: "bg-amber-600", badgeText: "text-amber-100", shimmer: true, starCount: 4 },
+  };
+
+  const statLabels = {
+    atk: { icon: "ATK", label: t("cards.stat.atk"), color: "#ef4444" },
+    hp:  { icon: "HP",  label: t("cards.stat.hp"),  color: "#22c55e" },
+    def: { icon: "DEF", label: t("cards.stat.def"), color: "#3b82f6" },
+    spd: { icon: "SPD", label: t("cards.stat.spd"), color: "#06b6d6" },
+    crt: { icon: "CRT", label: t("cards.stat.crt"), color: "#f59e0b" },
+    int: { icon: "INT", label: t("cards.stat.int"), color: "#a855f7" },
+  };
+
   // ─── State ───────────────────────────────────────────────────────────
   const [unlockedCards, setUnlockedCards] = useState<number[]>([]);
   const [gachaResult, setGachaResult] = useState<any>(null);
@@ -758,14 +791,20 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     }
   };
 
-  // ─── Daily Challenge Card ─────────────────────────────────────────
-  // ─── Daily Challenge System ───────────────────────────────────────
-  const CHALLENGE_TYPES = [
-    { id: "multi_element",  label: "3 Nguyên Tố Khác Nhau",  desc: "Chiến thắng với 3 nguyên tố khác nhau trong đội",    reward: 150, icon: "🎨" },
-    { id: "speed_win",      label: "Thắng Nhanh",            desc: "Chiến thắng trong 5 lượt hoặc ít hơn",                reward: 100, icon: "⚡" },
-    { id: "no_damage",      label: "Không Nhận Sát Thương",   desc: "Chiến thắng mà không nhận sát thương nào",           reward: 200, icon: "🛡️" },
-    { id: "ko_all",         label: "Hạ Gục Tất Cả",          desc: "Hạ gục cả 3 boss trong một trận đấu",                reward: 180, icon: "💀" },
-    { id: "epic_win",       label: "Thắng Bằng Thẻ Siêu Hiếm", desc: "Chiến thắng chỉ dùng thẻ Siêu Hiếm hoặc Huyền Thoại", reward: 250, icon: "🌟" },
+  const challengeTypes = [
+    { id: "multi_element",  label: t("flashcards.challenge.multiElement"),  desc: t("flashcards.challenge.multiElementDesc"), reward: 150, icon: "🎨" },
+    { id: "speed_win",      label: t("flashcards.challenge.speedWin"),   desc: t("flashcards.challenge.speedWinDesc"),   reward: 100, icon: "⚡" },
+    { id: "no_damage",     label: t("flashcards.challenge.noDamage"),   desc: t("flashcards.challenge.noDamageDesc"),  reward: 200, icon: "🛡️" },
+    { id: "ko_all",        label: t("flashcards.challenge.koAll"),      desc: t("flashcards.challenge.koAllDesc"),    reward: 180, icon: "💀" },
+    { id: "epic_win",      label: t("flashcards.challenge.epicWin"),    desc: t("flashcards.challenge.epicWinDesc"),  reward: 250, icon: "🌟" },
+  ];
+
+  const achievements = [
+    { id: "multi_element",  label: t("flashcards.challenge.multiElement"),  desc: t("flashcards.challenge.multiElementDesc"), reward: 150, icon: "🎨" },
+    { id: "speed_win",      label: t("flashcards.challenge.speedWin"),   desc: t("flashcards.challenge.speedWinDesc"),   reward: 100, icon: "⚡" },
+    { id: "no_damage",     label: t("flashcards.challenge.noDamage"),   desc: t("flashcards.challenge.noDamageDesc"),  reward: 200, icon: "🛡️" },
+    { id: "ko_all",        label: t("flashcards.challenge.koAll"),      desc: t("flashcards.challenge.koAllDesc"),    reward: 180, icon: "💀" },
+    { id: "epic_win",      label: t("flashcards.challenge.epicWin"),    desc: t("flashcards.challenge.epicWinDesc"),  reward: 250, icon: "🌟" },
   ];
 
   const getDailyChallenge = () => {
@@ -780,20 +819,24 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     if (unlockedCards.length === 0) return null;
     const cardIdx = Math.floor(Math.random() * unlockedCards.length);
     const cardId = unlockedCards[cardIdx];
-    const challengeIdx = Math.floor(Math.random() * CHALLENGE_TYPES.length);
+    const challengeIdx = Math.floor(Math.random() * challengeTypes.length);
     const challenge = {
       date: today,
       cardId,
       buff: 2,
-      type: CHALLENGE_TYPES[challengeIdx].id,
-      reward: CHALLENGE_TYPES[challengeIdx].reward,
+      type: challengeTypes[challengeIdx].id,
+      reward: challengeTypes[challengeIdx].reward,
     };
     localStorage.setItem("dailyChallenge", JSON.stringify(challenge));
     return challenge;
   };
 
   const dailyChallenge = getDailyChallenge();
-  const activeChallengeInfo = dailyChallenge ? CHALLENGE_TYPES.find((c) => c.id === dailyChallenge.type) : null;
+  const activeChallengeInfo = dailyChallenge ? challengeTypes.find((c) => c.id === dailyChallenge.type) : null;
+
+  // ─── Rarity name helper ───────────────────────────────────────────
+  const getRarityName = (rid: string) => rarityLabels[rid as keyof typeof rarityLabels]?.name || rid;
+  const getRarityKey = (rid: string) => `cards.rarity.${rid}`;
 
   // ─── Helpers ───────────────────────────────────────────────────────
   const getCardCount = (id: number) => {
@@ -958,14 +1001,14 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       const data = await res.json();
       if (data.success) {
         setFuseAnimCard({ card: { ...card, level: getCardLevel(cardId) }, xpGained: data.xpGained || getFusedXp(card.atk + card.hp) });
-        setFuseMsg(`Hợp nhất thành công! +${data.xpGained || getFusedXp(card.atk + card.hp)} EXP`);
-        if (onSpend) onSpend(data.xpGained || getFusedXp(card.atk + card.hp), "Hợp nhất thẻ");
+        setFuseMsg(t("flashcards.fusionSuccess", { exp: data.xpGained || getFusedXp(card.atk + card.hp) }));
+        if (onSpend) onSpend(data.xpGained || getFusedXp(card.atk + card.hp), t("flashcards.fusing"));
         await refreshProgress();
         fetchCardLevels();
       } else {
-        setFuseMsg(data.error || "Thất bại.");
+        setFuseMsg(data.error || t("common.failed"));
       }
-    } catch { setFuseMsg("Lỗi kết nối."); }
+    } catch { setFuseMsg(t("common.connectionError")); }
     setFusing(false);
     setTimeout(() => setFuseMsg(null), 4000);
   };
@@ -976,7 +1019,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
     const card = ALL_CARDS.find((c) => c.id === cardId);
     if (!card) { setLevelingUp(false); return; }
     const cost = getXpForLevel(getCardLevel(cardId) + 1);
-    if (points < cost) { setLevelupMsg("Không đủ EXP!"); setLevelingUp(false); return; }
+    if (points < cost) { setLevelupMsg(t("flashcards.levelup.notEnough")); setLevelingUp(false); return; }
     try {
       const res = await fetch("/api/cards/levelup", {
         method: "POST",
@@ -988,18 +1031,18 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         let bonusXp = 0;
         if (dailyChallenge && cardId === dailyChallenge.cardId) {
           bonusXp = Math.floor(cost);
-          setLevelupMsg(`Nâng cấp thành công lên Lv.${data.newLevel}! +${bonusXp} bonus EXP (Challenge)!`);
-          if (onSpend) onSpend(cost - bonusXp, "Nâng cấp thẻ");
+          setLevelupMsg(t("flashcards.levelup.successWithBonus", { level: data.newLevel, exp: bonusXp }));
+          if (onSpend) onSpend(cost - bonusXp, t("flashcards.levelup.upgrading"));
         } else {
-          setLevelupMsg(`Nâng cấp thành công lên Lv.${data.newLevel}!`);
-          if (onSpend) onSpend(cost, "Nâng cấp thẻ");
+          setLevelupMsg(t("flashcards.levelup.success", { level: data.newLevel }));
+          if (onSpend) onSpend(cost, t("flashcards.levelup.upgrading"));
         }
         await fetchCardLevels();
         if (onRefresh) onRefresh();
       } else {
-        setLevelupMsg(data.error || "Thất bại.");
+        setLevelupMsg(data.error || t("common.failed"));
       }
-    } catch { setLevelupMsg("Lỗi kết nối."); }
+    } catch { setLevelupMsg(t("common.connectionError")); }
     setLevelingUp(false);
     setTimeout(() => setLevelupMsg(null), 4000);
   };
@@ -1032,7 +1075,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-xs font-black text-white">{card.name}</p>
+            <p className="truncate text-xs font-black text-white">{tCardName(card.name)}</p>
             {level > 1 && <LevelBadge level={level} />}
           </div>
           <div className="flex items-center gap-2">
@@ -1058,15 +1101,15 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   }
 
   // ─── Render ─────────────────────────────────────────────────────────
-  const TABS: { id: Section; label: string; icon: React.ReactNode }[] = [
-    { id: "collection", label: "Bộ sưu tập", icon: <Layers size={13} /> },
-    { id: "fusion",    label: "Hợp nhất",   icon: <GitMerge size={13} /> },
-    { id: "levelup",   label: "Lên cấp",    icon: <ArrowUp size={13} /> },
-    { id: "practice",  label: "Luyện tập",   icon: <Brain size={13} /> },
-    { id: "gacha",     label: "Mở gói",       icon: <Sparkles size={13} /> },
-    { id: "battle",    label: "Đấu trường",   icon: <Swords size={13} /> },
-    { id: "roguelike",  label: "Sinh Tồn",     icon: <Skull size={13} /> },
-    { id: "shards",    label: "Mảnh ghép",    icon: <Cpu size={13} /> },
+  const TABS: { id: Section; key: string; icon: React.ReactNode }[] = [
+    { id: "collection", key: "flashcards.tabs.collection", icon: <Layers size={13} /> },
+    { id: "fusion",    key: "flashcards.tabs.fusion",    icon: <GitMerge size={13} /> },
+    { id: "levelup",   key: "flashcards.tabs.levelup",   icon: <ArrowUp size={13} /> },
+    { id: "practice",  key: "flashcards.tabs.practice",  icon: <Brain size={13} /> },
+    { id: "gacha",     key: "flashcards.tabs.gacha",     icon: <Sparkles size={13} /> },
+    { id: "battle",    key: "flashcards.tabs.battle",    icon: <Swords size={13} /> },
+    { id: "roguelike",  key: "flashcards.tabs.roguelike", icon: <Skull size={13} /> },
+    { id: "shards",    key: "flashcards.tabs.shards",    icon: <Cpu size={13} /> },
   ];
 
   // ─── Shard Shop ────────────────────────────────────────────────────
@@ -1106,17 +1149,17 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       if (data.success) {
         setShardCount(data.shardsRemaining ?? 0);
         if (data.xpAwarded) {
-          setShardMsg(`+${data.xpAwarded} EXP đã được thêm!`);
+          setShardMsg(t("flashcards.xpAdded", { exp: data.xpAwarded }));
         } else if (data.card) {
           const id = Number(data.card.id);
           setUnlockedCards((prev) => prev.includes(id) ? prev : [...prev, id]);
-          setShardMsg(data.isNew ? "Thẻ mới đã được thêm vào bộ sưu tập!" : "Thẻ đã được thêm vào bộ sưu tập!");
+          setShardMsg(data.isNew ? t("flashcards.newCardAdded") : t("flashcards.cardAdded"));
         }
         if (onRefresh) onRefresh(data.progress);
       } else {
-        setShardMsg(data.error || "Mua thất bại.");
+        setShardMsg(data.error || t("flashcards.purchaseFailed"));
       }
-    } catch { setShardMsg("Lỗi kết nối."); }
+    } catch { setShardMsg(t("common.connectionError")); }
     setTimeout(() => setShardMsg(null), 3500);
   };
 
@@ -1127,7 +1170,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
       <div className="flex-shrink-0 border-b border-slate-700 bg-slate-900 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 sm:pb-3">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
-            <Badge tone="accent">Thẻ bài</Badge>
+            <Badge tone="accent">{t("flashcards.cards")}</Badge>
             <span className="text-xs sm:text-sm font-medium text-slate-400 whitespace-nowrap">{collectedCount}/{totalCards}</span>
             {collectionPower > 0 && <PowerBadge power={collectionPower} />}
             {fuseableCount > 0 && (
@@ -1149,7 +1192,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           <button
             onClick={() => setSelectedElement(null)}
             className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === null ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}
-          >Tất cả</button>
+          >{t("flashcards.categories.all")}</button>
           {Array.isArray(ELEMENTS) && ELEMENTS.map((el) => (
             <button
               key={el.id}
@@ -1168,7 +1211,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm thẻ theo tên..."
+              placeholder={t("flashcards.searchPlaceholder") || "Tìm thẻ theo tên..."}
               className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 pl-9 text-sm font-medium text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
             />
           </div>
@@ -1184,10 +1227,28 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
           </select>
         </div>
 
+        {/* Collection Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: t('collection.totalCards') || 'Total Cards', value: '420', color: 'text-white' },
+            { label: t('collection.uniqueCards') || 'Unique Cards', value: String(unlockedCards.length), color: 'text-emerald-400' },
+            { label: t('collection.shinyCards') || 'Shiny Cards', value: String(unlockedCards.filter((id: number) => {
+              const card = ALL_CARDS.find((c) => c.id === id);
+              return card && card.rarity.id === 'legendary';
+            }).length), color: 'text-amber-400' },
+            { label: t('campaign.totalStars') || 'Total Stars', value: String(userProgress?.totalStars || 0), color: 'text-blue-400' },
+          ].map(stat => (
+            <div key={stat.label} className="rounded-xl bg-white/5 p-3 text-center">
+              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+              <p className="text-xs text-white/50 mt-1">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Collection progress map */}
         <div className="mt-2 p-3 rounded-2xl bg-black/60 border border-slate-700">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bộ sưu tập</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t("flashcards.collection.title")}</span>
             <span className="text-[10px] font-black text-white tabular-nums">
               {collectedCount}/{totalCards}
             </span>
@@ -1254,7 +1315,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                   </div>
                   <div className="text-right hidden sm:block">
                     <p className="text-[10px] font-bold text-white/60">Thẻ nền</p>
-                    <p className="text-[10px] font-black text-white leading-tight">{challengeCard.name}</p>
+                    <p className="text-[10px] font-black text-white leading-tight">{tCardName(challengeCard.name)}</p>
                   </div>
                 </div>
               </div>
@@ -1286,7 +1347,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               }`}
             >
               {tab.icon}
-              <span>{tab.label}</span>
+              <span>{t(tab.key)}</span>
             </button>
           ))}
         </div>
@@ -1303,7 +1364,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               <div className="flex flex-wrap items-center gap-1.5">
                 <button onClick={() => setFilterRarity("all")}
                   className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${filterRarity === "all" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}>
-                  Tất cả
+                  {t("flashcards.categories.all")}
                 </button>
                 {RARITY_ORDER.map((rid) => (
                   <button key={rid} onClick={() => setFilterRarity(rid)}
@@ -1311,13 +1372,13 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                       filterRarity === rid ? "text-white" : "text-slate-400 bg-slate-800 border-slate-700 hover:bg-slate-700"
                     }`}
                     style={filterRarity === rid ? { backgroundColor: RARITY[rid].accent, borderColor: RARITY[rid].accent } : {}}>
-                    {RarityStars && <RarityStars rarityId={rid} size={8} />} {RARITY[rid].name}
+                    {RarityStars && <RarityStars rarityId={rid} size={8} />} {t(getRarityKey(rid))}
                   </button>
                 ))}
                 <button onClick={() => setShowLocked(!showLocked)}
                   className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${showLocked ? "bg-slate-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}>
                   <Lock size={10} className="inline mr-1" />
-                  {showLocked ? "Ẩn khóa" : "Hiện khóa"}
+                  {showLocked ? t("flashcards.hideLocked") : t("flashcards.showLocked")}
                 </button>
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}
                   className="ml-auto rounded-xl border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500 cursor-pointer">
@@ -1330,7 +1391,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               <div className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-0.5">
                 <button onClick={() => setFilterElement("all")}
                   className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${filterElement === "all" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 border border-slate-700"}`}>
-                  Tất cả
+                  {t("flashcards.categories.all")}
                 </button>
                 {Array.isArray(ELEMENTS) && ELEMENTS.map((el) => (
                   <button key={el.id} onClick={() => setFilterElement(el.id)}
@@ -1345,7 +1406,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             <p className="text-[10px] sm:text-xs text-slate-500">{displayCards.length} thẻ · {collectedCount} đã mở</p>
 
             {displayCards.length === 0 ? (
-              <EmptyState icon={<Layers size={40} className="text-slate-600" />} title="Không có thẻ" subtitle="Thử thay đổi bộ lọc." />
+              <EmptyState icon={<Layers size={40} className="text-slate-600" />} title={t("flashcards.noCards")} subtitle={t("flashcards.tryChangingFilter")} />
             ) : (
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 overflow-x-auto pb-3 thin-scrollbar">
                 {displayCards.map((card) => {
@@ -1434,7 +1495,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                     />
                   </div>
                   <div className="text-center z-10">
-                    <p className="text-2xl font-black text-white">{fuseAnimCard.card.name}</p>
+                    <p className="text-2xl font-black text-white">{tCardName(fuseAnimCard.card.name)}</p>
                     <p className="text-amber-300 font-bold">Hợp nhất thành công!</p>
                   </div>
                 </motion.div>
@@ -1988,7 +2049,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             {/* Pity progress */}
             <div className="w-full max-w-xs space-y-2">
               <div className="flex items-center justify-between text-[10px]">
-                <span className="font-bold text-purple-400">Cần {PITY_EPIC - (pullCount % PITY_EPIC)} lượt để guaranteed Siêu Hiếm</span>
+                <span className="font-bold text-purple-400">{t("flashcards.pity.epic", { n: PITY_EPIC - (pullCount % PITY_EPIC) })}</span>
                 <span className="text-slate-500">{pullCount % PITY_EPIC}/{PITY_EPIC}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-800">
@@ -1999,7 +2060,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                 />
               </div>
               <div className="flex items-center justify-between text-[10px]">
-                <span className="font-bold text-amber-400">Cần {PITY_LEGENDARY - (pullCount % PITY_LEGENDARY)} lượt để guaranteed Huyền Thoại</span>
+                <span className="font-bold text-amber-400">{t("flashcards.pity.legendary", { n: PITY_LEGENDARY - (pullCount % PITY_LEGENDARY) })}</span>
                 <span className="text-slate-500">{pullCount % PITY_LEGENDARY}/{PITY_LEGENDARY}</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
@@ -2215,7 +2276,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                       style={{ aspectRatio: "3/4", background: inDeck ? rs.bgDark : rs.bgDark + "99" }}
                     >
                       <CardAvatar elementId={card.element.id} size={36} />
-                      <p className="mt-1 line-clamp-1 text-center text-[8px] font-bold text-white leading-tight">{card.name}</p>
+                      <p className="mt-1 line-clamp-1 text-center text-[8px] font-bold text-white leading-tight">{tCardName(card.name)}</p>
                       <RarityStars rarityId={card.rarity.id} size={6} />
                       {inDeck && (
                         <div className="absolute -left-0.5 -top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
@@ -2355,7 +2416,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base sm:text-lg font-black text-white">Cửa Hàng Mảnh Ghép</h3>
+                <h3 className="text-base sm:text-lg font-black text-white">{t("flashcards.shop.title")}</h3>
                 <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Đổi bản sao thừa lấy mảnh ghép</p>
               </div>
               <div className="flex items-center gap-2 rounded-full bg-purple-500/20 border border-purple-500/40 px-3 py-1.5">
@@ -2380,8 +2441,8 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
               <div className="flex items-start gap-2">
                 <Info size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
                 <div className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
-                  <p>Khi bạn mở một <span className="text-purple-400 font-bold">bản sao</span> (thẻ đã có), nó sẽ được chuyển thành <span className="text-amber-400 font-bold">3 Mảnh Ghép</span>.</p>
-                  <p className="mt-1">Dùng mảnh ghép để mua thẻ hiếm hoặc vật phẩm nâng cấp!</p>
+                  <p>{t("flashcards.shop.duplicateHint")}</p>
+                  <p className="mt-1">{t("flashcards.shop.upgradeHint")}</p>
                 </div>
               </div>
             </div>
@@ -2431,9 +2492,9 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                         {item.cost}
                       </div>
                       {canAfford ? (
-                        <span className="text-[9px] text-emerald-400 font-bold">Mua</span>
+                        <span className="text-[9px] text-emerald-400 font-bold">{t("common.buy")}</span>
                       ) : (
-                        <span className="text-[9px] text-slate-600 font-bold">Không đủ</span>
+                        <span className="text-[9px] text-slate-600 font-bold">{t("flashcards.shard.notEnough")}</span>
                       )}
                     </div>
                   </motion.div>
@@ -2447,7 +2508,7 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
                 <p className="text-[10px] sm:text-xs text-purple-400">
                   Bạn có <span className="font-black text-purple-300">{duplicateCount}</span> bản sao thẻ có thể chuyển đổi
                 </p>
-                <p className="text-[9px] text-purple-500/60 mt-0.5">Mỗi bản sao = 3 Mảnh Ghép</p>
+                <p className="text-[9px] text-purple-500/60 mt-0.5">{t("flashcards.shop.hint")}</p>
               </div>
             )}
           </div>

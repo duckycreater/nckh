@@ -180,8 +180,9 @@ button:disabled {
 .hero-panel {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(145deg, #0f1720, #12372f 56%, #0f8f68);
-  box-shadow: var(--shadow-strong);
+  background: linear-gradient(145deg, #f0faf6, #d1fae5 56%, #a7f3d0);
+  box-shadow: var(--shadow-soft);
+  color: #065f46;
 }
 
 .hero-panel::after {
@@ -189,10 +190,15 @@ button:disabled {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at top left, rgba(255,255,255,0.12), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(190,242,220,0.18), transparent 28%);
+    radial-gradient(circle at top left, rgba(255,255,255,0.5), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(16,185,129,0.08), transparent 35%);
   pointer-events: none;
 }
+
+.hero-panel .page-title {
+  color: #064e3b;
+}
+
 
 .page-section {
   padding: var(--space-section);
@@ -302,16 +308,7 @@ button:disabled {
   100% { transform: translateY(100%); opacity: 0; }
 }
 
-@keyframes card-shimmer-glow {
-  0%, 100% { box-shadow: 0 0 20px var(--glow-color, #f59e0b40); }
-  50% { box-shadow: 0 0 40px var(--glow-color, #f59e0b80), 0 0 60px var(--glow-color, #f59e0b30); }
-}
-
-@keyframes battle-vignette-danger {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
+/* ─── Utility animation classes ─────────────────────────────────────────── */
 @keyframes card-flip-in {
   0% { transform: perspective(1000px) rotateY(-90deg) scale(0.8); opacity: 0; }
   50% { transform: perspective(1000px) rotateY(-45deg) scale(0.95); opacity: 0.7; }
@@ -365,13 +362,6 @@ button:disabled {
   100% { transform: rotate(0deg) translateY(0); }
 }
 
-@keyframes fusion-burst {
-  0%   { transform: scale(0) rotate(0deg); opacity: 0; }
-  40%  { transform: scale(1.2) rotate(180deg); opacity: 1; }
-  70%  { transform: scale(0.95) rotate(360deg); opacity: 1; }
-  100% { transform: scale(1) rotate(360deg); opacity: 1; }
-}
-
 @keyframes level-track {
   0%   { transform: translateX(0) scaleX(1); }
   50%  { transform: translateX(10px) scaleX(1.05); }
@@ -398,14 +388,6 @@ button:disabled {
   animation: scan-line 2.5s ease-in-out infinite;
 }
 
-.card-shimmer-glow {
-  animation: card-shimmer-glow 2s ease-in-out infinite;
-}
-
-.battle-vignette-danger {
-  animation: battle-vignette-danger 1.5s ease-in-out infinite;
-}
-
 .turn-sweep {
   animation: turn-sweep 0.8s ease-out forwards;
 }
@@ -414,16 +396,8 @@ button:disabled {
   animation: card-fan-hover 0.4s ease-in-out;
 }
 
-.fusion-burst {
-  animation: fusion-burst 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
 .level-track {
   animation: level-track 0.6s ease-in-out;
-}
-
-.perfection-burst {
-  animation: perfection-burst 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .boss-intro-anim {
@@ -470,3 +444,186 @@ button:disabled {
 .card-grid-item:hover ~ .card-grid-item:nth-child(3n) {
   transform: translateY(-4px) rotate(-1deg) scale(1.01);
 }
+
+/* ─── Rarity Animation Classes ─────────────────────────────────────────── */
+.rarity-uncommon-shimmer {
+  animation: rarity-uncommon-shimmer 2s ease-in-out infinite;
+}
+
+.rarity-mythical-pulse {
+  animation: rarity-mythical-pulse 3s ease-in-out infinite;
+}
+
+.rarity-event-glitch {
+  animation: rarity-event-glitch 0.5s ease-in-out infinite;
+}
+
+.rarity-legendary-shimmer {
+  background: linear-gradient(90deg,
+    rgba(245, 158, 11, 0.1) 0%,
+    rgba(251, 191, 36, 0.2) 25%,
+    rgba(245, 158, 11, 0.1) 50%,
+    rgba(251, 191, 36, 0.2) 75%,
+    rgba(245, 158, 11, 0.1) 100%);
+  background-size: 200% 100%;
+  animation: legendary-shimmer 3s ease-in-out infinite;
+}
+
+.rarity-mythical-stardust {
+  animation: mythical-stardust 2s ease-in-out infinite;
+}
+
+.rarity-event-rainbow {
+  animation: event-rainbow-border 3s linear infinite;
+}
+
+/* ─── Rarity Animation Keyframes ─────────────────────────────────────────── */
+@keyframes rarity-uncommon-shimmer {
+  0%, 100% { box-shadow: 0 0 8px #10b981, inset 0 0 8px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 16px #10b981, inset 0 0 16px rgba(16, 185, 129, 0.4); }
+}
+
+@keyframes rarity-mythical-pulse {
+  0% { box-shadow: 0 0 8px #dc2626, 0 0 16px #f59e0b; }
+  25% { box-shadow: 0 0 8px #f59e0b, 0 0 16px #dc2626; }
+  50% { box-shadow: 0 0 8px #7c3aed, 0 0 16px #dc2626; }
+  75% { box-shadow: 0 0 8px #dc2626, 0 0 16px #7c3aed; }
+  100% { box-shadow: 0 0 8px #dc2626, 0 0 16px #f59e0b; }
+}
+
+@keyframes rarity-event-glitch {
+  0%, 100% { transform: translate(0, 0); filter: hue-rotate(0deg); }
+  20% { transform: translate(-1px, 1px); filter: hue-rotate(30deg); }
+  40% { transform: translate(1px, -1px); filter: hue-rotate(60deg); }
+  60% { transform: translate(-1px, 0); filter: hue-rotate(90deg); }
+  80% { transform: translate(1px, 1px); filter: hue-rotate(120deg); }
+}
+
+@keyframes legendary-shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes mythical-stardust {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.02); }
+}
+
+@keyframes event-rainbow-border {
+  0% { border-color: #ef4444; }
+  14% { border-color: #f97316; }
+  28% { border-color: #eab308; }
+  42% { border-color: #22c55e; }
+  57% { border-color: #06b6d4; }
+  71% { border-color: #3b82f6; }
+  85% { border-color: #8b5cf6; }
+  100% { border-color: #ef4444; }
+}
+
+/* ─── PACK OPENING / COLLECTION REVEAL ─── */
+@keyframes card-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── DOPAMINE SCREEN EFFECTS ─── */
+@keyframes screen-flash-green {
+  0% { opacity: 0; }
+  10% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
+@keyframes screen-flash-blue {
+  0% { opacity: 0; }
+  10% { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
+@keyframes screen-flash-purple {
+  0% { opacity: 0; }
+  10% { opacity: 0.7; }
+  30% { opacity: 0.3; }
+  100% { opacity: 0; }
+}
+
+@keyframes screen-flash-gold {
+  0% { opacity: 0; }
+  10% { opacity: 0.8; }
+  30% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+@keyframes screen-flash-rainbow {
+  0% { opacity: 0; background-position: 0% 50%; }
+  15% { opacity: 1; background-position: 20% 50%; }
+  35% { opacity: 0.7; background-position: 40% 50%; }
+  55% { opacity: 1; background-position: 60% 50%; }
+  75% { opacity: 0.7; background-position: 80% 50%; }
+  100% { opacity: 0; background-position: 100% 50%; }
+}
+
+@keyframes shockwave {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+@keyframes screen-shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-8px) rotate(-0.5deg); }
+  20% { transform: translateX(8px) rotate(0.5deg); }
+  30% { transform: translateX(-6px) rotate(-0.3deg); }
+  40% { transform: translateX(6px) rotate(0.3deg); }
+  50% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+@keyframes lens-flare-burst {
+  0% { transform: scale(0) rotate(0deg); opacity: 0; }
+  20% { transform: scale(0.5) rotate(45deg); opacity: 1; }
+  100% { transform: scale(3) rotate(180deg); opacity: 0; }
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes sparkle-burst {
+  0% { transform: scale(0); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-80px); opacity: 0; }
+}
+
+/* ─── UTILITY CLASSES FOR DOPAMINE EFFECTS ─── */
+.screen-flash-green {
+  animation: screen-flash-green 0.8s ease-out forwards;
+}
+.screen-flash-blue {
+  animation: screen-flash-blue 1s ease-out forwards;
+}
+.screen-flash-purple {
+  animation: screen-flash-purple 1.2s ease-out forwards;
+}
+.screen-flash-gold {
+  animation: screen-flash-gold 1.5s ease-out forwards;
+}
+.screen-flash-rainbow {
+  animation: screen-flash-rainbow 2s ease-out forwards;
+}
+.screen-shake {
+  animation: screen-shake 0.6s ease-out;
+}
+.rarity-uncommon { animation: rarity-uncommon-shimmer 2s ease-in-out infinite; }
+.rarity-mythical { animation: rarity-mythical-pulse 3s ease-in-out infinite; }
+.rarity-event { animation: rarity-event-glitch 2s ease-in-out infinite; }
+.rarity-legendary-shimmer { animation: legendary-shimmer 3s linear infinite; }
+

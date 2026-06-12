@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { User } from "../types";
+import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../lib/i18n";
+import { Globe } from "lucide-react";
 
 interface SettingsProps {
   user: User;
@@ -21,7 +24,9 @@ const FRAMES = [
 const ALL_PURCHASE_IDS = ["av1", "av2", "av3", "fr1", "fr2", "fr3"];
 
 export function Settings({ user, onUpdate }: SettingsProps) {
-  const [activeTab, setActiveTab] = useState<"appearance" | "name" | "password">("appearance");
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<"appearance" | "name" | "password" | "language">("appearance");
+  const [lang, setLang] = useState<LanguageCode>(getCurrentLanguage());
   const [savingPref, setSavingPref] = useState(false);
   const [prefMsg, setPrefMsg] = useState("");
 
@@ -154,19 +159,47 @@ export function Settings({ user, onUpdate }: SettingsProps) {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Tab navigation */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        {(["appearance", "name", "password"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === tab
-                ? "bg-white text-emerald-600 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {tab === "appearance" ? "Hiển thị" : tab === "name" ? "Tên" : "Mật khẩu"}
-          </button>
-        ))}
+        <button
+          onClick={() => setActiveTab("appearance")}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+            activeTab === "appearance"
+              ? "bg-white text-emerald-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {t("settings.display")}
+        </button>
+        <button
+          onClick={() => setActiveTab("name")}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+            activeTab === "name"
+              ? "bg-white text-emerald-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {t("settings.displayName")}
+        </button>
+        <button
+          onClick={() => setActiveTab("password")}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+            activeTab === "password"
+              ? "bg-white text-emerald-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {t("settings.password")}
+        </button>
+        <button
+          onClick={() => setActiveTab("language")}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === "language"
+              ? "bg-white text-emerald-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <Globe size={15} />
+          <span>Ngôn ngữ</span>
+        </button>
       </div>
 
       {/* Appearance tab */}
@@ -364,6 +397,40 @@ export function Settings({ user, onUpdate }: SettingsProps) {
               Đổi Mật Khẩu
             </button>
           </form>
+        </div>
+      )}
+
+      {/* Language tab */}
+      {activeTab === "language" && (
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Ngôn ngữ</h3>
+            <p className="text-xs text-gray-500 mb-4">Chọn ngôn ngữ hiển thị cho ứng dụng.</p>
+            <div className="space-y-2">
+              {LANGUAGES.map((language) => (
+                <button
+                  key={language.code}
+                  onClick={() => {
+                    changeLanguage(language.code);
+                    setLang(language.code);
+                  }}
+                  className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    lang === language.code
+                      ? "border-emerald-500 bg-emerald-50"
+                      : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="text-2xl">{language.flag}</span>
+                  <div className="text-left">
+                    <div className="font-bold text-gray-900">{language.label}</div>
+                  </div>
+                  {lang === language.code && (
+                    <span className="ml-auto bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

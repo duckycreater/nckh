@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Loader2, Sparkles, X } from "lucide-react";
 
 export interface ApiState<T> {
@@ -275,6 +276,7 @@ export function SkeletonRow({ className = "" }: { className?: string }) {
 }
 
 export function ErrorRetry({ message, onRetry, title = "Có lỗi xảy ra" }: { message?: string; onRetry: () => void; title?: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
       <div className="rounded-full bg-[var(--danger-soft)] p-3 text-[var(--danger)]">
@@ -282,21 +284,22 @@ export function ErrorRetry({ message, onRetry, title = "Có lỗi xảy ra" }: {
       </div>
       <div className="space-y-1">
         <p className="text-base font-black text-[var(--text-primary)]">{title}</p>
-        <p className="text-sm font-medium text-[var(--text-muted)]">{message || "Vui lòng thử lại sau ít phút."}</p>
+        <p className="text-sm font-medium text-[var(--text-muted)]">{message || t("common.errorRetry")}</p>
       </div>
-      <Button onClick={onRetry} variant="secondary">Thử lại</Button>
+      <Button onClick={onRetry} variant="secondary">{t("common.tryAgain")}</Button>
     </div>
   );
 }
 
 export function LoadingSpinner({ message = "Đang tải...", subtitle }: { message?: string; subtitle?: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)] shadow-sm">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-[var(--text-secondary)]">{message}</p>
+        <p className="text-sm font-semibold text-[var(--text-secondary)]">{message || t("common.loading")}</p>
         {subtitle && <p className="mt-1 text-xs text-[var(--text-muted)]">{subtitle}</p>}
       </div>
     </div>
@@ -343,12 +346,12 @@ export function AppScreenShell({
 }) {
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
-      <Card className="hero-panel rounded-[32px] border-0 p-6 text-white sm:p-7">
+      <Card className="hero-panel rounded-[32px] border-0 p-6 sm:p-7">
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             {badge}
             <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{title}</h1>
-            {subtitle && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200/82 sm:text-base">{subtitle}</p>}
+            {subtitle && <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-700 sm:text-base">{subtitle}</p>}
           </div>
           {action}
         </div>

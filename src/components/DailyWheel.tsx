@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Gift, Star, Sparkles, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export interface WheelSegment {
   label: string;
@@ -42,6 +43,7 @@ interface DailyWheelProps {
 }
 
 export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheelProps) {
+  const { t } = useTranslation();
   const [spinning, setSpinning] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [rotation, setRotation] = useState(0);
@@ -188,10 +190,10 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
         >
           <div className="mb-1 flex items-center justify-center gap-2">
             <Gift size={20} className="text-amber-400" />
-            <h2 className="text-xl font-black text-white">Vòng Quay May Mắn</h2>
+            <h2 className="text-xl font-black text-white">{t("dailyWheel.title")}</h2>
             <Gift size={20} className="text-amber-400" />
           </div>
-          <p className="text-sm text-slate-400">Quay mỗi ngày để nhận phần thưởng!</p>
+          <p className="text-sm text-slate-400">{t("dailyWheel.subtitle")}</p>
         </motion.div>
 
         {/* Wheel container */}
@@ -226,7 +228,7 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
                   <Sparkles size={24} className="text-white" />
                 </motion.div>
               ) : (
-                <span className="text-[10px] font-black leading-tight">QUAY<br/>NGAY</span>
+                <span className="text-[10px] font-black leading-tight">{t("dailyWheel.spin")}</span>
               )}
             </motion.button>
           </div>
@@ -245,17 +247,17 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
                 <span className="text-lg">{result.type === "jackpot" ? "🎉" : "✨"}</span>
                 <p className={`mt-1 text-2xl font-black ${result.type === "jackpot" ? "text-amber-400 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]" : "text-white"}`}>
                   {result.type === "jackpot" ? "JACKPOT!" :
-                   result.type === "card" ? "Lá Bài Đặc Biệt!" :
-                   `+${result.reward} EXP`}
+                   result.type === "card" ? t("dailyWheel.specialCard") :
+                   t("dailyWheel.expReward", { exp: result.reward })}
                 </p>
                 {result.type === "card" && (
                   <p className="mt-1 text-sm text-slate-400">
-                    Bạn nhận được 1 lá bài ngẫu nhiên!
+                    {t("dailyWheel.cardReward")}
                   </p>
                 )}
                 {result.type === "jackpot" && (
                   <p className="mt-1 text-sm text-amber-300">
-                    Bạn là người may mắn nhất hôm nay!
+                    {t("dailyWheel.jackpot")}
                   </p>
                 )}
               </div>
@@ -267,7 +269,7 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
                 className="mx-auto flex items-center gap-2 rounded-2xl border border-emerald-400/50 bg-emerald-500/20 px-8 py-3 font-black text-emerald-300 shadow-[0_0_16px_rgba(16,185,129,0.25)] transition-all hover:bg-emerald-500/30"
               >
                 <Star size={16} className="fill-emerald-400 text-emerald-400" />
-                Nhận Thưởng
+                {t("dailyWheel.claim")}
               </motion.button>
             </motion.div>
           )}
@@ -280,7 +282,7 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
             animate={{ opacity: 1 }}
             className="mt-4 text-center text-sm text-slate-500"
           >
-            Đã quay hôm nay. Hẹn gặp lại vào ngày mai!
+            {t("dailyWheel.alreadySpun")}
           </motion.div>
         )}
       </div>

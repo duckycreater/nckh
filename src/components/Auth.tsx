@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { ShieldCheck } from "lucide-react";
 
@@ -36,6 +37,8 @@ export function Auth({ onLogin }: AuthProps) {
   // Forgot Password states
   const [fpEmail, setFpEmail] = useState("");
 
+  const { t } = useTranslation();
+
   // Check for remember token on mount
   React.useEffect(() => {
     const rememberToken = localStorage.getItem("remember_token");
@@ -52,15 +55,15 @@ export function Auth({ onLogin }: AuthProps) {
     setMessage(null);
   };
 
-  const getPasswordStrength = (pass: string) => {
+  const getPasswordStrength = (pass: string, t: (key: string) => string) => {
     if (pass.length === 0) return { color: "bg-gray-200", label: "", width: "0%" };
-    if (pass.length < 6) return { color: "bg-red-500", label: "Yếu", width: "33%" };
+    if (pass.length < 6) return { color: "bg-red-500", label: t("auth.strengthWeak"), width: "33%" };
     if (pass.length < 10 || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass))
-      return { color: "bg-yellow-500", label: "Trung bình", width: "66%" };
-    return { color: "bg-green-500", label: "Mạnh", width: "100%" };
+      return { color: "bg-yellow-500", label: t("auth.strengthMedium"), width: "66%" };
+    return { color: "bg-green-500", label: t("auth.strengthStrong"), width: "100%" };
   };
 
-  const strength = getPasswordStrength(regPass);
+  const strength = getPasswordStrength(regPass, t);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +122,7 @@ export function Auth({ onLogin }: AuthProps) {
         setMessage({ text: data.message, type: "error" });
       }
     } catch {
-      setMessage({ text: "Lỗi kết nối.", type: "error" });
+      setMessage({ text: t("auth.connectionError"), type: "error" });
     }
     setLoading(false);
   };
@@ -127,11 +130,11 @@ export function Auth({ onLogin }: AuthProps) {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (regPass.length < 6) {
-      setMessage({ text: "Mật khẩu phải có ít nhất 6 ký tự.", type: "error" });
+      setMessage({ text: t("auth.passwordMinChars"), type: "error" });
       return;
     }
     if (regEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) {
-      setMessage({ text: "Email không hợp lệ.", type: "error" });
+      setMessage({ text: t("auth.invalidEmail"), type: "error" });
       return;
     }
     setLoading(true);
@@ -163,7 +166,7 @@ export function Auth({ onLogin }: AuthProps) {
         setMessage({ text: data.message, type: "error" });
       }
     } catch {
-      setMessage({ text: "Lỗi kết nối.", type: "error" });
+      setMessage({ text: t("auth.connectionError"), type: "error" });
     }
     setLoading(false);
   };
@@ -192,7 +195,7 @@ export function Auth({ onLogin }: AuthProps) {
         setMessage({ text: data.message, type: "error" });
       }
     } catch {
-      setMessage({ text: "Lỗi kết nối.", type: "error" });
+      setMessage({ text: t("auth.connectionError"), type: "error" });
     }
     setLoading(false);
   };
@@ -200,7 +203,7 @@ export function Auth({ onLogin }: AuthProps) {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fpEmail) {
-      setMessage({ text: "Vui lòng nhập email hoặc tài khoản.", type: "error" });
+      setMessage({ text: t("auth.fillAccount"), type: "error" });
       return;
     }
     setLoading(true);
@@ -213,14 +216,14 @@ export function Auth({ onLogin }: AuthProps) {
       });
       const data = await res.json();
       if (data.success) {
-        setMessage({ text: "Đã gửi liên kết khôi phục đến email của bạn.", type: "success" });
+        setMessage({ text: t("auth.resetLinkSent"), type: "success" });
         setFpEmail("");
         setTimeout(() => setView("login"), 3000);
       } else {
-        setMessage({ text: data.message || "Không tìm thấy tài khoản với email này.", type: "error" });
+        setMessage({ text: data.message || t("auth.accountNotFound"), type: "error" });
       }
     } catch {
-      setMessage({ text: "Lỗi kết nối.", type: "error" });
+      setMessage({ text: t("auth.connectionError"), type: "error" });
     }
     setLoading(false);
   };
@@ -230,21 +233,21 @@ export function Auth({ onLogin }: AuthProps) {
       <div className="w-full max-w-[420px] bg-white/95 p-[30px] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.6)] border-t-[6px] border-[#4CAF50] text-center relative max-h-[90vh] overflow-y-auto">
         {view === "login" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              TRA CU UN DIEM
-            </h2>
+              <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+              {t("auth.lookupScore")}
+              </h2>
 
             {showWelcomeBack && (
               <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 font-medium">
                 <ShieldCheck size={16} className="shrink-0" />
-                <span>Chào mừng trở lại! Đăng nhập để tiếp tục.</span>
+                <span>{t("auth.welcomeBack")}</span>
               </div>
             )}
 
             <form onSubmit={handleLogin} className="text-left space-y-[15px]">
               <div>
                 <label htmlFor="login-nick" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Tai khoan
+                  {t("auth.account")}
                 </label>
                 <input
                   id="login-nick"
@@ -258,7 +261,7 @@ export function Auth({ onLogin }: AuthProps) {
               </div>
               <div>
                 <label htmlFor="login-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Mat khau
+                  {t("auth.password")}
                 </label>
                 <input
                   id="login-pass"
@@ -279,14 +282,14 @@ export function Auth({ onLogin }: AuthProps) {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-gray-300 accent-[#4CAF50] cursor-pointer"
                   />
-                  Ghi nho dang nhap
+                  {t("auth.rememberLogin")}
                 </label>
                 <button
                   type="button"
                   onClick={() => switchView("forgot")}
                   className="text-sm text-[#4CAF50] font-semibold hover:underline cursor-pointer"
                 >
-                  Quen mat khau?
+                  {t("auth.forgotPassword")}
                 </button>
               </div>
 
@@ -295,23 +298,23 @@ export function Auth({ onLogin }: AuthProps) {
                 disabled={loading}
                 className="w-full p-3 bg-[#4CAF50] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
-                DANG NHAP
+                {t("auth.login")}
               </button>
             </form>
             <div className="mt-[15px] text-[14px] text-[#4B5563]">
-              Chua co tai khoan?{" "}
+              {t("auth.noAccount")}{" "}
               <button
                 onClick={() => switchView("register")}
                 className="text-[#2E7D32] font-bold underline-offset-2 hover:underline cursor-pointer"
               >
-                Dang ky ngay
+                {t("auth.registerNow")}
               </button>
               <br />
               <button
                 onClick={() => switchView("changepass")}
                 className="text-[12px] text-[#6B7280] block mt-[8px] mx-auto hover:underline cursor-pointer"
               >
-                Doi mat khau?
+                {t("auth.changePassword")}
               </button>
             </div>
           </div>
@@ -320,7 +323,7 @@ export function Auth({ onLogin }: AuthProps) {
         {view === "register" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
             <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              DANG KY MOI
+              {t("auth.registerTitle")}
             </h2>
             <form
               onSubmit={handleRegister}
@@ -328,7 +331,7 @@ export function Auth({ onLogin }: AuthProps) {
             >
               <div>
                 <label htmlFor="reg-name" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Ho va Ten hien thi
+                  {t("auth.displayName")}
                 </label>
                 <input
                   id="reg-name"
@@ -338,14 +341,14 @@ export function Auth({ onLogin }: AuthProps) {
                   aria-describedby="reg-name-hint"
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
-                  placeholder="VD: Nguyen Van A"
+                  placeholder={t("auth.displayNamePlaceholder")}
                   className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
                 />
-                <p id="reg-name-hint" className="text-[11px] text-[#6B7280] mt-1">Ten nay se hien thi tren ho so cua ban.</p>
+                <p id="reg-name-hint" className="text-[11px] text-[#6B7280] mt-1">{t("auth.displayNameHint")}</p>
               </div>
               <div>
                 <label htmlFor="reg-nick" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Tai khoan
+                  {t("auth.username")}
                 </label>
                 <input
                   id="reg-nick"
@@ -355,14 +358,14 @@ export function Auth({ onLogin }: AuthProps) {
                   aria-describedby="reg-nick-hint"
                   value={regNick}
                   onChange={(e) => setRegNick(e.target.value)}
-                  placeholder="VD: nguyenvana"
+                  placeholder={t("auth.usernamePlaceholder")}
                   className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
                 />
-                <p id="reg-nick-hint" className="text-[11px] text-[#6B7280] mt-1">Dung de dang nhap. Khong the thay doi sau nay.</p>
+                <p id="reg-nick-hint" className="text-[11px] text-[#6B7280] mt-1">{t("auth.usernameHint")}</p>
               </div>
               <div>
                 <label htmlFor="reg-email" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Email <span className="text-[#9CA3AF] font-normal">(tuychon)</span>
+                  {t("auth.emailOptional")}
                 </label>
                 <input
                   id="reg-email"
@@ -370,14 +373,14 @@ export function Auth({ onLogin }: AuthProps) {
                   aria-required="false"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="VD: nguyenvana@email.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
                 />
-                <p className="text-[11px] text-[#6B7280] mt-1">Dung de khoi phuc tai khoan neu quen mat khau.</p>
+                <p className="text-[11px] text-[#6B7280] mt-1">{t("auth.emailHint")}</p>
               </div>
               <div>
                 <label htmlFor="reg-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Mat khau
+                  {t("auth.password")}
                 </label>
                 <input
                   id="reg-pass"
@@ -398,8 +401,8 @@ export function Auth({ onLogin }: AuthProps) {
                       />
                     </div>
                     <p className={`text-xs mt-0.5 ${
-                      strength.label === "Manh" ? "text-green-600" :
-                      strength.label === "Trung binh" ? "text-yellow-600" :
+                      strength.label === t("auth.strengthStrong") ? "text-green-600" :
+                      strength.label === t("auth.strengthMedium") ? "text-yellow-600" :
                       "text-red-500"
                     }`}>
                       {strength.label}
@@ -409,7 +412,7 @@ export function Auth({ onLogin }: AuthProps) {
               </div>
 
               <div className="pt-2 border-t border-gray-100 space-y-3">
-                <div className="text-center text-xs text-[#6B7280] font-medium">Hoac dang ky voi</div>
+                <div className="text-center text-xs text-[#6B7280] font-medium">{t("auth.orRegisterWith")}</div>
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -422,7 +425,7 @@ export function Auth({ onLogin }: AuthProps) {
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
-                    Google
+                    {t("auth.google")}
                   </button>
                   <button
                     type="button"
@@ -432,7 +435,7 @@ export function Auth({ onLogin }: AuthProps) {
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                     </svg>
-                    Facebook
+                    {t("auth.facebook")}
                   </button>
                 </div>
               </div>
@@ -442,16 +445,16 @@ export function Auth({ onLogin }: AuthProps) {
                 disabled={loading}
                 className="w-full p-3 bg-[#FF9800] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
-                DANG KY
+                {t("auth.register")}
               </button>
             </form>
             <div className="mt-[15px] text-[14px] text-[#4B5563]">
-              Da co tai khoan?{" "}
+              {t("auth.hasAccount")}{" "}
               <button
                 onClick={() => switchView("login")}
                 className="text-[#2E7D32] font-bold underline-offset-2 hover:underline cursor-pointer"
               >
-                Quay lai dang nhap
+                {t("auth.backToLogin")}
               </button>
             </div>
           </div>
@@ -460,7 +463,7 @@ export function Auth({ onLogin }: AuthProps) {
         {view === "changepass" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
             <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              Doi Mat Khau
+              {t("auth.changePassword")}
             </h2>
             <form
               onSubmit={handleChangePass}
@@ -468,7 +471,7 @@ export function Auth({ onLogin }: AuthProps) {
             >
               <div>
                 <label htmlFor="cp-nick" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Tai khoan
+                  {t("auth.account")}
                 </label>
                 <input
                   id="cp-nick"
@@ -482,7 +485,7 @@ export function Auth({ onLogin }: AuthProps) {
               </div>
               <div>
                 <label htmlFor="cp-old-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Mat khau cu
+                  {t("settings.oldPassword")}
                 </label>
                 <input
                   id="cp-old-pass"
@@ -496,7 +499,7 @@ export function Auth({ onLogin }: AuthProps) {
               </div>
               <div>
                 <label htmlFor="cp-new-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Mat khau Moi
+                  {t("settings.newPassword")}
                 </label>
                 <input
                   id="cp-new-pass"
@@ -513,7 +516,7 @@ export function Auth({ onLogin }: AuthProps) {
                 disabled={loading}
                 className="w-full p-3 bg-[#2196F3] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
-                Luu Thay Doi
+                {t("common.save")}
               </button>
             </form>
             <div className="mt-[15px] text-[14px] text-[#4B5563]">
@@ -521,7 +524,7 @@ export function Auth({ onLogin }: AuthProps) {
                 onClick={() => switchView("login")}
                 className="text-[#2E7D32] font-bold cursor-pointer hover:underline"
               >
-                Quay lai
+                {t("common.back")}
               </button>
             </div>
           </div>
@@ -530,10 +533,10 @@ export function Auth({ onLogin }: AuthProps) {
         {view === "forgot" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
             <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              Khoi Phuc Mat Khau
+              {t("auth.resetTitle")}
             </h2>
             <p className="text-sm text-[#6B7280] mb-6 text-left">
-              Nhap email hoac tai khoan da dang ky. Chung toi se gui lien ket khoi phuc den email cua ban.
+              {t("auth.resetSubtitle")}
             </p>
             <form
               onSubmit={handleForgotPassword}
@@ -541,7 +544,7 @@ export function Auth({ onLogin }: AuthProps) {
             >
               <div>
                 <label htmlFor="fp-email" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
-                  Email hoac Tai khoan
+                  {t("auth.emailOrUsername")}
                 </label>
                 <input
                   id="fp-email"
@@ -550,7 +553,7 @@ export function Auth({ onLogin }: AuthProps) {
                   aria-required="true"
                   value={fpEmail}
                   onChange={(e) => setFpEmail(e.target.value)}
-                  placeholder="VD: nguyenvana@email.com"
+                  placeholder={t("auth.emailOrUsernamePlaceholder")}
                   className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
                 />
               </div>
@@ -559,7 +562,7 @@ export function Auth({ onLogin }: AuthProps) {
                 disabled={loading}
                 className="w-full p-3 bg-[#4CAF50] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
-                Gui Lien Ket Khoi Phuc
+                {t("auth.sendResetLink")}
               </button>
             </form>
             <div className="mt-[15px] text-[14px] text-[#4B5563]">
@@ -567,7 +570,7 @@ export function Auth({ onLogin }: AuthProps) {
                 onClick={() => switchView("login")}
                 className="text-[#2E7D32] font-bold cursor-pointer hover:underline"
               >
-                Quay lai dang nhap
+                {t("auth.backToLogin2")}
               </button>
             </div>
           </div>

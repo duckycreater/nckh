@@ -1,34 +1,28 @@
 import { useState, useEffect, useRef } from "react";
 import { Bot, X, Send, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useTranslation } from "react-i18next";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-const WELCOME_MESSAGE: Message = {
-  role: "assistant",
-  content:
-    "Xin chào! Mình là **Robot Siêu Cấp Xanh**. Bạn có thể hỏi mình về phân loại rác, tái chế và cách xử lý thân thiện với môi trường.",
-};
-
-const SUGGESTED_QUESTIONS = [
-  "Rác nhựa xử lý sao?",
-  "Rác nguy hại là gì?",
-  "Cách tái chế?",
-  "Mẹo phân loại rác",
-];
-
 export function Chatbot({ currentUser }: { currentUser?: string }) {
+  const { t } = useTranslation();
   const storageKey = `ecoquest:chat:${currentUser || "guest"}`;
   const [isOpen, setIsOpen] = useState(false);
-  const getWelcomeMessage = (user?: string): Message => ({
-    role: "assistant",
-    content: user
-      ? `Chào ${user}! Mình là **Robot Siêu Cấp Xanh**. Bạn có thể hỏi mình về phân loại rác, tái chế và cách xử lý thân thiện với môi trường.`
-      : WELCOME_MESSAGE.content,
-  });
+  const getWelcomeContent = (user?: string): string =>
+    user
+      ? t("chatbot.greetingUser", { user })
+      : t("chatbot.greeting");
+
+  const SUGGESTED_QUESTIONS = [
+    t("chatbot.quickQ1"),
+    t("chatbot.quickQ2"),
+    t("chatbot.quickQ3"),
+    t("chatbot.quickQ4"),
+  ];
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -55,8 +49,8 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
     } catch (e) {
       console.warn('[Chatbot] Failed to load chat history:', e);
     }
-    setMessages([getWelcomeMessage(currentUser)]);
-  }, [storageKey, initialized, currentUser]);
+    setMessages([{ role: "assistant", content: getWelcomeContent(currentUser) }]);
+  }, [storageKey, initialized, currentUser, getWelcomeContent]);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(messages));
@@ -92,17 +86,17 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
       if (res.ok) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
       } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Lỗi: ${data.error}` }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: t("chatbot.errorResponse", { error: data.error }) }]);
       }
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Lỗi kết nối đến server." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: t("chatbot.connectionError") }]);
     } finally {
       setIsTyping(false);
     }
   };
 
   const handleClear = () => {
-    setMessages([getWelcomeMessage(currentUser)]);
+      setMessages([{ role: "assistant", content: getWelcomeContent(currentUser) }]);
     localStorage.removeItem(storageKey);
   };
 
@@ -121,22 +115,22 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
                   <span className="inline-flex rounded-full bg-white p-1.5 text-emerald-600">
                     <Bot size={20} />
                   </span>
-                  Robot Siêu Cấp Xanh
+                  {t("chatbot.title")}
                 </div>
-                <p className="mt-2 text-sm text-emerald-50/85">Hỏi nhanh về phân loại rác, tái chế và các thói quen sống xanh.</p>
+                <p className="mt-2 text-sm text-emerald-50/85">{t("chatbot.subtitle")}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleClear}
                   className="rounded-full bg-white/10 p-2 text-emerald-100 transition hover:bg-white/20 hover:text-white"
-                  aria-label="Xóa lịch sử chat"
+                  aria-label={t("chatbot.deleteHistory")}
                 >
                   <Trash2 size={18} />
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}
                   className="rounded-full bg-white/10 p-2 text-emerald-100 transition hover:bg-white/20 hover:text-white"
-                  aria-label="Đóng chatbot"
+                  aria-label={t("chatbot.closeChatbot")}
                 >
                   <X size={18} />
                 </button>
@@ -149,7 +143,7 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
               <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
                 Tư vấn tức thì
               </span>
-              <span className="text-xs font-medium text-slate-400">Lưu theo phiên người dùng</span>
+              <span className="text-xs font-medium text-slate-400">{t("chatbot.perSession")}</span>
             </div>
 
             {/* Quick reply suggestions — shown when user has only seen the welcome message */}
@@ -210,7 +204,7 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="Nhập câu hỏi của bạn..."
+                placeholder={t("chatbot.askPlaceholder")}
                 className="flex-1 bg-transparent px-4 py-3 text-sm text-gray-700 focus:outline-none"
               />
               <button
@@ -229,7 +223,7 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
         <button
           onClick={() => setIsOpen(true)}
           className="relative rounded-full bg-[linear-gradient(135deg,#10b981,#0f8f68)] p-4 text-white shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
-          aria-label="Mở chatbot"
+          aria-label={t("chatbot.openChatbot")}
         >
           <Bot size={28} />
           <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-white bg-red-500" />

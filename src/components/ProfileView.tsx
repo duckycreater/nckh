@@ -3,17 +3,18 @@ import { User } from '../types';
 import { ArrowLeft, Pencil, X, Save, RefreshCw, Camera, Trash2, ChevronRight, Shield, Star, Zap, Award, Flame } from 'lucide-react';
 import { Skeleton, ErrorRetry } from '../lib/ui';
 import { RewardHistory } from './RewardHistory';
+import { useTranslation } from 'react-i18next';
 
 const EMOJI_AVATARS = [
-  { id: "av1", emoji: "🌱", name: "Mầm Xanh", color: "bg-emerald-100 text-emerald-600", bg: "from-emerald-400 to-teal-500" },
-  { id: "av2", emoji: "💧", name: "Chiến Binh Nước", color: "bg-blue-100 text-blue-600", bg: "from-blue-400 to-cyan-500" },
-  { id: "av3", emoji: "🦁", name: "Thủ Lĩnh Rừng", color: "bg-amber-100 text-amber-600", bg: "from-amber-400 to-orange-500" },
+  { id: "av1", emoji: "🌱", nameKey: "seedling", color: "bg-emerald-100 text-emerald-600", bg: "from-emerald-400 to-teal-500" },
+  { id: "av2", emoji: "💧", nameKey: "guardian", color: "bg-blue-100 text-blue-600", bg: "from-blue-400 to-cyan-500" },
+  { id: "av3", emoji: "🦁", nameKey: "knight", color: "bg-amber-100 text-amber-600", bg: "from-amber-400 to-orange-500" },
 ];
 
 const FRAMES = [
-  { id: "fr1", name: "Khung Gỗ", style: "ring-4 ring-amber-700", desc: "Bền vững như gỗ" },
-  { id: "fr2", name: "Khung Băng", style: "ring-4 ring-cyan-400", desc: "Tinh khiết như băng" },
-  { id: "fr3", name: "Hào Quang Đất", style: "ring-4 ring-emerald-500 shadow-[0_0_16px_#10b981]", desc: "Huy hoàng như đất" },
+  { id: "fr1", nameKey: "wooden", style: "ring-4 ring-amber-700", desc: "profile.frames.woodenDesc" },
+  { id: "fr2", nameKey: "ice", style: "ring-4 ring-cyan-400", desc: "profile.frames.iceDesc" },
+  { id: "fr3", nameKey: "glow", style: "ring-4 ring-emerald-500 shadow-[0_0_16px_#10b981]", desc: "profile.frames.glowDesc" },
 ];
 
 interface Props {
@@ -27,6 +28,7 @@ function getAuthHeaders(): RequestInit {
 }
 
 export function ProfileView({ nickname, onClose }: Props) {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function ProfileView({ nickname, onClose }: Props) {
   const loadProfile = () => {
     setLoading(true);
     fetch(`/api/user/${nickname}`)
-      .then(res => { if (!res.ok) throw new Error("Không thể tải hồ sơ"); return res.json(); })
+      .then(res => { if (!res.ok) throw new Error(t("profile.loadError")); return res.json(); })
       .then(data => {
         setProfile(data);
         setEditName(data.name || "");
@@ -63,7 +65,7 @@ export function ProfileView({ nickname, onClose }: Props) {
         setLoading(false);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
+        setError(err instanceof Error ? err.message : t("common.error"));
         setLoading(false);
       });
   };
@@ -94,8 +96,8 @@ export function ProfileView({ nickname, onClose }: Props) {
     if (!file) return;
 
     const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowed.includes(file.type)) { setUploadError("Chỉ chấp nhận JPG, PNG, GIF, WEBP"); return; }
-    if (file.size > 5 * 1024 * 1024) { setUploadError("Ảnh tối đa 5MB"); return; }
+    if (!allowed.includes(file.type)) { setUploadError(t("profile.onlyImages")); return; }
+    if (file.size > 5 * 1024 * 1024) { setUploadError(t("profile.maxSize")); return; }
 
     setUploadError(null);
     setUploading(true);
@@ -118,13 +120,13 @@ export function ProfileView({ nickname, onClose }: Props) {
         setEditCustomUrl(data.url);
         setUploadError(null);
       } else {
-        setUploadError(data.message || "Upload thất bại");
+        setUploadError(data.message || t("profile.uploadFailed"));
         setEditCustomUrl("");
       }
     } catch {
       URL.revokeObjectURL(url);
       setUploadPreview(null);
-      setUploadError("Lỗi kết nối khi upload");
+      setUploadError(t("profile.uploadError"));
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -137,8 +139,8 @@ export function ProfileView({ nickname, onClose }: Props) {
   };
 
   const handleSave = async () => {
-    if (!editName.trim()) { setSavingMsg({ ok: false, text: "Tên không được để trống" }); return; }
-    if (!editPass) { setSavingMsg({ ok: false, text: "Nhập mật khẩu để xác nhận" }); return; }
+    if (!editName.trim()) { setSavingMsg({ ok: false, text: t("profile.emptyName") }); return; }
+    if (!editPass) { setSavingMsg({ ok: false, text: t("profile.enterPassword") }); return; }
     setSaving(true);
     setSavingMsg(null);
     try {
@@ -157,13 +159,13 @@ export function ProfileView({ nickname, onClose }: Props) {
       });
       const data = await res.json();
       if (data.success) {
-        setSavingMsg({ ok: true, text: "Lưu thành công!" });
+        setSavingMsg({ ok: true, text: t("profile.saveSuccess") });
         setTimeout(() => { closeEdit(); loadProfile(); }, 900);
       } else {
-        setSavingMsg({ ok: false, text: data.message || "Lưu thất bại" });
+        setSavingMsg({ ok: false, text: data.message || t("profile.saveFailed") });
       }
     } catch {
-      setSavingMsg({ ok: false, text: "Lỗi kết nối" });
+      setSavingMsg({ ok: false, text: t("profile.connectionError") });
     }
     setSaving(false);
   };
@@ -175,6 +177,12 @@ export function ProfileView({ nickname, onClose }: Props) {
   const activeFrame = profile
     ? FRAMES.find(f => f.id === profile.selectedFrame)
     : null;
+
+  const getAvatarName = (av: typeof EMOJI_AVATARS[0] | null) =>
+    av ? t(`profile.avatars.${av.nameKey}` as const) : t("profile.defaultTheme");
+  const getFrameName = (fr: typeof FRAMES[0] | null) =>
+    fr ? t(`profile.frames.${fr.nameKey}` as const) : t("profile.noFrame");
+  const getTitleName = (key: string) => t(`profile.titles.${key}` as const);
 
   let displayUrl: string | null = null;
   let displayEmoji = profile?.name?.[0] || "?";
@@ -205,13 +213,13 @@ export function ProfileView({ nickname, onClose }: Props) {
 
   if (error || !profile) return (
     <div className="absolute inset-0 z-40 bg-white p-4 text-center pt-20">
-      <ErrorRetry message={error || "Người chơi không tồn tại"} onRetry={loadProfile} />
-      <button onClick={onClose} className="mt-4 text-emerald-500 font-bold">Quay lại</button>
+      <ErrorRetry message={error || t("profile.playerNotFound")} onRetry={loadProfile} />
+      <button onClick={onClose} className="mt-4 text-emerald-500 font-bold">{t("profile.backButton")}</button>
     </div>
   );
 
   const level = Math.floor(profile.points / 200) + 1;
-  const title = profile.points > 200 ? "Hiệp sĩ môi trường" : profile.points > 50 ? "Người bảo vệ" : "Mầm non";
+  const titleKey = profile.points > 200 ? "knight" : profile.points > 50 ? "guardian" : "seedling";
   const streak = profile.progress?.streakDays || 1;
   const streakMult = Math.min(1 + (streak - 1) * 0.1, 2);
 
@@ -239,20 +247,22 @@ export function ProfileView({ nickname, onClose }: Props) {
           <h2 className="mt-3 text-2xl font-black text-gray-800 tracking-tight">{profile.name}</h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="bg-emerald-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
-              Cấp {level} · {title}
+              {t("profile.levelTitle", { level, title: getTitleName(titleKey) })}
             </span>
             <span className="bg-orange-100 text-orange-600 text-xs font-black px-3 py-1 rounded-full">
-              🔥 {streak} ngày
+              {t("profile.streakDays", { streak })}
             </span>
           </div>
         </div>
         {/* Back + Edit buttons */}
         <div className="absolute top-4 left-4 right-4 flex justify-between">
           <button onClick={onClose} className="flex items-center gap-1 bg-white/80 backdrop-blur text-gray-700 font-bold text-sm px-3 py-1.5 rounded-full shadow hover:bg-white transition">
-            <ArrowLeft className="w-4 h-4"/> Quay lại
+            <ArrowLeft className="w-4 h-4" />
+            <span>{t("profile.backButton")}</span>
           </button>
           <button onClick={openEdit} className="flex items-center gap-1.5 bg-white/80 backdrop-blur text-emerald-600 font-bold text-sm px-4 py-1.5 rounded-full shadow hover:bg-white transition">
-            <Pencil className="w-4 h-4"/> Chỉnh sửa
+            <Pencil className="w-4 h-4" />
+            <span>{t("profile.editProfile")}</span>
           </button>
         </div>
       </div>
@@ -263,7 +273,7 @@ export function ProfileView({ nickname, onClose }: Props) {
         {/* EXP bar */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cống hiến (EXP)</span>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{t("profile.commitment")}</span>
             <span className="text-lg font-black text-emerald-600">{profile.points} <span className="text-sm font-bold text-emerald-400">/ {level * 200}</span></span>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
@@ -272,7 +282,7 @@ export function ProfileView({ nickname, onClose }: Props) {
               style={{ width: `${Math.min((profile.points % 200) / 2, 100)}%` }}
             />
           </div>
-          <p className="text-[10px] text-gray-400 mt-1 text-right">{Math.max(0, level * 200 - profile.points)} EXP đến cấp kế tiếp</p>
+          <p className="text-[10px] text-gray-400 mt-1 text-right">{t("profile.expToNext", { exp: Math.max(0, level * 200 - profile.points) })}</p>
         </div>
 
         {/* Stats grid */}
@@ -280,26 +290,26 @@ export function ProfileView({ nickname, onClose }: Props) {
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
             <Flame className="text-orange-400 mb-1" size={22} />
             <span className="text-xl font-black text-gray-800">{streak}</span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Ngày streak</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{t("profile.streak")}</span>
             {streak > 1 && <span className="text-[10px] font-black text-orange-400">×{streakMult.toFixed(1)} EXP</span>}
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
             <Award className="text-blue-400 mb-1" size={22} />
             <span className="text-xl font-black text-gray-800">{level}</span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Cấp độ</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{t("profile.level")}</span>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
             <Star className="text-purple-400 mb-1" size={22} />
             <span className="text-xl font-black text-gray-800">{profile.progress?.flashcardsRead?.length || 0}</span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thẻ đã mở</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{t("profile.cardsOwned")}</span>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white rounded-2xl p-1 shadow-sm border border-gray-100">
           {[
-            { id: 'overview', label: 'Tổng quan' },
-            { id: 'history', label: 'Lịch sử điểm' },
+            { id: 'overview', labelKey: 'profile.overview' },
+            { id: 'history', labelKey: 'profile.history' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -308,7 +318,7 @@ export function ProfileView({ nickname, onClose }: Props) {
                 activeTab === tab.id ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -320,14 +330,14 @@ export function ProfileView({ nickname, onClose }: Props) {
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-2">
               <h3 className="font-black text-gray-700 text-xs uppercase tracking-wider">Hoạt động</h3>
               {[
-                { label: "Thử thách đã hoàn thành", value: profile.progress?.challengesCompleted?.length || 0, icon: <Zap size={16} className="text-yellow-500" /> },
-                { label: "Quà đã đổi", value: profile.progress?.crafted?.length || 0, icon: <Award size={16} className="text-amber-500" /> },
-                { label: "Số lần checkin", value: profile.progress?.checkins?.length || 0, icon: <Shield size={16} className="text-blue-500" /> },
+                { labelKey: "profile.challengesCompleted", value: profile.progress?.challengesCompleted?.length || 0, icon: <Zap size={16} className="text-yellow-500" /> },
+                { labelKey: "profile.rewardsRedeemed", value: profile.progress?.crafted?.length || 0, icon: <Award size={16} className="text-amber-500" /> },
+                { labelKey: "profile.checkinDays", value: profile.progress?.checkins?.length || 0, icon: <Shield size={16} className="text-blue-500" /> },
               ].map(item => (
-                <div key={item.label} className="flex items-center justify-between py-1.5">
+                <div key={item.labelKey} className="flex items-center justify-between py-1.5">
                   <div className="flex items-center gap-2">
                     {item.icon}
-                    <span className="text-sm text-gray-600">{item.label}</span>
+                    <span className="text-sm text-gray-600">{t(item.labelKey)}</span>
                   </div>
                   <span className="text-lg font-black text-gray-800">{item.value}</span>
                 </div>
@@ -336,14 +346,14 @@ export function ProfileView({ nickname, onClose }: Props) {
 
             {/* Avatar & Frame info */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <h3 className="font-black text-gray-700 text-xs uppercase tracking-wider mb-3">Giao diện</h3>
+              <h3 className="font-black text-gray-700 text-xs uppercase tracking-wider mb-3">{t("profile.ui")}</h3>
               <div className="flex gap-3">
                 <div className="flex-1 flex items-center gap-2">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-black bg-gradient-to-br ${activeAvatar?.bg || "from-emerald-100 to-teal-100"} ${activeAvatar ? "text-white" : "text-emerald-600"}`}>
                     {displayEmoji}
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700">{activeAvatar?.name || "Mặc định"}</p>
+                    <p className="text-xs font-bold text-gray-700">{getAvatarName(activeAvatar)}</p>
                     <p className="text-[10px] text-gray-400">Avatar</p>
                   </div>
                 </div>
@@ -353,19 +363,19 @@ export function ProfileView({ nickname, onClose }: Props) {
                     🖼
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700">{activeFrame?.name || "Không khung"}</p>
+                    <p className="text-xs font-bold text-gray-700">{getFrameName(activeFrame)}</p>
                     <p className="text-[10px] text-gray-400">Khung</p>
                   </div>
                 </div>
                 <button onClick={openEdit} className="flex items-center gap-1 text-emerald-600 text-xs font-bold hover:text-emerald-700 self-center">
-                  Đổi <ChevronRight size={14}/>
+                  {t("profile.change")} <ChevronRight size={14}/>
                 </button>
               </div>
             </div>
 
             {/* Bộ sưu tập */}
             <div className="bg-indigo-50 rounded-2xl p-4 shadow-sm border border-indigo-100">
-              <h3 className="font-black text-indigo-600 text-xs uppercase tracking-wider mb-2">Bộ sưu tập</h3>
+              <h3 className="font-black text-indigo-600 text-xs uppercase tracking-wider mb-2">{t("profile.collection")}</h3>
               <div className="flex items-end justify-between">
                 <div>
                   <span className="text-3xl font-black text-indigo-600">{profile.progress?.flashcardsRead?.length || 0}</span>
@@ -392,7 +402,7 @@ export function ProfileView({ nickname, onClose }: Props) {
 
             {/* Modal header */}
             <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="text-xl font-black text-gray-800">Chỉnh sửa hồ sơ</h2>
+              <h2 className="text-xl font-black text-gray-800">{t("profile.editProfile")}</h2>
               <button onClick={closeEdit} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition">
                 <X size={18}/>
               </button>
@@ -430,7 +440,7 @@ export function ProfileView({ nickname, onClose }: Props) {
                 <div className="flex gap-2">
                   {editCustomUrl && (
                     <button onClick={handleRemoveCustom} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 border-red-200 text-red-500 hover:bg-red-50 transition">
-                      <Trash2 size={13}/> Xoá ảnh
+                      <Trash2 size={13}/> {t("profile.deletePhoto")}
                     </button>
                   )}
                 </div>
@@ -444,10 +454,10 @@ export function ProfileView({ nickname, onClose }: Props) {
 
               {/* Name */}
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Tên hiển thị</label>
+                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">{t("settings.displayName")}</label>
                 <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={30}
                   className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl text-base font-medium text-gray-800 focus:outline-none focus:border-emerald-400 focus:bg-white transition"
-                  placeholder="Nhập tên mới..." />
+                  placeholder={t("profile.newName")} />
               </div>
 
               {/* Emoji avatars */}
@@ -463,7 +473,7 @@ export function ProfileView({ nickname, onClose }: Props) {
                           : "bg-gray-100 text-gray-400 hover:bg-gray-200 opacity-60 hover:opacity-100"
                       }`}>
                       {av.emoji}
-                      <span className="text-[8px] font-bold leading-none">{av.name.split(" ")[0]}</span>
+                      <span className="text-[8px] font-bold leading-none">{t(`profile.avatars.${av.nameKey}` as const).split(" ")[0]}</span>
                     </button>
                   ))}
                 </div>
@@ -477,8 +487,8 @@ export function ProfileView({ nickname, onClose }: Props) {
                     className={`p-3 rounded-2xl text-left transition-all border-2 ${
                       !editFrame ? "border-gray-400 bg-gray-100" : "border-gray-100 bg-white"
                     }`}>
-                    <p className="text-xs font-bold text-gray-700">Không khung</p>
-                    <p className="text-[10px] text-gray-400">Mặc định</p>
+                    <p className="text-xs font-bold text-gray-700">{t("profile.noFrame")}</p>
+                    <p className="text-[10px] text-gray-400">{t("profile.defaultTheme")}</p>
                   </button>
                   {FRAMES.map(fr => (
                     <button key={fr.id}
@@ -486,8 +496,8 @@ export function ProfileView({ nickname, onClose }: Props) {
                       className={`p-3 rounded-2xl text-left transition-all border-2 ${
                         editFrame === fr.id ? "border-emerald-400 bg-emerald-50" : "border-gray-100 bg-white hover:border-gray-300"
                       }`}>
-                      <p className="text-xs font-bold text-gray-700">{fr.name}</p>
-                      <p className="text-[10px] text-gray-400">{fr.desc}</p>
+                      <p className="text-xs font-bold text-gray-700">{getFrameName(fr)}</p>
+                      <p className="text-[10px] text-gray-400">{t(fr.desc)}</p>
                     </button>
                   ))}
                 </div>
@@ -496,11 +506,11 @@ export function ProfileView({ nickname, onClose }: Props) {
               {/* Password confirmation */}
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
-                  Mật khẩu xác nhận <span className="text-red-400">*</span>
+                  {t("profile.confirmPassword")}
                 </label>
                 <input type="password" value={editPass} onChange={e => setEditPass(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl text-base font-medium text-gray-800 focus:outline-none focus:border-emerald-400 focus:bg-white transition"
-                  placeholder="Nhập mật khẩu tài khoản..." />
+                  placeholder={t("profile.enterAccountPassword")} />
               </div>
 
               {/* Save button */}
@@ -516,11 +526,11 @@ export function ProfileView({ nickname, onClose }: Props) {
                 <button onClick={handleSave} disabled={saving}
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-emerald-500 text-white rounded-2xl font-bold text-base hover:bg-emerald-600 disabled:opacity-60 active:scale-[0.98] transition-all shadow-lg shadow-emerald-200">
                   {saving ? <RefreshCw size={18} className="animate-spin"/> : <Save size={18}/>}
-                  {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                  {saving ? t("common.saving") : t("common.save")}
                 </button>
                 <button onClick={closeEdit}
                   className="px-5 py-3.5 bg-gray-100 text-gray-600 rounded-2xl font-bold text-base hover:bg-gray-200 active:scale-[0.98] transition-all">
-                  Huỷ
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { User } from "../types";
 import { localModelRunner, LOCAL_MODELS, LocalModelType } from "../services/localModelRunner";
 import { Badge, Button, Card, LoadingSpinner, ModalHeader, ModalShell, TabButton } from "../lib/ui";
+import { useTranslation } from "react-i18next";
 
 interface AIScannerProps {
   user: User;
@@ -14,6 +15,7 @@ interface AIScannerProps {
 type ScanMode = "cloud" | "local";
 
 export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
+  const { t } = useTranslation();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string>("");
@@ -62,7 +64,7 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
         videoRef.current.srcObject = mediaStream;
       }
     } catch {
-      setCameraError("Không thể truy cập camera. Hãy cấp quyền camera trong trình duyệt hoặc tải ảnh từ thiết bị.");
+      setCameraError(t("aiScanner.cameraError"));
     }
   };
 
@@ -107,20 +109,20 @@ export function AIScanner({ user, onUpdatePoints, onClose }: AIScannerProps) {
     const result = await localModelRunner.classify(imageData, selectedModel);
 
     const labels: Record<string, string> = {
-      plastic: "Nhựa",
-      paper: "Giấy",
-      glass: "Thủy tinh",
-      metal: "Kim loại",
-      organic: "Hữu cơ",
-      hazard: "Nguy hại",
+      plastic: t("aiScanner.categories.plastic"),
+      paper: t("aiScanner.categories.paper"),
+      glass: t("aiScanner.categories.glass"),
+      metal: t("aiScanner.categories.metal"),
+      organic: t("aiScanner.categories.organic"),
+      hazard: t("aiScanner.categories.hazardous"),
     };
     const instructions: Record<string, string> = {
-      plastic: "Rửa sạch, ép dẹt và bỏ vào thùng tái chế màu xanh dương.",
-      paper: "Gấp gọn, loại bỏ phần ướt bẩn và bỏ vào thùng giấy tái chế.",
-      glass: "Rửa sạch, tránh làm vỡ và thu gom riêng cho thủy tinh.",
-      metal: "Làm sạch, có thể bóp dẹt để tiết kiệm không gian và cho vào ngăn tái chế.",
-      organic: "Bỏ vào thùng hữu cơ hoặc ủ làm phân bón tự nhiên.",
-      hazard: "Không bỏ cùng rác thường. Hãy mang đến điểm thu gom rác nguy hại.",
+      plastic: t("aiScanner.disposal.plastic"),
+      paper: t("aiScanner.disposal.paper"),
+      glass: t("aiScanner.disposal.glass"),
+      metal: t("aiScanner.disposal.metal"),
+      organic: t("aiScanner.disposal.organic"),
+      hazard: t("aiScanner.disposal.hazard"),
     };
 
     const analysis = `**Phân loại: ${labels[result.category] || result.category}**\n\n${result.category === "plastic" ? "Đây là loại rác nhựa có thể tái chế được." : result.category === "hazard" ? "Đây là loại rác nguy hại cần xử lý đặc biệt." : "Đây là loại rác " + labels[result.category] + " có thể được xử lý đúng quy trình."}\n\n**Hướng dẫn xử lý:**
@@ -140,7 +142,7 @@ ${instructions[result.category] || ""}`;
         setLastMetrics(metrics);
 
         const updatedUser = await fetch("/api/user/" + user.account_id).then((r) => r.json());
-        const rewardText = "\n\n**Thưởng 50 điểm nhờ phân tích thành công bằng Local AI.**";
+        const rewardText = "\n\n**" + t("aiScanner.localReward") + "**";
         setResult(analysis + rewardText);
         onUpdatePoints(updatedUser.points + 50);
 
@@ -185,7 +187,7 @@ ${instructions[result.category] || ""}`;
         if (res.ok) {
           let finalResult = data.analysis;
           if (data.rewarded) {
-            finalResult += "\n\n**Thưởng 50 điểm nhờ quét thành công bằng Cloud AI.**";
+            finalResult += "\n\n**" + t("aiScanner.cloudReward") + "**";
             onUpdatePoints(data.points);
 
             // Auto-complete challenges 1 & 3 on first successful scan
@@ -211,11 +213,11 @@ ${instructions[result.category] || ""}`;
             setLastMetrics({ model: "gemini_2.5_flash", latencyMs, confidence: 0.85 });
           }
         } else {
-          setResult("Lỗi phân tích: " + (data.error || "Unknown"));
+          setResult(t("aiScanner.analyzeError", { error: data.error || "Unknown" }));
         }
       }
     } catch {
-      setResult("Lỗi kết nối khi gọi AI. Vui lòng thử lại.");
+      setResult(t("aiScanner.connectionError"));
     }
     setLoading(false);
   };
@@ -229,52 +231,52 @@ ${instructions[result.category] || ""}`;
   return (
     <ModalShell onClose={onClose} className="max-w-5xl overflow-hidden p-0" title="AI Scanner">
       <ModalHeader
-        title="Quét rác thông minh"
-        subtitle="Chụp ảnh hoặc tải ảnh lên để nhận phân loại, hướng dẫn xử lý chuẩn hơn và điểm thưởng ngay trong cùng một luồng rõ ràng."
+        title={t("aiScanner.title")}
+        subtitle={t("aiScanner.subtitle")}
         badge={<Badge tone="success">AI Scanner</Badge>}
         onClose={onClose}
       />
 
       <div className="grid max-h-[88vh] overflow-hidden lg:grid-cols-[1.02fr_0.98fr]">
-        <div className="bg-[linear-gradient(160deg,#0f1720,#12352f_58%,#174c40)] p-6 text-white sm:p-8">
-          <div className="space-y-4 rounded-[26px] border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
-            <div className="flex gap-2 rounded-[20px] bg-white/8 p-1">
-              <TabButton active={scanMode === "cloud"} onClick={() => setScanMode("cloud")} className={`flex-1 justify-center gap-2 ${scanMode === "cloud" ? "bg-white text-slate-900" : "text-white/75 hover:text-white"}`}>
-                <Wifi size={16} /> Cloud AI
+        <div className="surface-card p-6 sm:p-8">
+          <div className="space-y-4 rounded-[26px] border border-gray-100 bg-gray-50 p-4">
+            <div className="flex gap-2 rounded-[20px] bg-gray-100 p-1">
+              <TabButton active={scanMode === "cloud"} onClick={() => setScanMode("cloud")} className={`flex-1 justify-center gap-2 ${scanMode === "cloud" ? "bg-white text-slate-900" : "text-gray-500 hover:text-gray-700"}`}>
+                <Wifi size={16} /> {t("aiScanner.cloudAI")}
               </TabButton>
-              <TabButton active={scanMode === "local"} onClick={() => setScanMode("local")} className={`flex-1 justify-center gap-2 ${scanMode === "local" ? "bg-white text-slate-900" : "text-white/75 hover:text-white"}`}>
-                <Zap size={16} /> Local AI
+              <TabButton active={scanMode === "local"} onClick={() => setScanMode("local")} className={`flex-1 justify-center gap-2 ${scanMode === "local" ? "bg-white text-slate-900" : "text-gray-500 hover:text-gray-700"}`}>
+                <Zap size={16} /> {t("aiScanner.localAI")}
               </TabButton>
             </div>
 
-            <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200">Trạng thái</p>
-              <p className="mt-2 text-sm leading-6 text-slate-200/80">
+            <div className="rounded-[24px] border border-gray-100 bg-gray-50 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600">{t("aiScanner.status")}</p>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
                 {scanMode === "cloud"
-                  ? "Phù hợp khi bạn muốn kết quả phân tích sâu hơn từ Cloud AI."
+                  ? t("aiScanner.cloudStatus")
                   : modelLoading
-                  ? "Mô hình cục bộ đang được chuẩn bị để phân tích ngay trên thiết bị của bạn."
-                  : "Local AI đã sẵn sàng để phản hồi nhanh mà không cần gửi ảnh đi xa hơn."}
+                  ? t("aiScanner.localLoading")
+                  : t("aiScanner.localReady")}
               </p>
               {scanMode === "local" && modelLoading && (
-                <div className="mt-4 rounded-2xl border border-emerald-200/20 bg-white/8 p-4">
-                  <LoadingSpinner message="Đang tải mô hình cục bộ" subtitle="Quá trình này có thể mất thêm vài giây ở lần đầu tiên." />
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <LoadingSpinner message={t("aiScanner.loadingModel")} subtitle={t("aiScanner.loadingModelHint")} />
                 </div>
               )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Button onClick={() => fileInputRef.current?.click()} variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white">
-                <Upload size={16} /> Tải ảnh lên
+              <Button onClick={() => fileInputRef.current?.click()} variant="ghost" className="border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800">
+                <Upload size={16} /> {t("aiScanner.uploadImage")}
               </Button>
-              <Button onClick={startCamera} variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white">
-                <Camera size={16} /> Mở camera
+              <Button onClick={startCamera} variant="ghost" className="border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800">
+                <Camera size={16} /> {t("aiScanner.openCamera")}
               </Button>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
             {cameraError && (
-              <div className="rounded-[20px] border border-amber-200/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 <div className="flex items-start gap-3">
                   <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>{cameraError}</p>
@@ -283,14 +285,14 @@ ${instructions[result.category] || ""}`;
             )}
 
             {showCamera && (
-              <div className="overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/50">
+              <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-gray-100">
                 <video ref={videoRef} autoPlay playsInline className="aspect-video w-full object-cover" />
                 <div className="flex gap-3 p-4">
                   <Button onClick={captureImage} className="flex-1">
-                    <Camera size={16} /> Chụp ảnh
+                    <Camera size={16} /> {t("aiScanner.capture")}
                   </Button>
-                  <Button onClick={stopCamera} variant="ghost" className="flex-1 border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white">
-                    <X size={16} /> Đóng camera
+                  <Button onClick={stopCamera} variant="ghost" className="flex-1 border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100">
+                    <X size={16} /> {t("aiScanner.closeCamera")}
                   </Button>
                 </div>
               </div>
@@ -298,15 +300,15 @@ ${instructions[result.category] || ""}`;
           </div>
         </div>
 
-        <div className="thin-scrollbar overflow-y-auto bg-[linear-gradient(180deg,#ffffff,#f7faf8)] p-6 sm:p-8">
+        <div className="thin-scrollbar overflow-y-auto bg-gray-50 p-6 sm:p-8">
           {!image && !loading && !result && (
             <Card className="rounded-[28px] border-dashed bg-white/80 p-8 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
                 <ImageIcon className="h-7 w-7" />
               </div>
-              <h3 className="mt-4 text-xl font-black text-slate-900">Bắt đầu với một hình ảnh</h3>
+              <h3 className="mt-4 text-xl font-black text-slate-900">{t("aiScanner.startWithImage")}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Tải ảnh từ thiết bị hoặc dùng camera để nhận phân tích chi tiết, rõ ràng và dễ hành động hơn.
+                {t("aiScanner.startImageHint")}
               </p>
             </Card>
           )}
@@ -318,7 +320,7 @@ ${instructions[result.category] || ""}`;
               </Card>
               <Button onClick={analyzeImage} loading={loading} className="w-full" size="lg" disabled={scanMode === "local" && modelLoading}>
                 <Sparkles size={16} />
-                {loading ? "Đang phân tích hình ảnh" : "Phân tích ngay"}
+                {loading ? t("aiScanner.analyzing") : t("aiScanner.analyzeNow")}
               </Button>
             </div>
           )}
@@ -326,8 +328,8 @@ ${instructions[result.category] || ""}`;
           {loading && (
             <Card className="mt-4 rounded-[28px] p-6">
               <LoadingSpinner
-                message="AI đang phân tích hình ảnh"
-                subtitle={scanMode === "cloud" ? "Cloud AI đang xử lý nội dung và chuẩn bị gợi ý phân loại." : "Local AI đang đưa ra phân loại trực tiếp trên thiết bị của bạn."}
+                message={t("aiScanner.aiAnalyzing")}
+                subtitle={scanMode === "cloud" ? t("aiScanner.cloudAnalyzing") : t("aiScanner.localAnalyzing")}
               />
             </Card>
           )}
@@ -336,8 +338,8 @@ ${instructions[result.category] || ""}`;
             <Card className="mt-4 rounded-[28px] p-6">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
-                  <Badge tone="success">Kết quả phân tích</Badge>
-                  <h3 className="mt-3 text-xl font-black text-slate-900">Gợi ý xử lý dành cho bạn</h3>
+                  <Badge tone="success">{t("aiScanner.result")}</Badge>
+                  <h3 className="mt-3 text-xl font-black text-slate-900">{t("aiScanner.suggestion")}</h3>
                 </div>
                 <div className="rounded-full bg-emerald-50 p-2 text-emerald-500">
                   <CheckCircle size={18} />
@@ -349,15 +351,15 @@ ${instructions[result.category] || ""}`;
               {lastMetrics && (
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
                   <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Model</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{t("aiScanner.model")}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-800">{lastMetrics.model}</p>
                   </div>
                   <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Độ trễ</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{t("aiScanner.latency")}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-800">{lastMetrics.latencyMs} ms</p>
                   </div>
                   <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Độ tin cậy</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{t("aiScanner.confidence")}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-800">{Math.round(lastMetrics.confidence * 100)}%</p>
                   </div>
                 </div>

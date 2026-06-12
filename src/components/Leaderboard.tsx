@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
+import { useTranslation } from "react-i18next";
 import { Badge, Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
-import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface LeaderboardEntry {
   name: string;
@@ -29,13 +29,6 @@ interface Props {
 type LbTab = "total" | "weekly" | "monthly" | "clans";
 type SortKey = "total" | "weekly" | "monthly";
 
-const LB_TABS: { key: LbTab; label: string; emoji: string }[] = [
-  { key: "total", label: "Tổng", emoji: "🏆" },
-  { key: "weekly", label: "Tuần", emoji: "📅" },
-  { key: "monthly", label: "Tháng", emoji: "🗓️" },
-  { key: "clans", label: "Bang hội", emoji: "⚔️" },
-];
-
 const PODIUM_BG: Record<number, string> = {
   0: "from-amber-300 via-amber-200 to-amber-100",
   1: "from-slate-300 via-slate-200 to-slate-100",
@@ -58,6 +51,7 @@ const PODIUM_NAME_TOP: Record<number, string> = {
 };
 
 export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props) {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +60,13 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
   const [clans, setClans] = useState<{ name: string; tag: string; exp: number; member_count: number }[]>([]);
   const [currentRank, setCurrentRank] = useState<number | null>(null);
   const { width, height } = useWindowSize();
+
+  const LB_TABS: { key: LbTab; label: string; emoji: string }[] = [
+    { key: "total", label: t("leaderboard.total"), emoji: "🏆" },
+    { key: "weekly", label: t("leaderboard.weekly"), emoji: "📅" },
+    { key: "monthly", label: t("leaderboard.monthly"), emoji: "🗓️" },
+    { key: "clans", label: t("leaderboard.clan"), emoji: "⚔️" },
+  ];
 
   const sortKey: SortKey = activeTab === "clans" ? "total" : activeTab;
 
@@ -85,7 +86,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
         } else {
           if (activeTab === "total") {
             const res = await fetch("/api/leaderboard");
-            if (!res.ok) throw new Error("Không thể tải bảng xếp hạng");
+            if (!res.ok) throw new Error(t("leaderboard.loadError"));
             const data = await res.json();
             setUsers(data);
           } else {
@@ -99,7 +100,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
           }
         }
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
+        setError(err instanceof Error ? err.message : t("common.error"));
       } finally {
         setLoading(false);
       }
@@ -140,9 +141,9 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
   };
 
   const getScoreLabel = () => {
-    if (sortKey === "weekly") return "Điểm tuần";
-    if (sortKey === "monthly") return "Điểm tháng";
-    return "Điểm";
+    if (sortKey === "weekly") return t("leaderboard.weeklyScore");
+    if (sortKey === "monthly") return t("leaderboard.monthlyScore");
+    return t("leaderboard.totalScore");
   };
 
   const getRankIcon = (change: number | undefined) => {
@@ -180,7 +181,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                   {user.clan_name}
                 </span>
               )}
-              {isCurrent && <span className="text-[11px] font-bold italic text-amber-600">(Bạn)</span>}
+              {isCurrent && <span className="text-[11px] font-bold italic text-amber-600">{t("common.you")}</span>}
             </div>
             <div className="flex items-center gap-1.5">
               <RankChangeBadge change={user.rank_change} />
@@ -242,14 +243,14 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
               #{currentRank}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Xếp hạng của bạn</p>
-              <p className="text-xs text-slate-400">Hạng #{currentRank} {getScoreLabel().toLowerCase()}</p>
+              <p className="text-sm font-bold text-slate-700">{t("leaderboard.yourRank")}</p>
+              <p className="text-xs text-slate-400">{t("leaderboard.yourRankInfo", { rank: currentRank, label: getScoreLabel().toLowerCase() })}</p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-lg font-black text-emerald-600">{getScoreDisplay(myEntry).toLocaleString()}</p>
             {pointsToNext > 0 && (
-              <p className="text-[10px] text-slate-400">Cần {pointsToNext.toLocaleString()} để vượt #{currentRank - 1}</p>
+              <p className="text-[10px] text-slate-400">{t("leaderboard.pointsToNext", { points: pointsToNext.toLocaleString(), prevRank: currentRank - 1 })}</p>
             )}
           </div>
         </div>
@@ -288,12 +289,12 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
           <ErrorRetry message={error} onRetry={() => setRefetchKey((k) => k + 1)} />
         ) : activeTab === "clans" ? (
           rankedClans.length === 0 ? (
-            <EmptyState title="Chưa có bang hội" subtitle="Hãy là người đầu tiên tạo bang!" />
+            <EmptyState title={t("leaderboard.noClan")} subtitle={t("leaderboard.firstClan")} />
           ) : (
             <div className="space-y-3 py-4">
               <div className="mb-2 flex items-center gap-2 px-1">
                 <Trophy size={16} className="text-amber-500" />
-                <p className="text-sm font-bold text-slate-600">Bảng xếp hạng Bang hội</p>
+                <p className="text-sm font-bold text-slate-600">{t("leaderboard.clanLeaderboard")}</p>
               </div>
               {rankedClans.map((clan, index) => {
                 const isTop3 = index < 3;
@@ -305,7 +306,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                       </div>
                       <div className="min-w-0">
                         <p className="truncate font-bold text-slate-800">{clan.name}</p>
-                        <p className="text-xs text-slate-400">[{clan.tag}] · {clan.member_count} thành viên</p>
+                        <p className="text-xs text-slate-400">{t("leaderboard.clanMembers", { tag: clan.tag, count: clan.member_count })}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -318,8 +319,8 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
               <YourRankCard />
             </div>
           )
-        ) : rankedUsers.length === 0 ? (
-          <EmptyState title="Chưa có dữ liệu" subtitle="Hãy là người đầu tiên ghi danh!" />
+        ) :           rankedUsers.length === 0 ? (
+            <EmptyState title={t("leaderboard.noClanData")} subtitle={t("leaderboard.firstRecord")} />
         ) : (
           <div className="space-y-3 py-4">
             <Podium />
