@@ -82,7 +82,8 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
     if (!user || user.role !== "admin") {
       return res.status(403).json({ error: "Forbidden: Admin access required" });
     }
-  } catch {
+  } catch (e) {
+    console.warn("[Admin] Access denied:", e);
     return res.status(403).json({ error: "Forbidden: Admin access required" });
   }
   next();
@@ -716,11 +717,15 @@ app.post("/api/login", async (req, res) => {
               setTimeout(async () => {
                 try {
                   await behavioralProfiler.profileUser(accountId);
-                } catch {}
+                } catch (e) {
+                  console.warn("[BehavioralProfiler] Failed:", e);
+                }
               }, 1000);
             }
           }
-        } catch {}
+        } catch (e) {
+          console.warn("[Login] Research registration failed:", e);
+        }
       }
 
       // Research: Log login event
@@ -741,8 +746,9 @@ app.post("/api/login", async (req, res) => {
                 await noveltyDecayDetector.triggerIntervention(accountId, interventions[0]);
               }
             }
-          } catch {}
-        }, 5000);
+          } catch (e) {
+            console.warn("[NoveltyDecay] Intervention check failed:", e);
+          }
       }
 
       res.json({
@@ -816,7 +822,9 @@ app.post("/api/register", async (req, res) => {
         await personalityEngine.assignPersonality(accountId, 1);
         await eventLogger.log(accountId, "register", { timestamp: new Date().toISOString() });
       }
-    } catch {}
+    } catch (e) {
+      console.warn("[Auth] Registration research tasks failed:", e);
+    }
   }
 
   res.json({ success: true, message: "Đăng ký thành công! Hãy đăng nhập." });
@@ -874,7 +882,9 @@ app.post("/api/reward", async (req, res) => {
               effectiveMultiplier = adaptiveResult.multiplier;
               adaptiveMessage = adaptiveResult.message;
             }
-          } catch {}
+          } catch (e) {
+            console.warn("[AdaptiveReward] computeReward failed:", e);
+          }
         }
       }
       user.points += effectivePoints;
@@ -2203,7 +2213,9 @@ app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
         stats.researchActive7d = parseInt(rows[0]?.active7d || "0");
         stats.researchActive1d = parseInt(rows[0]?.active1d || "0");
         stats.experimentCount = parseInt(rows[0]?.experiment_count || "0");
-      } catch {}
+      } catch (e) {
+        console.warn("[Admin/Stats] Research stats query failed:", e);
+      }
     }
     res.json(stats);
   } catch (e) {
@@ -2310,7 +2322,9 @@ app.post("/api/admin/users/:nick/reset-progress", requireAdmin, async (req, res)
     if (db) {
       try {
         await db.collection("user_progress").doc(nick.toLowerCase()).delete();
-      } catch {}
+      } catch (e) {
+        console.warn("[Admin] Firestore reset failed:", e);
+      }
     }
     res.json({ success: true, message: `Đã reset tiến độ của ${nick}` });
   } catch (e) {
@@ -2388,10 +2402,14 @@ async function startServer() {
                 `INSERT INTO research_users (user_id, username) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
                 [u.account_id, u.name]
               );
-            } catch {}
+            } catch (e) {
+              console.warn("[Startup] research_users insert failed for", u.account_id, e);
+            }
           }
         }
-      } catch {}
+      } catch (e) {
+        console.warn("[Startup] Research DB sync failed:", e);
+      }
     })();
 
     // Initialize experiment engine with default experiments

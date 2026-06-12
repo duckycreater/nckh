@@ -231,6 +231,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
     if (!currentUser || currentRank === null) return null;
     const restUsers = rankedUsers.slice(3);
     const myEntry = rankedUsers[currentRank - 1];
+    if (!myEntry) return null;
     const nextUser = restUsers[currentRank - 4];
     const pointsToNext = nextUser ? getScoreDisplay(nextUser) - getScoreDisplay(myEntry) : 0;
     return (

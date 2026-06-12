@@ -23,7 +23,7 @@ import { PvPArena } from "./PvPArena";
 import { TournamentBracket } from "./TournamentBracket";
 import { ClanLobby } from "./ClanLobby";
 import { saveStreakToCache } from "../lib/streakPersistence";
-import { showPointsToast } from "../lib/toast";
+import { showPointsToast, PointsToastContainer } from "../lib/toast";
 import {
   Home,
   Compass,
@@ -740,7 +740,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         )}
 
         <AchievementPopup />
-        <PointsToastContainer />
       </div>
     </div>
   );

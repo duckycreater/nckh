@@ -135,8 +135,8 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Lỗi khi tạo clan");
       onCreated(data.id);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -262,8 +262,8 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
       if (!res.ok) throw new Error(data.error);
       setDonateMsg(`Đã đóng góp ${amount} EXP!`);
       fetchClan();
-    } catch (err: any) {
-      setDonateMsg(err.message);
+    } catch (err: unknown) {
+      setDonateMsg(err instanceof Error ? err.message : String(err));
     } finally {
       setDonating(false);
     }
@@ -494,7 +494,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
             <input
               value={msgText}
               onChange={(e) => setMsgText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSendMsg()}
+              onKeyDown={(e) => e.code === "Enter" && handleSendMsg()}
               maxLength={500}
               placeholder="Viết tin nhắn..."
               className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"

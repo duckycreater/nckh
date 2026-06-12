@@ -1,14 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { Sparkles, Zap, TrendingUp, X } from "lucide-react";
 
+interface Intervention {
+  intervention_type?: string;
+  // Add other fields as the API returns them
+}
+
+interface DecayData {
+  isDecaying?: boolean;
+  decaySeverity?: "severe" | "moderate";
+  [key: string]: unknown;
+}
+
+interface ReflectionData {
+  reflectionText?: string;
+  [key: string]: unknown;
+}
+
 interface AdaptiveRewardBannerProps {
   userId: string;
   className?: string;
 }
 
 export function AdaptiveRewardBanner({ userId, className = "" }: AdaptiveRewardBannerProps) {
-  const [interventions, setInterventions] = useState<any[]>([]);
-  const [decayState, setDecayState] = useState<any>(null);
+  const [interventions, setInterventions] = useState<Intervention[]>([]);
+  const [decayState, setDecayState] = useState<DecayData | null>(null);
   const [reflection, setReflection] = useState<string | null>(null);
   const [reflectionDismissed, setReflectionDismissed] = useState(false);
   const [decayDismissed, setDecayDismissed] = useState(false);
@@ -23,17 +39,19 @@ export function AdaptiveRewardBanner({ userId, className = "" }: AdaptiveRewardB
           fetch(`/api/reflection/${userId}`),
         ]);
 
-        const interventionsData = await interventionsRes.json();
-        const decayData = await decayRes.json();
-        const reflectionData = await reflectionRes.json();
+        if (!interventionsRes.ok || !decayRes.ok || !reflectionRes.ok) return;
 
-        setInterventions(interventionsData.slice(0, 2));
-        setDecayState(decayData);
-        if (reflectionData.reflectionText) {
+        const interventionsData: Intervention[] = await interventionsRes.json();
+        const decayData: DecayData = await decayRes.json();
+        const reflectionData: ReflectionData = await reflectionRes.json();
+
+        setInterventions(Array.isArray(interventionsData) ? interventionsData.slice(0, 2) : []);
+        setDecayState(decayData || null);
+        if (reflectionData?.reflectionText) {
           setReflection(reflectionData.reflectionText);
         }
       } catch (e) {
-        console.warn('[AdaptiveRewardBanner] Failed to fetch banner data:', e);
+        console.warn("[AdaptiveRewardBanner] Failed to fetch banner data:", e);
       }
     };
 
