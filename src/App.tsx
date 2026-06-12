@@ -11,6 +11,7 @@ import { User } from "./types";
 import { AppScreenShell, Badge, Card, LoadingSpinner } from "./lib/ui";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
 import { Globe } from "lucide-react";
+import { calculateLevel } from "./lib/useLevel";
 
 // ─── Lazy Imports ──────────────────────────────────────────────────────
 const LazyAdminDashboard = lazy(() =>
@@ -73,9 +74,11 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 // ─── Campaign Route Wrappers
 function WorldMapRoute({ user }: { user: User }) {
   const navigate = useNavigate();
+  const totalExp = user.totalExpEarned ?? user.points;
+  const { level: playerLevel } = calculateLevel(totalExp);
   return (
     <WorldMap
-      playerLevel={user.level || 1}
+      playerLevel={playerLevel}
       unlockedRegions={user.unlockedRegions || ["region_01"]}
       currentRegion={user.currentRegion || ""}
       onSelectRegion={(regionId) => {
