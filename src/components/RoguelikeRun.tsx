@@ -389,7 +389,7 @@ interface Props {
   playerMaxHp?: number;
 }
 
-type RunStage = "intro" | "encounter_select" | "battle" | "shop" | "rest" | "elite_battle" | "reward" | "gameover" | "victory";
+type RunStage = "intro" | "encounter_select" | "battle" | "shop" | "rest" | "treasure" | "elite_battle" | "reward" | "gameover" | "victory";
 
 export function RoguelikeRun({ onClose, onReward, userCards, playerHp = 200, playerMaxHp = 200 }: Props) {
   // ─── State ────────────────────────────────────────────

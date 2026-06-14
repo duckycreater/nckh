@@ -30,6 +30,7 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
 
   const { level, expToNextLevel, currentExpInLevel } = calculateLevel(totalExpEarned);
   const milestoneTierData = TIER_NAMES[milestone.tier] ?? TIER_NAMES.t1;
+  const nextTierData = getNextMilestone(totalExpEarned);
 
   return (
     <motion.div

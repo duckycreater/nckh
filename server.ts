@@ -13,7 +13,7 @@ import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { resolveGacha, generateServerCard } from "./server/lib/cards.js";
 import { GoogleGenAI } from "@google/genai";
-import { initDb, isDbConnected, getDb } from "./server/db.js";
+import { initDb, isDbConnected, getDb, setFirestore } from "./server/db.js";
 import { listRewards, upsertReward, deleteRewardById, isRewardsDbConfigured } from "./server/rewardsDb.js";
 import { runSchema } from "./server/schema.js";
 import { researchRouter } from "./server/routes/research.js";
@@ -248,6 +248,7 @@ if (secretRaw) {
 
     if (dbId === "(default)") {
       db = admin.firestore();
+      setFirestore(db);
     } else {
       const customApp = admin.initializeApp(
         {
@@ -257,6 +258,7 @@ if (secretRaw) {
         "custom",
       );
       db = getFirestore(customApp, dbId);
+      setFirestore(db);
     }
     console.log("Firebase Admin Initialized successfully!");
 
@@ -2591,7 +2593,7 @@ async function startServer() {
   // ─── Weekly Tournament ──────────────────────────────────────────────────────
   app.get("/api/tournament/current", async (_req, res) => {
     try {
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       // Get current week's Monday 00:00 Vietnam time (UTC+7)
       const now = new Date();
       const vnOffset = 7 * 60;
@@ -2661,7 +2663,7 @@ async function startServer() {
   app.post("/api/tournament/join", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const now = new Date();
       const vnOffset = 7 * 60;
       const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -2716,7 +2718,7 @@ async function startServer() {
   app.get("/api/tournament/bracket", async (req, res) => {
     try {
       const { id } = req.query;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       let docRef;
       if (id) {
         docRef = db.collection("tournaments").doc(id as string);
@@ -2762,7 +2764,7 @@ async function startServer() {
   app.post("/api/pvp/match", requireAuth, async (req, res) => {
     try {
       const challengerNick = (req as any).userNick;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const WAGER = 20;
 
       const challenger = await getUser(challengerNick);
@@ -2826,7 +2828,7 @@ async function startServer() {
     try {
       const { matchId, playerWon, rounds } = req.body;
       const nick = (req as any).userNick;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
 
       const matchRef = db.collection("pvp_matches").doc(matchId);
       const matchDoc = await matchRef.get();
@@ -2873,7 +2875,7 @@ async function startServer() {
   app.get("/api/pvp/history", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const matches: FirebaseFirestore.QuerySnapshot = await db
         .collection("pvp_matches")
         .where("status", "==", "completed")
@@ -2908,7 +2910,7 @@ async function startServer() {
 
   app.get("/api/clans", async (_req, res) => {
     try {
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const clansSnap = await db.collection("clans").orderBy("exp", "desc").limit(50).get();
       const clans = clansSnap.docs.map((d) => {
         const data = d.data();
@@ -2941,7 +2943,7 @@ async function startServer() {
       if (!name || name.trim().length < 2) return res.status(400).json({ error: "Tên clan quá ngắn" });
       if (!tag || tag.trim().length < 2 || tag.trim().length > 5) return res.status(400).json({ error: "Tag clan phải 2-5 ký tự" });
 
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
 
       // Check if user already in a clan
       const userClanSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
@@ -2998,7 +3000,7 @@ async function startServer() {
   app.get("/api/clan/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const clanSnap = await db.collection("clans").doc(id).get();
       if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
 
@@ -3046,7 +3048,7 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { id } = req.params;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
 
       // Check if already in a clan
       const existingClan = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
@@ -3093,7 +3095,7 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { id } = req.params;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
 
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
@@ -3125,7 +3127,7 @@ async function startServer() {
       const donateAmount = Math.max(10, Math.min(10000, Number(amount) || 0));
       if (donateAmount < 10) return res.status(400).json({ error: "Tối thiểu 10 EXP" });
 
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
 
       // Deduct from user
       const userSnap = await db.collection("users").doc(nick).get();
@@ -3181,7 +3183,7 @@ async function startServer() {
       if (!text || text.trim().length === 0) return res.status(400).json({ error: "Tin nhắn trống" });
       if (text.trim().length > 500) return res.status(400).json({ error: "Tin nhắn quá dài" });
 
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const clanSnap = await db.collection("clans").doc(id).get();
       if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
       const clanData = clanSnap.data()!;
@@ -3212,7 +3214,7 @@ async function startServer() {
       const { targetNick } = req.body || {};
       if (!targetNick) return res.status(400).json({ error: "Thiếu tên thành viên" });
 
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
       if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
@@ -3235,7 +3237,7 @@ async function startServer() {
       const { targetNick } = req.body || {};
       if (!targetNick) return res.status(400).json({ error: "Thiếu tên thành viên" });
 
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
       if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
@@ -3262,7 +3264,7 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { id } = req.params;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
       if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
@@ -3295,7 +3297,7 @@ async function startServer() {
   app.get("/api/user-clan", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const db = getDb();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
       const profileSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
       if (!profileSnap.exists) return res.json({ inClan: false, clanId: null, role: null });
 

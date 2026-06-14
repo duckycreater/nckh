@@ -18,7 +18,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
 
   const currentCardId = cardIds[currentIndex];
   const card = currentCardId ? CARD_DEFINITIONS.find(c => c.id === currentCardId) : null;
-  const rarityId = card?.rarity?.id ?? 'common';
+  const rarityId = (card as any)?.rarity?.id ?? (card as any)?.rarityId ?? 'common';
 
   useEffect(() => {
     if (!isOpen || !cardIds.length) return;
@@ -154,7 +154,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
               transition={{ duration: 0.6 }}
             >
               {/* Card background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${card?.element?.gradient ?? 'from-slate-400 to-slate-600'}`} />
+              <div className={`absolute inset-0 bg-gradient-to-br ${(card as any)?.element?.gradient ?? 'from-slate-400 to-slate-600'}`} />
               
               {/* Card content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-4 text-white">
@@ -185,7 +185,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.7, type: 'spring', stiffness: 200 }}
                 >
-                  {card?.element?.icon ?? '🃏'}
+                  {(card as any)?.element?.icon ?? '🃏'}
                 </motion.div>
 
                 {/* Card subtitle */}

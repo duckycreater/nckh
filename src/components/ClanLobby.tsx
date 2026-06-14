@@ -88,7 +88,7 @@ function ClanList({ onSelect, onCreate, onClose, userNick }: ClanListProps) {
                       <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-black text-slate-300">[{clan.tag}]</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-400">
-                      <span className="flex items-center gap-1"><Users size={10} /> {clan.memberCount}/{clan.maxMembers}</span>
+                      <span className="flex items-center gap-1"><Users size={10} /> {(clan.memberIds || []).length}/{clan.level * 5 + 10}</span>
                       <span className="flex items-center gap-1"><Trophy size={10} /> Lv.{clan.level}</span>
                       <span className="flex items-center gap-1"><Star size={10} /> {(clan.exp || 0).toLocaleString()} EXP</span>
                     </div>

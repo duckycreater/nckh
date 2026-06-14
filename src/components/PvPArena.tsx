@@ -21,6 +21,8 @@ interface BattleCard {
   stunned: number; defDownStacks: number;
   atkBuff: number;
   totalDamage: number;
+  poisonImmune?: boolean; burnImmune?: boolean;
+  sp?: number; // shield pierce
   specialAbility?: string; // arena-exclusive: "second_wind" | "last_stand" | "iron_will"
   secondWindUsed?: boolean;
   lastStandUsed?: boolean;
@@ -208,7 +210,7 @@ const RIVAL_TIERS: RivalTierConfig[] = [
   },
 ];
 
-const RIVAL_PROFILES = [
+const RIVAL_PROFILES: { name: string; style: string; tier: RivalTier }[] = [
   { name: "Rival", style: "balanced", tier: "bronze" },
   { name: "Dark Challenger", style: "aggressive", tier: "bronze" },
   { name: "Shadow Knight", style: "defensive", tier: "silver" },
@@ -223,7 +225,7 @@ function pickRivalProfile(playerRank: RivalTier = "bronze") {
   // Only pick rivals at or above player rank
   const tierOrder: RivalTier[] = ["bronze", "silver", "gold", "diamond"];
   const minIdx = tierOrder.indexOf(playerRank);
-  const candidates = RIVAL_PROFILES.filter(r => tierOrder.indexOf(r.tier) >= minIdx);
+  const candidates = RIVAL_PROFILES.filter(r => tierOrder.indexOf(r.tier as RivalTier) >= minIdx);
   return candidates[Math.floor(Math.random() * candidates.length)] || RIVAL_PROFILES[0];
 }
 

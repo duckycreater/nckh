@@ -1073,7 +1073,7 @@ export function getCardAbility(card: { element?: { id?: string }; rarity?: { id?
 }
 
 // ─── 300 Unique Card Definitions ─────────────────────────────────────────────
-const CARD_DEFINITIONS: CardDef[] = [
+export const CARD_DEFINITIONS: CardDef[] = [
   // COMMON PLASTIC (1-30)
   { id: 1, name: "Chai nhựa PET", subtitle: "Chai nhựa 500ml", elementId: "plastic", rarityId: "common", atk: 12, hp: 25, def: 3, spd: 15, crt: 5, int: 2, abilityId: "def_01", artVariant: 1 },
   { id: 2, name: "Túi nilon", subtitle: "Túi nilon thường dùng", elementId: "plastic", rarityId: "common", atk: 8, hp: 30, def: 2, spd: 20, crt: 3, int: 4, abilityId: "def_06", artVariant: 2 },

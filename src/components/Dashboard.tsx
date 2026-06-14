@@ -299,19 +299,19 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
   const settingsTransition = { duration: 0.3, ease: "easeOut" as const };
 
-  const handleWheelSpin = (result: { label: string; amount: number }) => {
+  const handleWheelSpin = (segment: import("./DailyWheel").WheelSegment) => {
     const today = new Date().toDateString();
     localStorage.setItem("bmo:wheel:lastSpin", today);
     setShowDailyWheel(false);
-    if (result.amount > 0) {
-      onUpdateUser({ points: user.points + result.amount });
+    if (segment.reward > 0) {
+      onUpdateUser({ points: user.points + segment.reward });
       fetch("/api/reward", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: user.account_id, points: result.amount, reason: t("dashboard.wheelResult", { label: result.label }) }),
+        body: JSON.stringify({ nickname: user.account_id, points: segment.reward, reason: t("dashboard.wheelResult", { label: segment.label }) }),
       }).catch(console.error);
     }
-    showPointsToast(result.amount, 1, t("dashboard.wheelResult", { label: result.label }));
+    showPointsToast(segment.reward, 1, t("dashboard.wheelResult", { label: segment.label }));
   };
 
   const handleSurpriseClaim = (gift: import("./SurpriseGift").SurpriseGiftDef) => {

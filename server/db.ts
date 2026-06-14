@@ -1,4 +1,5 @@
 import "dotenv/config";
+import admin from "firebase-admin";
 
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -10,6 +11,16 @@ export interface ResearchPool {
 
 let pool: ResearchPool | null = null;
 let isConnected = false;
+
+let firestoreDb: admin.firestore.Firestore | null = null;
+
+export function getFirestore(): admin.firestore.Firestore | null {
+  return firestoreDb;
+}
+
+export function setFirestore(db: admin.firestore.Firestore): void {
+  firestoreDb = db;
+}
 
 export function getDb(): ResearchPool | null {
   return pool;

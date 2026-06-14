@@ -4,6 +4,7 @@ import { Gift, Star, Zap } from "lucide-react";
 
 export interface SurpriseGiftDef {
   day: number;
+  streakDays?: number;
   reward: number;
   label: string;
   labelVi: string;
@@ -12,11 +13,11 @@ export interface SurpriseGiftDef {
 }
 
 export const STREAK_GIFT_TIERS: SurpriseGiftDef[] = [
-  { day: 7,   reward: 30,   label: "Week Warrior",   labelVi: "Chiến Binh Tuần",     icon: "⚡", type: "exp" },
-  { day: 14,  reward: 75,   label: "Fortnight Hero",  labelVi: "Anh Hùng Nửa Tháng", icon: "🛡️", type: "exp" },
-  { day: 30,  reward: 200,  label: "Monthly Legend",  labelVi: "Huyền Thoại Tháng",   icon: "👑", type: "exp" },
-  { day: 60,  reward: 500,  label: "Diamond Tier",    labelVi: "Hạng Kim Cương",     icon: "💎", type: "exp" },
-  { day: 100, reward: 1000, label: "Mythic Master",   labelVi: "Bậc Thầy Huyền Thoại", icon: "🏆", type: "badge" },
+  { day: 7,   streakDays: 7,   reward: 30,   label: "Week Warrior",   labelVi: "Chiến Binh Tuần",     icon: "⚡", type: "exp" },
+  { day: 14,  streakDays: 14,  reward: 75,   label: "Fortnight Hero",  labelVi: "Anh Hùng Nửa Tháng", icon: "🛡️", type: "exp" },
+  { day: 30,  streakDays: 30,  reward: 200,  label: "Monthly Legend",  labelVi: "Huyền Thoại Tháng",   icon: "👑", type: "exp" },
+  { day: 60,  streakDays: 60,  reward: 500,  label: "Diamond Tier",    labelVi: "Hạng Kim Cương",     icon: "💎", type: "exp" },
+  { day: 100, streakDays: 100, reward: 1000, label: "Mythic Master",   labelVi: "Bậc Thầy Huyền Thoại", icon: "🏆", type: "badge" },
 ];
 
 interface SurpriseGiftProps {

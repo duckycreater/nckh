@@ -3,6 +3,7 @@ import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
 import { useTranslation } from "react-i18next";
 import { Badge, Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
+import { Minus, TrendingUp, TrendingDown, Trophy } from "lucide-react";
 
 interface LeaderboardEntry {
   name: string;
