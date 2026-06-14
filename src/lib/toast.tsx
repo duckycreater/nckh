@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, TrendingUp, CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { Flame, TrendingUp, CheckCircle2, AlertTriangle, Info, XCircle } from "lucide-react";
 
-type ToastTone = "success" | "warning" | "info";
+type ToastTone = "success" | "warning" | "info" | "error";
 
 interface ToastItem {
   id: number;
@@ -54,6 +54,13 @@ function toneMeta(tone: ToastTone) {
       icon: <AlertTriangle size={18} className="text-amber-600" />,
       iconBg: "bg-amber-100",
       border: "border-amber-100",
+    };
+  }
+  if (tone === "error") {
+    return {
+      icon: <XCircle size={18} className="text-red-600" />,
+      iconBg: "bg-red-100",
+      border: "border-red-100",
     };
   }
   return {

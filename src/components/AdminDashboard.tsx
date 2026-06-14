@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, RefreshCw, FlaskConical, Eye, Trash2, Ban, Zap, Activity } from "lucide-react";
+import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, RefreshCw, FlaskConical, Eye, Trash2, Ban, Zap, Activity, BookOpen, Database, FileSpreadsheet, Server } from "lucide-react";
 import { User, RewardItem } from "../types";
 import { AppScreenShell, Badge, Button, Card, EmptyState, FieldLabel, Input, LoadingSpinner, ModalHeader, ModalShell, SectionHeading, TabButton, TextArea } from "../lib/ui";
 import { showToast } from "../lib/toast";
+import { QuizBuilder } from "./admin/QuizBuilder";
+import { QuizConfigPanel } from "./admin/QuizConfigPanel";
+import { SheetsSyncPanel } from "./admin/SheetsSyncPanel";
+import { ResearchPanel } from "./admin/ResearchPanel";
+import { SystemPanel } from "./admin/SystemPanel";
 
 interface Props {
   user: User;
@@ -32,7 +37,7 @@ interface UserDetail {
 
 export function AdminDashboard({ user, onLogout }: Props) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "rewards" | "users" | "experiments">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "rewards" | "users" | "experiments" | "quiz" | "sheets" | "research" | "system">("overview");
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -278,6 +283,10 @@ export function AdminDashboard({ user, onLogout }: Props) {
     { id: "rewards", label: "Phần thưởng", icon: <Gift className="h-4 w-4" /> },
     { id: "users", label: "Người dùng", icon: <Users className="h-4 w-4" /> },
     { id: "experiments", label: "Thí nghiệm", icon: <FlaskConical className="h-4 w-4" /> },
+    { id: "quiz", label: "Quiz", icon: <BookOpen className="h-4 w-4" /> },
+    { id: "sheets", label: "Sheets Sync", icon: <FileSpreadsheet className="h-4 w-4" /> },
+    { id: "research", label: "Research", icon: <Database className="h-4 w-4" /> },
+    { id: "system", label: "Hệ thống", icon: <Server className="h-4 w-4" /> },
   ] as const;
 
   return (
@@ -487,6 +496,19 @@ export function AdminDashboard({ user, onLogout }: Props) {
           )}
         </Card>
       )}
+
+      {activeTab === "quiz" && (
+        <div className="space-y-4">
+          <QuizConfigPanel />
+          <QuizBuilder />
+        </div>
+      )}
+
+      {activeTab === "sheets" && <SheetsSyncPanel />}
+
+      {activeTab === "research" && <ResearchPanel />}
+
+      {activeTab === "system" && <SystemPanel />}
 
       {showAddReward && (
         <ModalShell onClose={() => setShowAddReward(false)} className="max-w-2xl overflow-hidden p-0" title="Thêm phần thưởng">

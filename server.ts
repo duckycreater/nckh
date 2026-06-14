@@ -15,6 +15,20 @@ import { resolveGacha, generateServerCard } from "./server/lib/cards.js";
 import { GoogleGenAI } from "@google/genai";
 import { initDb, isDbConnected, getDb, setFirestore } from "./server/db.js";
 import { listRewards, upsertReward, deleteRewardById, isRewardsDbConfigured } from "./server/rewardsDb.js";
+import {
+  listQuizQuestions,
+  getNextQuestionId,
+  createQuizQuestion,
+  updateQuizQuestion,
+  deleteQuizQuestion,
+  reorderQuizQuestions,
+  bulkImportQuestions,
+  getQuizConfig,
+  setQuizConfig,
+  bulkSetQuizConfig,
+  isQuizDbConfigured,
+  type QuizQuestion,
+} from "./server/quizDb.js";
 import { runSchema } from "./server/schema.js";
 import { researchRouter } from "./server/routes/research.js";
 import { eventLogger } from "./server/services/eventLogger.js";
@@ -1698,6 +1712,29 @@ app.get("/api/exam/:nick", async (req, res) => {
     );
   };
 
+  // Try to load latest config and questions from Supabase (with cache)
+  if (isQuizDbConfigured()) {
+    try {
+      const [cfg, qs] = await Promise.all([getQuizConfig(), listQuizQuestions()]);
+      if (cfg && Object.keys(cfg).length > 0) {
+        Object.assign(dynamicConfig, cfg);
+      }
+      if (qs && qs.length > 0) {
+        dynamicQuestions = qs
+          .filter((q) => q.enabled !== false)
+          .map((q) => ({
+            id: q.question_id,
+            content: q.content,
+            options: q.options,
+            correctKey: q.correct_key,
+            points: q.points,
+          }));
+      }
+    } catch (e) {
+      console.warn("[exam] Failed to load from Supabase, using in-memory:", (e as Error).message);
+    }
+  }
+
   const startDt = parseDateStr(dynamicConfig.ThoiGianBatDau);
   const endDt = parseDateStr(dynamicConfig.ThoiGianKetThuc);
   const now = new Date();
@@ -2383,6 +2420,388 @@ app.post("/api/admin/decay/:userId/intervene", requireAdmin, async (req, res) =>
   }
 });
 
+// ─── Quiz Management Endpoints ────────────────────────────────────────
+
+// GET /api/admin/quiz/questions - List all quiz questions
+app.get("/api/admin/quiz/questions", requireAdmin, async (_req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      // Fallback to in-memory defaults
+      return res.json({ questions: dynamicQuestions, source: "memory" });
+    }
+    const questions = await listQuizQuestions();
+    res.json({ questions, source: "supabase" });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// POST /api/admin/quiz/questions - Create a new quiz question
+app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.status(503).json({ error: "Quiz database is not configured" });
+    }
+    const body = req.body || {};
+    const adminNick = (req as any).userNick || "admin";
+    const nextId = body.question_id || (await getNextQuestionId());
+
+    const newQuestion: QuizQuestion = {
+      question_id: nextId,
+      content: String(body.content || "").trim(),
+      options: Array.isArray(body.options) ? body.options : [],
+      correct_key: String(body.correct_key || "A").trim().toUpperCase() as "A" | "B" | "C" | "D",
+      points: Number(body.points) || 10,
+      category: body.category || undefined,
+      difficulty: body.difficulty || undefined,
+      enabled: body.enabled !== false,
+      image_url: body.image_url || undefined,
+      order: Number(body.order) || nextId,
+      created_by: adminNick,
+    };
+
+    if (!newQuestion.content) {
+      return res.status(400).json({ error: "Content is required" });
+    }
+    if (newQuestion.options.length < 2) {
+      return res.status(400).json({ error: "At least 2 options are required" });
+    }
+    if (!["A", "B", "C", "D"].includes(newQuestion.correct_key)) {
+      return res.status(400).json({ error: "correct_key must be A, B, C, or D" });
+    }
+
+    const created = await createQuizQuestion(newQuestion);
+
+    // Refresh in-memory cache
+    dynamicQuestions = (await listQuizQuestions()).map((q) => ({
+      id: q.question_id,
+      content: q.content,
+      options: q.options,
+      correctKey: q.correct_key,
+      points: q.points,
+    }));
+
+    await logAdminAction(adminNick, "quiz_create", "quiz_question", String(created.question_id), { content: created.content });
+
+    res.json({ success: true, question: created });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// PUT /api/admin/quiz/questions/:id - Update a quiz question
+app.put("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.status(503).json({ error: "Quiz database is not configured" });
+    }
+    const questionId = Number(req.params.id);
+    if (!Number.isFinite(questionId)) {
+      return res.status(400).json({ error: "Invalid question id" });
+    }
+    const body = req.body || {};
+    const adminNick = (req as any).userNick || "admin";
+
+    const updates: Partial<QuizQuestion> = {};
+    if (body.content !== undefined) updates.content = String(body.content).trim();
+    if (body.options !== undefined) updates.options = body.options;
+    if (body.correct_key !== undefined) {
+      updates.correct_key = String(body.correct_key).trim().toUpperCase() as "A" | "B" | "C" | "D";
+    }
+    if (body.points !== undefined) updates.points = Number(body.points) || 10;
+    if (body.category !== undefined) updates.category = body.category;
+    if (body.difficulty !== undefined) updates.difficulty = body.difficulty;
+    if (body.enabled !== undefined) updates.enabled = !!body.enabled;
+    if (body.image_url !== undefined) updates.image_url = body.image_url;
+    if (body.order !== undefined) updates.order = Number(body.order);
+
+    const updated = await updateQuizQuestion(questionId, updates);
+    if (!updated) {
+      return res.status(404).json({ error: "Question not found" });
+    }
+
+    // Refresh in-memory cache
+    dynamicQuestions = (await listQuizQuestions()).map((q) => ({
+      id: q.question_id,
+      content: q.content,
+      options: q.options,
+      correctKey: q.correct_key,
+      points: q.points,
+    }));
+
+    await logAdminAction(adminNick, "quiz_update", "quiz_question", String(questionId), updates);
+
+    res.json({ success: true, question: updated });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// DELETE /api/admin/quiz/questions/:id - Delete a quiz question
+app.delete("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.status(503).json({ error: "Quiz database is not configured" });
+    }
+    const questionId = Number(req.params.id);
+    if (!Number.isFinite(questionId)) {
+      return res.status(400).json({ error: "Invalid question id" });
+    }
+    const adminNick = (req as any).userNick || "admin";
+
+    await deleteQuizQuestion(questionId);
+
+    // Refresh in-memory cache
+    dynamicQuestions = (await listQuizQuestions()).map((q) => ({
+      id: q.question_id,
+      content: q.content,
+      options: q.options,
+      correctKey: q.correct_key,
+      points: q.points,
+    }));
+
+    await logAdminAction(adminNick, "quiz_delete", "quiz_question", String(questionId), null);
+
+    res.json({ success: true, deletedId: questionId });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// POST /api/admin/quiz/questions/reorder - Reorder quiz questions
+app.post("/api/admin/quiz/questions/reorder", requireAdmin, async (req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.status(503).json({ error: "Quiz database is not configured" });
+    }
+    const { orderedIds } = req.body || {};
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ error: "orderedIds must be an array" });
+    }
+    const adminNick = (req as any).userNick || "admin";
+    await reorderQuizQuestions(orderedIds.map((id: any) => Number(id)));
+    await logAdminAction(adminNick, "quiz_reorder", "quiz_questions", null, { count: orderedIds.length });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// POST /api/admin/quiz/questions/import - Bulk import questions (JSON)
+app.post("/api/admin/quiz/questions/import", requireAdmin, async (req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.status(503).json({ error: "Quiz database is not configured" });
+    }
+    const { questions } = req.body || {};
+    if (!Array.isArray(questions)) {
+      return res.status(400).json({ error: "questions must be an array" });
+    }
+    const adminNick = (req as any).userNick || "admin";
+    const count = await bulkImportQuestions(questions, adminNick);
+    await logAdminAction(adminNick, "quiz_import", "quiz_questions", null, { count });
+    res.json({ success: true, imported: count });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// GET /api/admin/quiz/questions/export - Export questions as JSON
+app.get("/api/admin/quiz/questions/export", requireAdmin, async (_req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.status(503).json({ error: "Quiz database is not configured" });
+    }
+    const questions = await listQuizQuestions();
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="quiz-questions-${Date.now()}.json"`);
+    res.send(JSON.stringify({ questions, exportedAt: new Date().toISOString() }, null, 2));
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// GET /api/admin/quiz/config - Get quiz config
+app.get("/api/admin/quiz/config", requireAdmin, async (_req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.json(dynamicConfig);
+    }
+    const config = await getQuizConfig();
+    res.json({ ...dynamicConfig, ...config });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// PUT /api/admin/quiz/config - Update quiz config (single key or batch)
+app.put("/api/admin/quiz/config", requireAdmin, async (req, res) => {
+  try {
+    if (!isQuizDbConfigured()) {
+      return res.status(503).json({ error: "Quiz database is not configured" });
+    }
+    const body = req.body || {};
+    const adminNick = (req as any).userNick || "admin";
+
+    if (body.key !== undefined && body.value !== undefined) {
+      // Single key update
+      await setQuizConfig(String(body.key), body.value, adminNick);
+      dynamicConfig[String(body.key)] = body.value;
+      await logAdminAction(adminNick, "quiz_config_update", "quiz_config", String(body.key), { value: body.value });
+    } else if (typeof body === "object") {
+      // Batch update
+      const count = await bulkSetQuizConfig(body, adminNick);
+      Object.assign(dynamicConfig, body);
+      await logAdminAction(adminNick, "quiz_config_update", "quiz_config", null, { count });
+    } else {
+      return res.status(400).json({ error: "Provide {key, value} or batch object" });
+    }
+
+    res.json({ success: true, config: dynamicConfig });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ─── Sheets 2-Way Sync Endpoints ─────────────────────────────────────
+
+// POST /api/admin/sheets/full-sync - Full 2-way sync between Sheets, Firestore, and Supabase
+app.post("/api/admin/sheets/full-sync", requireAdmin, async (req, res) => {
+  try {
+    const { spreadsheetId } = req.body || {};
+    if (!spreadsheetId) {
+      return res.status(400).json({ error: "Missing spreadsheetId" });
+    }
+    const adminNick = (req as any).userNick || "admin";
+
+    const { runFullSheetsSync } = await import("./server/sheetsSync.js");
+    const result = await runFullSheetsSync(spreadsheetId, { adminNick });
+
+    await logAdminAction(adminNick, "sheets_full_sync", "sheets", spreadsheetId, result as any);
+
+    res.json({ success: true, ...result });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// POST /api/admin/sheets/push-to-sheets - Push DB data to Sheets (1-way)
+app.post("/api/admin/sheets/push-to-sheets", requireAdmin, async (req, res) => {
+  try {
+    const { spreadsheetId } = req.body || {};
+    if (!spreadsheetId) {
+      return res.status(400).json({ error: "Missing spreadsheetId" });
+    }
+    const adminNick = (req as any).userNick || "admin";
+
+    const { pushDbToSheets } = await import("./server/sheetsSync.js");
+    const result = await pushDbToSheets(spreadsheetId);
+
+    await logAdminAction(adminNick, "sheets_push", "sheets", spreadsheetId, result as any);
+
+    res.json({ success: true, ...result });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// GET /api/admin/sheets/status - Get sheets sync status
+app.get("/api/admin/sheets/status", requireAdmin, async (_req, res) => {
+  try {
+    const { getSheetsSyncStatus } = await import("./server/sheetsSync.js");
+    const status = await getSheetsSyncStatus();
+    res.json(status);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ─── Admin Audit Log ──────────────────────────────────────────────────
+
+async function logAdminAction(
+  adminNick: string,
+  actionType: string,
+  targetType: string | null,
+  targetId: string | null,
+  details: any,
+) {
+  try {
+    const pool = getDb();
+    if (!pool || !isDbConnected()) return;
+    await pool.query(
+      `INSERT INTO admin_actions (admin_nick, action_type, target_type, target_id, details)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        adminNick,
+        actionType,
+        targetType,
+        targetId,
+        details ? JSON.stringify(details) : null,
+      ]
+    );
+  } catch (e) {
+    console.warn(`[AdminAudit] Failed to log action ${actionType}:`, (e as Error).message);
+  }
+}
+
+// GET /api/admin/audit-log - Get recent admin actions
+app.get("/api/admin/audit-log", requireAdmin, async (req, res) => {
+  try {
+    const pool = getDb();
+    if (!pool || !isDbConnected()) {
+      return res.json({ actions: [], source: "memory" });
+    }
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const { rows } = await pool.query(
+      `SELECT id, admin_nick, action_type, target_type, target_id, details, created_at
+       FROM admin_actions
+       ORDER BY created_at DESC
+       LIMIT ${limit}`
+    );
+    res.json({ actions: rows, source: "supabase" });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// GET /api/admin/system/health - System health check
+app.get("/api/admin/system/health", requireAdmin, async (_req, res) => {
+  try {
+    const health: any = {
+      server: { status: "ok", uptime: process.uptime(), memory: process.memoryUsage() },
+      firestore: { status: db ? "connected" : "memory-only" },
+      supabase: { status: isDbConnected() ? "connected" : "disconnected" },
+      sheets: { status: "unknown" },
+      rewardsDb: { status: isRewardsDbConfigured() ? "configured" : "not-configured" },
+      quizDb: { status: isQuizDbConfigured() ? "configured" : "not-configured" },
+      env: {
+        nodeEnv: process.env.NODE_ENV || "development",
+        adminApiKeySet: !!process.env.ADMIN_API_KEY,
+        firebaseConfigured: !!(
+          process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
+        ),
+        supabaseConfigured: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    // Test sheets connection
+    try {
+      const { testSheetsConnection } = await import("./server/sheetsSync.js");
+      const sheetsTest = await testSheetsConnection(
+        process.env.GOOGLE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q"
+      );
+      health.sheets = sheetsTest;
+    } catch (e) {
+      health.sheets = { status: "error", error: (e as Error).message };
+    }
+
+    res.json(health);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
 async function startServer() {
   // Initialize research database (PostgreSQL)
   const dbReady = await initDb();
@@ -2464,32 +2883,51 @@ async function startServer() {
     });
   }
 
-  // Auto-sync Google Sheets Data initially and every 10 seconds
-  const SPREADSHEET_ID = "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
+  // Auto-sync Google Sheets Data initially and every 15 minutes (push DB → Sheets + pull Sheets → DB)
+  const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
+  const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
   let syncErrorLogged = false;
-  const startAutoSync = () => {
-    syncGoogleSheetsData(SPREADSHEET_ID)
-      .then((total) => {
-        if (total > 0) {
-          console.log(
-            `[AutoSync] Successfully synced ${total} users from Google Sheets.`,
-          );
+  let syncIntervalHandle: NodeJS.Timeout | null = null;
+  let lastSyncTime: string | null = null;
+  let lastSyncResult: any = null;
+
+  const startAutoSync = async () => {
+    try {
+      const { runFullSheetsSync } = await import("./server/sheetsSync.js");
+      const result = await runFullSheetsSync(SPREADSHEET_ID, { adminNick: "system" });
+      lastSyncTime = new Date().toISOString();
+      lastSyncResult = result;
+      if (result.users > 0 || result.quizQuestions > 0) {
+        console.log(
+          `[AutoSync] Successfully synced: ${result.users} users, ${result.quizQuestions} questions, ${result.rewards} rewards`,
+        );
+      }
+      syncErrorLogged = false; // Reset if it ever succeeds
+    } catch (err: any) {
+      if (err.message === "Service account is not configured") {
+        if (!syncErrorLogged) {
+          console.warn(`[AutoSync] Skipped: Service account is not configured for Google Sheets.`);
+          syncErrorLogged = true;
         }
-        syncErrorLogged = false; // Reset if it ever succeeds
-      })
-      .catch((err) => {
-        if (err.message === "Service account is not configured") {
-          if (!syncErrorLogged) {
-            console.warn(`[AutoSync] Skipped: Service account is not configured for Google Sheets.`);
-            syncErrorLogged = true;
-          }
-        } else {
-          console.error(`[AutoSync] Error syncing Google Sheets:`, err.message);
-        }
-      });
+      } else {
+        console.error(`[AutoSync] Error syncing Google Sheets:`, err.message);
+      }
+    }
   };
 
-  setTimeout(startAutoSync, 3000); // Wait 3 seconds before first sync
+  // Run once after 3s, then every 15 minutes
+  setTimeout(startAutoSync, 3000);
+  syncIntervalHandle = setInterval(startAutoSync, AUTO_SYNC_INTERVAL_MS);
+
+  // Cleanup on shutdown
+  const stopAutoSync = () => {
+    if (syncIntervalHandle) {
+      clearInterval(syncIntervalHandle);
+      syncIntervalHandle = null;
+    }
+  };
+  process.on("SIGTERM", stopAutoSync);
+  process.on("SIGINT", stopAutoSync);
 
   // Research API routes
   app.use("/api/research", researchRouter);
