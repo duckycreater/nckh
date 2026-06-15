@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Star, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   calculateLevel,
   getExpForNextLevel,
@@ -23,6 +24,7 @@ interface MilestoneBurstProps {
 }
 
 export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: MilestoneBurstProps) {
+  const { t } = useTranslation();
   useEffect(() => {
     const t = setTimeout(() => onComplete?.(), 4000);
     return () => clearTimeout(t);
@@ -50,7 +52,7 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
         {/* Tier badge */}
         <div className="mb-3 flex items-center justify-center gap-2">
           <Star size={14} className="text-amber-500 fill-amber-400" />
-          <span className="text-sm font-semibold text-amber-600">Cột mốc mới!</span>
+          <span className="text-sm font-semibold text-amber-600">{t("dashboard.milestone.newTitle")}</span>
         </div>
 
         {/* Milestone name */}
@@ -65,8 +67,8 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
         {/* Level + EXP bar */}
         <div className="mb-3">
           <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span className="font-semibold">Cấp {level}</span>
-            <span>{currentExpInLevel.toLocaleString()} / {expToNextLevel.toLocaleString()} EXP</span>
+            <span className="font-semibold">{t("dashboard.milestone.currentLevel", { level })}</span>
+            <span>{t("dashboard.milestone.expProgress", { current: currentExpInLevel.toLocaleString(), total: expToNextLevel.toLocaleString() })}</span>
           </div>
           <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
             <motion.div
@@ -81,13 +83,13 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
         {/* Bonus EXP */}
         <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2">
           <Zap size={14} className="text-emerald-500 fill-emerald-400" />
-          <span className="text-sm font-semibold text-emerald-700">+{milestone.bonus} EXP</span>
+          <span className="text-sm font-semibold text-emerald-700">{t("dashboard.milestone.bonusExp", { bonus: milestone.bonus })}</span>
         </div>
 
         {/* Next milestone hint */}
         {nextTierData && (
           <p className="mt-2 text-xs text-gray-400">
-            Cột mốc tiếp theo: {milestone.labelVi !== getCurrentMilestone(totalExpEarned)?.labelVi ? "" : ""}
+            {milestone.labelVi !== getCurrentMilestone(totalExpEarned)?.labelVi ? "" : ""}
           </p>
         )}
 
@@ -95,7 +97,7 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
           onClick={onComplete}
           className="mt-4 w-full rounded-xl border border-gray-200 bg-gray-50 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors"
         >
-          Tiếp tục
+          {t("dashboard.milestone.continue")}
         </button>
       </motion.div>
     </motion.div>
@@ -103,6 +105,7 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
 }
 
 export function MilestoneProgress(props: { totalExpEarned: number; className?: string }) {
+  const { t } = useTranslation();
   const { totalExpEarned, className } = props;
   const next = getNextMilestone(totalExpEarned);
   const current = getCurrentMilestone(totalExpEarned);
@@ -110,7 +113,7 @@ export function MilestoneProgress(props: { totalExpEarned: number; className?: s
   if (!next) {
     return (
       <div className="text-center text-xs font-medium text-amber-500">
-        Đã đạt cột mốc cao nhất! 👑
+        {t("dashboard.milestone.maxReached")}
       </div>
     );
   }
@@ -121,7 +124,7 @@ export function MilestoneProgress(props: { totalExpEarned: number; className?: s
   return (
     <div className={`space-y-1 ${className ?? ""}`}>
       <div className="flex items-center justify-between text-[10px] font-medium text-gray-500">
-        <span>{current?.labelVi ?? "Bắt đầu"}</span>
+        <span>{current?.labelVi ?? t("dashboard.milestone.start")}</span>
         <span>{next.labelVi}</span>
       </div>
       <div className="relative h-1.5 overflow-hidden rounded-full bg-gray-100">
