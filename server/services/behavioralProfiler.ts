@@ -170,44 +170,166 @@ class BehavioralProfiler {
 
   /**
    * Multi-dimensional classification: returns continuous scores (0-1) per profile type.
-   * Uses softmax normalization + entropy-based confidence.
+   * Uses Gemini 2.5 Flash for AI classification, with rule-based fallback.
+   *
+   * AI Pipeline:
+   * 1. Compute 10 behavioral metrics from PostgreSQL
+   * 2. Send metrics to Gemini 2.5 Flash with structured prompt
+   * 3. Parse PROFILE / CONFIDENCE / REASONING from response
+   * 4. Fallback to rule-based if AI fails or is unavailable
    */
   private async classifyUser(metrics: BehavioralMetrics): Promise<MultiDimensionalProfile> {
-    // Rule-based raw scores
-    const rawScores: Record<BehavioralProfile, number> = {
+    // Try Gemini first, fall back to rule-based
+    try {
+      const aiProfile = await this.classifyWithAI(metrics);
+      if (aiProfile) return aiProfile;
+    } catch (e) {
+      console.warn("[BehavioralProfiler] AI classification failed, using rule-based:", (e as Error).message);
+    }
+    return this.classifyWithRules(metrics);
+  }
+
+  /**
+   * AI-powered classification using Gemini 2.5 Flash.
+   * Only called when AI is available (GEMINI_API_KEY set).
+   */
+  private async classifyWithAI(metrics: BehavioralMetrics): Promise<MultiDimensionalProfile | null> {
+    if (!this.ai) return null;
+
+    const prompt = `You are a behavioral psychologist analyzing user engagement data.
+Classify user into ONE of these 5 profiles:
+
+1. "competitive" — Frequently checks leaderboard, compares with others, motivated by rankings
+2. "collector" — Focuses on card collection, badge completion, wants to complete sets
+3. "casual" — Low engagement, short sessions, infrequent use
+4. "streak_driven" — Highly motivated by daily streaks, fears losing streaks
+5. "social" — Enjoys team events, collaborative activities, values peer interaction
+
+Metrics:
+- loginFrequency: ${metrics.loginFrequency} logins/week
+- streakStability: ${metrics.streakStability.toFixed(3)} (0-1, higher = more stable streak)
+- rewardResponseRate: ${metrics.rewardResponseRate.toFixed(3)} (0-1, earned/spent ratio)
+- avgSessionDuration: ${metrics.avgSessionDuration.toFixed(1)} seconds
+- featureDiversity: ${metrics.featureDiversity.toFixed(3)} (0-1, % of features used)
+- leaderboardViews: ${metrics.leaderboardViews} views/week
+- gachaPullRate: ${metrics.gachaPullRate} pulls/week
+- dailyChallengeRate: ${metrics.dailyChallengeRate} challenges/week
+- engagementTrend: ${metrics.engagementTrend.toFixed(3)} (-1 to 1)
+- quizCompletionRate: ${metrics.quizCompletionRate.toFixed(3)} (0-1)
+
+Respond ONLY with:
+PROFILE: <profile_name>
+CONFIDENCE: <0.0-1.0>
+REASONING: <brief explanation in 1-2 sentences>`;
+
+    try {
+      const response = await this.ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ text: prompt }],
+        config: { temperature: 0.3, maxOutputTokens: 128 },
+      });
+
+      const text = response.text?.trim() || "";
+
+      // Parse structured response
+      const profileMatch = text.match(/PROFILE:\s*(\w+)/i);
+      const confidenceMatch = text.match(/CONFIDENCE:\s*([\d.]+)/);
+      const reasoningMatch = text.match(/REASONING:\s*(.+)/i);
+
+      if (!profileMatch) return null;
+
+      const validProfiles: BehavioralProfile[] = ["competitive", "collector", "casual", "streak_driven", "social"];
+      const rawProfile = profileMatch[1].toLowerCase();
+      const dominantProfile = validProfiles.includes(rawProfile as BehavioralProfile)
+        ? (rawProfile as BehavioralProfile)
+        : "casual";
+
+      const aiConfidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.7;
+
+      // Compute continuous scores for multi-dimensional profile
+      // AI gives dominant profile; we blend with rule-based for multi-dimensional view
+      const ruleScores = this.computeRuleScores(metrics);
+      const dominantRuleScore = ruleScores[dominantProfile] || 0;
+      const maxRuleScore = Math.max(...Object.values(ruleScores));
+
+      // Blend: weight AI confidence toward dominant, distribute rest by rules
+      const scores: Record<BehavioralProfile, number> = {} as any;
+      const blendWeight = aiConfidence * 0.7; // AI weight proportional to its confidence
+      for (const p of validProfiles) {
+        const ruleNorm = maxRuleScore > 0 ? ruleScores[p] / maxRuleScore : 0.25;
+        scores[p] = p === dominantProfile
+          ? blendWeight + (1 - blendWeight) * ruleNorm
+          : (1 - blendWeight) * ruleNorm;
+      }
+
+      // Renormalize to sum to 1
+      const total = Object.values(scores).reduce((a, b) => a + b, 0);
+      for (const p of validProfiles) {
+        scores[p] = scores[p] / total;
+      }
+
+      // Entropy-based confidence
+      const entropy = -Object.values(scores)
+        .reduce((sum, p) => sum + (p > 0 ? p * Math.log(p) : 0), 0);
+      const maxEntropy = Math.log(5);
+      const confidence = 1 - entropy / maxEntropy;
+
+      return {
+        scores,
+        dominantProfile,
+        confidence: Math.round(Math.max(aiConfidence, confidence) * 1000) / 1000,
+        metrics,
+        lastUpdated: new Date(),
+      };
+    } catch (e) {
+      console.warn("[BehavioralProfiler] Gemini classification error:", (e as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * Rule-based classification using weighted metrics.
+   * Used as fallback when AI is unavailable.
+   */
+  private classifyWithRules(metrics: BehavioralMetrics): MultiDimensionalProfile {
+    const scores = this.computeRuleScores(metrics);
+
+    // Softmax normalization
+    const maxScore = Math.max(...Object.values(scores));
+    const expScores = Object.fromEntries(
+      Object.entries(scores).map(([k, v]) => [k, Math.exp(v - maxScore)])
+    ) as Record<BehavioralProfile, number>;
+    const total = Object.values(expScores).reduce((a, b) => a + b, 0);
+    const normScores = Object.fromEntries(
+      Object.entries(expScores).map(([k, v]) => [k, v / total])
+    ) as Record<BehavioralProfile, number>;
+
+    // Entropy-based confidence
+    const entropy = -Object.values(normScores)
+      .reduce((sum, p) => sum + (p > 0 ? p * Math.log(p) : 0), 0);
+    const maxEntropy = Math.log(5);
+    const confidence = 1 - entropy / maxEntropy;
+
+    const dominantProfile = Object.entries(normScores)
+      .reduce((best, [k, v]) => v > best.val ? { key: k as BehavioralProfile, val: v } : best,
+        { key: "casual" as BehavioralProfile, val: -1 }).key;
+
+    return {
+      scores: normScores,
+      dominantProfile,
+      confidence: Math.round(confidence * 1000) / 1000,
+      metrics,
+      lastUpdated: new Date(),
+    };
+  }
+
+  private computeRuleScores(metrics: BehavioralMetrics): Record<BehavioralProfile, number> {
+    return {
       competitive: metrics.leaderboardViews * 2 + (metrics.rewardResponseRate > 0.7 ? 2 : 0),
       collector: metrics.gachaPullRate * 1.5 + metrics.featureDiversity * 2,
       casual: metrics.avgSessionDuration < 60 && metrics.loginFrequency < 3 ? 5 : 0,
       streak_driven: metrics.streakStability * 3 + metrics.dailyChallengeRate * 1.5,
       social: metrics.dailyChallengeRate * 1.5 + metrics.featureDiversity + metrics.quizCompletionRate * 2,
-    };
-
-    // Softmax normalization
-    const maxScore = Math.max(...Object.values(rawScores));
-    const expScores = Object.fromEntries(
-      Object.entries(rawScores).map(([k, v]) => [k, Math.exp(v - maxScore)])
-    ) as Record<BehavioralProfile, number>;
-    const total = Object.values(expScores).reduce((a, b) => a + b, 0);
-    const scores = Object.fromEntries(
-      Object.entries(expScores).map(([k, v]) => [k, v / total])
-    ) as Record<BehavioralProfile, number>;
-
-    // Entropy-based confidence
-    const entropy = -Object.values(scores)
-      .reduce((sum, p) => sum + (p > 0 ? p * Math.log(p) : 0), 0);
-    const maxEntropy = Math.log(5);
-    const confidence = 1 - entropy / maxEntropy;
-
-    const dominantProfile = Object.entries(scores)
-      .reduce((best, [k, v]) => v > best.val ? { key: k as BehavioralProfile, val: v } : best,
-        { key: "casual" as BehavioralProfile, val: -1 }).key;
-
-    return {
-      scores,
-      dominantProfile,
-      confidence,
-      metrics,
-      lastUpdated: new Date(),
     };
   }
 

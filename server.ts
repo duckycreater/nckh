@@ -2007,7 +2007,13 @@ app.post("/api/scan-garbage", async (req, res) => {
     const analysis = response?.text || "";
     const latencyMs = Date.now() - startTime;
     const predictedCategory = visionPipeline.parseGeminiResponseToCategory(analysis);
-    const confidence = 0.85;
+
+    // Estimate confidence from response quality indicators
+    const textLen = analysis.length;
+    const hasCategoryKeyword = /nhựa|giấy|thủy tinh|kim loại|hữu cơ|nguy hại|plastic|paper|glass|metal|organic|hazard/i.test(analysis);
+    const confidence = hasCategoryKeyword
+      ? Math.min(0.95, 0.70 + (textLen > 50 ? 0.15 : 0) + (textLen > 150 ? 0.10 : 0))
+      : 0.50;
 
     // Send response immediately — don't wait for DB/Sync
     res.json({
