@@ -8,7 +8,7 @@ import { ResearchDashboard } from "./components/ResearchDashboard";
 import WorldMap from "./components/WorldMap";
 import CampaignStage from "./components/CampaignStage";
 import { User } from "./types";
-import { Badge, LoadingSpinner } from "./lib/ui";
+import { Card, LoadingSpinner } from "./lib/ui";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
 import { Globe } from "lucide-react";
 import { calculateLevel } from "./lib/useLevel";
