@@ -249,7 +249,7 @@ class ExperimentEngine {
         selectedGroup = groupNames[tieBreaker % nGroups];
       }
 
-      const selectedGroupObj = exp.groups.find((g) => g.name === selectedGroup);
+      let selectedGroupObj = exp.groups.find((g) => g.name === selectedGroup);
       if (!selectedGroupObj) selectedGroupObj = exp.groups[0];
 
       await this.db.query(

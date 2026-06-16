@@ -567,6 +567,8 @@ function createFallbackResult(reason: string): MixedLogisticResult {
     assumptionsMet: { linearity: "Unable to assess", outliers: 0, multicollinearity: "Unable to assess" },
   };
 }
+
+export function mannWhitneyU(a: number[], b: number[]): { U: number; pValue: number; z: number } {
   const nA = a.length;
   const nB = b.length;
   const all = [...a.map((x, i) => ({ val: x, grp: "A", i })), ...b.map((x, i) => ({ val: x, grp: "B", i }))];

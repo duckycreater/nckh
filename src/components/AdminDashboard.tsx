@@ -327,7 +327,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
                     : "text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
                 }`}
               >
-                <span className="hidden sm:inline">{tab.icon}</span>}
+                <span className="hidden sm:inline">{tab.icon}</span>
                 <span>{tab.label}</span>
               </button>
             ))}
@@ -592,6 +592,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
           </form>
         </ModalShell>
       )}
+      </div>
     </div>
   );
 }

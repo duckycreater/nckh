@@ -495,29 +495,6 @@ export function shapiroFrancia(x: number[]): { statistic: number; pValue: number
   return { statistic: Math.round(Wprime * 10000) / 10000, pValue: Math.max(0, Math.min(1, pValue)) };
 }
 
-function shapiroWilk(x: number[]): { statistic: number; pValue: number } {
-  const n = x.length;
-  const sorted = [...x].sort((a, b) => a - b);
-  const mean = jstat.mean(x);
-  const s2 = jstat.variance(x, true);
-  if (s2 === 0) return { statistic: 1, pValue: 1 };
-
-  const weights = getShapiroWilkWeights(n);
-  const b = weights.reduce((sum, w, i) => sum + w * (sorted[n - 1 - i] - sorted[i]), 0);
-  const W = Math.pow(b, 2) / ((n - 1) * s2);
-
-  // Approximation for p-value (R's shapiro.test approximation)
-  const g = Array.from({ length: n }, (_, i) => jstat.normal.inv((i + 1 - 0.375) / (n + 0.25), 0, 1));
-  const m = g;
-  const wMean = m.reduce((a, b) => a + b, 0) / n;
-  const wStd = Math.sqrt(m.reduce((a, b) => a + Math.pow(b - wMean, 2), 0) / (n - 1));
-
-  const u = weights.map((w, i) => (sorted[n - 1 - i] - sorted[i]) / (wStd * Math.sqrt((n - 1) * s2)));
-  const pApprox = jstat.normal.cdf(u.reduce((a, b) => a + b, 0) / n, 0, 1);
-
-  return { statistic: Math.round(W * 10000) / 10000, pValue: Math.max(0, Math.min(1, 1 - pApprox)) };
-}
-
 /**
  * Royston (1995) approximation for Shapiro-Wilk W statistic and p-value.
  * Valid for n = 3 to 50 (or extended to 5000 with different coefficients).
