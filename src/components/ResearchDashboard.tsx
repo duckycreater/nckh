@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { BarChart3, Download, TrendingUp, Users, Activity, Zap, Brain, RefreshCw, Cpu, FlaskConical, Network, ArrowLeft } from "lucide-react";
 import { ResearchDashboardData, InterventionEffectiveness, SimulationResult } from "../types";
 import { StatisticalPanel } from "./StatisticalPanel";
@@ -16,6 +17,7 @@ function authHeaders() {
 }
 
 export function ResearchDashboard({ user }: ResearchDashboardProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"overview" | "retention" | "interventions" | "personality" | "decay" | "simulation" | "ai-metrics" | "experiments" | "statistics" | "effectiveness" | "social" | "longitudinal">("overview");
   const [data, setData] = useState<ResearchDashboardData | null>(null);
   const [interventionData, setInterventionData] = useState<InterventionEffectiveness[]>([]);
@@ -241,18 +243,18 @@ export function ResearchDashboard({ user }: ResearchDashboardProps) {
   }
 
   const tabs = [
-    { key: "overview", label: "Tổng quan", icon: <BarChart3 size={16} /> },
-    { key: "retention", label: "Retention", icon: <TrendingUp size={16} /> },
-    { key: "interventions", label: "Interventions", icon: <Zap size={16} /> },
-    { key: "personality", label: "Personality", icon: <Users size={16} /> },
-    { key: "decay", label: "Engagement", icon: <Activity size={16} /> },
-    { key: "simulation", label: "Simulation", icon: <Brain size={16} /> },
-    { key: "ai-metrics", label: "AI Metrics", icon: <Cpu size={16} /> },
-    { key: "experiments", label: "Experiments", icon: <FlaskConical size={16} /> },
-    { key: "statistics", label: "Statistics", icon: <BarChart3 size={16} /> },
-    { key: "effectiveness", label: "Effectiveness", icon: <TrendingUp size={16} /> },
-    { key: "social", label: "Social", icon: <Network size={16} /> },
-    { key: "longitudinal", label: "Longitudinal", icon: <TrendingUp size={16} /> },
+    { key: "overview", label: t("research.tabs.overview"), icon: <BarChart3 size={16} /> },
+    { key: "retention", label: t("research.tabs.retention"), icon: <TrendingUp size={16} /> },
+    { key: "interventions", label: t("research.tabs.interventions"), icon: <Zap size={16} /> },
+    { key: "personality", label: t("research.tabs.personality"), icon: <Users size={16} /> },
+    { key: "decay", label: t("research.tabs.decay"), icon: <Activity size={16} /> },
+    { key: "simulation", label: t("research.tabs.simulation"), icon: <Brain size={16} /> },
+    { key: "ai-metrics", label: t("research.tabs.aiMetrics"), icon: <Cpu size={16} /> },
+    { key: "experiments", label: t("research.tabs.experiments"), icon: <FlaskConical size={16} /> },
+    { key: "statistics", label: t("research.tabs.statistics"), icon: <BarChart3 size={16} /> },
+    { key: "effectiveness", label: t("research.tabs.effectiveness"), icon: <TrendingUp size={16} /> },
+    { key: "social", label: t("research.tabs.social"), icon: <Network size={16} /> },
+    { key: "longitudinal", label: t("research.tabs.longitudinal"), icon: <TrendingUp size={16} /> },
   ] as const;
 
   const totalPersonality = data?.personalityDistribution?.reduce((a, b) => a + parseInt(b.count), 0) || 0;
@@ -269,8 +271,8 @@ export function ResearchDashboard({ user }: ResearchDashboardProps) {
               <Brain size={20} />
             </div>
             <div>
-              <h1 className="text-lg font-black text-[var(--text-primary)]">Research dashboard</h1>
-              <p className="text-xs text-[var(--text-muted)]">Nghiên cứu & phân tích</p>
+              <h1 className="text-lg font-black text-[var(--text-primary)]">{t("research.dashboardTitle", "Research dashboard")}</h1>
+              <p className="text-xs text-[var(--text-muted)]">{t("research.dashboardSubtitle", "Nghiên cứu & phân tích")}</p>
             </div>
           </div>
           <div className="flex gap-2">

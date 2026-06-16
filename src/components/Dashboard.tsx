@@ -292,26 +292,26 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   </div>
                   <div className="text-left flex-1 min-w-0">
                     <p className="font-black text-base">{t("dashboard.aiScanReward")}</p>
-                    <p className="text-[11px] text-white/70">Quét rác thải, nhận phần thưởng</p>
+                    <p className="text-[11px] text-white/70">{t("dashboard.scanSubtitle")}</p>
                   </div>
                   <ChevronRight size={20} className="text-white/60 shrink-0" />
                 </button>
 
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-2">
-                  <StatCard label="Cấp" value={`Lv.${level}`} icon={<Star size={16} />} accent="bg-violet-50 text-violet-600" />
-                  <StatCard label="Điểm" value={user.points.toLocaleString()} icon={<Zap size={16} />} />
-                  <StatCard label="Ngày" value={`${streakDays}d`} icon={<Flame size={16} className="text-amber-500" />} accent="bg-amber-50 text-amber-600" />
+                  <StatCard label={t("dashboard.levelLabel")} value={`Lv.${level}`} icon={<Star size={16} />} accent="bg-violet-50 text-violet-600" />
+                  <StatCard label={t("dashboard.pointsLabel")} value={user.points.toLocaleString()} icon={<Zap size={16} />} />
+                  <StatCard label={t("dashboard.daysLabel")} value={`${streakDays}d`} icon={<Flame size={16} className="text-amber-500" />} accent="bg-amber-50 text-amber-600" />
                 </div>
 
                 {/* Quick actions */}
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">Công cụ</p>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">{t("dashboard.toolsLabel")}</p>
                   <div className="grid grid-cols-4 gap-2">
-                    <ActionBtn icon={<Trophy size={20} className="text-orange-500" />} label="Bảng xếp hạng" color="bg-orange-50 border-orange-100" onClick={() => navigate("/leaderboard")} />
-                    <ActionBtn icon={<Swords size={20} className="text-red-500" />} label="PVP" color="bg-red-50 border-red-100" onClick={() => setShowPvPArena(true)} />
-                    <ActionBtn icon={<Crown size={20} className="text-violet-500" />} label="Giải đấu" color="bg-violet-50 border-violet-100" onClick={() => setShowTournament(true)} />
-                    <ActionBtn icon={<Users size={20} className="text-emerald-500" />} label="Bang hội" color="bg-emerald-50 border-emerald-100" onClick={() => setShowClanLobby(true)} />
+                    <ActionBtn icon={<Trophy size={20} className="text-orange-500" />} label={t("dashboard.leaderboard")} color="bg-orange-50 border-orange-100" onClick={() => navigate("/leaderboard")} />
+                    <ActionBtn icon={<Swords size={20} className="text-red-500" />} label={t("dashboard.pvpLabel")} color="bg-red-50 border-red-100" onClick={() => setShowPvPArena(true)} />
+                    <ActionBtn icon={<Crown size={20} className="text-violet-500" />} label={t("dashboard.tournament")} color="bg-violet-50 border-violet-100" onClick={() => setShowTournament(true)} />
+                    <ActionBtn icon={<Users size={20} className="text-emerald-500" />} label={t("dashboard.clanTitle")} color="bg-emerald-50 border-emerald-100" onClick={() => setShowClanLobby(true)} />
                   </div>
                 </div>
 
@@ -364,25 +364,25 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               <motion.div animate={activeTab === "home" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}>
                 <Home size={20} />
               </motion.div>
-              <span className="text-[10px] font-bold">Trang chủ</span>
+              <span className="text-[10px] font-bold">{t("nav.home")}</span>
             </button>
             <button onClick={() => navigate("/cards")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "cards" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
               <motion.div animate={activeTab === "cards" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}>
                 <Compass size={20} />
               </motion.div>
-              <span className="text-[10px] font-bold">Thẻ bài</span>
+              <span className="text-[10px] font-bold">{t("nav.cards")}</span>
             </button>
             <button onClick={() => navigate("/craft")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "craft" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
               <motion.div animate={activeTab === "craft" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}>
                 <Hammer size={20} />
               </motion.div>
-              <span className="text-[10px] font-bold">Chế tạo</span>
+              <span className="text-[10px] font-bold">{t("nav.craft")}</span>
             </button>
             <button onClick={() => navigate("/leaderboard")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "leaderboard" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
               <motion.div animate={activeTab === "leaderboard" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "leaderboard" ? Infinity : 0 }}>
                 <Trophy size={20} />
               </motion.div>
-              <span className="text-[10px] font-bold">Xếp hạng</span>
+              <span className="text-[10px] font-bold">{t("nav.leaderboard")}</span>
             </button>
           </div>
         </div>

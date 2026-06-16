@@ -195,7 +195,14 @@
     "pvpArenaTitle": "1v1 Arena",
     "tournament": "Weekly Tournament",
     "tournamentDesc": "Top 8 · Big rewards",
-    "clanTitle": "Clan"
+    "clanTitle": "Clan",
+    "levelLabel": "Level",
+    "pointsLabel": "Points",
+    "daysLabel": "Days",
+    "toolsLabel": "Tools",
+    "pvpLabel": "PvP",
+    "scanTitle": "Scan Trash",
+    "scanSubtitle": "Scan trash, earn rewards"
   },
   "leaderboard": {
     "leaderboard": "Leaderboard",
@@ -575,7 +582,23 @@
     "noMetrics": "No AI metrics yet",
     "interventionEfficacy": "Intervention Efficacy",
     "noIntervention": "No efficacy data yet",
-    "tab": "Tab {name}"
+    "tab": "Tab {name}",
+    "dashboardTitle": "Research dashboard",
+    "dashboardSubtitle": "Research & analytics",
+    "tabs": {
+      "overview": "Overview",
+      "retention": "Retention",
+      "interventions": "Interventions",
+      "personality": "Personality",
+      "decay": "Engagement",
+      "simulation": "Simulation",
+      "aiMetrics": "AI Metrics",
+      "experiments": "Experiments",
+      "statistics": "Statistics",
+      "effectiveness": "Effectiveness",
+      "social": "Social",
+      "longitudinal": "Longitudinal"
+    }
   },
   "app": {
     "restoringSession": "Restoring session",
@@ -1157,6 +1180,8 @@
       "research": "Research",
       "system": "System"
     },
+    "dashboardTitle": "Admin Dashboard",
+    "research": "Research",
     "quiz": {
       "title": "Quiz Mini-Game Manager",
       "subtitle": "Create, edit questions and configure quiz",

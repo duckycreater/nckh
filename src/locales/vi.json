@@ -195,7 +195,14 @@
     "pvpArenaTitle": "Đấu Trường 1v1",
     "tournament": "Giải Đấu Tuần",
     "tournamentDesc": "Top 8 · Phần thưởng lớn",
-    "clanTitle": "Bang Hội"
+    "clanTitle": "Bang Hội",
+    "levelLabel": "Cấp",
+    "pointsLabel": "Điểm",
+    "daysLabel": "Ngày",
+    "toolsLabel": "Công cụ",
+    "pvpLabel": "PvP",
+    "scanTitle": "Quét rác thải",
+    "scanSubtitle": "Quét rác thải, nhận phần thưởng"
   },
   "leaderboard": {
     "leaderboard": "Bảng Xếp Hạng",
@@ -575,7 +582,23 @@
     "noMetrics": "Chưa có AI metrics",
     "interventionEfficacy": "Hiệu quả can thiệp",
     "noIntervention": "Chưa có dữ liệu hiệu quả",
-    "tab": "Tab {name}"
+    "tab": "Tab {name}",
+    "dashboardTitle": "Research dashboard",
+    "dashboardSubtitle": "Nghiên cứu & phân tích",
+    "tabs": {
+      "overview": "Tổng quan",
+      "retention": "Retention",
+      "interventions": "Interventions",
+      "personality": "Personality",
+      "decay": "Engagement",
+      "simulation": "Simulation",
+      "aiMetrics": "AI Metrics",
+      "experiments": "Experiments",
+      "statistics": "Statistics",
+      "effectiveness": "Effectiveness",
+      "social": "Social",
+      "longitudinal": "Longitudinal"
+    }
   },
   "app": {
     "restoringSession": "Đang khôi phục phiên làm việc",
@@ -969,6 +992,8 @@
       "research": "Nghiên cứu",
       "system": "Hệ thống"
     },
+    "dashboardTitle": "Dashboard quản trị",
+    "research": "Nghiên cứu",
     "quiz": {
       "title": "Quản lý Mini Game Quiz",
       "subtitle": "Tạo, chỉnh sửa câu hỏi và cấu hình quiz",

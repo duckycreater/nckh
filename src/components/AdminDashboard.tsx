@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, RefreshCw, FlaskConical, Eye, Trash2, Ban, Zap, Activity, BookOpen, Database, FileSpreadsheet, Server } from "lucide-react";
 import { User, RewardItem } from "../types";
 import { Badge, Button, Card, EmptyState, FieldLabel, Input, LoadingSpinner, ModalHeader, ModalShell, SectionHeading, TabButton, TextArea } from "../lib/ui";
@@ -37,6 +38,7 @@ interface UserDetail {
 
 export function AdminDashboard({ user, onLogout }: Props) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"overview" | "rewards" | "users" | "experiments" | "quiz" | "sheets" | "research" | "system">("overview");
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -279,14 +281,14 @@ export function AdminDashboard({ user, onLogout }: Props) {
   );
 
   const tabs = [
-    { id: "overview", label: "Tổng quan", icon: <BarChart3 className="h-4 w-4" /> },
-    { id: "rewards", label: "Phần thưởng", icon: <Gift className="h-4 w-4" /> },
-    { id: "users", label: "Người dùng", icon: <Users className="h-4 w-4" /> },
-    { id: "experiments", label: "Thí nghiệm", icon: <FlaskConical className="h-4 w-4" /> },
-    { id: "quiz", label: "Quiz", icon: <BookOpen className="h-4 w-4" /> },
-    { id: "sheets", label: "Sheets Sync", icon: <FileSpreadsheet className="h-4 w-4" /> },
-    { id: "research", label: "Research", icon: <Database className="h-4 w-4" /> },
-    { id: "system", label: "Hệ thống", icon: <Server className="h-4 w-4" /> },
+    { id: "overview", label: t("admin.tabs.overview"), icon: <BarChart3 className="h-4 w-4" /> },
+    { id: "rewards", label: t("admin.tabs.rewards"), icon: <Gift className="h-4 w-4" /> },
+    { id: "users", label: t("admin.tabs.users"), icon: <Users className="h-4 w-4" /> },
+    { id: "experiments", label: t("admin.tabs.experiments"), icon: <FlaskConical className="h-4 w-4" /> },
+    { id: "quiz", label: t("admin.tabs.quiz"), icon: <BookOpen className="h-4 w-4" /> },
+    { id: "sheets", label: t("admin.tabs.sheets"), icon: <FileSpreadsheet className="h-4 w-4" /> },
+    { id: "research", label: t("admin.tabs.research"), icon: <Database className="h-4 w-4" /> },
+    { id: "system", label: t("admin.tabs.system"), icon: <Server className="h-4 w-4" /> },
   ] as const;
 
   return (
@@ -300,16 +302,16 @@ export function AdminDashboard({ user, onLogout }: Props) {
               B
             </div>
             <div>
-              <h1 className="text-lg font-black text-[var(--text-primary)]">Dashboard quản trị</h1>
+              <h1 className="text-lg font-black text-[var(--text-primary)]">{t("admin.dashboardTitle", "Dashboard quản trị")}</h1>
               <p className="text-xs text-[var(--text-muted)]">{user.name}</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/research")}>
-              <Activity className="h-4 w-4" /> Research
+              <Activity className="h-4 w-4" /> {t("admin.research")}
             </Button>
             <Button variant="ghost" size="sm" onClick={onLogout}>
-              <LogOut className="h-4 w-4" /> Đăng xuất
+              <LogOut className="h-4 w-4" /> {t("admin.logout", "Đăng xuất")}
             </Button>
           </div>
         </div>
@@ -339,10 +341,10 @@ export function AdminDashboard({ user, onLogout }: Props) {
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
-                { label: "Tổng người dùng", value: stats?.total ?? users.length, tone: "success" as const },
-                { label: "Quản trị viên", value: stats?.admins ?? 0, tone: "accent" as const },
-                { label: "Hoạt động gần đây", value: stats?.activeUsers ?? 0, tone: "warning" as const },
-                { label: "Thí nghiệm", value: stats?.experimentCount ?? experiments.length, tone: "default" as const },
+                { label: t("admin.totalUsers"), value: stats?.total ?? users.length, tone: "success" as const },
+                { label: t("admin.admins"), value: stats?.admins ?? 0, tone: "accent" as const },
+                { label: t("admin.recentActivity"), value: stats?.activeUsers ?? 0, tone: "warning" as const },
+                { label: t("admin.experimentsActive"), value: stats?.experimentCount ?? experiments.length, tone: "default" as const },
               ].map((item) => (
                 <Card key={item.label} className="rounded-[26px] p-5">
                   <Badge tone={item.tone}>{item.label}</Badge>

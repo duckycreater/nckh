@@ -195,7 +195,14 @@
     "pvpArenaTitle": "1v1 对战",
     "tournament": "每周锦标赛",
     "tournamentDesc": "前8名 · 大奖",
-    "clanTitle": "公会"
+    "clanTitle": "公会",
+    "levelLabel": "等级",
+    "pointsLabel": "积分",
+    "daysLabel": "天数",
+    "toolsLabel": "工具",
+    "pvpLabel": "PvP",
+    "scanTitle": "扫描垃圾",
+    "scanSubtitle": "扫描垃圾,获取奖励"
   },
   "leaderboard": {
     "leaderboard": "排行榜",
@@ -575,7 +582,23 @@
     "noMetrics": "暂无AI指标",
     "interventionEfficacy": "干预效果",
     "noIntervention": "暂无效果数据",
-    "tab": "标签 {name}"
+    "tab": "标签 {name}",
+    "dashboardTitle": "Research dashboard",
+    "dashboardSubtitle": "研究与分析",
+    "tabs": {
+      "overview": "概览",
+      "retention": "Retention",
+      "interventions": "Interventions",
+      "personality": "Personality",
+      "decay": "Engagement",
+      "simulation": "Simulation",
+      "aiMetrics": "AI 指标",
+      "experiments": "Experiments",
+      "statistics": "Statistics",
+      "effectiveness": "Effectiveness",
+      "social": "Social",
+      "longitudinal": "Longitudinal"
+    }
   },
   "app": {
     "restoringSession": "正在恢复会话",
@@ -1157,6 +1180,8 @@
       "research": "研究",
       "system": "系统"
     },
+    "dashboardTitle": "管理仪表板",
+    "research": "研究",
     "quiz": {
       "title": "答题小游戏管理",
       "subtitle": "创建、编辑题目与配置",
