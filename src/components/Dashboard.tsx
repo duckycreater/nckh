@@ -16,7 +16,7 @@ import { AdaptiveRewardBanner } from "./AdaptiveRewardBanner";
 import { StreakCalendar } from "./StreakCalendar";
 import { MilestoneBurst, MilestoneProgress, checkMilestones } from "./MilestoneBurst";
 import { LevelUpCelebration } from "./LevelUpCelebration";
-import { calculateLevel, getExpForNextLevel, TIER_NAMES, levelToTier } from "../lib/useLevel";
+import { calculateLevel, TIER_NAMES, levelToTier } from "../lib/useLevel";
 import { AchievementPopup } from "./AchievementPopup";
 import { SurpriseGift, STREAK_GIFT_TIERS } from "./SurpriseGift";
 import { DailyWheel } from "./DailyWheel";
@@ -28,22 +28,20 @@ import { showPointsToast, PointsToastContainer } from "../lib/toast";
 import {
   Home,
   Compass,
-  User as UserIcon,
   LogOut,
   Settings as SettingsIcon,
   Hammer,
   Flame,
   Zap,
   Trophy,
-  UserCircle,
   Camera,
-  ChevronUp,
-  ChevronDown,
   Swords,
   Users,
   Crown,
+  ChevronRight,
+  Star,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 const LazyFlashcards = lazy(() =>
   import("./Flashcards").then((m) => ({ default: m.Flashcards }))
@@ -54,108 +52,11 @@ function LoadingFallback({ message = "Đang tải..." }: { message?: string }) {
     <div className="flex items-center justify-center py-20">
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 border-3 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
-        <p className="text-sm text-gray-500">{message}</p>
+        <p className="text-sm text-[var(--text-muted)]">{message}</p>
       </div>
     </div>
   );
 }
-
-function getFireLevel(streakDays: number) {
-  if (streakDays >= 7) return 3;
-  if (streakDays >= 4) return 2;
-  if (streakDays >= 2) return 1;
-  return 0;
-}
-
-function StreakBadge({ streakDays }: { streakDays: number }) {
-  const { t } = useTranslation();
-  const multiplier = Math.min(1 + (streakDays - 1) * 0.1, 2);
-  const isActive = streakDays > 1;
-  const fireLevel = getFireLevel(streakDays);
-
-  const fireConfig = {
-    0: {
-      bg: "bg-gradient-to-r from-slate-400 to-slate-500",
-      border: "border-slate-300",
-      shadow: "shadow-slate-500/20",
-      iconSize: 12,
-      iconClass: "text-slate-200 opacity-60",
-      glow: "",
-      ember: false,
-      smoke: false,
-    },
-    1: {
-      bg: "bg-gradient-to-r from-orange-400 to-amber-500",
-      border: "border-orange-300",
-      shadow: "shadow-orange-500/30",
-      iconSize: 13,
-      iconClass: "text-yellow-200",
-      glow: "shadow-orange-500/40",
-      ember: false,
-      smoke: false,
-    },
-    2: {
-      bg: "bg-gradient-to-r from-orange-500 to-red-500",
-      border: "border-red-300",
-      shadow: "shadow-red-500/40",
-      iconSize: 14,
-      iconClass: "text-yellow-300",
-      glow: "shadow-red-500/50",
-      ember: true,
-      smoke: false,
-    },
-    3: {
-      bg: "bg-gradient-to-r from-red-500 to-rose-600",
-      border: "border-rose-400",
-      shadow: "shadow-rose-600/50",
-      iconSize: 15,
-      iconClass: "text-yellow-300",
-      glow: "shadow-rose-600/60",
-      ember: true,
-      smoke: false,
-    },
-  };
-
-  const config = fireConfig[fireLevel];
-  const atRisk = isActive && streakDays > 1;
-
-  return (
-    <div
-      className={`relative flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold border shadow-sm transition-all shrink-0 ${config.bg} ${config.border} ${atRisk ? `shadow-red-500/20 ${config.shadow}` : config.shadow} ${atRisk ? "animate-pulse" : fireLevel >= 3 ? "animate-pulse" : ""}`}
-      title={
-        fireLevel === 0
-          ? t("dashboard.startStreakToday")
-          : fireLevel === 3
-          ? t("dashboard.streakDanger")
-          : t("dashboard.streakInfo", { days: streakDays, level: fireLevel })
-      }
-    >
-      <div className={`relative ${fireLevel >= 2 ? "drop-shadow-[0_0_6px_rgba(255,100,0,0.8)]" : ""}`}>
-        <Flame size={config.iconSize} className={`fill-current ${config.iconClass} ${fireLevel === 3 ? "animate-bounce" : ""}`} />
-        {fireLevel === 3 && (
-          <span className="absolute -top-1 -right-1 text-[6px] animate-ping opacity-70">✨</span>
-        )}
-      </div>
-      <span className="font-black">{streakDays}d</span>
-      {isActive && (
-        <span className="bg-white/20 px-1 rounded text-[10px] font-black">x{multiplier.toFixed(1)}</span>
-      )}
-      {fireLevel === 3 && (
-        <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-0.5 h-1 rounded-full bg-orange-400 animate-ping"
-              style={{ animationDelay: `${i * 150}ms`, animationDuration: "800ms" }}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
 
 interface DashboardProps {
   user: User;
@@ -174,10 +75,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const [showScanner, setShowScanner] = useState(false);
   const [viewingProfile, setViewingProfile] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [quickAccessOpen, setQuickAccessOpen] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Dopamine system state
   const [pendingMilestone, setPendingMilestone] = useState<import("./MilestoneBurst").MilestoneDef | null>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ oldLevel: number; newLevel: number } | null>(null);
   const [showDailyWheel, setShowDailyWheel] = useState(false);
@@ -188,7 +87,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const [lastWheelDate, setLastWheelDate] = useState<string>("");
   const [lastGiftMilestone, setLastGiftMilestone] = useState<number>(0);
 
-  // High-water mark of earned EXP — only goes up, never decreases on spend
   const totalExpEarned = user.totalExpEarned ?? user.points;
   const highWaterRef = useRef<number>(totalExpEarned);
   if (totalExpEarned > highWaterRef.current) highWaterRef.current = totalExpEarned;
@@ -196,7 +94,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const prevPointsRef = useRef<number>(highWaterRef.current);
   const prevLevelRef = useRef<number>(calculateLevel(highWaterRef.current).level);
 
-  // Sync user state from backend occasionally
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -215,7 +112,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     fetchUser();
   }, [refreshTrigger, user.account_id, onUpdateUser]);
 
-  // Check for level-up and milestone on earned EXP changes
   useEffect(() => {
     const totalExp = highWaterRef.current;
     const { level } = calculateLevel(totalExp);
@@ -225,19 +121,14 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
       prevLevelRef.current = level;
     }
     const milestone = checkMilestones(prevPointsRef.current, totalExp);
-    if (milestone.length > 0) {
-      setPendingMilestone(milestone[0]);
-    }
+    if (milestone.length > 0) setPendingMilestone(milestone[0]);
     prevPointsRef.current = totalExp;
   }, [totalExpEarned, user.points]);
 
-  // Check daily wheel eligibility on mount
   useEffect(() => {
     const today = new Date().toDateString();
     const lastSpin = localStorage.getItem("bmo:wheel:lastSpin");
-    if (lastSpin !== today) {
-      setShowDailyWheel(true);
-    }
+    if (lastSpin !== today) setShowDailyWheel(true);
     setLastWheelDate(lastSpin || "");
     const lastGift = parseInt(localStorage.getItem("bmo:gift:lastMilestone") || "0", 10);
     setLastGiftMilestone(lastGift);
@@ -248,32 +139,22 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     fetch("/api/reward", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nickname: user.account_id,
-        points: newPointsOffset,
-        reason: t("dashboard.completeGreen"),
-      }),
-    })
-      .then(() => setRefreshTrigger((prev) => prev + 1))
-      .catch(console.error);
+      body: JSON.stringify({ nickname: user.account_id, points: newPointsOffset, reason: t("dashboard.completeGreen") }),
+    }).then(() => setRefreshTrigger((prev) => prev + 1)).catch(console.error);
   };
 
   const triggerRefresh = (updatedProgress?: any) => {
-    if (updatedProgress) {
-      onUpdateUser({ progress: updatedProgress });
-    }
+    if (updatedProgress) onUpdateUser({ progress: updatedProgress });
     setRefreshTrigger((prev) => prev + 1);
   };
 
-  const handleBuyOrCraft = (cost: number, reason: string = t("dashboard.craftFocus")) => {
+  const handleBuyOrCraft = (cost: number, reason?: string) => {
     onUpdateUser({ points: user.points - cost });
     fetch("/api/reward", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: user.account_id, points: -cost, reason }),
-    })
-      .then(() => setRefreshTrigger((prev) => prev + 1))
-      .catch(console.error);
+      body: JSON.stringify({ nickname: user.account_id, points: -cost, reason: reason || t("dashboard.craftFocus") }),
+    }).then(() => setRefreshTrigger((prev) => prev + 1)).catch(console.error);
   };
 
   const handleMinigameComplete = (newPoints: number) => {
@@ -282,22 +163,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   };
 
   const { level, currentExpInLevel, expToNextLevel, progress, tier, tierData, isMaxLevel } = calculateLevel(highWaterRef.current);
-
-  const purchased = user.progress?.purchased || [];
-  const hasPurchased = (id: string) => purchased.includes(id) || purchased.includes(Number(id));
-
-  const AVATARS: Record<string, string> = { av1: "🌱", av2: "💧", av3: "🦁" };
-  const FRAMES: Record<string, { border: string; shadow: string }> = {
-    fr1: { border: "border-4 border-amber-700", shadow: "" },
-    fr2: { border: "border-4 border-cyan-400", shadow: "" },
-    fr3: { border: "border-4 border-emerald-500", shadow: "shadow-[0_0_12px_#10b981]" },
-  };
-
-  const avatarEmoji = user.selectedAvatar ? AVATARS[user.selectedAvatar] : null;
-  const frameStyle = user.selectedFrame ? FRAMES[user.selectedFrame] : null;
-  const avatarImage = user.customAvatarUrl || null;
-
-  const settingsTransition = { duration: 0.3, ease: "easeOut" as const };
+  const streakDays = user.progress?.streakDays || 1;
 
   const handleWheelSpin = (segment: import("./DailyWheel").WheelSegment) => {
     const today = new Date().toDateString();
@@ -326,471 +192,250 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     }).catch(console.error);
   };
 
-  const streakDays = user.progress?.streakDays || 1;
   useEffect(() => {
     const nextGift = STREAK_GIFT_TIERS.find((g) => g.streakDays > lastGiftMilestone && streakDays >= g.streakDays);
     if (nextGift) setShowSurpriseGift(nextGift);
   }, [streakDays, lastGiftMilestone]);
 
+  function StatCard({ label, value, icon, accent }: { label: string; value: string; icon: React.ReactNode; accent?: string }) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 shadow-sm">
+        <div className={`flex h-9 w-9 items-center justify-center rounded-xl shrink-0 ${accent || "bg-[var(--primary-soft)] text-[var(--primary)]"}`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">{label}</p>
+          <p className="font-black text-[var(--text-primary)] truncate">{value}</p>
+        </div>
+      </div>
+    );
+  }
+
+  function ActionBtn({ icon, label, color, onClick }: { icon: React.ReactNode; label: string; color: string; onClick: () => void }) {
+    return (
+      <button
+        onClick={onClick}
+        className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all active:scale-95 hover:scale-105 ${color}`}
+      >
+        <div>{icon}</div>
+        <span className="text-[10px] font-bold leading-tight text-[var(--text-muted)] text-center">{label}</span>
+      </button>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-gray-100 items-center justify-center sm:p-4 perspective-1000">
-        <div className="w-full h-full sm:h-[90vh] sm:max-w-md bg-white sm:rounded-3xl shadow-xl flex flex-col relative overflow-hidden">
-        {/* Header Content inside App Layout */}
-        <div className="flex-1 overflow-y-auto w-full">
-          <div className="p-4 space-y-4">
-            {/* Header info */}
-            {activeTab === "home" && (
-              <div className="animate-[fadeIn_0.4s_ease-out]">
-                <div className="flex items-center justify-between mb-4 mt-2 px-2">
-                  <div className="flex-1 pr-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-emerald-800 text-xl font-bold uppercase tracking-wide truncate">
-                        {user.name}
-                      </h2>
-                      <p className="text-[10px] text-gray-400 font-medium truncate">
-                        @{user.account_id}
-                      </p>
-                      <StreakBadge streakDays={user.progress?.streakDays || 1} />
-                    </div>
-                    <div className="relative pt-1">
-                      {/* Tier badge + Level */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5">
-                          <span className="text-sm">{tierData.emoji}</span>
-                          <span className={`text-[10px] font-bold ${tierData.color}`}>{tierData.short}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-emerald-600">
-                          {t("dashboard.level", { level })}
-                        </span>
-                        {isMaxLevel && (
-                          <span className="text-[10px] font-bold text-amber-500">MAX</span>
-                        )}
-                      </div>
+    <div className="flex h-screen bg-[var(--background)] items-center justify-center sm:p-3">
+      <div className="w-full h-full sm:h-[92vh] sm:max-w-md bg-[var(--surface)] sm:rounded-3xl border border-[var(--border-subtle)] shadow-[var(--shadow-medium)] flex flex-col relative overflow-hidden">
 
-                      {/* EXP bar */}
-                      <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-                        <span className="font-medium">
-                          {currentExpInLevel.toLocaleString()} EXP
-                        </span>
-                        {!isMaxLevel && (
-                          <span className="text-gray-400">
-                            {expToNextLevel.toLocaleString()} EXP / cấp
-                          </span>
-                        )}
-                      </div>
-                      <div className="overflow-hidden h-2.5 mb-1 text-xs flex rounded-full bg-emerald-100 w-full relative">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progress}%` }}
-                          transition={{ duration: 1, ease: "easeOut" }}
-                          className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full relative"
-                        >
-                          <div className="absolute top-0 right-0 bottom-0 left-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMCcgaGVpZ2h0PScxMCc+CiAgPHJlY3Qgd2lkdGg9JzEwJyBoZWlnaHQ9JzEwJyBmaWxsPSd0cmFuc3BhcmVudCcgLz4KICA8bGluZSB4MT0nMCcgeTE9JzEwJyB4Mj0nMTAnIHkyPScwJyBzdHJva2U9J3doaXRlJyBzdHJva2Utd2lkdGg9JzEnIG9wYWNpdHk9JzAuMyc+PC9saW5lPgo8L3N2Zz4=')] bg-repeat" />
-                        </motion.div>
-                      </div>
-                      <MilestoneProgress totalExpEarned={highWaterRef.current} className="mb-1" />
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => setViewingProfile(user.account_id)}
-                      className="transition-all hover:scale-105"
-                      title={t("profile.viewProfile")}
-                    >
-                      {avatarImage ? (
-                        <img
-                          src={avatarImage}
-                          alt={user.name}
-                          className={`w-11 h-11 rounded-full object-cover border border-emerald-200 shadow-sm ${frameStyle ? `${frameStyle.border} ${frameStyle.shadow}` : ""}`}
-                        />
-                      ) : avatarEmoji ? (
-                        <div
-                          className={`w-11 h-11 rounded-full flex items-center justify-center text-2xl bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 font-black border border-emerald-200 ${frameStyle ? `${frameStyle.border} ${frameStyle.shadow}` : ""}`}
-                        >
-                          {avatarEmoji}
-                        </div>
-                      ) : (
-                        <div
-                          className={`w-11 h-11 rounded-full flex items-center justify-center text-xl font-black bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 border border-emerald-200 shadow-sm ${frameStyle ? `${frameStyle.border} ${frameStyle.shadow}` : ""}`}
-                        >
-                          {user.name[0]}
-                        </div>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setShowSettings(true)}
-                      className="p-2 bg-gray-50 text-gray-600 rounded-full hover:bg-gray-100 border border-gray-200 shadow-sm transition-all hover:scale-105"
-                    >
-                      <SettingsIcon size={20} />
-                    </button>
-                    <button
-                      onClick={onLogout}
-                      className="p-2 bg-red-50 text-red-500 rounded-full hover:bg-red-100 border border-red-100 shadow-sm transition-all hover:scale-105"
-                    >
-                      <LogOut size={20} />
-                    </button>
-                  </div>
-                </div>
-
-                <VirtualGarden points={user.points} onReward={(bonus) => handleEarnPoints(bonus)} />
-
-                <StreakCalendar
-                  streakDays={user.progress?.streakDays || 1}
-                  lastUpdateDate={user.progress?.lastUpdateDate || new Date().toDateString()}
-                />
-
-                {/* Stamina Bar */}
-                <div className="rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">⚡</span>
-                      <span className="font-bold text-amber-400">{t("stamina.stamina") || "Stamina"}</span>
-                    </div>
-                    <span className="text-sm text-white/60">
-                      {(user.progress?.stamina ?? 100)} / {(user.progress?.maxStamina ?? 100)}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full"
-                      initial={{ width: '100%' }}
-                      animate={{ width: `${Math.round(((user.progress?.stamina ?? 100) / (user.progress?.maxStamina ?? 100)) * 100)}%` }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  </div>
-                </div>
-
-                {/* Quick-access bar — collapsible */}
-                <div>
-                  <button
-                    onClick={() => setQuickAccessOpen(!quickAccessOpen)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 hover:from-emerald-100 hover:to-teal-100 transition-all text-xs font-bold text-emerald-700"
-                    aria-expanded={quickAccessOpen}
-                  >
-                    <span>{t("dashboard.quickTools")}</span>
-                    <motion.div
-                      animate={{ rotate: quickAccessOpen ? 0 : 180 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <ChevronUp size={16} />
-                    </motion.div>
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {quickAccessOpen && (
-                      <motion.div
-                        key="quick-access"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeInOut" }}
-                        className="overflow-hidden"
-                      >
-                        <div className="flex items-center justify-around gap-2 py-2">
-                          <button
-                            onClick={() => navigate("/leaderboard")}
-                            className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title={t("dashboard.leaderboard")}
-                          >
-                            <Trophy size={18} className="text-orange-500" />
-                            <span className="text-[10px] font-bold text-orange-700 leading-tight">{t("common.rank")}</span>
-                          </button>
-                          <button
-                            onClick={() => setShowTournament(true)}
-                            className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title={t("dashboard.weeklyTournament")}
-                          >
-                            <Trophy size={18} className="text-violet-500" />
-                            <span className="text-[10px] font-bold text-violet-700 leading-tight">{t("dashboard.weeklyTournament")}</span>
-                          </button>
-                          <button
-                            onClick={() => setShowPvPArena(true)}
-                            className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 transition-all hover:scale-105 active:scale-95 min-w-[72px]"
-                            title={t("dashboard.pvpArena")}
-                          >
-                            <Swords size={18} className="text-red-500" />
-                            <span className="text-[10px] font-bold text-red-700 leading-tight">{t("dashboard.pvpArena")}</span>
-                          </button>
-                        </div>
-                        <AdaptiveRewardBanner userId={user.account_id} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={() => setShowScanner(true)}
-                    className="flex-1 p-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-md transition-all hover:-translate-y-1"
-                  >
-                    <Camera className="inline-block w-4 h-4 mr-1.5" />
-                    {t("dashboard.aiScanReward")}
-                  </button>
-                  <button
-                    onClick={() => navigate("/leaderboard")}
-                    className="flex-1 p-3 bg-gradient-to-r from-orange-400 to-amber-500 text-white rounded-xl font-bold text-sm shadow-md transition-all hover:-translate-y-1"
-                  >
-                    <Trophy className="inline-block w-4 h-4 mr-1.5" />
-                    {t("leaderboard.leaderboard")}
-                  </button>
-                </div>
-
-                {/* Competitive section */}
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => navigate("/world-map")}
-                    className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 text-white shadow-lg shadow-orange-500/20 group cursor-pointer"
-                  >
-                    <div className="absolute inset-0 bg-white/10 group-hover:bg-white/20 transition-all" />
-                    <div className="relative flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-2xl">
-                        🗺️
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-bold">{t("campaign.worldMap")}</h3>
-                        <p className="text-xs text-white/80">{t("campaign.worldMapSubtitle")}</p>
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setShowPvPArena(true)}
-                    className="flex flex-col items-center gap-1.5 p-4 bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-sm"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                      <Swords size={20} className="text-red-500" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-700">{t("dashboard.pvpArena")}</span>
-                    <span className="text-[10px] font-bold text-red-400">{t("dashboard.arena")}</span>
-                  </button>
-                  <button
-                    onClick={() => setShowTournament(true)}
-                    className="flex flex-col items-center gap-1.5 p-4 bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-sm"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
-                      <Trophy size={20} className="text-violet-500" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-700">{t("dashboard.tournament")}</span>
-                    <span className="text-[10px] font-bold text-violet-400">{t("dashboard.tournamentDesc")}</span>
-                  </button>
-                  <button
-                    onClick={() => setShowClanLobby(true)}
-                    className="flex flex-col items-center gap-1.5 p-4 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-sm"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                      <Users size={20} className="text-emerald-500" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-700">{t("dashboard.clanTitle")}</span>
-                    <span className="text-[10px] font-bold text-emerald-400">{t("dashboard.clan")}</span>
-                  </button>
-                </div>
+        {/* ── TOP BAR ── */}
+        <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--border-subtle)] px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <button onClick={() => setViewingProfile(user.account_id)} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
+              <div className="w-11 h-11 rounded-2xl bg-[var(--primary-soft)] border border-[var(--primary-soft-strong)] flex items-center justify-center text-lg font-black text-[var(--primary)] shrink-0">
+                {user.name[0]}
               </div>
-            )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-black text-[var(--text-primary)] truncate">{user.name}</p>
+                  {streakDays > 1 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-black text-amber-600 shrink-0">
+                      <Flame size={10} className="fill-amber-400 text-amber-400" />
+                      {streakDays}d
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[var(--text-muted)] truncate">Lv.{level} · {tierData.short}</p>
+              </div>
+            </button>
 
-            <DailyChallenges
-              onReward={handleEarnPoints}
-              userId={user.account_id}
-              progress={user.progress}
-              onRefresh={triggerRefresh}
-            />
-
-            <div className="mt-4">
-              <Minigame user={user} onComplete={handleMinigameComplete} />
+            <div className="flex-1 max-w-[120px] hidden sm:block">
+              <div className="flex justify-between text-[10px] text-[var(--text-muted)] mb-1">
+                <span>EXP</span>
+                <span>{progress.toFixed(0)}%</span>
+              </div>
+              <div className="h-2 bg-[var(--surface-soft)] rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--primary)] to-emerald-400"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                />
+              </div>
             </div>
 
-            {activeTab === "cards" && (
-              <div className="animate-[fadeIn_0.4s_ease-out]">
-                <Suspense fallback={<LoadingFallback message="Đang tải bộ sưu tập thẻ..." />}>
-                  <LazyFlashcards onReward={handleEarnPoints} points={user.points} onSpend={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
-                </Suspense>
-              </div>
-            )}
-
-            {activeTab === "craft" && (
-              <div className="animate-[fadeIn_0.4s_ease-out]">
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100 mb-4 flex justify-between items-center shadow-sm">
-                  <div>
-                    <h4 className="font-black text-emerald-900 text-lg uppercase tracking-wide">{t("dashboard.energyCore")}</h4>
-                    <p className="text-xs font-bold text-emerald-600/70 uppercase">{t("dashboard.energyStatus")}</p>
-                  </div>
-                  <div className="bg-white px-4 py-2 rounded-2xl shadow-sm border border-emerald-100 flex flex-col items-end">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">{t("dashboard.available")}</span>
-                    <span className="font-black text-emerald-600 text-xl">{user.points} <span className="text-sm">{t("common.exp")}</span></span>
-                  </div>
-                </div>
-                <CraftingStation points={user.points} onCraft={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
-                <div className="mt-4">
-                  <RewardStore points={user.points} onPurchase={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
-                  <div className="mt-4">
-                    <RewardHistory userId={user.account_id} currentBalance={user.points} />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "leaderboard" && (
-              <div className="animate-[fadeIn_0.4s_ease-out]">
-                <div className="flex items-center gap-2 mb-4">
-                  <button
-                    onClick={() => navigate("/home")}
-                    className="text-sm text-emerald-600 hover:text-emerald-700 font-bold"
-                  >
-                    ← {t("common.back")}
-                  </button>
-                </div>
-                <Leaderboard
-                  refreshTrigger={refreshTrigger}
-                  currentUser={user.account_id}
-                  onUserClick={(nickname) => setViewingProfile(nickname)}
-                />
-              </div>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              <button onClick={() => setShowSettings(true)} className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-soft)] transition-colors">
+                <SettingsIcon size={18} />
+              </button>
+              <button onClick={onLogout} className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-red-50 hover:text-red-500 transition-colors">
+                <LogOut size={18} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 flex shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-20">
-          <button
-            onClick={() => navigate("/home")}
-            className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors relative ${activeTab === "home" ? "text-emerald-600" : "text-gray-400 hover:text-emerald-500"}`}
-          >
-            {activeTab === "home" && user.progress?.streakDays && user.progress.streakDays >= 3 && (
-              <span className="absolute top-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+        {/* ── SCROLLABLE CONTENT ── */}
+        <div className="flex-1 overflow-y-auto thin-scrollbar">
+          <div className="p-4 space-y-4">
+
+            {/* HOME */}
+            {activeTab === "home" && (
+              <div className="space-y-4">
+
+                {/* AI Scanner hero */}
+                <button
+                  onClick={() => setShowScanner(true)}
+                  className="w-full flex items-center gap-4 rounded-2xl bg-gradient-to-r from-[var(--primary)] to-emerald-400 p-4 text-white shadow-[var(--shadow-glow)] active:scale-[0.98] transition-transform"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 shrink-0">
+                    <Camera size={24} />
+                  </div>
+                  <div className="text-left flex-1 min-w-0">
+                    <p className="font-black text-base">{t("dashboard.aiScanReward")}</p>
+                    <p className="text-[11px] text-white/70">Quét rác thải, nhận phần thưởng</p>
+                  </div>
+                  <ChevronRight size={20} className="text-white/60 shrink-0" />
+                </button>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-2">
+                  <StatCard label="Cấp" value={`Lv.${level}`} icon={<Star size={16} />} accent="bg-violet-50 text-violet-600" />
+                  <StatCard label="Điểm" value={user.points.toLocaleString()} icon={<Zap size={16} />} />
+                  <StatCard label="Ngày" value={`${streakDays}d`} icon={<Flame size={16} className="text-amber-500" />} accent="bg-amber-50 text-amber-600" />
+                </div>
+
+                {/* Quick actions */}
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">Công cụ</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    <ActionBtn icon={<Trophy size={20} className="text-orange-500" />} label="Bảng xếp hạng" color="bg-orange-50 border-orange-100" onClick={() => navigate("/leaderboard")} />
+                    <ActionBtn icon={<Swords size={20} className="text-red-500" />} label="PVP" color="bg-red-50 border-red-100" onClick={() => setShowPvPArena(true)} />
+                    <ActionBtn icon={<Crown size={20} className="text-violet-500" />} label="Giải đấu" color="bg-violet-50 border-violet-100" onClick={() => setShowTournament(true)} />
+                    <ActionBtn icon={<Users size={20} className="text-emerald-500" />} label="Bang hội" color="bg-emerald-50 border-emerald-100" onClick={() => setShowClanLobby(true)} />
+                  </div>
+                </div>
+
+                <DailyChallenges onReward={handleEarnPoints} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
+                <Minigame user={user} onComplete={handleMinigameComplete} />
+                <AdaptiveRewardBanner userId={user.account_id} />
+                <VirtualGarden points={user.points} onReward={(bonus) => handleEarnPoints(bonus)} />
+
+              </div>
             )}
-            <motion.div
-              animate={activeTab === "home" ? { y: [-1, -4, -1] } : {}}
-              transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}
-            >
-              <Home size={22} />
-            </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">{t("nav.home")}</span>
-          </button>
-          <button
-            onClick={() => navigate("/cards")}
-            className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors ${activeTab === "cards" ? "text-teal-600" : "text-gray-400 hover:text-teal-500"}`}
-          >
-            <motion.div
-              animate={activeTab === "cards" ? { y: [-1, -4, -1] } : {}}
-              transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}
-            >
-              <Compass size={22} />
-            </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">{t("nav.cards")}</span>
-          </button>
-          <button
-            onClick={() => navigate("/craft")}
-            className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors ${activeTab === "craft" ? "text-amber-600" : "text-gray-400 hover:text-amber-500"}`}
-          >
-            <motion.div
-              animate={activeTab === "craft" ? { y: [-1, -4, -1] } : {}}
-              transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}
-            >
-              <Hammer size={22} />
-            </motion.div>
-            <span className="text-[10px] font-bold mt-0.5">{t("nav.craft")}</span>
-          </button>
-          <button
-            onClick={() => navigate("/leaderboard")}
-            className={`flex-1 flex flex-col items-center justify-center p-3 transition-colors ${activeTab === "leaderboard" ? "text-orange-600" : "text-gray-400 hover:text-orange-500"}`}
-          >
-            <Trophy size={22} />
-            <span className="text-[10px] font-bold mt-0.5">{t("nav.leaderboard")}</span>
-          </button>
+
+            {/* CARDS */}
+            {activeTab === "cards" && (
+              <Suspense fallback={<LoadingFallback message="Đang tải bộ sưu tập..." />}>
+                <LazyFlashcards
+                  onReward={handleEarnPoints}
+                  points={user.points}
+                  onSpend={handleBuyOrCraft}
+                  userId={user.account_id}
+                  progress={user.progress}
+                  onRefresh={triggerRefresh}
+                />
+              </Suspense>
+            )}
+
+            {/* CRAFT */}
+            {activeTab === "craft" && (
+              <div className="space-y-4">
+                <CraftingStation points={user.points} onCraft={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
+                <RewardStore points={user.points} onPurchase={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
+                <RewardHistory userId={user.account_id} currentBalance={user.points} />
+              </div>
+            )}
+
+            {/* LEADERBOARD */}
+            {activeTab === "leaderboard" && (
+              <div>
+                <button onClick={() => navigate("/home")} className="mb-3 flex items-center gap-1 text-[var(--primary)] text-sm font-bold hover:underline">← Trang chủ</button>
+                <Leaderboard refreshTrigger={refreshTrigger} currentUser={user.account_id} onUserClick={(nickname) => setViewingProfile(nickname)} />
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* ── BOTTOM NAV ── */}
+        <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface)]">
+          <div className="flex">
+            <button onClick={() => navigate("/home")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "home" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
+              <motion.div animate={activeTab === "home" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}>
+                <Home size={20} />
+              </motion.div>
+              <span className="text-[10px] font-bold">Trang chủ</span>
+            </button>
+            <button onClick={() => navigate("/cards")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "cards" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
+              <motion.div animate={activeTab === "cards" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}>
+                <Compass size={20} />
+              </motion.div>
+              <span className="text-[10px] font-bold">Thẻ bài</span>
+            </button>
+            <button onClick={() => navigate("/craft")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "craft" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
+              <motion.div animate={activeTab === "craft" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}>
+                <Hammer size={20} />
+              </motion.div>
+              <span className="text-[10px] font-bold">Chế tạo</span>
+            </button>
+            <button onClick={() => navigate("/leaderboard")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "leaderboard" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
+              <motion.div animate={activeTab === "leaderboard" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "leaderboard" ? Infinity : 0 }}>
+                <Trophy size={20} />
+              </motion.div>
+              <span className="text-[10px] font-bold">Xếp hạng</span>
+            </button>
+          </div>
         </div>
 
         <PointsToastContainer />
 
         {showScanner && (
-          <AIScanner
-            user={user}
-            onClose={() => setShowScanner(false)}
-            onUpdatePoints={(pts) => {
-              onUpdateUser({ points: pts });
-              setRefreshTrigger((prev) => prev + 1);
-            }}
-          />
+          <AIScanner user={user} onClose={() => setShowScanner(false)} onUpdatePoints={(pts) => { onUpdateUser({ points: pts }); setRefreshTrigger((prev) => prev + 1); }} />
         )}
-        
+
         {viewingProfile && (
-          <ProfileView 
-            nickname={viewingProfile} 
-            onClose={() => setViewingProfile(null)} 
-          />
+          <ProfileView nickname={viewingProfile} onClose={() => setViewingProfile(null)} />
         )}
 
         {showSettings && (
           <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={settingsTransition}
-            className="absolute inset-0 z-50 bg-white overflow-y-auto"
+            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="absolute inset-0 z-50 bg-[var(--background)] overflow-y-auto"
           >
             <div className="p-4">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="mb-6 flex items-center text-gray-500 hover:text-gray-800 font-bold text-sm bg-gray-100 px-3 py-1.5 rounded-full"
-              >
-                ← {t("common.back")}
-              </button>
+              <button onClick={() => setShowSettings(false)} className="mb-6 flex items-center gap-1 text-sm font-bold text-[var(--primary)] hover:underline">← Đóng</button>
               <Settings user={user} onUpdate={onUpdateUser} />
             </div>
           </motion.div>
         )}
 
         {showDailyWheel && (
-          <DailyWheel
-            userId={user.account_id}
-            lastSpinDate={lastWheelDate}
-            onSpin={handleWheelSpin}
-            onClose={() => setShowDailyWheel(false)}
-          />
+          <DailyWheel userId={user.account_id} lastSpinDate={lastWheelDate} onSpin={handleWheelSpin} onClose={() => setShowDailyWheel(false)} />
         )}
 
         {showSurpriseGift && (
-          <SurpriseGift
-            streakDays={streakDays}
-            onClaim={handleSurpriseClaim}
-            onClose={() => setShowSurpriseGift(null)}
-          />
+          <SurpriseGift streakDays={streakDays} onClaim={handleSurpriseClaim} onClose={() => setShowSurpriseGift(null)} />
         )}
 
         {showPvPArena && (
-          <PvPArena
-            currentUserNick={user.name}
-            onClose={() => setShowPvPArena(false)}
-            onBattle={() => setShowPvPArena(false)}
-          />
+          <PvPArena currentUserNick={user.name} onClose={() => setShowPvPArena(false)} onBattle={() => setShowPvPArena(false)} />
         )}
 
         {showTournament && (
-          <TournamentBracket
-            currentUserNick={user.name}
-            onClose={() => setShowTournament(false)}
-          />
+          <TournamentBracket currentUserNick={user.name} onClose={() => setShowTournament(false)} />
         )}
 
         {showClanLobby && (
-          <ClanLobby
-            userNick={user.name}
-            onClose={() => setShowClanLobby(false)}
-          />
+          <ClanLobby userNick={user.name} onClose={() => setShowClanLobby(false)} />
         )}
 
         {pendingMilestone && (
-          <MilestoneBurst
-            milestone={pendingMilestone}
-            totalExpEarned={highWaterRef.current}
-            onComplete={() => setPendingMilestone(null)}
-          />
+          <MilestoneBurst milestone={pendingMilestone} totalExpEarned={highWaterRef.current} onComplete={() => setPendingMilestone(null)} />
         )}
 
         {pendingLevelUp && (
-          <LevelUpCelebration
-            oldLevel={pendingLevelUp.oldLevel}
-            newLevel={pendingLevelUp.newLevel}
-            totalExpEarned={highWaterRef.current}
-            streakDays={user.progress?.streakDays}
-            onClose={() => setPendingLevelUp(null)}
-          />
+          <LevelUpCelebration oldLevel={pendingLevelUp.oldLevel} newLevel={pendingLevelUp.newLevel} totalExpEarned={highWaterRef.current} streakDays={user.progress?.streakDays} onClose={() => setPendingLevelUp(null)} />
         )}
 
         <AchievementPopup />

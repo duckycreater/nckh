@@ -8,7 +8,7 @@ import { ResearchDashboard } from "./components/ResearchDashboard";
 import WorldMap from "./components/WorldMap";
 import CampaignStage from "./components/CampaignStage";
 import { User } from "./types";
-import { AppScreenShell, Badge, Card, LoadingSpinner } from "./lib/ui";
+import { Badge, LoadingSpinner } from "./lib/ui";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
 import { Globe } from "lucide-react";
 import { calculateLevel } from "./lib/useLevel";
@@ -149,19 +149,10 @@ function LanguageSwitcher() {
 function RestoringScreen() {
   const { t } = useTranslation();
   return (
-    <div className="min-h-screen px-4 py-6 sm:px-6">
-      <AppScreenShell
-        badge={<Badge tone="success">BMO Robot</Badge>}
-        title={t("app.restoringSession")}
-        subtitle={t("app.restoringHint")}
-      >
-        <Card className="glass-panel rounded-[32px] border-white/60 p-8 sm:p-10">
-          <LoadingSpinner
-            message={t("app.syncingLogin")}
-            subtitle={t("app.syncingHint")}
-          />
-        </Card>
-      </AppScreenShell>
+    <div className="flex h-screen items-center justify-center bg-[var(--background)]">
+      <Card className="w-full max-w-sm mx-4 rounded-3xl p-8 text-center">
+        <LoadingSpinner message={t("app.syncingLogin")} subtitle={t("app.syncingHint")} />
+      </Card>
     </div>
   );
 }

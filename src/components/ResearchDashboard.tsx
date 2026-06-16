@@ -3,7 +3,7 @@ import { BarChart3, Download, TrendingUp, Users, Activity, Zap, Brain, RefreshCw
 import { ResearchDashboardData, InterventionEffectiveness, SimulationResult } from "../types";
 import { StatisticalPanel } from "./StatisticalPanel";
 import { ModelBenchmarkCharts } from "./ModelBenchmarkCharts";
-import { AppScreenShell, Badge, Button, Card, EmptyState, LoadingSpinner, SectionHeading, TabButton } from "../lib/ui";
+import { Badge, Button, Card, EmptyState, LoadingSpinner, SectionHeading, TabButton } from "../lib/ui";
 import { showToast } from "../lib/toast";
 
 interface ResearchDashboardProps {
@@ -259,31 +259,49 @@ export function ResearchDashboard({ user }: ResearchDashboardProps) {
   const totalProfiles = data?.profileDistribution?.reduce((a, b) => a + parseInt(b.count), 0) || 0;
 
   return (
-    <AppScreenShell
-      badge={<Badge tone="accent">Research intelligence</Badge>}
-      title="Research dashboard"
-      subtitle="Theo dõi retention, thí nghiệm, mô hình AI và hành vi người dùng trong một không gian phân tích sáng sủa, dễ đọc và production-ready hơn."
-      action={
-        <div className="flex flex-wrap gap-3">
-          <Button variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white" onClick={loadOverviewData}>
-            <RefreshCw className="h-4 w-4" /> Làm mới overview
-          </Button>
-          <Button variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white" onClick={() => exportData(activeTab)}>
-            <Download className="h-4 w-4" /> Export tab hiện tại
-          </Button>
+    <div className="min-h-screen bg-[var(--background)]">
+      <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
+
+        {/* ── Top bar ── */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent)] text-white font-black shadow-sm">
+              <Brain size={20} />
+            </div>
+            <div>
+              <h1 className="text-lg font-black text-[var(--text-primary)]">Research dashboard</h1>
+              <p className="text-xs text-[var(--text-muted)]">Nghiên cứu & phân tích</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={loadOverviewData}>
+              <RefreshCw className="h-4 w-4" /> Làm mới
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => exportData(activeTab)}>
+              <Download className="h-4 w-4" /> Export
+            </Button>
+          </div>
         </div>
-      }
-    >
-      <Card className="rounded-[28px] bg-white/80 p-2">
-        <div className="thin-scrollbar flex gap-2 overflow-x-auto">
-          {tabs.map((tab) => (
-            <TabButton key={tab.key} active={activeTab === tab.key} onClick={() => handleTabChange(tab.key)} className="flex items-center gap-2 whitespace-nowrap px-4 py-3">
-              {tab.icon}
-              {tab.label}
-            </TabButton>
-          ))}
-        </div>
-      </Card>
+
+        {/* ── Nav tabs ── */}
+        <Card className="rounded-2xl p-1.5">
+          <div className="thin-scrollbar flex gap-1 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                  activeTab === tab.key
+                    ? "bg-[var(--primary)] text-white shadow-sm"
+                    : "text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </Card>
 
       {loading ? (
         <Card className="rounded-[28px] p-8">
@@ -378,6 +396,6 @@ export function ResearchDashboard({ user }: ResearchDashboardProps) {
           )}
         </>
       )}
-    </AppScreenShell>
+    </div>
   );
 }

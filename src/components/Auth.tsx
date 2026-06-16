@@ -230,10 +230,10 @@ export function Auth({ onLogin }: AuthProps) {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-[420px] bg-white/95 p-[30px] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.6)] border-t-[6px] border-[#4CAF50] text-center relative max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-[420px] bg-white/95 p-[30px] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.6)] border-t-[6px] border-[var(--text-muted)] text-center relative max-h-[90vh] overflow-y-auto">
         {view === "login" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
-              <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+              <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
               {t("auth.lookupScore")}
               </h2>
 
@@ -246,7 +246,7 @@ export function Auth({ onLogin }: AuthProps) {
 
             <form onSubmit={handleLogin} className="text-left space-y-[15px]">
               <div>
-                <label htmlFor="login-nick" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="login-nick" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.account")}
                 </label>
                 <input
@@ -256,11 +256,11 @@ export function Auth({ onLogin }: AuthProps) {
                   autoComplete="username"
                   value={loginNick}
                   onChange={(e) => setLoginNick(e.target.value)}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="login-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="login-pass" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.password")}
                 </label>
                 <input
@@ -270,24 +270,24 @@ export function Auth({ onLogin }: AuthProps) {
                   autoComplete="current-password"
                   value={loginPass}
                   onChange={(e) => setLoginPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-[#4B5563] cursor-pointer">
+                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 accent-[#4CAF50] cursor-pointer"
+                    className="w-4 h-4 rounded border-gray-300 accent-[var(--text-muted)] cursor-pointer"
                   />
                   {t("auth.rememberLogin")}
                 </label>
                 <button
                   type="button"
                   onClick={() => switchView("forgot")}
-                  className="text-sm text-[#4CAF50] font-semibold hover:underline cursor-pointer"
+                  className="text-sm text-[var(--text-muted)] font-semibold hover:underline cursor-pointer"
                 >
                   {t("auth.forgotPassword")}
                 </button>
@@ -296,23 +296,23 @@ export function Auth({ onLogin }: AuthProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full p-3 bg-[#4CAF50] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
                 {t("auth.login")}
               </button>
             </form>
-            <div className="mt-[15px] text-[14px] text-[#4B5563]">
+            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
               {t("auth.noAccount")}{" "}
               <button
                 onClick={() => switchView("register")}
-                className="text-[#2E7D32] font-bold underline-offset-2 hover:underline cursor-pointer"
+                className="text-[var(--primary-strong)] font-bold underline-offset-2 hover:underline cursor-pointer"
               >
                 {t("auth.registerNow")}
               </button>
               <br />
               <button
                 onClick={() => switchView("changepass")}
-                className="text-[12px] text-[#6B7280] block mt-[8px] mx-auto hover:underline cursor-pointer"
+                className="text-[12px] text-[var(--text-muted)] block mt-[8px] mx-auto hover:underline cursor-pointer"
               >
                 {t("auth.changePassword")}
               </button>
@@ -322,7 +322,7 @@ export function Auth({ onLogin }: AuthProps) {
 
         {view === "register" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
               {t("auth.registerTitle")}
             </h2>
             <form
@@ -330,7 +330,7 @@ export function Auth({ onLogin }: AuthProps) {
               className="text-left space-y-[15px]"
             >
               <div>
-                <label htmlFor="reg-name" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="reg-name" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.displayName")}
                 </label>
                 <input
@@ -342,12 +342,12 @@ export function Auth({ onLogin }: AuthProps) {
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
                   placeholder={t("auth.displayNamePlaceholder")}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
-                <p id="reg-name-hint" className="text-[11px] text-[#6B7280] mt-1">{t("auth.displayNameHint")}</p>
+                <p id="reg-name-hint" className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.displayNameHint")}</p>
               </div>
               <div>
-                <label htmlFor="reg-nick" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="reg-nick" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.username")}
                 </label>
                 <input
@@ -359,12 +359,12 @@ export function Auth({ onLogin }: AuthProps) {
                   value={regNick}
                   onChange={(e) => setRegNick(e.target.value)}
                   placeholder={t("auth.usernamePlaceholder")}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
-                <p id="reg-nick-hint" className="text-[11px] text-[#6B7280] mt-1">{t("auth.usernameHint")}</p>
+                <p id="reg-nick-hint" className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.usernameHint")}</p>
               </div>
               <div>
-                <label htmlFor="reg-email" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="reg-email" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.emailOptional")}
                 </label>
                 <input
@@ -374,12 +374,12 @@ export function Auth({ onLogin }: AuthProps) {
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
                   placeholder={t("auth.emailPlaceholder")}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
-                <p className="text-[11px] text-[#6B7280] mt-1">{t("auth.emailHint")}</p>
+                <p className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.emailHint")}</p>
               </div>
               <div>
-                <label htmlFor="reg-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="reg-pass" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.password")}
                 </label>
                 <input
@@ -390,7 +390,7 @@ export function Auth({ onLogin }: AuthProps) {
                   aria-describedby="reg-pass-strength"
                   value={regPass}
                   onChange={(e) => setRegPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
                 {regPass.length > 0 && (
                   <div id="reg-pass-strength" className="mt-1.5">
@@ -412,12 +412,12 @@ export function Auth({ onLogin }: AuthProps) {
               </div>
 
               <div className="pt-2 border-t border-gray-100 space-y-3">
-                <div className="text-center text-xs text-[#6B7280] font-medium">{t("auth.orRegisterWith")}</div>
+                <div className="text-center text-xs text-[var(--text-muted)] font-medium">{t("auth.orRegisterWith")}</div>
                 <div className="flex gap-3">
                   <button
                     type="button"
                     disabled={loading}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-[#e0e0e0] rounded-lg bg-white text-[#374151] text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-[var(--border-subtle)] rounded-lg bg-white text-[var(--text-secondary)] text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -430,7 +430,7 @@ export function Auth({ onLogin }: AuthProps) {
                   <button
                     type="button"
                     disabled={loading}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-[#e0e0e0] rounded-lg bg-white text-[#374151] text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-[var(--border-subtle)] rounded-lg bg-white text-[var(--text-secondary)] text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -443,16 +443,16 @@ export function Auth({ onLogin }: AuthProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full p-3 bg-[#FF9800] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                className="w-full p-3 bg-[var(--primary)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
                 {t("auth.register")}
               </button>
             </form>
-            <div className="mt-[15px] text-[14px] text-[#4B5563]">
+            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
               {t("auth.hasAccount")}{" "}
               <button
                 onClick={() => switchView("login")}
-                className="text-[#2E7D32] font-bold underline-offset-2 hover:underline cursor-pointer"
+                className="text-[var(--primary-strong)] font-bold underline-offset-2 hover:underline cursor-pointer"
               >
                 {t("auth.backToLogin")}
               </button>
@@ -462,7 +462,7 @@ export function Auth({ onLogin }: AuthProps) {
 
         {view === "changepass" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
               {t("auth.changePassword")}
             </h2>
             <form
@@ -470,7 +470,7 @@ export function Auth({ onLogin }: AuthProps) {
               className="text-left space-y-[15px]"
             >
               <div>
-                <label htmlFor="cp-nick" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="cp-nick" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.account")}
                 </label>
                 <input
@@ -480,11 +480,11 @@ export function Auth({ onLogin }: AuthProps) {
                   autoComplete="username"
                   value={cpNick}
                   onChange={(e) => setCpNick(e.target.value)}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="cp-old-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="cp-old-pass" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("settings.oldPassword")}
                 </label>
                 <input
@@ -494,11 +494,11 @@ export function Auth({ onLogin }: AuthProps) {
                   autoComplete="current-password"
                   value={cpOldPass}
                   onChange={(e) => setCpOldPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="cp-new-pass" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="cp-new-pass" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("settings.newPassword")}
                 </label>
                 <input
@@ -508,21 +508,21 @@ export function Auth({ onLogin }: AuthProps) {
                   autoComplete="new-password"
                   value={cpNewPass}
                   onChange={(e) => setCpNewPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full p-3 bg-[#2196F3] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                className="w-full p-3 bg-[var(--accent)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
                 {t("common.save")}
               </button>
             </form>
-            <div className="mt-[15px] text-[14px] text-[#4B5563]">
+            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
               <button
                 onClick={() => switchView("login")}
-                className="text-[#2E7D32] font-bold cursor-pointer hover:underline"
+                className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
               >
                 {t("common.back")}
               </button>
@@ -532,10 +532,10 @@ export function Auth({ onLogin }: AuthProps) {
 
         {view === "forgot" && (
           <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[#2E7D32] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
               {t("auth.resetTitle")}
             </h2>
-            <p className="text-sm text-[#6B7280] mb-6 text-left">
+            <p className="text-sm text-[var(--text-muted)] mb-6 text-left">
               {t("auth.resetSubtitle")}
             </p>
             <form
@@ -543,7 +543,7 @@ export function Auth({ onLogin }: AuthProps) {
               className="text-left space-y-[15px]"
             >
               <div>
-                <label htmlFor="fp-email" className="font-bold text-[#374151] text-[13px] block mb-[5px]">
+                <label htmlFor="fp-email" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
                   {t("auth.emailOrUsername")}
                 </label>
                 <input
@@ -554,21 +554,21 @@ export function Auth({ onLogin }: AuthProps) {
                   value={fpEmail}
                   onChange={(e) => setFpEmail(e.target.value)}
                   placeholder={t("auth.emailOrUsernamePlaceholder")}
-                  className="w-full p-3 border-2 border-[#e0e0e0] rounded-lg text-[15px] bg-[#fafafa] transition-colors focus:border-[#4CAF50] focus:bg-white outline-none"
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full p-3 bg-[#4CAF50] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[#ccc] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
                 {t("auth.sendResetLink")}
               </button>
             </form>
-            <div className="mt-[15px] text-[14px] text-[#4B5563]">
+            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
               <button
                 onClick={() => switchView("login")}
-                className="text-[#2E7D32] font-bold cursor-pointer hover:underline"
+                className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
               >
                 {t("auth.backToLogin2")}
               </button>
@@ -577,12 +577,12 @@ export function Auth({ onLogin }: AuthProps) {
         )}
 
         {loading && (
-          <div className="mt-[15px] mx-auto w-[30px] h-[30px] border-[4px] border-[#f3f3f3] border-t-[#4CAF50] rounded-full animate-spin"></div>
+          <div className="mt-[15px] mx-auto w-[30px] h-[30px] border-[4px] border-[var(--surface-soft)] border-t-[var(--text-muted)] rounded-full animate-spin"></div>
         )}
 
         {message && !loading && (
           <div
-            className={`mt-[15px] font-bold ${message.type === "success" ? "text-[#2E7D32]" : "text-[#d32f2f]"}`}
+            className={`mt-[15px] font-bold ${message.type === "success" ? "text-[var(--primary-strong)]" : "text-[var(--danger)]"}`}
           >
             {message.text}
           </div>

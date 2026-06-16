@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, RefreshCw, FlaskConical, Eye, Trash2, Ban, Zap, Activity, BookOpen, Database, FileSpreadsheet, Server } from "lucide-react";
 import { User, RewardItem } from "../types";
-import { AppScreenShell, Badge, Button, Card, EmptyState, FieldLabel, Input, LoadingSpinner, ModalHeader, ModalShell, SectionHeading, TabButton, TextArea } from "../lib/ui";
+import { Badge, Button, Card, EmptyState, FieldLabel, Input, LoadingSpinner, ModalHeader, ModalShell, SectionHeading, TabButton, TextArea } from "../lib/ui";
 import { showToast } from "../lib/toast";
 import { QuizBuilder } from "./admin/QuizBuilder";
 import { QuizConfigPanel } from "./admin/QuizConfigPanel";
@@ -290,31 +290,49 @@ export function AdminDashboard({ user, onLogout }: Props) {
   ] as const;
 
   return (
-    <AppScreenShell
-      badge={<Badge tone="success">Admin control center</Badge>}
-      title="Dashboard quản trị"
-      subtitle="Tập trung quản lý người dùng, phần thưởng, tăng trưởng và các luồng nghiên cứu trong cùng một không gian trực quan hơn."
-      action={
-        <div className="flex flex-wrap gap-3">
-          <Button variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white" onClick={() => navigate("/research")}>
-            <Activity className="h-4 w-4" /> Research
-          </Button>
-          <Button variant="ghost" className="border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white" onClick={onLogout}>
-            <LogOut className="h-4 w-4" /> Đăng xuất
-          </Button>
+    <div className="min-h-screen bg-[var(--background)]">
+      <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
+
+        {/* ── Top bar ── */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--primary)] text-white font-black shadow-[var(--shadow-glow)]">
+              B
+            </div>
+            <div>
+              <h1 className="text-lg font-black text-[var(--text-primary)]">Dashboard quản trị</h1>
+              <p className="text-xs text-[var(--text-muted)]">{user.name}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/research")}>
+              <Activity className="h-4 w-4" /> Research
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onLogout}>
+              <LogOut className="h-4 w-4" /> Đăng xuất
+            </Button>
+          </div>
         </div>
-      }
-    >
-      <Card className="rounded-[28px] bg-white/80 p-2">
-        <div className="grid gap-2 sm:grid-cols-4">
-          {tabs.map((tab) => (
-            <TabButton key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center justify-center gap-2 py-3">
-              {tab.icon}
-              {tab.label}
-            </TabButton>
-          ))}
-        </div>
-      </Card>
+
+        {/* ── Nav tabs ── */}
+        <Card className="rounded-2xl p-1.5">
+          <div className="grid grid-cols-4 gap-1 sm:grid-cols-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all ${
+                  activeTab === tab.id
+                    ? "bg-[var(--primary)] text-white shadow-sm"
+                    : "text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                <span className="hidden sm:inline">{tab.icon}</span>}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
 
       {activeTab === "overview" && (
         <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
@@ -574,6 +592,6 @@ export function AdminDashboard({ user, onLogout }: Props) {
           </form>
         </ModalShell>
       )}
-    </AppScreenShell>
+    </div>
   );
 }
