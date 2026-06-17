@@ -34,6 +34,8 @@ i18n.use(initReactI18next).init({
   fallbackLng: "vi",
   interpolation: {
     escapeValue: false,
+    prefix: "{",
+    suffix: "}",
   },
 });
 
