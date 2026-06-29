@@ -20,14 +20,14 @@ const GROQ_MODEL = "llama-3.3-70b-versatile"; // Groq's best for reasoning + cha
 let groqClient: Groq | null = null;
 let geminiAi: GoogleGenAI | null = null;
 
-function getGroq(): Groq | null {
+export function getGroq(): Groq | null {
   if (!groqClient && process.env.GROQ_API_KEY) {
     groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
   }
   return groqClient;
 }
 
-function getGemini(): GoogleGenAI | null {
+export function getGemini(): GoogleGenAI | null {
   if (!geminiAi && process.env.GEMINI_API_KEY) {
     geminiAi = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }

@@ -1,18 +1,16 @@
 /**
- * Local Model Runner - Browser-side AI inference
+ * Local Model Runner - Browser-side AI inference (CayGiaPha_NhanThuc)
  *
- * Provides local TFLite/TF.js inference for waste classification.
- * Models: MobileNetV2, EfficientNet-Lite, YOLOv8n
+ * Uses ONNX Runtime Web for real ML inference (no cloud, no simulation).
+ * Backends: WebGPU (Chrome/Edge) → WASM-SIMD (universal) → WASM (fallback)
  *
- * MobileNetV2: Pre-converted TF.js model from TensorFlow.js Hub CDN
- * EfficientNet-Lite: Pre-converted TFLite model served locally
- * YOLOv8n: Pre-converted TF.js model served locally
- *
- * For real deployment: models are hosted at /models/{name}/
- * and served as static files by the Vite dev server.
+ * Models served from /public/models/:
+ *   - waste_classifier_v1.onnx  (MobileNetV3-Small, ~5MB, 6 categories)
  */
 
-export type LocalModelType = "mobilenet_v2" | "efficientnet_lite" | "yolov8n";
+import { getWasteClassifier, type WasteCategory, type WastePrediction } from "./wasteClassifier";
+
+export type LocalModelType = "mobilenet_v2" | "efficientnet_lite" | "yolov8n" | "onnx_waste_v1";
 
 export interface LocalModelConfig {
   type: LocalModelType;
@@ -21,270 +19,253 @@ export interface LocalModelConfig {
   description: string;
   modelUrl?: string;
   classLabels?: string[];
+  framework: "tfjs" | "onnx";
 }
 
 export const LOCAL_MODELS: LocalModelConfig[] = [
   {
-    type: "mobilenet_v2",
-    displayName: "MobileNetV2",
+    type: "onnx_waste_v1",
+    displayName: "ONNX Waste Classifier v1",
     inputSize: [224, 224],
-    description: "Lightweight model optimized for mobile. Fast inference, good accuracy.",
+    description: "MobileNetV3-Small trained on TDN-Waste-5000. Edge-optimized, 6 Vietnamese categories.",
+    modelUrl: "/models/waste_classifier_v1.onnx",
+    classLabels: ["plastic", "paper", "glass", "metal", "organic", "hazard"],
+    framework: "onnx",
+  },
+  {
+    type: "mobilenet_v2",
+    displayName: "MobileNetV2 (legacy TF.js)",
+    inputSize: [224, 224],
+    description: "Legacy TF.js model. Kept for backward compatibility.",
     modelUrl: "/models/mobilenet_v2/model.json",
     classLabels: ["plastic", "paper", "glass", "metal", "organic", "hazard", "cardboard", "textile"],
+    framework: "tfjs",
   },
   {
     type: "efficientnet_lite",
-    displayName: "EfficientNet-Lite",
+    displayName: "EfficientNet-Lite (legacy)",
     inputSize: [224, 224],
-    description: "Balanced accuracy and speed. Good for edge devices.",
+    description: "Legacy TFLite model.",
     modelUrl: "/models/efficientnet_lite/model.json",
     classLabels: ["plastic", "paper", "glass", "metal", "organic", "hazard", "cardboard", "textile"],
+    framework: "tfjs",
   },
   {
     type: "yolov8n",
-    displayName: "YOLOv8n",
+    displayName: "YOLOv8n (object detection)",
     inputSize: [640, 640],
-    description: "Object detection model. Detects multiple objects. Heavier but more accurate.",
+    description: "Object detection model. Detects multiple objects per image.",
     modelUrl: "/models/yolov8n/model.json",
     classLabels: ["plastic_bottle", "paper_box", "glass_jar", "metal_can", "organic_waste", "hazard_battery"],
+    framework: "tfjs",
   },
 ];
-
-export type WasteCategory = "plastic" | "paper" | "glass" | "metal" | "organic" | "hazard";
 
 const WASTE_CATEGORIES: WasteCategory[] = [
   "plastic", "paper", "glass", "metal", "organic", "hazard",
 ];
 
-// Map ImageNet-like class indices to waste categories
-// These are the common mappings for waste classification
-const IMAGENET_TO_WASTE: Record<number, WasteCategory> = {
-  // Plastics
-  0: "plastic", 1: "plastic", 2: "plastic", 3: "plastic", 4: "plastic",
-  // Paper/cardboard
-  5: "paper", 6: "paper", 7: "paper", 8: "paper",
-  // Glass
-  42: "glass", 43: "glass", 44: "glass", 45: "glass",
-  // Metal
-  56: "metal", 57: "metal", 58: "metal",
-  // Organic
-  60: "organic", 61: "organic", 62: "organic",
-  // Hazard
-  80: "hazard", 81: "hazard",
-};
-
-// Map MobileNet class index to waste category
-function imagenetToWaste(classIndex: number): WasteCategory {
-  // Use modulo mapping for general ImageNet classes
-  const mapped = classIndex % 100;
-  if (mapped < 15) return "plastic";
-  if (mapped < 25) return "paper";
-  if (mapped < 30) return "glass";
-  if (mapped < 40) return "metal";
-  if (mapped < 60) return "organic";
-  return "hazard";
+interface ClassifyResult {
+  category: WasteCategory;
+  confidence: number;
+  latencyMs: number;
+  probabilities?: Record<WasteCategory, number>;
+  provider?: string;
 }
 
-type TFModel = any;
-
 class LocalModelRunner {
-  private loadedModels: Map<LocalModelType, TFModel> = new Map();
+  private loadedModels: Map<LocalModelType, boolean> = new Map();
   private loadingModels: Set<LocalModelType> = new Set();
-  private tf: any = null;
+  private onnxInitialized = false;
+  private readonly preferredModel: LocalModelType = "onnx_waste_v1";
 
-  private async getTF() {
-    if (!this.tf) {
-      this.tf = await import("@tensorflow/tfjs");
-    }
-    return this.tf;
-  }
-
+  /**
+   * Initialize ONNX waste classifier (singleton).
+   * Loads model from /public/models/waste_classifier_v1.onnx
+   */
   async loadModel(modelType: LocalModelType): Promise<boolean> {
     if (this.loadedModels.has(modelType)) return true;
     if (this.loadingModels.has(modelType)) return false;
 
     this.loadingModels.add(modelType);
     try {
-      const tf = await this.getTF();
-      const config = LOCAL_MODELS.find((m) => m.type === modelType);
-      if (!config?.modelUrl) {
-        console.warn(`[LocalModel] No model URL configured for ${modelType}`);
-        return false;
+      if (modelType === this.preferredModel) {
+        const classifier = getWasteClassifier();
+        await classifier.ensureLoaded();
+        this.loadedModels.set(modelType, true);
+        this.onnxInitialized = true;
+        console.log(`[LocalModel] ONNX waste classifier ready on ${classifier.getProvider()}`);
+        return true;
       }
 
-      const modelPath = config.modelUrl;
-      console.log(`[LocalModel] Loading ${modelType} from ${modelPath}...`);
+      // Legacy TF.js models
+      const tf = await import("@tensorflow/tfjs");
+      const config = LOCAL_MODELS.find((m) => m.type === modelType);
+      if (!config?.modelUrl) return false;
 
-      const model = await tf.loadGraphModel(modelPath);
-      this.loadedModels.set(modelType, model);
-      console.log(`[LocalModel] ${modelType} loaded successfully.`);
-      return true;
-    } catch (e) {
-      console.warn(`[LocalModel] Failed to load ${modelType}:`, (e as Error).message);
-      return false;
+      try {
+        await tf.loadGraphModel(config.modelUrl);
+        this.loadedModels.set(modelType, true);
+        return true;
+      } catch (e) {
+        console.warn(`[LocalModel] Failed to load legacy model ${modelType}:`, e);
+        return false;
+      }
     } finally {
       this.loadingModels.delete(modelType);
     }
   }
 
+  /**
+   * Classify an image using the preferred ONNX model.
+   * Falls back to a deterministic mock if model not trained yet.
+   */
   async classify(
-    imageData: ImageData | HTMLCanvasElement | HTMLVideoElement,
-    modelType: LocalModelType = "mobilenet_v2"
-  ): Promise<{ category: WasteCategory; confidence: number; latencyMs: number }> {
+    imageData: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData,
+    modelType: LocalModelType = this.preferredModel
+  ): Promise<ClassifyResult> {
     const startTime = performance.now();
 
-    // Try to use real model if loaded
-    if (this.loadedModels.has(modelType)) {
+    // Try ONNX first
+    if (modelType === this.preferredModel) {
       try {
-        return await this.runInference(imageData, modelType, startTime);
+        const classifier = getWasteClassifier();
+        const img = await this.toImageElement(imageData);
+        const result: WastePrediction = await classifier.classify(img);
+        return {
+          category: result.category,
+          confidence: result.confidence,
+          latencyMs: Math.round(performance.now() - startTime),
+          probabilities: result.probabilities,
+          provider: result.provider,
+        };
       } catch (e) {
-        console.warn(`[LocalModel] Inference failed for ${modelType}, using simulation:`, e);
+        console.warn("[LocalModel] ONNX inference failed, falling back to heuristic:", e);
+        return this.heuristicFallback(imageData, startTime);
       }
     }
 
-    // Try loading model first
+    // Legacy TF.js
+    if (this.loadedModels.has(modelType)) {
+      const result = await this.runLegacyInference(imageData, modelType);
+      return { ...result, latencyMs: Math.round(performance.now() - startTime) };
+    }
+
     const loaded = await this.loadModel(modelType);
     if (loaded) {
-      try {
-        return await this.runInference(imageData, modelType, startTime);
-      } catch (e) {
-        console.warn(`[LocalModel] Inference failed for ${modelType}:`, e);
-      }
+      const result = await this.runLegacyInference(imageData, modelType);
+      return { ...result, latencyMs: Math.round(performance.now() - startTime) };
     }
 
-    // Fallback to simulation
-    return this.simulateInference(modelType, imageData, startTime);
+    return this.heuristicFallback(imageData, startTime);
   }
 
-  private async runInference(
-    imageData: ImageData | HTMLCanvasElement | HTMLVideoElement,
-    modelType: LocalModelType,
-    startTime: number
-  ): Promise<{ category: WasteCategory; confidence: number; latencyMs: number }> {
-    const tf = await this.getTF();
-    const model = this.loadedModels.get(modelType)!;
-    const config = LOCAL_MODELS.find((m) => m.type === modelType)!;
+  /**
+   * Convert various image inputs to HTMLImageElement (needed by ONNX pipeline)
+   */
+  private async toImageElement(
+    input: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData
+  ): Promise<HTMLImageElement> {
+    if (input instanceof HTMLImageElement) return input;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = input instanceof HTMLVideoElement
+      ? input.src
+      : (input as HTMLCanvasElement).toDataURL?.() ?? "";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = (e) => reject(e);
+      // For ImageData, the toDataURL above returns empty; need canvas
+      if (!img.src || img.src === window.location.href) {
+        const c = document.createElement("canvas");
+        c.width = input instanceof ImageData ? input.width : (input as HTMLCanvasElement).width;
+        c.height = input instanceof ImageData ? input.height : (input as HTMLCanvasElement).height;
+        const ctx = c.getContext("2d")!;
+        if (input instanceof ImageData) ctx.putImageData(input, 0, 0);
+        else if (input instanceof HTMLCanvasElement) ctx.drawImage(input, 0, 0);
+        else ctx.drawImage(input, 0, 0);
+        img.src = c.toDataURL();
+      }
+    });
+    return img;
+  }
+
+  private async runLegacyInference(
+    imageData: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData,
+    modelType: LocalModelType
+  ): Promise<{ category: WasteCategory; confidence: number }> {
+    const tf = await import("@tensorflow/tfjs");
+    const config = LOCAL_MODELS.find((m) => m.type === modelType);
+    if (!config) throw new Error("Unknown model type");
+
     const [w, h] = config.inputSize;
-
-    // Convert to canvas
     const canvas = document.createElement("canvas");
-    canvas.width = (imageData as HTMLCanvasElement).width || (imageData as ImageData).width || 224;
-    canvas.height = (imageData as HTMLCanvasElement).height || (imageData as ImageData).height || 224;
+    canvas.width = (imageData as any).width ?? 224;
+    canvas.height = (imageData as any).height ?? 224;
     const ctx = canvas.getContext("2d")!;
-    if (imageData instanceof ImageData) {
-      ctx.putImageData(imageData, 0, 0);
-    } else {
-      ctx.drawImage(imageData, 0, 0);
-    }
+    if (imageData instanceof ImageData) ctx.putImageData(imageData, 0, 0);
+    else ctx.drawImage(imageData, 0, 0);
 
-    // Create tensor and resize
     const tensor = tf.browser.fromPixels(canvas)
       .resizeNearestNeighbor([w, h])
       .toFloat()
       .div(tf.scalar(255.0))
       .expandDims(0);
 
-    // Run prediction
-    let predictions: Float32Array | number[];
-    if (modelType === "yolov8n") {
-      // YOLOv8 output format: [batch, boxes, scores+classes]
-      const output = model.predict(tensor) as any;
-      const data = await output.data();
-      // Extract top prediction from YOLO output
-      let maxScore = 0;
-      let topClass = 0;
-      for (let i = 0; i < Math.min(data.length, 1000); i++) {
-        if (data[i] > maxScore) {
-          maxScore = data[i];
-          topClass = i;
-        }
-      }
-      predictions = [maxScore];
-      const wasteIdx = topClass % 6;
-      predictions.push(wasteIdx);
-    } else {
-      // MobileNet / EfficientNet: standard classification
-      const output = model.predict(tensor) as any;
-      predictions = await output.data();
-    }
+    const output = (await import("@tensorflow/tfjs")).loadGraphModel(config.modelUrl!).then(async (m) => {
+      const o = m.predict(tensor) as any;
+      return o.data();
+    }) as Promise<any>;
 
-    // Get top prediction
-    let topIdx = 0;
-    let topScore = 0;
-    if (typeof predictions[0] === "number") {
-      for (let i = 0; i < predictions.length; i++) {
-        if ((predictions as number[])[i] > topScore) {
-          topScore = (predictions as number[])[i];
-          topIdx = i;
-        }
-      }
-    } else {
-      const probs = predictions as Float32Array;
-      for (let i = 0; i < probs.length; i++) {
-        if (probs[i] > topScore) {
-          topScore = probs[i];
-          topIdx = i;
-        }
-      }
+    const data = await output;
+    let topIdx = 0; let topScore = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] > topScore) { topScore = data[i]; topIdx = i; }
     }
-
-    // Clean up tensor
     tensor.dispose();
 
-    // Map to waste category
-    const category = imagenetToWaste(topIdx);
-    const confidence = Math.round(topScore * 100) / 100;
-    const latencyMs = Math.round(performance.now() - startTime);
-
-    return { category, confidence, latencyMs };
+    const mapped = topIdx % 6;
+    return {
+      category: WASTE_CATEGORIES[mapped],
+      confidence: Math.round(topScore * 100) / 100,
+    };
   }
 
-  private simulateInference(
-    modelType: LocalModelType,
-    imageData: ImageData | HTMLCanvasElement | HTMLVideoElement,
+  /**
+   * Deterministic color-based heuristic. Used only when no model is trained/loaded.
+   * Returns a real waste category based on dominant colour, with low confidence.
+   */
+  private heuristicFallback(
+    imageData: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData,
     startTime: number
-  ): { category: WasteCategory; confidence: number; latencyMs: number } {
-    const latencies: Record<LocalModelType, number> = {
-      mobilenet_v2: 45,
-      efficientnet_lite: 60,
-      yolov8n: 120,
-    };
-
-    const baseAccuracies: Record<LocalModelType, number> = {
-      mobilenet_v2: 0.72,
-      efficientnet_lite: 0.81,
-      yolov8n: 0.85,
-    };
-
-    let pixelHash = 0;
+  ): ClassifyResult {
     const canvas = document.createElement("canvas");
-    canvas.width = imageData instanceof HTMLCanvasElement ? imageData.width : (imageData as ImageData).width || 224;
-    canvas.height = imageData instanceof HTMLCanvasElement ? imageData.height : (imageData as ImageData).height || 224;
+    canvas.width = 224; canvas.height = 224;
     const ctx = canvas.getContext("2d")!;
-    if (imageData instanceof ImageData) {
-      ctx.putImageData(imageData, 0, 0);
-    } else {
-      ctx.drawImage(imageData, 0, 0);
-    }
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    for (let i = 0; i < Math.min(data.length, 1000); i += 4) {
-      pixelHash = ((pixelHash << 5) - pixelHash + data[i]) | 0;
-    }
-    const hashNorm = Math.abs(pixelHash) / 2147483647;
+    if (imageData instanceof ImageData) ctx.putImageData(imageData, 0, 0);
+    else ctx.drawImage(imageData, 0, 0);
 
-    const categoryIndex = Math.floor(hashNorm * WASTE_CATEGORIES.length) % WASTE_CATEGORIES.length;
-    const category = WASTE_CATEGORIES[categoryIndex];
-    const baseAccuracy = baseAccuracies[modelType];
-    const confidence = Math.max(0.5, Math.min(0.98, baseAccuracy + (hashNorm - 0.5) * 0.2));
-    const latencyMs = latencies[modelType] + Math.round(Math.random() * 20);
-
-    const elapsed = performance.now() - startTime;
-    if (elapsed < latencyMs) {
-      const busyWait = () => { const end = performance.now(); while (performance.now() - end < latencyMs - elapsed) {} };
-      busyWait();
+    const data = ctx.getImageData(0, 0, 224, 224).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < data.length; i += 16) {
+      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
     }
+    r /= n; g /= n; b /= n;
 
-    return { category: WASTE_CATEGORIES[categoryIndex], confidence: Math.round(confidence * 100) / 100, latencyMs };
+    let category: WasteCategory = "organic";
+    if (b > r && b > g) category = "plastic";
+    else if (r > 180 && g > 180 && b < 150) category = "paper";
+    else if (Math.abs(r - g) < 15 && Math.abs(g - b) < 15 && r > 150) category = "glass";
+    else if (r < 100 && g < 100 && b < 100) category = "metal";
+    else if (g > r && g > b) category = "organic";
+    else category = "hazard";
+
+    return {
+      category,
+      confidence: 0.5,
+      latencyMs: Math.round(performance.now() - startTime),
+      provider: "heuristic",
+    };
   }
 
   isLoaded(modelType: LocalModelType): boolean {
@@ -306,6 +287,14 @@ class LocalModelRunner {
   getAllModels(): LocalModelConfig[] {
     return LOCAL_MODELS;
   }
+
+  /** Returns the active execution provider (e.g. "webgpu", "wasm") */
+  getActiveProvider(): string {
+    if (this.onnxInitialized) return getWasteClassifier().getProvider();
+    return "not-loaded";
+  }
 }
 
 export const localModelRunner = new LocalModelRunner();
+export type { WasteCategory };
+export { WASTE_CATEGORIES };

@@ -13,6 +13,9 @@ import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { resolveGacha, generateServerCard } from "./server/lib/cards.js";
 import { GoogleGenAI } from "@google/genai";
+import { datasetCurator, DatasetCurator as DatasetCuratorClass } from "./server/services/datasetCurator";
+import { uploadToDataset } from "./server/services/cloudinaryDataset";
+import { getDb as getResearchDb } from "./server/db";
 import { initDb, isDbConnected, getDb, setFirestore } from "./server/db.js";
 import { listRewards, upsertReward, deleteRewardById, isRewardsDbConfigured } from "./server/rewardsDb.js";
 import {
@@ -45,6 +48,7 @@ import { socialNetworkAnalyzer } from "./server/services/socialNetworkAnalyzer.j
 import { longitudinalAnalytics } from "./server/services/longitudinalAnalytics.js";
 import { datasetManager } from "./server/services/datasetManager.js";
 import { visionRouter } from "./server/routes/vision.js";
+import { datasetRouter } from "./server/routes/dataset.js";
 import { experimentsRouter } from "./server/routes/experiments.js";
 import { socialRouter } from "./server/routes/social.js";
 import { longitudinalRouter } from "./server/routes/longitudinal.js";
@@ -1963,7 +1967,7 @@ app.post("/api/chat", async (req, res) => {
 
 app.post("/api/scan-garbage", async (req, res) => {
   try {
-    const { imageBase64, nickname } = req.body;
+    const { imageBase64, nickname, consentToRelease, locale, geoLat, geoLng } = req.body;
     if (!ai) {
       return res.status(500).json({ error: "GEMINI_API_KEY is not set" });
     }
@@ -1972,6 +1976,9 @@ app.post("/api/scan-garbage", async (req, res) => {
 
     // Strip data URI prefix if present
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+
+    // Compute image hash for dedup + provenance
+    const imageHash = DatasetCuratorClass.hashImage(base64Data);
 
     const prompt =
       "Hãy đóng vai một chuyên gia môi trường siêu đỉnh. Hãy phân tích hình ảnh này và cho biết đây là rác gì. Nó thuộc loại nào: Rác tái chế, Rác vô cơ (còn lại), Rác hữu cơ, hay Rác nguy hại? Hướng dẫn cách bỏ rác này đúng cách. Trả lời ngắn gọn, thân thiện và kèm theo icon.";
@@ -2027,6 +2034,72 @@ app.post("/api/scan-garbage", async (req, res) => {
         category: predictedCategory,
       },
     });
+
+    // ── Phase 1: Dataset capture (open science, opt-in) ───────────────────
+    // Only kick off if user has explicitly consented via settings toggle.
+    if (nickname && consentToRelease === true) {
+      // Fire-and-forget: don't block the response
+      (async () => {
+        try {
+          // 1) Upload image to Cloudinary (anonymized)
+          const uploaded = await uploadToDataset(base64Data, {
+            userId: nickname,
+            scanId: Date.now(), // placeholder; real scan_id assigned after insert
+            category: predictedCategory,
+            confidence,
+          });
+
+          // 2) Detect lighting + occlusion in parallel
+          const [lighting, occlusion] = await Promise.all([
+            datasetCurator.detectImageAttribute(imageBase64, "lighting"),
+            datasetCurator.detectImageAttribute(imageBase64, "occlusion"),
+          ]);
+
+          // 3) Build top-K predictions heuristic (all 6 categories, top-1 = confidence)
+          const topKPredictions = buildTopKPredictions(predictedCategory, confidence);
+
+          // 4) Insert into ai_scan_metrics with consent + dataset metadata
+          const researchDb = getResearchDb();
+          if (researchDb) {
+            await researchDb.query(
+              `INSERT INTO ai_scan_metrics (
+                user_id, model_type, latency_ms, confidence_score, predicted_category,
+                image_url, image_hash, lighting_condition, occlusion_level,
+                top_k_predictions, consent_to_release, locale, geo_country, dataset_release_status
+              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending_review')
+              RETURNING id`,
+              [
+                nickname,
+                "gemini_2.5_flash",
+                latencyMs,
+                confidence,
+                predictedCategory,
+                uploaded?.url || null,
+                imageHash,
+                lighting,
+                occlusion,
+                JSON.stringify(topKPredictions),
+                true,
+                locale || "vi",
+                null,
+              ],
+            ).catch((err: Error) => console.error("[dataset] insert failed:", err));
+
+            // 5) Upsert contributor row
+            await researchDb.query(
+              `INSERT INTO dataset_contributors (user_id, display_name, consent_given, consent_date, first_contribution_at, last_contribution_at)
+               VALUES ($1, $2, TRUE, NOW(), NOW(), NOW())
+               ON CONFLICT (user_id) DO UPDATE SET
+                 consent_given = TRUE,
+                 last_contribution_at = NOW()`,
+              [nickname, nickname],
+            ).catch((err: Error) => console.error("[dataset] contributor upsert failed:", err));
+          }
+        } catch (err) {
+          console.error("[dataset] capture pipeline error:", err);
+        }
+      })();
+    }
 
     // DB writes — fire-and-forget, don't block response
     if (nickname) {
@@ -2938,6 +3011,7 @@ async function startServer() {
   // Research API routes
   app.use("/api/research", researchRouter);
   app.use("/api/vision", visionRouter());
+  app.use("/api/dataset", datasetRouter());
   app.use("/api/experiments", experimentsRouter());
   app.use("/api/social", socialRouter());
   app.use("/api/longitudinal", longitudinalRouter());
@@ -3783,3 +3857,20 @@ async function startServer() {
 }
 
 startServer();
+
+// ─── Phase 1 helpers: dataset capture ────────────────────────────────────────
+
+/**
+ * Build heuristic top-K predictions for waste classification.
+ * Gemini doesn't expose logprobs, so we synthesize a softmax-like distribution
+ * centered on the predicted category with the given confidence.
+ * Real softmax values are stored when available (ONNX pipeline).
+ */
+function buildTopKPredictions(topCategory: string, topConfidence: number): Array<{ category: string; prob: number }> {
+  const allCats = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
+  const remaining = (1 - topConfidence) / (allCats.length - 1);
+  return allCats.map((c) => ({
+    category: c,
+    prob: c === topCategory ? Math.round(topConfidence * 1000) / 1000 : Math.round(remaining * 1000) / 1000,
+  }));
+}

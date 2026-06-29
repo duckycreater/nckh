@@ -177,10 +177,19 @@ ${instructions[result.category] || ""}`;
         }
       } else {
         const startTime = Date.now();
+        // Check if user has consented to dataset release
+        const consentToRelease = (() => {
+          try { return localStorage.getItem("bmo_dataset_consent") === "true"; } catch { return false; }
+        })();
         const res = await fetch("/api/scan-garbage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageBase64: image, nickname: user.account_id }),
+          body: JSON.stringify({
+            imageBase64: image,
+            nickname: user.account_id,
+            consentToRelease,
+            locale: (() => { try { return localStorage.getItem("bmo_locale") || "vi"; } catch { return "vi"; } })(),
+          }),
         });
         const data = await res.json();
         const latencyMs = Date.now() - startTime;

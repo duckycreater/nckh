@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../lib/i18n";
-import { Globe } from "lucide-react";
+import { Globe, Shield } from "lucide-react";
 import { useTheme } from "../App";
+import { ContributeToDataset } from "./ContributeToDataset";
 
 interface SettingsProps {
   user: User;
@@ -24,10 +25,18 @@ const FRAMES = [
 
 const ALL_PURCHASE_IDS = ["av1", "av2", "av3", "fr1", "fr2", "fr3"];
 
+const SETTINGS_TABS = [
+  { id: "appearance", label: "Giao diện" },
+  { id: "name", label: "Tên hiển thị" },
+  { id: "password", label: "Mật khẩu" },
+  { id: "language", label: "Ngôn ngữ" },
+  { id: "privacy", label: "Dữ liệu & Quyền riêng tư" },
+] as const;
+
 export function Settings({ user, onUpdate }: SettingsProps) {
   const { t } = useTranslation();
   const { theme, toggle } = useTheme();
-  const [activeTab, setActiveTab] = useState<"appearance" | "name" | "password" | "language">("appearance");
+  const [activeTab, setActiveTab] = useState<"appearance" | "name" | "password" | "language" | "privacy">("appearance");
   const [lang, setLang] = useState<LanguageCode>(getCurrentLanguage());
   const [savingPref, setSavingPref] = useState(false);
   const [prefMsg, setPrefMsg] = useState("");
@@ -201,6 +210,17 @@ export function Settings({ user, onUpdate }: SettingsProps) {
         >
           <Globe size={15} />
           <span>Ngôn ngữ</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("privacy")}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1 ${
+            activeTab === "privacy"
+              ? "bg-white text-emerald-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <Shield size={15} />
+          <span>Quyền riêng tư</span>
         </button>
       </div>
 
@@ -460,6 +480,118 @@ export function Settings({ user, onUpdate }: SettingsProps) {
           </div>
         </div>
       )}
+    {/* Privacy & Data tab */}
+      {activeTab === "privacy" && (
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+          <PrivacyTabContent user={user} />
+        </div>
+      )}
     </div>
+  );
+}
+
+function PrivacyTabContent({ user }: { user: User }) {
+  const { t } = useTranslation();
+  const [consent, setConsent] = useState<boolean>(false);
+  const [stats, setStats] = useState<{ totalImages: number; imagesInRelease: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showContributeModal, setShowContributeModal] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch(`/api/dataset/status?nickname=${encodeURIComponent(user.account_id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!mounted || !data) return;
+        setConsent(data.consentGiven === true);
+        setStats({ totalImages: data.totalImages || 0, imagesInRelease: data.imagesInRelease || 0 });
+        try {
+          localStorage.setItem("bmo_dataset_consent", data.consentGiven ? "true" : "false");
+        } catch {}
+      })
+      .catch(() => {})
+      .finally(() => mounted && setLoading(false));
+    return () => {
+      mounted = false;
+    };
+  }, [user.account_id]);
+
+  return (
+    <>
+      <div>
+        <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
+          <Shield size={18} className="text-emerald-600" />
+          Quyền riêng tư & Dữ liệu
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Kiểm soát dữ liệu cá nhân của bạn và đóng góp cho nghiên cứu khoa học mở.
+        </p>
+      </div>
+
+      {/* Dataset contribution card */}
+      <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-blue-50 p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <h4 className="text-sm font-bold text-emerald-900 mb-1">🌍 Đóng góp cho Khoa học Mở</h4>
+            <p className="text-xs text-emerald-800/80">
+              Cho phép ảnh phân loại rác của bạn được đưa vào TDN-Waste-World — dataset mở phục vụ nghiên cứu toàn cầu.
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="text-xs text-gray-500">Đang tải...</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-white/70 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-emerald-700">{stats?.totalImages || 0}</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-600">Ảnh đã đóng góp</div>
+              </div>
+              <div className="bg-white/70 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-blue-700">{stats?.imagesInRelease || 0}</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-600">Đã công khai</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between bg-white/70 rounded-lg p-3">
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-gray-900">
+                  {consent ? "✓ Đang đóng góp" : "Chưa đóng góp"}
+                </div>
+                <div className="text-[10px] text-gray-600">
+                  Ảnh được ẩn danh (xóa EXIF) trước khi xuất bản
+                </div>
+              </div>
+              <button
+                onClick={() => setShowContributeModal(true)}
+                className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700"
+              >
+                {consent ? "Quản lý" : "Tìm hiểu thêm"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Privacy guarantees */}
+      <div className="space-y-2">
+        <h4 className="text-sm font-bold text-gray-900">🛡️ Cam kết của chúng tôi</h4>
+        <ul className="text-xs text-gray-600 space-y-1.5 ml-4 list-disc">
+          <li>Ảnh được xóa EXIF (GPS, model camera, timestamp) trước khi upload</li>
+          <li>Bạn có thể thu hồi đồng ý bất kỳ lúc nào — dữ liệu sẽ bị ẩn khỏi các bản phát hành tương lai</li>
+          <li>Mọi dataset phát hành đều dùng license CC-BY-4.0 (mã nguồn mở, ghi công)</li>
+          <li>Người dùng dưới 13 tuổi: phải được phụ huynh đồng ý trước khi bật tính năng này</li>
+        </ul>
+      </div>
+
+      {showContributeModal && (
+        <ContributeToDataset
+          nickname={user.account_id}
+          isOpen={showContributeModal}
+          onClose={() => setShowContributeModal(false)}
+        />
+      )}
+    </>
   );
 }
