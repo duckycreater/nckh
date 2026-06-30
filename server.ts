@@ -49,6 +49,7 @@ import { longitudinalAnalytics } from "./server/services/longitudinalAnalytics.j
 import { datasetManager } from "./server/services/datasetManager.js";
 import { visionRouter } from "./server/routes/vision.js";
 import { datasetRouter } from "./server/routes/dataset.js";
+import { familyRouter } from "./server/routes/family.js";
 import { experimentsRouter } from "./server/routes/experiments.js";
 import { socialRouter } from "./server/routes/social.js";
 import { longitudinalRouter } from "./server/routes/longitudinal.js";
@@ -3012,6 +3013,7 @@ async function startServer() {
   app.use("/api/research", researchRouter);
   app.use("/api/vision", visionRouter());
   app.use("/api/dataset", datasetRouter());
+  app.use("/api/family", familyRouter());
   app.use("/api/experiments", experimentsRouter());
   app.use("/api/social", socialRouter());
   app.use("/api/longitudinal", longitudinalRouter());

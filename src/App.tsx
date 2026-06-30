@@ -8,6 +8,7 @@ import { ResearchDashboard } from "./components/ResearchDashboard";
 import WorldMap from "./components/WorldMap";
 import CampaignStage from "./components/CampaignStage";
 import { User } from "./types";
+import { FamilyMode } from "./components/FamilyMode";
 import { Card, LoadingSpinner } from "./lib/ui";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
 import { Globe } from "lucide-react";
@@ -87,6 +88,46 @@ function WorldMapRoute({ user }: { user: User }) {
       }}
       onBack={() => navigate("/home")}
     />
+  );
+}
+
+function FamilyRoute({ user }: { user: User }) {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 px-4 py-6">
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Family Mode</h2>
+          <button
+            onClick={() => navigate("/home")}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800"
+          >
+            ← Về Home
+          </button>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          {/* Mount the modal in standalone-page mode */}
+          <FamilyModeStandalone user={user} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FamilyModeStandalone({ user }: { user: User }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 px-4 py-3 text-sm font-bold text-white"
+        >
+          Mở Family Mode
+        </button>
+      )}
+      <FamilyMode user={user} isOpen={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 
@@ -241,6 +282,7 @@ export default function App() {
           {/* Campaign Routes */}
           <Route path="/world-map" element={<WorldMapRoute user={user} />} />
           <Route path="/campaign/:regionId/:stageId" element={<CampaignStageRoute />} />
+          <Route path="/family" element={<FamilyRoute user={user} />} />
           <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
         </Routes>
         {chatOpen && <Chatbot currentUser={user.account_id} />}
