@@ -496,6 +496,7 @@ function PrivacyTabContent({ user }: { user: User }) {
   const [stats, setStats] = useState<{ totalImages: number; imagesInRelease: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showContributeModal, setShowContributeModal] = useState(false);
+  const [showPrivacyDashboard, setShowPrivacyDashboard] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -582,8 +583,20 @@ function PrivacyTabContent({ user }: { user: User }) {
           <li>Bạn có thể thu hồi đồng ý bất kỳ lúc nào — dữ liệu sẽ bị ẩn khỏi các bản phát hành tương lai</li>
           <li>Mọi dataset phát hành đều dùng license CC-BY-4.0 (mã nguồn mở, ghi công)</li>
           <li>Người dùng dưới 13 tuổi: phải được phụ huynh đồng ý trước khi bật tính năng này</li>
+          <li><strong>Federated Learning (Phase 2):</strong> ảnh KHÔNG BAO GIỜ rời khỏi thiết bị của bạn. Chỉ model updates (đã mã hóa + thêm nhiễu) mới được gửi về server.</li>
         </ul>
       </div>
+
+      {/* Phase 2: Federated Learning transparency */}
+      <button
+        onClick={() => setShowPrivacyDashboard(true)}
+        className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-left text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+      >
+        🔍 Xem Trung tâm Quyền riêng tư →
+        <span className="block text-[10px] font-normal opacity-70">
+          BMO đã học gì từ bạn? Model version? DP ε/δ?
+        </span>
+      </button>
 
       {showContributeModal && (
         <ContributeToDataset
@@ -592,6 +605,29 @@ function PrivacyTabContent({ user }: { user: User }) {
           onClose={() => setShowContributeModal(false)}
         />
       )}
+
+      {showPrivacyDashboard && (
+        <PrivacyDashboardWrapper
+          userId={user.account_id}
+          isOpen={showPrivacyDashboard}
+          onClose={() => setShowPrivacyDashboard(false)}
+        />
+      )}
     </>
   );
+}
+
+function PrivacyDashboardWrapper({ userId, isOpen, onClose }: {
+  userId: string; isOpen: boolean; onClose: () => void;
+}) {
+  const [Comp, setComp] = useState<React.ComponentType<any> | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    import("./PrivacyDashboard").then((m) => {
+      if (mounted) setComp(() => m.PrivacyDashboard);
+    });
+    return () => { mounted = false; };
+  }, []);
+  if (!Comp) return null;
+  return <Comp userId={userId} isOpen={isOpen} onClose={onClose} />;
 }

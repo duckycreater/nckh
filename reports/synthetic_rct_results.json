@@ -1,0 +1,62 @@
+{
+  "cohorts": {
+    "C": {
+      "n": 200,
+      "mean_identity_change": 0.07448605620346141,
+      "sd_identity_change": 0.02297937454522965,
+      "mean_sort_accuracy": 0.5977075065235278,
+      "sd_sort_accuracy": 0.15765573684921363,
+      "d30_retention_rate": 0.975,
+      "mean_kg_co2e_per_user_week": 0.033864823247354334
+    },
+    "E1": {
+      "n": 200,
+      "mean_identity_change": 0.23188314382231526,
+      "sd_identity_change": 0.020986200514182807,
+      "mean_sort_accuracy": 0.7139659477643937,
+      "sd_sort_accuracy": 0.15755697611970115,
+      "d30_retention_rate": 0.96,
+      "mean_kg_co2e_per_user_week": 0.08859066671663479
+    },
+    "E2": {
+      "n": 200,
+      "mean_identity_change": 0.3067780054733466,
+      "sd_identity_change": 0.02190077654169145,
+      "mean_sort_accuracy": 0.769311379794153,
+      "sd_sort_accuracy": 0.15681889019652367,
+      "d30_retention_rate": 0.97,
+      "mean_kg_co2e_per_user_week": 0.10546590615483342
+    },
+    "E3": {
+      "n": 200,
+      "mean_identity_change": 0.3826022624542938,
+      "sd_identity_change": 0.023610600122643696,
+      "mean_sort_accuracy": 0.8067988778864807,
+      "sd_sort_accuracy": 0.1390303356533457,
+      "d30_retention_rate": 0.955,
+      "mean_kg_co2e_per_user_week": 0.11936677643690001
+    },
+    "E4": {
+      "n": 200,
+      "mean_identity_change": 0.5088949634881589,
+      "sd_identity_change": 0.06492935704867442,
+      "mean_sort_accuracy": 0.8983798845107532,
+      "sd_sort_accuracy": 0.11329993207896108,
+      "d30_retention_rate": 0.96,
+      "mean_kg_co2e_per_user_week": 0.14584346962708877
+    }
+  },
+  "primary_tests": {
+    "identity_change": {
+      "d": 8.919637191826256,
+      "t": 89.19637191826257
+    },
+    "sort_accuracy": {
+      "d": 2.190194844749898,
+      "t": 21.901948447498977
+    },
+    "d30_retention": {
+      "d": 0.0
+    }
+  }
+}

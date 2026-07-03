@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Bot, X, Send, Trash2 } from "lucide-react";
+import { Bot, X, Send, Trash2, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 
@@ -28,7 +28,11 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
   const [initialized, setInitialized] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -102,6 +106,58 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
 
   const handleSuggestion = (question: string) => {
     setInput(question);
+  };
+
+  // ── Phase 3: Voice input via MediaRecorder → /api/voice/transcribe ─────
+  const startRecording = async () => {
+    setVoiceError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        await sendVoiceBlob(blob);
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (e) {
+      setVoiceError(t("chatbot.voiceError") || "Microphone unavailable");
+    }
+  };
+
+  const stopRecording = () => {
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state !== "inactive") {
+      rec.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const sendVoiceBlob = async (blob: Blob) => {
+    try {
+      const fd = new FormData();
+      fd.append("audio", blob, "voice.webm");
+      const r = await fetch("/api/voice/transcribe", { method: "POST", body: fd });
+      const data = await r.json();
+      if (!r.ok) {
+        setVoiceError(data.error || "Voice failed");
+        return;
+      }
+      const text = String(data.text || "").trim();
+      if (text) setInput(text);
+    } catch (e) {
+      setVoiceError("Voice failed");
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) stopRecording(); else startRecording();
   };
 
   return (
@@ -198,6 +254,9 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
           </div>
 
           <div className="border-t border-slate-100 bg-white p-4">
+            {voiceError && (
+              <p className="mb-2 rounded bg-rose-50 px-2 py-1 text-[10px] text-rose-600">{voiceError}</p>
+            )}
             <div className="flex overflow-hidden rounded-full border border-transparent bg-slate-100 transition-all focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/15">
               <input
                 type="text"
@@ -207,6 +266,17 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
                 placeholder={t("chatbot.askPlaceholder")}
                 className="flex-1 bg-transparent px-4 py-3 text-sm text-gray-700 focus:outline-none"
               />
+              <button
+                onClick={toggleRecording}
+                title={isRecording ? "Dừng thu âm" : "Nhập bằng giọng nói"}
+                className={`m-1 h-10 rounded-full px-3 transition ${
+                  isRecording
+                    ? "bg-rose-500 text-white animate-pulse"
+                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                }`}
+              >
+                {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
+              </button>
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isTyping}

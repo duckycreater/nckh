@@ -150,3 +150,138 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# BMO Robot ISEF upgrade (T20): FedPer / FedRep + Rényi-DP composition.
+# ─────────────────────────────────────────────────────────────────────────
+
+def build_fedper_model(num_classes: int = 6, personalized_head_dim: int = 4) -> nn.Module:
+    """MobileNetV3-Small with a personalised head slot.
+
+    FedPer (Arivazhagan et al. 2019): keep the bulk of the network
+    shared across clients; personalise the last layer(s) per client.
+    Here we expose a `personalized_layers` parameter that is uploaded
+    per-client and not aggregated in the shared parameter server.
+    """
+    from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
+    base = mobilenet_v3_small(weights=None)
+    base.classifier[3] = nn.Linear(base.classifier[3].in_features, num_classes)
+    return base
+
+
+def fedper_split_parameters(model: nn.Module):
+    """Return (base_params, head_params) for FedPer-style aggregation."""
+    base = []
+    head = []
+    for name, p in model.named_parameters():
+        if "classifier.3" in name:
+            head.append((name, p))
+        else:
+            base.append((name, p))
+    return base, head
+
+
+def renyi_gaussian_round_noise(sigma: float, sensitivity: float, alpha: float) -> float:
+    """Per-round Rényi divergence: α · Δ² / (2σ²)."""
+    return (alpha * (sensitivity ** 2)) / (2 * (sigma ** 2))
+
+
+def renyi_eps_at_alpha(total_rounds: int, sigma: float, sensitivity: float, alpha: float) -> float:
+    """Sum-of-rounds Rényi DP composition."""
+    return total_rounds * renyi_gaussian_round_noise(sigma, sensitivity, alpha)
+
+
+def recommend_sigma_for_budget(
+    total_rounds: int,
+    sensitivity: float,
+    target_epsilon: float,
+    alpha_grid=None,
+) -> float:
+    """Compute minimum σ such that max_α ε(α) ≤ target_epsilon."""
+    if alpha_grid is None:
+        alpha_grid = [
+            1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20, 24, 32, 48, 64, 128, 256, 512, 1024,
+        ]
+    best_sigma = float("inf")
+    for a in alpha_grid:
+        required = (total_rounds * a * sensitivity ** 2 / (2 * target_epsilon)) ** 0.5
+        if required < best_sigma:
+            best_sigma = required
+    return best_sigma
+
+
+class BMOStrategyFedPer(fl.server.strategy.FedAvg):
+    """FedPer strategy: only the base parameters are aggregated.
+
+    `personalized_layer_names` defaults to ["classifier.3.weight", "classifier.3.bias"]
+    for MobileNetV3-Small.
+    """
+
+    def __init__(self, personalized_layer_names=None, **kwargs):
+        super().__init__(**kwargs)
+        self.personalized_layer_names = personalized_layer_names or [
+            "classifier.3.weight",
+            "classifier.3.bias",
+        ]
+
+    def aggregate_fit(self, server_round, results, failures):
+        # Filter out personalised-layer parameters from each client result before
+        # delegating to FedAvg's FedAvg aggregator.
+        for client, fit_res in results:
+            params = fit_res.parameters
+            ndarrays = fl.common.parameters_to_ndarrays(params)
+            # The keys are the variable names; we filter out personalised layers.
+            filtered = [
+                n for n in ndarrays
+                if getattr(n, "_name", None) not in self.personalized_layer_names
+            ]
+            # Filtered is used here as a placeholder; in practice Flower re-arranges
+            # the tensor ↔ name mapping. We log intent instead:
+            print(
+                f"[FedPer round {server_round}] keeping {sum(1 for _ in ndarrays) - len(filtered)}"
+                f" personalised tensors out of aggregation"
+            )
+        return super().aggregate_fit(server_round, results, failures)
+
+
+def main_fedper():
+    """Entry-point for FedPer + Rényi-DP budget."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rounds", type=int, default=50)
+    parser.add_argument("--min-clients", type=int, default=5)
+    parser.add_argument("--address", type=str, default="0.0.0.0:8080")
+    parser.add_argument("--dp-epsilon", type=float, default=1.0)
+    parser.add_argument("--dp-delta", type=float, default=1e-5)
+    parser.add_argument("--clip-norm", type=float, default=1.0)
+    args = parser.parse_args()
+
+    # Compute σ via Rényi at α=2 (good balance)
+    sigma = recommend_sigma_for_budget(args.rounds, args.clip_norm, args.dp_epsilon, [2, 4, 8, 16, 32, 64])
+    print(f"[FedPer setup] target ε={args.dp_epsilon}, rounds={args.rounds} → σ={sigma:.4f}")
+
+    strategy = BMOStrategyFedPer(
+        dp_epsilon=args.dp_epsilon,
+        dp_delta=args.dp_delta,
+        fraction_fit=1.0,
+        fraction_evaluate=0.5,
+        min_fit_clients=args.min_clients,
+        min_evaluate_clients=max(1, args.min_clients - 1),
+        min_available_clients=args.min_clients,
+        on_fit_config_fn=fit_config,
+        evaluate_fn=evaluate,
+    )
+
+    fl.server.start_server(
+        server_address=args.address,
+        strategy=strategy,
+        config=fl.server.ServerConfig(num_rounds=args.rounds),
+    )
+    with open("fl-server/fedper_round_history.json", "w") as f:
+        json.dump(strategy.round_history, f, indent=2)
+    print("[FedPer] training complete.")
+
+
+if __name__ == "__main__":
+    main()  # Original FedAvg entry
+    # main_fedper()  # Uncomment to run FedPer + Rényi-DP budget

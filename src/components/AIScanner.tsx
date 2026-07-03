@@ -221,6 +221,17 @@ ${instructions[result.category] || ""}`;
           } else {
             setLastMetrics({ model: "gemini_2.5_flash", latencyMs, confidence: 0.85 });
           }
+
+          // Phase 2: feed the on-device trainer so model improves locally
+          try {
+            const category = data.aiMetrics?.category || "plastic";
+            const confidence = data.aiMetrics?.confidence ?? 0.85;
+            const { onDeviceTrainer } = await import("../services/onDeviceTrainer");
+            onDeviceTrainer.setUserId(user.account_id);
+            onDeviceTrainer.onScanCompleted({ category, confidence }).catch(() => {});
+          } catch (e) {
+            console.warn('[AIScanner] OnDeviceTrainer hook failed:', e);
+          }
         } else {
           setResult(t("aiScanner.analyzeError", { error: data.error || "Unknown" }));
         }

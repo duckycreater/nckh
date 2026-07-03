@@ -7,12 +7,25 @@
  * - vision tasks: Gemini 2.5 Flash
  *
  * Always tries primary, falls back gracefully on error.
+ *
+ * Phase 1-4 enhancements:
+ *   - Routing policy considers latency budget, cost, and locale
+ *   - Per-task provider hints let callers force Groq (chat) or Gemini (vision)
  */
 
 import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 
-export type TaskType = "chat" | "reasoning" | "vision" | "reflection";
+export type TaskType =
+  | "chat"
+  | "reasoning"
+  | "vision"
+  | "reflection"
+  | "behavioral"
+  | "voice_intent"
+  | "event_gen";
+
+export type Provider = "groq" | "gemini";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GROQ_MODEL = "llama-3.3-70b-versatile"; // Groq's best for reasoning + chat
@@ -38,26 +51,65 @@ export interface GenerateOptions {
   systemInstruction?: string;
   temperature?: number;
   maxTokens?: number;
+  /** Latency budget in ms. Router prefers Groq if budget < 1500ms. */
+  latencyBudgetMs?: number;
+  /** Locale hint (used to pick model weights / fallback). */
+  locale?: string;
+  /** Hard provider override (skips routing logic). */
+  forceProvider?: Provider;
+}
+
+/**
+ * Cost estimates in USD per 1M tokens (rough, used for budget accounting).
+ */
+const COST_PER_M_TOKENS: Record<Provider, { input: number; output: number }> = {
+  groq: { input: 0.59, output: 0.79 },   // llama-3.3-70b
+  gemini: { input: 0.075, output: 0.30 }, // gemini-2.5-flash
+};
+
+export function estimateCost(provider: Provider, inputTokens: number, outputTokens: number): number {
+  const r = COST_PER_M_TOKENS[provider];
+  return (inputTokens / 1_000_000) * r.input + (outputTokens / 1_000_000) * r.output;
+}
+
+/**
+ * Resolve the best provider for a task given budget + locale.
+ */
+export function pickProvider(
+  task: TaskType,
+  opts: { latencyBudgetMs?: number; locale?: string; forceProvider?: Provider }
+): Provider {
+  if (opts.forceProvider) return opts.forceProvider;
+
+  // Vision / creative reasoning → Gemini (Groq lacks vision + lower creativity)
+  if (task === "vision" || task === "reasoning" || task === "reflection") return "gemini";
+  if (task === "event_gen") return "gemini";
+
+  // Chat / behavioral profiling / voice intent → Groq first (low-latency, cheap)
+  if (opts.latencyBudgetMs && opts.latencyBudgetMs < 1500) return "groq";
+  if (task === "behavioral" || task === "voice_intent" || task === "chat") return "groq";
+
+  return "groq";
 }
 
 /**
  * Generate text using the best available AI provider.
- * - chat: Groq -> Gemini fallback
- * - reasoning/vision/reflection: Gemini only (Groq lacks vision)
+ * - chat/behavioral/voice_intent: Groq -> Gemini fallback
+ * - vision/reasoning/reflection/event_gen: Gemini primary (Groq lacks vision)
  */
 export async function generateText(
   taskType: TaskType,
   prompt: string,
   options: GenerateOptions = {}
 ): Promise<string> {
-  const { systemInstruction, temperature = 0.7, maxTokens = 2048 } = options;
+  const { systemInstruction, temperature = 0.7, maxTokens = 2048, latencyBudgetMs, locale, forceProvider } = options;
+  const provider = pickProvider(taskType, { latencyBudgetMs, locale, forceProvider });
 
-  // For vision and reasoning tasks: use Gemini directly
-  if (taskType === "vision" || taskType === "reasoning" || taskType === "reflection") {
+  if (provider === "gemini") {
     return generateGemini(prompt, systemInstruction, temperature, maxTokens);
   }
 
-  // For chat: try Groq first, fallback to Gemini
+  // Provider === groq (with fallback)
   const groq = getGroq();
   if (groq) {
     try {
@@ -66,8 +118,6 @@ export async function generateText(
       console.warn("[AIRouter] Groq failed, falling back to Gemini:", (e as Error).message);
     }
   }
-
-  // Fallback to Gemini
   return generateGemini(prompt, systemInstruction, temperature, maxTokens);
 }
 
