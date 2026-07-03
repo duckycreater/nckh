@@ -25,6 +25,8 @@ export function Auth({ onLogin }: AuthProps) {
 
   // Register states
   const [regName, setRegName] = useState("");
+  const [regFullName, setRegFullName] = useState("");
+  const [regClassGrade, setRegClassGrade] = useState("");
   const [regNick, setRegNick] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPass, setRegPass] = useState("");
@@ -100,6 +102,9 @@ export function Auth({ onLogin }: AuthProps) {
             account_id: data.account_id,
             points: data.points,
             role: data.role,
+            email: data.email ?? progressData.email,
+            fullName: data.full_name ?? progressData.full_name ?? progressData.fullName,
+            classGrade: data.class_grade ?? progressData.class_grade ?? progressData.classGrade,
             selectedAvatar: progressData.selectedAvatar ?? data.selectedAvatar,
             selectedFrame: progressData.selectedFrame ?? data.selectedFrame,
             customAvatarUrl: progressData.customAvatarUrl ?? data.customAvatarUrl,
@@ -113,6 +118,9 @@ export function Auth({ onLogin }: AuthProps) {
             account_id: data.account_id,
             points: data.points,
             role: data.role,
+            email: data.email,
+            fullName: data.full_name,
+            classGrade: data.class_grade,
             selectedAvatar: data.selectedAvatar,
             selectedFrame: data.selectedFrame,
             customAvatarUrl: data.customAvatarUrl,
@@ -137,6 +145,10 @@ export function Auth({ onLogin }: AuthProps) {
       setMessage({ text: t("auth.invalidEmail"), type: "error" });
       return;
     }
+    if (!regName.trim()) {
+      setMessage({ text: t("auth.displayNameHint"), type: "error" });
+      return;
+    }
     setLoading(true);
     setMessage(null);
     try {
@@ -145,6 +157,8 @@ export function Auth({ onLogin }: AuthProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reg_name: regName,
+          reg_full_name: regFullName,
+          reg_class_grade: regClassGrade,
           reg_nickname: regNick,
           reg_password: regPass,
           reg_email: regEmail,
@@ -157,6 +171,8 @@ export function Auth({ onLogin }: AuthProps) {
           setView("login");
           setLoginNick(regNick);
           setRegName("");
+          setRegFullName("");
+          setRegClassGrade("");
           setRegNick("");
           setRegEmail("");
           setRegPass("");
@@ -345,6 +361,43 @@ export function Auth({ onLogin }: AuthProps) {
                   className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                 />
                 <p id="reg-name-hint" className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.displayNameHint")}</p>
+              </div>
+              <div>
+                <label htmlFor="reg-full-name" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
+                  {t("auth.fullName")}
+                </label>
+                <input
+                  id="reg-full-name"
+                  type="text"
+                  aria-required="false"
+                  aria-describedby="reg-full-name-hint"
+                  value={regFullName}
+                  onChange={(e) => setRegFullName(e.target.value)}
+                  placeholder={t("auth.fullNamePlaceholder")}
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                />
+                <p id="reg-full-name-hint" className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.fullNameHint")}</p>
+              </div>
+              <div>
+                <label htmlFor="reg-class" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">
+                  {t("auth.classGrade")}
+                </label>
+                <select
+                  id="reg-class"
+                  aria-required="false"
+                  aria-describedby="reg-class-hint"
+                  value={regClassGrade}
+                  onChange={(e) => setRegClassGrade(e.target.value)}
+                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none appearance-none cursor-pointer"
+                >
+                  <option value="">{t("auth.classGradePlaceholder")}</option>
+                  {[...Array(12)].map((_, i) => (
+                    <option key={i + 1} value={String(i + 1)}>
+                      Lớp {i + 1}
+                    </option>
+                  ))}
+                </select>
+                <p id="reg-class-hint" className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.classGradeHint")}</p>
               </div>
               <div>
                 <label htmlFor="reg-nick" className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]">

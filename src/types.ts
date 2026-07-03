@@ -21,6 +21,9 @@ export interface User {
   name: string;
   account_id: string;
   points: number;
+  email?: string;
+  fullName?: string;
+  classGrade?: string;
   hasPlayed?: boolean;
   progress?: UserProgress;
   role?: string;

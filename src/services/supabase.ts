@@ -33,6 +33,8 @@ export interface ResearchUser {
   id: number;
   user_id: string;
   username: string;
+  full_name: string | null;
+  class_grade: string | null;
   created_at: string;
   last_active: string;
   role: string;
@@ -138,6 +140,22 @@ export async function upsertResearchUser(userId: string, username: string): Prom
     { user_id: userId, username, last_active: new Date().toISOString() },
     { onConflict: "user_id" }
   );
+}
+
+// Update the optional profile fields (full_name, class_grade) for a user
+// that already exists in research_users. Used by the in-app profile
+// completion popup so legacy users can supply their full name and class.
+export async function updateResearchUserProfile(
+  userId: string,
+  fields: { full_name?: string | null; class_grade?: string | null }
+): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const updates: Record<string, string | null> = { last_active: new Date().toISOString() };
+  if ("full_name" in fields) updates.full_name = fields.full_name ?? null;
+  if ("class_grade" in fields) updates.class_grade = fields.class_grade ?? null;
+  if (Object.keys(updates).length === 1) return;
+  await sb.from("research_users").update(updates).eq("user_id", userId);
 }
 
 // ─── Event Logging ───────────────────────────────────────────────────────────

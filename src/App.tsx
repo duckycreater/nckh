@@ -5,6 +5,7 @@ import { Auth } from "./components/Auth";
 import { Dashboard } from "./components/Dashboard";
 import { Chatbot } from "./components/Chatbot";
 import { ResearchDashboard } from "./components/ResearchDashboard";
+import { ProfileCompletionModal } from "./components/ProfileCompletionModal";
 import WorldMap from "./components/WorldMap";
 import CampaignStage from "./components/CampaignStage";
 import { User } from "./types";
@@ -13,6 +14,11 @@ import { Card, LoadingSpinner } from "./lib/ui";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
 import { Globe } from "lucide-react";
 import { calculateLevel } from "./lib/useLevel";
+
+// Phase 4: public global impact dashboard (no login required)
+const GlobalImpactDashboard = lazy(() =>
+  import("./components/GlobalImpactDashboard").then((m) => ({ default: m.GlobalImpactDashboard }))
+);
 
 // ─── Lazy Imports ──────────────────────────────────────────────────────
 const LazyAdminDashboard = lazy(() =>
@@ -203,6 +209,9 @@ export default function App() {
   const [restoring, setRestoring] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
 
+  // Public routes that don't require login (Phase 4)
+  const PUBLIC_PATHS = ["/impact"];
+
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (token) {
@@ -220,6 +229,28 @@ export default function App() {
     setRestoring(false);
   }, []);
 
+  // Phase 2: bootstrap on-device trainer + auto-pull global model updates.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { onDeviceTrainer } = await import("./services/onDeviceTrainer");
+        const { modelUpdateService } = await import("./services/modelUpdateService");
+        onDeviceTrainer.setUserId(user.account_id);
+        onDeviceTrainer.loadFromStorage();
+        await modelUpdateService.loadFromStorage();
+        if (cancelled) return;
+        modelUpdateService.startAutoCheck();
+      } catch (e) {
+        console.warn("[App] federated bootstrap failed:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.account_id]);
+
   const handleUpdateUser = (updatedUser: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return null;
@@ -234,6 +265,27 @@ export default function App() {
     setUser(loggedInUser);
   };
 
+  const handleProfileUpdates = (updates: { fullName?: string; classGrade?: string }) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next: User = { ...prev };
+      if (updates.fullName !== undefined) next.fullName = updates.fullName;
+      if (updates.classGrade !== undefined) next.classGrade = updates.classGrade;
+      localStorage.setItem("user_session", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleDismissProfileCompletion = () => {
+    if (!user) return;
+    const next: User = { ...user, fullName: user.fullName, classGrade: user.classGrade };
+    localStorage.setItem("profile_meta_skipped", next.account_id);
+    setUser(next);
+  };
+
+  const requiresProfileCompletion =
+    !!user && !user.role?.toLowerCase().includes("admin") && !user.fullName && !user.classGrade;
+
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_session");
@@ -242,6 +294,17 @@ export default function App() {
 
   if (restoring) {
     return <RestoringScreen />;
+  }
+
+  // Public route: /impact (Phase 4 - no login required)
+  if (typeof window !== "undefined" && PUBLIC_PATHS.includes(window.location.pathname)) {
+    return (
+      <ThemeProvider>
+        <Suspense fallback={<LoadingFallback message="Đang tải..." />}>
+          <GlobalImpactDashboard />
+        </Suspense>
+      </ThemeProvider>
+    );
   }
 
   if (!user) {
@@ -286,6 +349,13 @@ export default function App() {
           <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
         </Routes>
         {chatOpen && <Chatbot currentUser={user.account_id} />}
+        {requiresProfileCompletion && (
+          <ProfileCompletionModal
+            user={user}
+            onSaved={handleProfileUpdates}
+            onDismiss={handleDismissProfileCompletion}
+          />
+        )}
       </BrowserRouter>
     </ThemeProvider>
   );

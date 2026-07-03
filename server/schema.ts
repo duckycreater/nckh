@@ -11,10 +11,17 @@ CREATE TABLE IF NOT EXISTS research_users (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR(255) UNIQUE NOT NULL,  -- matches account_id from main system
   username VARCHAR(255),
+  full_name VARCHAR(255),
+  class_grade VARCHAR(20),                 -- e.g. "10A1", "11", "12B2"
   created_at TIMESTAMPTZ DEFAULT NOW(),
   last_active TIMESTAMPTZ DEFAULT NOW(),
   role VARCHAR(50) DEFAULT 'user'
 );
+
+-- Idempotent column additions for environments where research_users
+-- already existed before these profile fields were introduced.
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255);
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS class_grade VARCHAR(20);
 
 -- Rewards catalog for admin-managed redeemables
 CREATE TABLE IF NOT EXISTS rewards (

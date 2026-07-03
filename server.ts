@@ -338,6 +338,9 @@ interface User {
   name: string;
   nick: string;
   pass: string;
+  email?: string;
+  fullName?: string;
+  classGrade?: string;
   points: number;
   hasPlayed: boolean;
   account_id: string;
@@ -725,9 +728,17 @@ app.post("/api/login", async (req, res) => {
           const db = getDb();
           if (db) {
             await db.query(
-              `INSERT INTO research_users (user_id, username, last_active) VALUES ($1, $2, NOW())
-               ON CONFLICT (user_id) DO UPDATE SET last_active = NOW()`,
-              [accountId, user.name]
+              `INSERT INTO research_users (user_id, username, full_name, class_grade)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (user_id) DO UPDATE SET
+                 username = EXCLUDED.username,
+                 last_active = NOW()`,
+              [
+                accountId,
+                user.name,
+                user.fullName || null,
+                user.classGrade || null,
+              ]
             );
             const existingProfile = await personalityEngine.getPersonality(accountId);
             if (existingProfile === "friendly") {
@@ -782,6 +793,9 @@ app.post("/api/login", async (req, res) => {
         role: role,
         selectedAvatar: user.selectedAvatar,
         selectedFrame: user.selectedFrame,
+        full_name: user.fullName || null,
+        class_grade: user.classGrade || null,
+        email: user.email || null,
         message: "Đăng nhập thành công!",
       });
     } else {
@@ -793,10 +807,13 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/register", async (req, res) => {
-  const { reg_name, reg_nickname, reg_password } = req.body;
+  const { reg_name, reg_nickname, reg_password, reg_email, reg_class_grade, reg_full_name } = req.body;
   const name = (reg_name || "").trim();
   const nick = (reg_nickname || "").trim();
   const pass = reg_password;
+  const email = (reg_email || "").trim();
+  const classGrade = (reg_class_grade || "").trim();
+  const fullName = (reg_full_name || "").trim();
 
   if (nick.length < 4) {
     res.json({ success: false, message: "Tài khoản phải trên 4 ký tự!" });
@@ -807,6 +824,18 @@ app.post("/api/register", async (req, res) => {
       success: false,
       message: "Nickname không được chứa dấu cách/ký tự lạ!",
     });
+    return;
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.json({ success: false, message: "Email không hợp lệ!" });
+    return;
+  }
+  if (classGrade && !/^[1-9]|1[0-2]$/.test(classGrade)) {
+    res.json({ success: false, message: "Lớp không hợp lệ (1-12)!" });
+    return;
+  }
+  if (fullName.length > 100) {
+    res.json({ success: false, message: "Họ tên quá dài (tối đa 100 ký tự)!" });
     return;
   }
 
@@ -823,33 +852,59 @@ app.post("/api/register", async (req, res) => {
   }
 
   const role = nick.toLowerCase().startsWith('admin') ? 'admin' : 'user';
-  const newUser = { name, nick, pass, points: 0, hasPlayed: false, account_id: crypto.randomUUID(), role };
+  const accountId = crypto.randomUUID();
+  const newUser = {
+    name,
+    nick,
+    pass,
+    email,
+    classGrade,
+    fullName,
+    points: 0,
+    hasPlayed: false,
+    account_id: accountId,
+    role,
+  };
   try {
     await saveUser(newUser, true);
   } catch (e) {
     console.error("[register] saveUser failed:", e?.message || e);
   }
 
-  // Research: Register in research DB and assign personality
-  const accountId = newUser.account_id;
+  // Research: Register in research DB and assign personality.
+  // The username column persists the original "Tên hiển thị" so existing
+  // dashboards keep working; full_name and class_grade are stored alongside.
   if (isDbConnected()) {
     try {
       const { getDb } = await import("./server/db.js");
       const db = getDb();
       if (db) {
         await db.query(
-          `INSERT INTO research_users (user_id, username) VALUES ($1, $2)`,
-          [accountId, name]
+          `INSERT INTO research_users (user_id, username, full_name, class_grade)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (user_id) DO UPDATE SET
+             username = EXCLUDED.username,
+             full_name = COALESCE(EXCLUDED.full_name, research_users.full_name),
+             class_grade = COALESCE(EXCLUDED.class_grade, research_users.class_grade)`,
+          [accountId, name, fullName || null, classGrade || null]
         );
         await personalityEngine.assignPersonality(accountId, 1);
-        await eventLogger.log(accountId, "register", { timestamp: new Date().toISOString() });
+        await eventLogger.log(accountId, "register", {
+          timestamp: new Date().toISOString(),
+          class_grade: classGrade || null,
+          full_name: fullName || null,
+        });
       }
     } catch (e) {
       console.warn("[Auth] Registration research tasks failed:", e);
     }
   }
 
-  res.json({ success: true, message: "Đăng ký thành công! Hãy đăng nhập." });
+  res.json({
+    success: true,
+    message: "Đăng ký thành công! Hãy đăng nhập.",
+    account_id: accountId,
+  });
 });
 
 app.post("/api/change-password", async (req, res) => {
@@ -978,6 +1033,65 @@ app.post("/api/change-name", async (req, res) => {
     }
   } else {
     res.json({ success: false, message: "Không tìm thấy tài khoản!" });
+  }
+});
+
+// Update profile metadata (full name + class grade) for existing users.
+// Used by the in-app profile-completion popup so legacy users can fill in
+// the new profile fields without re-registering.
+app.post("/api/profile/meta", async (req, res) => {
+  const { nickname, full_name, class_grade } = req.body;
+  const nick = (nickname || "").trim();
+
+  if (!nick) {
+    return res.status(400).json({ success: false, message: "Thiếu tên tài khoản." });
+  }
+  const cleanedFullName = (full_name || "").trim();
+  const cleanedClass = (class_grade || "").trim();
+  if (cleanedClass && !/^([1-9]|1[0-2])$/.test(cleanedClass)) {
+    return res.status(400).json({ success: false, message: "Lớp không hợp lệ (1-12)." });
+  }
+  if (cleanedFullName.length > 100) {
+    return res.status(400).json({ success: false, message: "Họ tên quá dài (tối đa 100 ký tự)." });
+  }
+
+  try {
+    const user = await getUser(nick);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản." });
+    }
+    if (cleanedFullName) user.fullName = cleanedFullName;
+    if (cleanedClass) user.classGrade = cleanedClass;
+    await saveUser(user);
+
+    // Mirror the profile metadata into the research DB so dashboards see it.
+    if (isDbConnected()) {
+      try {
+        const { getDb } = await import("./server/db.js");
+        const db = getDb();
+        if (db && user.account_id) {
+          await db.query(
+            `UPDATE research_users
+             SET full_name = COALESCE($2, full_name),
+                 class_grade = COALESCE($3, class_grade)
+             WHERE user_id = $1`,
+            [user.account_id, user.fullName || null, user.classGrade || null]
+          );
+        }
+      } catch (e) {
+        console.warn("[profile/meta] research_users sync failed:", (e as Error).message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "Đã cập nhật hồ sơ.",
+      full_name: user.fullName || null,
+      class_grade: user.classGrade || null,
+    });
+  } catch (e) {
+    console.error("[profile/meta] error:", (e as Error).message);
+    return res.status(500).json({ success: false, message: "Lỗi server." });
   }
 });
 
@@ -3017,6 +3131,24 @@ async function startServer() {
   app.use("/api/experiments", experimentsRouter());
   app.use("/api/social", socialRouter());
   app.use("/api/longitudinal", longitudinalRouter());
+
+  // Phase 2: Federated learning router
+  const { federatedRouter } = await import("./server/routes/federated.js");
+  const { federatedAggregator } = await import("./server/services/federatedAggregator.js");
+  federatedAggregator.start();
+  app.use("/api/federated", federatedRouter());
+
+  // Phase 3: Voice + locale + SMS routers
+  const { voiceRouter } = await import("./server/routes/voice.js");
+  const { smsRouter } = await import("./server/routes/sms.js");
+  const { localeRouter } = await import("./server/routes/locale.js");
+  app.use("/api/voice", voiceRouter());
+  app.use("/api/sms", smsRouter());
+  app.use("/api/locale", localeRouter());
+
+  // Phase 4: Impact + smart bin routers
+  const { impactRouter } = await import("./server/routes/impact.js");
+  app.use("/api/impact", impactRouter());
 
   // Research data endpoints (shorter paths)
   app.get("/api/personality/:userId", async (req, res) => {
