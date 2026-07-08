@@ -277,5 +277,4 @@ export function cachedBreakdownFor(user: Partial<User>): ComBreakdown {
 }
 
 // Re-export so downstream modules have one place to import
-export { computeBreakdown };
 export const COM_B_VERSION = VERSION;

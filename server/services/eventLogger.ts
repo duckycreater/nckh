@@ -46,7 +46,9 @@ export type EventType =
   | "leaderboard_view"
   | "share_action"
   | "team_join"
-  | "social_chat";
+  | "social_chat"
+  | "fusion_attempt"
+  | "waste_rush_complete";
 
 export interface EventMetadata {
   points_earned?: number;

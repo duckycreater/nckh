@@ -217,11 +217,15 @@ export function coxRegression(
   const maxIterations = 50;
   const tolerance = 1e-6;
 
+  // Fisher information matrix (hoisted out of the loop so it's accessible after optimization)
+  const information = Array.from({ length: nCovariates }, () => new Array(nCovariates).fill(0));
+
   for (let iter = 0; iter < maxIterations; iter++) {
     // Compute log partial likelihood gradient and Hessian
     const gradient = new Array(nCovariates).fill(0);
     const observed = new Array(nCovariates).fill(0);
-    const information = Array.from({ length: nCovariates }, () => new Array(nCovariates).fill(0));
+    // Reset information matrix each iteration for accumulation
+    for (let i = 0; i < nCovariates; i++) for (let j = 0; j < nCovariates; j++) information[i][j] = 0;
 
     // Sort by time (ascending), events first within same time (Breslow)
     const sorted = [...data].sort((a, b) => {

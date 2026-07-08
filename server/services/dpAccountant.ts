@@ -20,13 +20,12 @@ export {
   gaussianRenyiEpsilon,
   composeRenyi,
   renyiToEpsilonDelta,
-  FlRoundDpConfig,
-  DpState,
   RenyiDpAccountant,
   getDpAccountant,
   resetDpAccountant,
   DEFAULT_ALPHA_GRID,
 } from "../../src/services/dpAccountant.js";
+export type { FlRoundDpConfig, DpState } from "../../src/services/dpAccountant.js";
 
 import {
   gaussianRenyiEpsilon,

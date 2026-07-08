@@ -403,7 +403,7 @@ export function mixedLogisticRegression(
   }));
 
   // Compute subject-level means for random intercept initialization
-  const userMeans: Record<string, number> = {};
+  const userMeans: Record<string, number[]> = {};
   for (const d of design) {
     if (!userMeans[d.userId]) userMeans[d.userId] = [];
     userMeans[d.userId].push(d.y);
@@ -413,14 +413,18 @@ export function mixedLogisticRegression(
   );
 
   // Initialize fixed effects: [intercept, group, week, kap]
-  let beta = [0, 0, 0, 0];
+  let beta: number[] = [0, 0, 0, 0];
   const maxIter = 100;
   const tol = 1e-4;
   const learningRate = 0.5;
 
+  // Hoist gradient and hessian so they're accessible after the loop
+  let gradient: number[] = [0, 0, 0, 0];
+  let hessian: number[][] = Array.from({ length: 4 }, () => new Array(4).fill(0));
+
   for (let iter = 0; iter < maxIter; iter++) {
-    let gradient = [0, 0, 0, 0];
-    let hessian = Array.from({ length: 4 }, () => new Array(4).fill(0));
+    gradient = [0, 0, 0, 0];
+    hessian = Array.from({ length: 4 }, () => new Array(4).fill(0));
 
     for (const obs of design) {
       const u = userIntercepts[obs.userId] || 0;
@@ -464,11 +468,11 @@ export function mixedLogisticRegression(
   }
 
   // Compute odds ratios and CIs
-  const se = new Array(4).fill(0);
-  const hessInv = invertMatrix(hessian);
-  if (hessInv) {
+  const se: number[] = new Array(4).fill(0);
+  const finalHessInv = invertMatrix(hessian);
+  if (finalHessInv) {
     for (let j = 0; j < 4; j++) {
-      se[j] = Math.sqrt(Math.max(0, hessInv[j][j]));
+      se[j] = Math.sqrt(Math.max(0, finalHessInv[j][j]));
     }
   }
   const zCrit = 1.96;
@@ -593,4 +597,25 @@ export function mannWhitneyU(a: number[], b: number[]): { U: number; pValue: num
     pValue: Math.round(pValue * 10000) / 10000,
     z: Math.round(z * 1000) / 1000,
   };
+}
+
+/** Invert a square matrix using Gaussian elimination. Returns null if singular. */
+function invertMatrix(m: number[][]): (number[] | null)[] | null {
+  const n = m.length;
+  if (n === 0 || m.some(r => r.length !== n)) return null;
+  const aug: number[][] = m.map((row, i) => [...row, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))]);
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(aug[r][col]) > Math.abs(aug[maxRow][col])) maxRow = r;
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+    if (Math.abs(aug[col][col]) < 1e-12) return null;
+    const piv = aug[col][col];
+    for (let c = 0; c < 2 * n; c++) aug[col][c] /= piv;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = aug[r][col];
+      for (let c = 0; c < 2 * n; c++) aug[r][c] -= factor * aug[col][c];
+    }
+  }
+  return aug.map(row => row.slice(n));
 }

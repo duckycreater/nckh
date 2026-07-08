@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { Bot, X, Send, Trash2, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
+import { ReasoningChainView, type ReasoningChain } from "./ReasoningChainView";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  reasoning?: ReasoningChain;
 }
 
 export function Chatbot({ currentUser }: { currentUser?: string }) {
@@ -88,7 +90,14 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
       const data = await res.json();
 
       if (res.ok) {
-        setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.message,
+            reasoning: data.reasoning as ReasoningChain | undefined,
+          },
+        ]);
       } else {
         setMessages((prev) => [...prev, { role: "assistant", content: t("chatbot.errorResponse", { error: data.error }) }]);
       }
@@ -230,9 +239,12 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
                   {msg.role === "user" ? (
                     <p className="text-sm leading-6">{msg.content}</p>
                   ) : (
-                    <div className="prose prose-sm max-w-none text-gray-800 prose-p:leading-6 prose-strong:text-slate-900">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
+                    <>
+                      <div className="prose prose-sm max-w-none text-gray-800 prose-p:leading-6 prose-strong:text-slate-900">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                      {msg.reasoning && <ReasoningChainView steps={msg.reasoning} />}
+                    </>
                   )}
                 </div>
               </div>

@@ -129,7 +129,13 @@ export class RenyiDpAccountant {
   static readonly BUDGET_DELTA = 1e-5;
 
   private rounds = 0;
-  private config: { clipNorm: number; sigma: number } = { clipNorm: 1.0, sigma: 1.0 };
+  private config: { clipNorm: number; sigma: number };
+
+  constructor(config?: { clipNorm: number; sigma: number }) {
+    this.config = { clipNorm: 1.0, sigma: 1.0, ...config };
+    if (this.config.clipNorm <= 0) throw new Error("clipNorm must be > 0");
+    if (this.config.sigma <= 0) throw new Error("sigma must be > 0");
+  }
 
   setConfig(partial: Partial<{ clipNorm: number; sigma: number }>): void {
     this.config = { ...this.config, ...partial };
@@ -255,4 +261,17 @@ export function getDpAccountant(): RenyiDpAccountant {
 
 export function resetDpAccountant(): void {
   _singleton = null;
+}
+
+/**
+ * Convenience summary used by the UI PrivacyBudgetMeter — returns the
+ * spent ε and round count without exposing the full Rényi curve.
+ */
+export function dpAccountantSummary(_userId: string): { spentEpsilon: number; rounds: number } {
+  const a = getDpAccountant();
+  const state = a.computeState();
+  return {
+    spentEpsilon: state.epsilonAtDelta,
+    rounds: state.rounds,
+  };
 }

@@ -18,6 +18,7 @@
 import { getDb } from "../db.js";
 import { bmoCare } from "./bmoCare.js";
 import { behavioralProfiler } from "./behavioralProfiler.js";
+import { eventLogger } from "./eventLogger.js";
 
 export type WasteCategory = "plastic" | "paper" | "glass" | "metal" | "organic" | "hazard";
 
@@ -32,7 +33,7 @@ export interface RushItem {
 }
 
 export interface RushSession {
-  odId: string;
+  sessionId: string;
   odUserId: string;
   odStartTime: Date;
   odItems: RushItem[];

@@ -70,7 +70,7 @@ export interface VrpOptions {
 }
 
 /** Haversine distance in km between two lat/lon. */
-function haversineKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+function haversineKm(a: { latitude?: number; longitude?: number }, b: { latitude?: number; longitude?: number }): number {
   const R = 6371.0;
   const toRad = (x: number) => (x * Math.PI) / 180;
   const dLat = toRad(b.latitude - a.latitude);
