@@ -1,15 +1,31 @@
 {
-  "name": "react-example",
+  "name": "bmo-robot",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "description": "BMO Robot — federated on-device waste-classification companion (ISEF 2026).",
   "scripts": {
     "dev": "npx tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/services tests/run-all.ts",
+    "test:e2e": "vitest run tests/e2e --reporter=default",
+    "test:node": "tsx --test tests/run-all.ts",
+    "check:paths": "node scripts/check-duplicate-paths.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "docs:api": "node scripts/run-typedoc.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:bash": "bash scripts/smoke.sh",
+    "train:model": "python scripts/train_and_export_waste_classifier.py --epochs 50",
+    "benchmark": "python scripts/benchmark_models.py",
+    "lint": "scripts\\eslint.cmd src server tests",
+    "lint:fix": "scripts\\eslint.cmd src server tests --fix",
+    "format": "scripts\\prettier.cmd --write \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\"",
+    "format:check": "scripts\\prettier.cmd --check \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\""
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -18,14 +34,18 @@
     "@tensorflow-models/mobilenet": "^2.1.1",
     "@tensorflow/tfjs": "^4.22.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "chart.js": "^4.5.1",
     "cloudinary": "^2.10.0",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",
     "framer-motion": "^12.39.0",
     "googleapis": "^171.4.0",
     "groq-sdk": "^1.2.0",
+    "helmet": "^8.1.0",
     "i18next": "^26.3.1",
     "jstat": "^1.9.6",
     "lucide-react": "^0.546.0",
@@ -36,6 +56,7 @@
     "onnxruntime-web": "^1.19.2",
     "pg": "^8.21.0",
     "react": "^19.0.1",
+    "react-chartjs-2": "^5.3.1",
     "react-confetti": "^6.4.0",
     "react-dom": "^19.0.1",
     "react-i18next": "^17.0.8",
@@ -44,7 +65,8 @@
     "react-use": "^17.6.0",
     "resend": "^6.12.4",
     "twilio": "^5.4.0",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -53,14 +75,31 @@
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@types/twilio": "^3.19.0",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "eslint": "^9.16.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "js-yaml": "^5.2.1",
+    "prettier": "^3.4.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.22.3",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^3.2.6",
+    "workbox-window": "^7.4.1"
   },
   "overrides": {
     "node-domexception": "npm:domexception@^4.0.0"
+  },
+  "imports": {
+    "#src/*": "./src/*",
+    "#server/*": "./server/*",
+    "#tests/*": "./tests/*"
   }
 }
