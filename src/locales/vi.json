@@ -859,7 +859,11 @@
     "sortBy": "Sắp Xếp",
     "rarity": "Độ Hiếm",
     "element": "Nguyên Tố",
-    "all": "Tất Cả"
+    "all": "Tất Cả",
+    "tapToReveal": "Chạm để lật thẻ",
+    "autoContinueIn": "Tiếp tục sau {{seconds}}s",
+    "openPack": "Mở gói thẻ",
+    "cardsRevealed": "Đã mở {{count}} thẻ"
   },
   "stamina": {
     "stamina": "Thể Lực",

@@ -1047,7 +1047,11 @@
     "sortBy": "排序",
     "rarity": "稀有度",
     "element": "元素",
-    "all": "全部"
+    "all": "全部",
+    "tapToReveal": "点击翻开卡牌",
+    "autoContinueIn": "{{seconds}}秒后自动继续",
+    "openPack": "开启卡包",
+    "cardsRevealed": "已开启{{count}}张卡牌"
   },
   "stamina": {
     "stamina": "体力",

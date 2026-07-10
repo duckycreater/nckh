@@ -1,7 +1,7 @@
 // Server-side card generator (mirrors src/lib/cards.ts logic)
 // Used by server for authenticated gacha resolution
 
-export const CARD_TOTAL = 300;
+export const CARD_TOTAL = 420;
 
 export const CARD_ELEMENTS = [
   { id: "plastic", name: "Nhựa", icon: "🧴" },

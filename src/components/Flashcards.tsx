@@ -17,10 +17,13 @@ import {
 } from "../lib/cards";
 import { CardBattle } from "./CardBattle";
 import { RoguelikeRun } from "./RoguelikeRun";
+import CollectionReveal from "./CollectionReveal";
 import { Badge, Button, Card, EmptyState } from "../lib/ui";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type Section = "collection" | "fusion" | "levelup" | "gacha" | "battle" | "shards" | "practice" | "roguelike";
+
+const PULL_QUANTITY = 10;
 
 // ─── Auth helper ────────────────────────────────────────────────────────────
 function getAuthHeaders(): Record<string, string> {
@@ -638,6 +641,8 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
   // ─── State ───────────────────────────────────────────────────────────
   const [unlockedCards, setUnlockedCards] = useState<number[]>([]);
   const [gachaResult, setGachaResult] = useState<any>(null);
+  const [revealQueue, setRevealQueue] = useState<number[]>([]);
+  const [revealOpen, setRevealOpen] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [pullCount, setPullCount] = useState(() => {
     try { return parseInt(localStorage.getItem("bmo:gacha:pullCount") || "0", 10); } catch { return 0; }
@@ -894,43 +899,49 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
 
   const handlePullGacha = () => {
     if (points < PULL_COST) return;
-    const nextPull = pullCount + 1;
+    const nextPull = pullCount + PULL_QUANTITY;
     setPullCount(nextPull);
     localStorage.setItem("bmo:gacha:pullCount", String(nextPull));
     setShowPullCount(true);
     setTimeout(() => setShowPullCount(false), 2000);
     setIsPulling(true);
     setGachaResult(null);
+    setRevealOpen(false);
     if (onSpend) onSpend(PULL_COST, "Mở Gói Thẻ Bài");
-    fetch("/api/user-progress", {
+    fetch("/api/cards/gacha-pull", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: userId, type: "flashcard", data: null, pullCount: nextPull }),
+      body: JSON.stringify({ nickname: userId, count: PULL_QUANTITY }),
     })
       .then((r) => r.json())
       .then((result) => {
-        if (result.success && result.card) {
-          const resolved = resolveCard(result.card);
-          setGachaResult({ ...resolved, isNew: result.isNew, shardsAwarded: result.shardsAwarded || 0 });
-          if (result.shardsAwarded > 0) {
-            setShardCount((prev) => prev + result.shardsAwarded);
-          }
-          if (result.isNew) {
-            const id = Number(result.card.id);
-            setUnlockedCards((prev) => {
-              const next = [...prev];
-              if (!next.includes(id)) next.push(id);
+        if (result.success && Array.isArray(result.cards) && result.cards.length > 0) {
+          let totalShards = 0;
+          const newIds: number[] = [];
+          result.cards.forEach((c: any) => {
+            if (c.isNew) {
+              newIds.push(Number(c.id));
+              try {
+                const stored = localStorage.getItem("newCardIds");
+                const current = stored ? JSON.parse(stored) : [];
+                const updated = current.filter((e: any) => e.id !== c.id);
+                updated.push({ id: Number(c.id), timestamp: Date.now() });
+                localStorage.setItem("newCardIds", JSON.stringify(updated));
+              } catch { /* silent */ }
+            }
+            if (c.shardsAwarded) totalShards += c.shardsAwarded;
+          });
+          if (totalShards > 0) setShardCount((prev) => prev + totalShards);
+          if (newIds.length > 0) {
+            setUnlockedCards((prev) => Array.from(new Set([...prev, ...newIds])));
+            setNewCardIds((prev) => {
+              const next = new Set(prev);
+              newIds.forEach((id) => next.add(id));
               return next;
             });
-            try {
-              const stored = localStorage.getItem("newCardIds");
-              const current = stored ? JSON.parse(stored) : [];
-              const updated = current.filter((e: any) => e.id !== id);
-              updated.push({ id, timestamp: Date.now() });
-              localStorage.setItem("newCardIds", JSON.stringify(updated));
-              setNewCardIds((prev) => new Set([...prev, id]));
-            } catch { /* silent */ }
           }
+          setRevealQueue(result.cards.map((c: any) => Number(c.id)));
+          setRevealOpen(true);
         }
         if (result.success && onRefresh) onRefresh(result.progress);
         setIsPulling(false);
@@ -2329,9 +2340,16 @@ export function Flashcards({ onReward, onSpend, points = 0, userId, progress, on
         )}
       </AnimatePresence>
 
-      {/* ─── Gacha Result Reveal ─── */}
+      {/* ─── Gacha Result Reveal (multi-card) ─── */}
       <AnimatePresence>
-        {gachaResult && (
+        {revealOpen && revealQueue.length > 0 && (
+          <CollectionReveal
+            cardIds={revealQueue}
+            isOpen={revealOpen}
+            onClose={() => { setRevealOpen(false); setRevealQueue([]); }}
+          />
+        )}
+        {gachaResult && !revealOpen && (
           <GachaReveal result={gachaResult} onClose={() => setGachaResult(null)} pullCount={pullCount} />
         )}
       </AnimatePresence>

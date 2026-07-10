@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { getCardById, CARD_DEFINITIONS } from '../lib/cards';
+import { getCardById, CARD_DEFINITIONS, ELEMENTS, getAvatarEmoji } from '../lib/cards';
 
 interface CollectionRevealProps {
   cardIds: number[];
@@ -10,18 +10,33 @@ interface CollectionRevealProps {
   onCardCollected?: (cardId: number) => void;
 }
 
+const ELEMENT_FALLBACK_ICON = '🃏';
+
 export default function CollectionReveal({ cardIds, isOpen, onClose, onCardCollected }: CollectionRevealProps) {
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealPhase, setRevealPhase] = useState<'anticipation' | 'flip' | 'rarity' | 'stats' | 'done'>('anticipation');
   const [showDuplicate, setShowDuplicate] = useState(false);
 
-  const currentCardId = cardIds[currentIndex];
-  const card = currentCardId ? CARD_DEFINITIONS.find(c => c.id === currentCardId) : null;
-  const rarityId = (card as any)?.rarity?.id ?? (card as any)?.rarityId ?? 'common';
+  const validCardIds = useMemo(() => (cardIds ?? []).filter((id) => Number.isFinite(id)), [cardIds]);
+  const currentCardId = validCardIds[currentIndex];
+  const card = currentCardId !== undefined ? getCardById(currentCardId) ?? CARD_DEFINITIONS.find(c => c.id === currentCardId) : null;
+  const rarityId = card?.rarityId ?? 'common';
+
+  const element = useMemo(
+    () => (card?.elementId ? ELEMENTS.find(e => e.id === card.elementId) : undefined),
+    [card]
+  );
+  const elementIcon = card?.elementId ? getAvatarEmoji(card.elementId) : ELEMENT_FALLBACK_ICON;
+  const elementGradient = element?.gradient ?? 'from-slate-400 to-slate-600';
+
+  const handleCollected = useCallback(
+    (id: number) => onCardCollected?.(id),
+    [onCardCollected]
+  );
 
   useEffect(() => {
-    if (!isOpen || !cardIds.length) return;
+    if (!isOpen || !validCardIds.length) return;
     setCurrentIndex(0);
     setRevealPhase('anticipation');
     setShowDuplicate(false);
@@ -41,7 +56,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
     }, 3500));
 
     timers.push(setTimeout(() => {
-      if (currentIndex < cardIds.length - 1) {
+      if (currentIndex < validCardIds.length - 1) {
         setCurrentIndex(prev => prev + 1);
         setRevealPhase('anticipation');
       } else {
@@ -50,13 +65,13 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
     }, 4500));
 
     return () => timers.forEach(clearTimeout);
-  }, [isOpen, cardIds, currentIndex]);
+  }, [isOpen, validCardIds, currentIndex]);
 
   useEffect(() => {
-    if (revealPhase === 'done' && currentCardId) {
-      onCardCollected?.(currentCardId);
+    if (revealPhase === 'done' && currentCardId !== undefined) {
+      handleCollected(currentCardId);
     }
-  }, [revealPhase, currentCardId, onCardCollected]);
+  }, [revealPhase, currentCardId, handleCollected]);
 
   const rarityConfig: Record<string, {
     color: string;
@@ -154,8 +169,8 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
               transition={{ duration: 0.6 }}
             >
               {/* Card background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${(card as any)?.element?.gradient ?? 'from-slate-400 to-slate-600'}`} />
-              
+              <div className={`absolute inset-0 bg-gradient-to-br ${elementGradient}`} />
+
               {/* Card content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-4 text-white">
                 {/* Rarity badge */}
@@ -185,7 +200,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.7, type: 'spring', stiffness: 200 }}
                 >
-                  {(card as any)?.element?.icon ?? '🃏'}
+                  {elementIcon}
                 </motion.div>
 
                 {/* Card subtitle */}
@@ -252,7 +267,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
 
           {/* Progress indicator */}
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
-            {cardIds.map((_, i) => (
+            {validCardIds.map((_, i) => (
               <div
                 key={i}
                 className={`w-2 h-2 rounded-full transition-all ${i === currentIndex ? 'bg-amber-400 scale-125' : i < currentIndex ? 'bg-emerald-400' : 'bg-white/30'}`}

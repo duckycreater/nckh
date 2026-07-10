@@ -1047,7 +1047,11 @@
     "sortBy": "Sort By",
     "rarity": "Rarity",
     "element": "Element",
-    "all": "All"
+    "all": "All",
+    "tapToReveal": "Tap to reveal",
+    "autoContinueIn": "Auto-continuing in {{seconds}}s",
+    "openPack": "Open pack",
+    "cardsRevealed": "Opened {{count}} cards"
   },
   "stamina": {
     "stamina": "Stamina",

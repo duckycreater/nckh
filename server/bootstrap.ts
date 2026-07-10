@@ -11,7 +11,7 @@ import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
-import { resolveGacha, generateServerCard } from "../server/lib/cards.js";
+import { resolveGacha, generateServerCard, CARD_TOTAL } from "../server/lib/cards.js";
 import { GoogleGenAI } from "@google/genai";
 import { datasetCurator, DatasetCurator as DatasetCuratorClass } from "../server/services/datasetCurator";
 import { uploadToDataset } from "../server/services/cloudinaryDataset";
@@ -1506,27 +1506,101 @@ app.get("/api/cards/levels/:nickname", async (req, res) => {
   }
 });
 
+// ─── Multi-card gacha pull ───────────────────────────────────────────────────
+// POST /api/cards/gacha-pull { nickname, count }
+// Returns an array of resolved cards (max 10) with isNew + shardsAwarded flags.
+app.post("/api/cards/gacha-pull", async (req, res) => {
+  try {
+    const { nickname, count: rawCount } = req.body || {};
+    if (!nickname || typeof nickname !== "string") {
+      return res.status(400).json({ success: false, error: "Missing nickname" });
+    }
+    const count = Math.max(1, Math.min(10, Number.parseInt(String(rawCount ?? 1), 10) || 1));
+
+    const user = await getUser(nickname);
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const progress = await getGameProgress(nickname);
+    progress.flashcardCounts = progress.flashcardCounts || {};
+    progress.flashcardNames = progress.flashcardNames || {};
+    if (!Array.isArray(progress.flashcardsRead)) progress.flashcardsRead = [];
+
+    const currentPullCount = (progress as any).gachaPullCount ?? 0;
+    const cards: Array<{
+      id: number;
+      name: string;
+      elementId: string;
+      elementName: string;
+      elementIcon: string;
+      rarityId: string;
+      rarityName: string;
+      hp: number;
+      atk: number;
+      isNew: boolean;
+      shardsAwarded: number;
+    }> = [];
+    let totalShardsAwarded = 0;
+
+    for (let i = 0; i < count; i++) {
+      const pullIdx = currentPullCount + i + 1;
+      const pulledCardId = resolveGacha(progress.flashcardsRead, pullIdx);
+      const pulledCard = generateServerCard(pulledCardId);
+      const isNew = !progress.flashcardsRead.includes(pulledCardId);
+
+      progress.flashcardCounts[String(pulledCardId)] = (progress.flashcardCounts[String(pulledCardId)] || 0) + 1;
+      if (isNew) progress.flashcardsRead.push(pulledCardId);
+
+      let shardsAwarded = 0;
+      if (!isNew) {
+        progress.shards = (progress.shards || 0) + 3;
+        shardsAwarded = 3;
+        totalShardsAwarded += 3;
+      }
+
+      cards.push({ ...pulledCard, isNew, shardsAwarded });
+    }
+
+    (progress as any).gachaPullCount = currentPullCount + count;
+    await saveGameProgress(nickname, progress);
+
+    const cardLevels: Record<string, number> = (progress as any).cardLevels || {};
+    const enrichedCards = cards.map((c) => ({ ...c, cardLevel: cardLevels[String(c.id)] || 1 }));
+
+    res.json({
+      success: true,
+      cards: enrichedCards,
+      totalShardsAwarded,
+      progress,
+    });
+  } catch (error: any) {
+    console.error("[gacha-pull] Error:", error?.message || error);
+    res.status(500).json({ success: false, error: "Gacha pull failed" });
+  }
+});
+
 app.post("/api/admin/unlock-all-cards", requireAdmin, async (req, res) => {
   try {
     const { nickname } = req.body;
     if (!nickname) return res.status(400).json({ success: false, error: "Missing nickname" });
 
-    const CARD_TOTAL = 300;
+    const CARD_TOTAL_USED = CARD_TOTAL;
     const flashcardCounts: Record<string, number> = {};
-    for (let i = 1; i <= CARD_TOTAL; i++) {
+    for (let i = 1; i <= CARD_TOTAL_USED; i++) {
       flashcardCounts[String(i)] = 3;
     }
 
     const progress = await getGameProgress(nickname);
     const updated = {
       ...(progress || {}),
-      flashcardsRead: Array.from({ length: CARD_TOTAL }, (_, i) => i + 1),
+      flashcardsRead: Array.from({ length: CARD_TOTAL_USED }, (_, i) => i + 1),
       flashcardCounts,
     } as GameProgress;
 
     await saveGameProgress(nickname, updated);
-    console.log(`[unlock-all-cards] Unlocked ${CARD_TOTAL} cards for ${nickname}`);
-    res.json({ success: true, message: `Đã mở khóa ${CARD_TOTAL} thẻ cho ${nickname}` });
+    console.log(`[unlock-all-cards] Unlocked ${CARD_TOTAL_USED} cards for ${nickname}`);
+    res.json({ success: true, message: `Đã mở khóa ${CARD_TOTAL_USED} thẻ cho ${nickname}` });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e?.message || "Lỗi" });
   }
