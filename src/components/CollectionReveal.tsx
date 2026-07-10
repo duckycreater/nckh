@@ -28,7 +28,6 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
     [card]
   );
   const elementIcon = card?.elementId ? getAvatarEmoji(card.elementId) : ELEMENT_FALLBACK_ICON;
-  const elementGradient = element?.gradient ?? 'from-slate-400 to-slate-600';
 
   const handleCollected = useCallback(
     (id: number) => onCardCollected?.(id),
@@ -45,15 +44,15 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
 
     timers.push(setTimeout(() => {
       setRevealPhase('flip');
-    }, 1000));
+    }, 800));
 
     timers.push(setTimeout(() => {
       setRevealPhase('rarity');
-    }, 2000));
+    }, 1700));
 
     timers.push(setTimeout(() => {
       setRevealPhase('stats');
-    }, 3500));
+    }, 3000));
 
     timers.push(setTimeout(() => {
       if (currentIndex < validCardIds.length - 1) {
@@ -62,7 +61,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
       } else {
         setRevealPhase('done');
       }
-    }, 4500));
+    }, 4000));
 
     return () => timers.forEach(clearTimeout);
   }, [isOpen, validCardIds, currentIndex]);
@@ -73,21 +72,60 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
     }
   }, [revealPhase, currentCardId, handleCollected]);
 
+  // Refined palette — one accent per rarity, muted tones, no rainbow/glitch.
+  // Each rarity signals rarity through a single restrained accent color, a
+  // subtle 1px foil border, and a soft inner shadow. No screen-wide flashes,
+  // no hue-rotation, no rainbow gradients.
   const rarityConfig: Record<string, {
-    color: string;
-    bgColor: string;
-    glowColor: string;
+    accent: string;
+    accentSoft: string;
     particles: number;
-    screenEffect: 'none' | 'flash' | 'shockwave' | 'explosion' | 'rainbow' | 'glitch';
-    sound: string;
+    bgFrom: string;
+    bgTo: string;
+    borderGlow: string;
   }> = {
-    common: { color: 'text-slate-600', bgColor: 'bg-slate-100', glowColor: '#94a3b8', particles: 4, screenEffect: 'none', sound: 'reveal' },
-    uncommon: { color: 'text-emerald-600', bgColor: 'bg-emerald-100', glowColor: '#10b981', particles: 8, screenEffect: 'flash', sound: 'reveal' },
-    rare: { color: 'text-blue-600', bgColor: 'bg-blue-100', glowColor: '#3b82f6', particles: 12, screenEffect: 'shockwave', sound: 'reveal' },
-    epic: { color: 'text-purple-600', bgColor: 'bg-purple-100', glowColor: '#a855f7', particles: 20, screenEffect: 'explosion', sound: 'fanfare' },
-    legendary: { color: 'text-amber-500', bgColor: 'bg-amber-100', glowColor: '#f59e0b', particles: 35, screenEffect: 'explosion', sound: 'fanfare' },
-    mythical: { color: 'text-red-600', bgColor: 'bg-red-100', glowColor: '#dc2626', particles: 50, screenEffect: 'rainbow', sound: 'fanfare' },
-    event: { color: 'text-pink-600', bgColor: 'bg-pink-100', glowColor: '#ec4899', particles: 60, screenEffect: 'glitch', sound: 'fanfare' },
+    common: {
+      accent: '#94a3b8', accentSoft: 'rgba(148,163,184,0.18)',
+      particles: 4,
+      bgFrom: '#fafaf9', bgTo: '#f1f5f9',
+      borderGlow: 'rgba(148,163,184,0.25)',
+    },
+    uncommon: {
+      accent: '#10b981', accentSoft: 'rgba(16,185,129,0.16)',
+      particles: 6,
+      bgFrom: '#fafaf9', bgTo: '#ecfdf5',
+      borderGlow: 'rgba(16,185,129,0.28)',
+    },
+    rare: {
+      accent: '#3b82f6', accentSoft: 'rgba(59,130,246,0.16)',
+      particles: 8,
+      bgFrom: '#fafaf9', bgTo: '#eff6ff',
+      borderGlow: 'rgba(59,130,246,0.3)',
+    },
+    epic: {
+      accent: '#7c3aed', accentSoft: 'rgba(124,58,237,0.18)',
+      particles: 10,
+      bgFrom: '#fafaf9', bgTo: '#f5f3ff',
+      borderGlow: 'rgba(124,58,237,0.32)',
+    },
+    legendary: {
+      accent: '#b45309', accentSoft: 'rgba(180,83,9,0.20)',
+      particles: 12,
+      bgFrom: '#fbf7ee', bgTo: '#fef3c7',
+      borderGlow: 'rgba(180,83,9,0.35)',
+    },
+    mythical: {
+      accent: '#be123c', accentSoft: 'rgba(190,18,60,0.18)',
+      particles: 14,
+      bgFrom: '#fafaf9', bgTo: '#fff1f2',
+      borderGlow: 'rgba(190,18,60,0.35)',
+    },
+    event: {
+      accent: '#0f766e', accentSoft: 'rgba(15,118,110,0.18)',
+      particles: 14,
+      bgFrom: '#fafaf9', bgTo: '#f0fdfa',
+      borderGlow: 'rgba(15,118,110,0.35)',
+    },
   };
 
   const config = rarityConfig[rarityId] ?? rarityConfig.common;
@@ -101,50 +139,21 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Screen flash effect */}
-          <AnimatePresence>
-            {revealPhase === 'flip' && (
-              <motion.div
-                className="absolute inset-0 z-30"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: config.screenEffect === 'flash' ? 0.8 : config.screenEffect === 'shockwave' || config.screenEffect === 'explosion' ? 0.6 : 0.4 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                style={{
-                  background: config.screenEffect === 'rainbow'
-                    ? 'linear-gradient(135deg, #ef4444, #f97316, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ef4444)'
-                    : config.screenEffect === 'explosion'
-                    ? `radial-gradient(circle, ${config.glowColor}80 0%, transparent 70%)`
-                    : config.screenEffect === 'shockwave'
-                    ? `radial-gradient(circle, ${config.glowColor}60 0%, transparent 60%)`
-                    : config.glowColor + '40',
-                  backdropFilter: 'blur(4px)',
-                }}
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Particle system */}
+          {/* Soft ambient particles — small, slow, single color per rarity */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
             {Array.from({ length: config.particles }).map((_, i) => (
               <motion.div
                 key={`particle-${currentIndex}-${i}`}
-                className="absolute w-2 h-2 rounded-full"
-                style={{
-                  background: config.glowColor,
-                  left: '50%',
-                  top: '50%',
-                  boxShadow: `0 0 8px ${config.glowColor}`,
-                }}
-                initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                className="absolute w-1.5 h-1.5 rounded-full"
+                style={{ background: config.accent, left: '50%', top: '50%', opacity: 0.5 }}
+                initial={{ x: 0, y: 0, opacity: 0.5, scale: 1 }}
                 animate={{
-                  x: (Math.random() - 0.5) * 600,
-                  y: (Math.random() - 0.5) * 600,
+                  x: (Math.random() - 0.5) * 320,
+                  y: (Math.random() - 0.5) * 320,
                   opacity: 0,
-                  scale: 0,
-                  rotate: Math.random() * 720,
+                  scale: 0.4,
                 }}
-                transition={{ duration: 1.2, delay: revealPhase === 'flip' ? 0.1 : 0, ease: 'easeOut' }}
+                transition={{ duration: 1.6, delay: 0.2, ease: 'easeOut' }}
               />
             ))}
           </div>
@@ -152,115 +161,136 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
           {/* Card reveal */}
           <motion.div
             className="relative z-10"
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', damping: 12, stiffness: 100, delay: 0.2 }}
+            initial={{ scale: 0.94, opacity: 0, y: 8 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 180, delay: 0.15 }}
           >
             {/* Card */}
             <motion.div
-              className="relative w-64 h-96 rounded-2xl overflow-hidden"
-              animate={
-                config.screenEffect === 'explosion' && revealPhase === 'flip'
-                  ? { scale: [1, 1.15, 1], x: [0, -8, 8, -4, 4, 0] }
-                  : config.screenEffect === 'glitch' && revealPhase === 'flip'
-                  ? { x: [0, -10, 10, -5, 5, 0], filter: ['hue-rotate(0deg)', 'hue-rotate(90deg)', 'hue-rotate(180deg)', 'hue-rotate(0deg)'] }
-                  : {}
-              }
-              transition={{ duration: 0.6 }}
+              className="relative w-64 h-96 rounded-2xl overflow-hidden ring-1 ring-black/5"
+              style={{
+                background: config.bgFrom && config.bgTo
+                  ? 'linear-gradient(160deg, ' + config.bgFrom + ' 0%, ' + config.bgTo + ' 100%)'
+                  : undefined,
+                boxShadow: config.borderGlow
+                  ? '0 1px 2px rgba(15,23,42,0.06), 0 12px 32px -8px ' + config.borderGlow + ', inset 0 1px 0 rgba(255,255,255,0.6)'
+                  : '0 1px 2px rgba(15,23,42,0.06)',
+              }}
             >
-              {/* Card background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${elementGradient}`} />
+              {/* Element accent strip — subtle vertical line on the left edge */}
+              <div
+                className="absolute left-0 top-0 bottom-0 w-1"
+                style={{ background: 'linear-gradient(180deg, transparent, ' + config.accent + ' 20%, ' + config.accent + ' 80%, transparent)' }}
+              />
 
               {/* Card content */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full p-4 text-white">
+              <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 py-5 text-slate-900">
                 {/* Rarity badge */}
                 <motion.div
-                  className={`absolute top-3 left-3 px-2 py-1 rounded-lg text-xs font-bold uppercase ${config.bgColor} ${config.color}`}
-                  initial={{ y: -20, opacity: 0 }}
+                  className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: config.accent, background: config.accentSoft }}
+                  initial={{ y: -8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.5 }}
+                  transition={{ delay: 0.4, duration: 0.4 }}
                 >
                   {t(rarityId)}
                 </motion.div>
 
-                {/* Card name */}
-                <motion.h3
-                  className="text-xl font-bold text-center mt-8 drop-shadow-lg"
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  {card?.name ?? 'Unknown'}
-                </motion.h3>
-
-                {/* Card element icon */}
+                {/* Element icon — small, slight desaturation */}
                 <motion.div
-                  className="text-6xl my-4"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.7, type: 'spring', stiffness: 200 }}
+                  className="text-4xl mt-6 mb-2"
+                  style={{ filter: 'grayscale(0.15)' }}
+                  initial={{ scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.5, type: 'spring', stiffness: 180, damping: 18 }}
                 >
                   {elementIcon}
                 </motion.div>
 
-                {/* Card subtitle */}
-                <motion.p
-                  className="text-sm text-white/80 text-center"
+                {/* Card name */}
+                <motion.h3
+                  className="text-lg font-bold text-center leading-tight tracking-tight text-slate-900"
+                  initial={{ y: 8, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.6, duration: 0.4 }}
+                >
+                  {card?.name ?? 'Unknown'}
+                </motion.h3>
+
+                {/* Element name flanked by accent dots */}
+                <motion.div
+                  className="mt-1 mb-3 flex items-center gap-1.5"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 0.8 }}
+                  transition={{ delay: 0.7, duration: 0.4 }}
                 >
-                  {card?.subtitle ?? ''}
-                </motion.p>
+                  <span className="w-1 h-1 rounded-full" style={{ background: config.accent }} />
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 font-medium">
+                    {element?.nameShort ?? card?.elementId ?? ''}
+                  </p>
+                  <span className="w-1 h-1 rounded-full" style={{ background: config.accent }} />
+                </motion.div>
 
-                {/* Stats */}
+                {/* Card subtitle */}
+                {card?.subtitle ? (
+                  <motion.p
+                    className="text-xs text-slate-500 text-center px-2 leading-relaxed"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8, duration: 0.4 }}
+                  >
+                    {card.subtitle}
+                  </motion.p>
+                ) : null}
+
+                {/* Stats — clean row, accent color on numbers */}
                 <motion.div
-                  className="mt-auto grid grid-cols-3 gap-2 w-full"
-                  initial={{ opacity: 0, y: 20 }}
+                  className="mt-auto grid grid-cols-3 gap-2 w-full pt-4"
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.0 }}
+                  transition={{ delay: 0.9, duration: 0.4 }}
                 >
                   {[
-                    { label: 'ATK', value: card?.atk ?? 0, color: 'text-red-400' },
-                    { label: 'HP', value: card?.hp ?? 0, color: 'text-green-400' },
-                    { label: 'DEF', value: card?.def ?? 0, color: 'text-blue-400' },
+                    { label: 'ATK', value: card?.atk ?? 0 },
+                    { label: 'HP', value: card?.hp ?? 0 },
+                    { label: 'DEF', value: card?.def ?? 0 },
                   ].map(stat => (
-                    <div key={stat.label} className="bg-black/30 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-white/60">{stat.label}</p>
-                      <p className={`text-sm font-bold ${stat.color}`}>{stat.value}</p>
+                    <div
+                      key={stat.label}
+                      className="rounded-lg py-1.5 text-center bg-white/60 backdrop-blur-sm"
+                      style={{ boxShadow: 'inset 0 0 0 1px ' + config.accentSoft }}
+                    >
+                      <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold">{stat.label}</p>
+                      <p className="text-sm font-bold tabular-nums" style={{ color: config.accent }}>{stat.value}</p>
                     </div>
                   ))}
                 </motion.div>
               </div>
 
-              {/* Rarity border glow */}
-              <div
-                className="absolute inset-0 rounded-2xl pointer-events-none"
-                style={{ boxShadow: `0 0 30px ${config.glowColor}, 0 0 60px ${config.glowColor}40, inset 0 0 20px ${config.glowColor}20` }}
-              />
-
-              {/* Animated shimmer for rare+ */}
+              {/* Subtle foil highlight — only for rare+, slow sweep with soft-light blend */}
               {(rarityId === 'rare' || rarityId === 'epic' || rarityId === 'legendary' || rarityId === 'mythical' || rarityId === 'event') && (
                 <div
-                  className="absolute inset-0 rounded-2xl pointer-events-none opacity-30"
+                  className="absolute inset-0 pointer-events-none"
                   style={{
-                    background: `linear-gradient(135deg, transparent 40%, ${config.glowColor}80 50%, transparent 60%)`,
-                    backgroundSize: '200% 200%',
-                    animation: 'card-shimmer 2s linear infinite',
+                    background: 'linear-gradient(115deg, transparent 40%, ' + config.accentSoft + ' 50%, transparent 60%)',
+                    backgroundSize: '220% 220%',
+                    animation: 'card-shimmer 4s linear infinite',
+                    mixBlendMode: 'soft-light',
                   }}
                 />
               )}
             </motion.div>
 
-            {/* NEW CARD badge */}
+            {/* NEW CARD badge — minimal, monochrome */}
             {revealPhase === 'flip' && (
               <motion.div
-                className="absolute -top-4 -right-4 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm shadow-lg rotate-12"
-                initial={{ scale: 0, rotate: -20 }}
-                animate={{ scale: 1, rotate: 12 }}
-                transition={{ type: 'spring', delay: 0.3 }}
+                className="absolute -top-3 -right-3 px-3 py-1 rounded-full bg-white text-[10px] font-bold uppercase tracking-wider shadow-md ring-1 ring-black/5"
+                style={{ color: config.accent }}
+                initial={{ scale: 0.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 220, damping: 18, delay: 0.3 }}
               >
-                ✨ {t('collection.newCard')}
+                {t('collection.newCard')}
               </motion.div>
             )}
           </motion.div>
@@ -270,7 +300,12 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
             {validCardIds.map((_, i) => (
               <div
                 key={i}
-                className={`w-2 h-2 rounded-full transition-all ${i === currentIndex ? 'bg-amber-400 scale-125' : i < currentIndex ? 'bg-emerald-400' : 'bg-white/30'}`}
+                className="w-1.5 h-1.5 rounded-full transition-all"
+                style={{
+                  background: i < currentIndex ? config.accent : i === currentIndex ? config.accent : 'rgba(148,163,184,0.3)',
+                  transform: i === currentIndex ? 'scale(1.6)' : 'scale(1)',
+                  opacity: i <= currentIndex ? 1 : 0.35,
+                }}
               />
             ))}
           </div>
@@ -279,12 +314,13 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
           {revealPhase === 'done' && (
             <motion.div
               className="absolute bottom-8 left-1/2 -translate-x-1/2"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
             >
               <button
                 onClick={onClose}
-                className="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-lg shadow-lg hover:from-emerald-400 hover:to-teal-400 transition-all"
+                className="px-7 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-md hover:bg-slate-800 transition-colors"
               >
                 {t('collection.viewCollection')}
               </button>
