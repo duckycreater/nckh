@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": [
+    "src/apiClient.ts",
+    "src/apiContract.ts",
+    "server/apiContract.ts",
+    "server/services/auditTrail.ts",
+    "server/services/federatedAggregator.ts",
+    "server/services/secureAggregation.ts",
+    "server/services/scanRewards.ts",
+    "server/services/sessionStore.ts",
+    "server/services/rctEngine.ts",
+    "server/services/dpAccountant.ts",
+    "server/middleware/security.ts",
+    "server/middleware/zodValidate.ts"
+  ]
+}

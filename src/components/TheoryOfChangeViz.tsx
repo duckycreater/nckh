@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import {
   ComScores,
   ComBreakdown,
@@ -27,6 +28,7 @@ export const TheoryOfChangeViz: React.FC<TheoryOfChangeVizProps> = ({
   breakdown: breakdownProp,
   onInterventionSelect,
 }) => {
+  const { t } = useTranslation();
   const breakdown = useMemo<ComBreakdown>(
     () => breakdownProp ?? computeBreakdown(user ?? {}),
     [breakdownProp, user]
@@ -35,25 +37,25 @@ export const TheoryOfChangeViz: React.FC<TheoryOfChangeVizProps> = ({
   const intervention = useMemo(() => selectIntervention(scores), [scores]);
 
   const nodes = [
-    { id: "capability", label: "Capability", score: scores.capability, kind: "Knowledge / Skill" },
-    { id: "opportunity", label: "Opportunity", score: scores.opportunity, kind: "Peer / Bin access" },
-    { id: "motivation", label: "Motivation", score: scores.motivation, kind: "Identity / Reward" },
-    { id: "behaviour", label: "Behaviour", score: scores.behaviour, kind: "Sort accuracy" },
+    { id: "capability", label: t("theoryOfChange.nodes.capability"), score: scores.capability, kind: t("theoryOfChange.kinds.knowledgeSkill") },
+    { id: "opportunity", label: t("theoryOfChange.nodes.opportunity"), score: scores.opportunity, kind: t("theoryOfChange.kinds.peerBinAccess") },
+    { id: "motivation", label: t("theoryOfChange.nodes.motivation"), score: scores.motivation, kind: t("theoryOfChange.kinds.identityReward") },
+    { id: "behaviour", label: t("theoryOfChange.nodes.behaviour"), score: scores.behaviour, kind: t("theoryOfChange.kinds.sortAccuracy") },
   ];
 
   return (
     <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-          Theory of Change
+          {t("theoryOfChange.title")}
         </h2>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-mono text-slate-600 dark:bg-slate-800 dark:text-slate-300">
           COM-B · v{breakdown.version}
         </span>
       </div>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-        Capability × Opportunity × Motivation → Behaviour → SDG Impact.
-        Drag the slider to test interventions live.
+        {t("theoryOfChange.tagline")}
+        {" "}{t("theoryOfChange.taglineHint")}
       </p>
 
       {/* Causal pathway: 4 columns, each is a coloured card with a slider. */}

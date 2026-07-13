@@ -259,6 +259,36 @@ export class FederatedAggregator {
   getConfig() {
     return { ...this.config };
   }
+
+  /**
+   * Aggregate stats for the "Trạng thái FL" widget.
+   *
+   * Combines in-memory buffer + latest global version so the client can
+   * render a single round number without doing two fetches.
+   */
+  getStats(): {
+    bufferSize: number;
+    minClients: number;
+    latestVersion: { version: string; trainedOn: number; createdAt: number } | null;
+    dp: { epsilon: number; delta: number; clipNorm: number };
+  } {
+    return {
+      bufferSize: this.buffer.size,
+      minClients: this.config.minClients,
+      latestVersion: this.latestGlobalVersion
+        ? {
+            version: this.latestGlobalVersion.version,
+            trainedOn: this.latestGlobalVersion.trainedOn,
+            createdAt: this.latestGlobalVersion.createdAt,
+          }
+        : null,
+      dp: {
+        epsilon: this.config.dpEpsilon,
+        delta: this.config.dpDelta,
+        clipNorm: this.config.clipNorm,
+      },
+    };
+  }
 }
 
 export const federatedAggregator = new FederatedAggregator();

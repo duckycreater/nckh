@@ -10,9 +10,27 @@
  */
 
 import { Router } from "express";
+import { z } from "zod";
 import { federatedAggregator } from "../services/federatedAggregator.js";
 import { getDb } from "../db.js";
 import { validateToken } from "../auth.js";
+import { zodValidate } from "../middleware/zodValidate.js";
+
+const SubmitBody = z.object({
+  round: z.number().int().nonnegative().optional(),
+  weights: z.array(z.array(z.number())).min(1).max(64),
+  numSamples: z.number().int().positive(),
+  metrics: z
+    .object({ loss: z.number(), accuracy: z.number(), durationMs: z.number() })
+    .optional(),
+  privacy: z
+    .object({ epsilon: z.number(), delta: z.number(), noiseSigma: z.number() })
+    .optional(),
+});
+
+const AuditQuery = z.object({
+  userId: z.string().min(1).max(128),
+});
 
 function requireAuth(req: any, res: any, next: () => void) {
   const result = validateToken(req.headers.authorization);
@@ -34,25 +52,27 @@ export function federatedRouter(): Router {
   const router = Router();
 
   // POST /api/federated/submit - Client-side weight delta submission
-  router.post("/submit", requireAuth, async (req, res) => {
-    try {
-      const userId = (req as any).userNick;
-      const { round, weights, numSamples, metrics, privacy } = req.body || {};
-      if (!Array.isArray(weights) || typeof numSamples !== "number") {
-        return res.status(400).json({ error: "weights and numSamples required" });
+  router.post(
+    "/submit",
+    requireAuth,
+    zodValidate({ body: SubmitBody }),
+    async (req, res) => {
+      try {
+        const userId = (req as any).userNick;
+        const body = req.body as z.infer<typeof SubmitBody>;
+        const result = await federatedAggregator.submit(userId, {
+          round: body.round ?? 0,
+          weights: body.weights,
+          numSamples: body.numSamples,
+          metrics: body.metrics ?? { loss: 0, accuracy: 0, durationMs: 0 },
+          privacy: body.privacy ?? { epsilon: 1.0, delta: 1e-5, noiseSigma: 0 },
+        });
+        res.json(result);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
       }
-      const result = await federatedAggregator.submit(userId, {
-        round: round || 0,
-        weights,
-        numSamples,
-        metrics: metrics || { loss: 0, accuracy: 0, durationMs: 0 },
-        privacy: privacy || { epsilon: 1.0, delta: 1e-5, noiseSigma: 0 },
-      });
-      res.json(result);
-    } catch (e) {
-      res.status(500).json({ error: (e as Error).message });
-    }
-  });
+    },
+  );
 
   // GET /api/federated/latest - Latest global model version
   router.get("/latest", async (_req, res) => {
@@ -84,27 +104,30 @@ export function federatedRouter(): Router {
   });
 
   // GET /api/federated/audit?userId=xxx - User audit log
-  router.get("/audit", async (req, res) => {
-    try {
-      const userId = String(req.query.userId || "");
-      if (!userId) return res.status(400).json({ error: "userId required" });
+  router.get(
+    "/audit",
+    zodValidate({ query: AuditQuery }),
+    async (req, res) => {
+      try {
+        const { userId } = (res.locals.query ?? req.query) as { userId: string };
 
-      const db = getDb();
-      if (!db) return res.json({ entries: [] });
+        const db = getDb();
+        if (!db) return res.json({ entries: [] });
 
-      const { rows } = await db.query(
-        `SELECT id, action, metadata, created_at
-         FROM privacy_audit_log
-         WHERE user_id = $1
-         ORDER BY created_at DESC
-         LIMIT 100`,
-        [userId]
-      );
-      res.json({ entries: rows || [] });
-    } catch (e) {
-      res.status(500).json({ error: (e as Error).message });
-    }
-  });
+        const { rows } = await db.query(
+          `SELECT id, action, metadata, created_at
+           FROM privacy_audit_log
+           WHERE user_id = $1
+           ORDER BY created_at DESC
+           LIMIT 100`,
+          [userId]
+        );
+        res.json({ entries: rows || [] });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    },
+  );
 
   // GET /api/federated/status - Aggregator buffer + config (debug/admin)
   router.get("/status", async (_req, res) => {

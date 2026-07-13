@@ -4,7 +4,6 @@
     "cancel": "Cancel",
     "save": "Save",
     "buy": "Buy",
-    "close": "Close",
     "saving": "Saving...",
     "saved": "Saved!",
     "error": "An error occurred",
@@ -421,7 +420,15 @@
   "streakCalendar": {
     "history": "Check-in History",
     "last7Days": "Last 7 days",
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "surpriseGift": {
     "openning": "Opening gift...",
@@ -479,15 +486,6 @@
   "store": {
     "store": "Rewards Store",
     "storeSubtitle": "Unlock avatars and profile frames to personalize your account.",
-    "frames": "Profile Frames",
-    "owned": "Owned{count, plural, other { x#{count}}}",
-    "needPoints": "Need {cost} EXP",
-    "purchase": "Purchase item: {name}",
-    "avatars": {
-      "seedling": "Green Sprout",
-      "guardian": "Water Warrior",
-      "knight": "Forest Leader"
-    },
     "frames": {
       "wooden": "Wooden Frame",
       "ice": "Ice Frame",
@@ -495,73 +493,171 @@
       "woodenDesc": "Sturdy as wood",
       "iceDesc": "Pure as ice",
       "glowDesc": "Radiant as earth"
+    },
+    "owned": "Owned{count, plural, other { x#{count}}}",
+    "needPoints": "Need {cost} EXP",
+    "purchase": "Purchase item: {name}",
+    "avatars": {
+      "seedling": "Green Sprout",
+      "guardian": "Water Warrior",
+      "knight": "Forest Leader"
     }
   },
   "admin": {
-    "admin": "Admin Dashboard",
-    "adminSubtitle": "Manage users, rewards, and the system.",
-    "logout": "Logout",
-    "overview": "Overview",
-    "rewards": "Rewards",
-    "users": "Users",
-    "experiments": "Experiments",
-    "totalUsers": "Total users",
-    "admins": "Admins",
-    "recentActivity": "Recent activity",
-    "experimentsActive": "Experiments",
-    "quickActions": "Quick Actions",
-    "quickActionsHint": "Refresh data, update rewards, and sync external sources.",
-    "refreshRewards": "Refresh Rewards",
-    "refreshUsers": "Refresh Users",
-    "syncSheets": "Sync Google Sheets",
-    "addReward": "Add Reward",
-    "systemSignals": "System Signals",
-    "activityOverview": "Activity Overview",
-    "rewardStore": "Reward Store",
-    "rewardStoreSubtitle": "Manage items and rewards available in the store.",
-    "loadingRewards": "Loading reward store",
-    "loadRewardsError": "Could not load rewards",
-    "noRewards": "No rewards yet",
-    "addNew": "Add a new item...",
-    "pointsCost": "{cost} points",
-    "delete": "Delete",
-    "userList": "User List",
-    "searchUsers": "Search by name, nick, or account id",
-    "loadingProfile": "Loading user profile",
-    "noUserSelected": "No user selected",
-    "userInfo": "@{account} · {points} points",
-    "changeRole": "Change Role",
-    "checkDecay": "Check Decay",
-    "addPoints": "+20 points",
-    "subPoints": "-20 points",
-    "suspendUser": "Suspend",
-    "resetProgress": "Reset Progress",
-    "experimentsTitle": "Experiment Control",
-    "experimentsSubtitle": "Track, create, and manage the status of running research scenarios.",
-    "loadingExperiments": "Loading experiments list",
-    "noExperiments": "No experiments yet",
-    "noDescription": "No detailed description.",
-    "pause": "Pause",
-    "activate": "Activate",
-    "remove": "Delete",
-    "giftVoucher": "Gift,Voucher",
-    "messages": {
-      "imageReady": "Image ready",
-      "uploadFailed": "Upload not successful",
-      "uploadError": "Image upload error",
-      "saveRewardFailed": "Could not save reward",
-      "rewardAdded": "Reward added",
-      "addRewardFailed": "Could not add reward",
-      "rewardDeleted": "Reward deleted",
-      "roleUpdated": "Role updated",
-      "pointsAdjusted": "Points adjusted",
-      "userSuspended": "User suspended",
-      "progressReset": "Progress reset",
-      "syncSuccess": "Sync successful",
+    "tabs": {
+      "overview": "Overview",
+      "rewards": "Rewards",
+      "users": "Users",
+      "experiments": "Experiments",
+      "quiz": "Quiz",
+      "sheets": "Google Sheets",
+      "research": "Research",
+      "system": "System"
+    },
+    "dashboardTitle": "Admin Dashboard",
+    "research": {
+      "title": "Research Data",
+      "subtitle": "Behavior analysis, interventions, and novelty decay",
+      "overview": "Overview",
+      "retention": "Retention",
+      "interventions": "Interventions",
+      "personality": "Personality",
+      "leaderboard": "Leaderboard",
+      "decay": "Novelty Decay",
+      "exportCsv": "Export CSV",
+      "userLookup": "User lookup",
+      "userPlaceholder": "Enter UID or name...",
+      "triggerDecay": "Trigger decay detection",
+      "triggerIntervention": "Trigger intervention",
+      "totalUsers": "Total users",
+      "totalEvents": "Total events",
+      "avgSession": "Avg session",
+      "personalityDistribution": "Personality distribution",
+      "retentionDay1": "Retention D1",
+      "retentionDay7": "Retention D7",
+      "retentionDay30": "Retention D30",
+      "interventionEffectiveness": "Intervention effectiveness",
+      "noData": "No research data yet"
+    },
+    "quiz": {
+      "title": "Quiz Mini-Game Manager",
+      "subtitle": "Create, edit questions and configure quiz",
+      "addQuestion": "Add question",
+      "editQuestion": "Edit question",
+      "deleteQuestion": "Delete question",
+      "confirmDelete": "Are you sure you want to delete this question?",
+      "content": "Question content",
+      "contentPlaceholder": "Enter question content...",
+      "optionA": "Option A",
+      "optionB": "Option B",
+      "optionC": "Option C",
+      "optionD": "Option D",
+      "correctKey": "Correct answer",
+      "points": "Points",
+      "category": "Category",
+      "difficulty": "Difficulty",
+      "difficultyEasy": "Easy",
+      "difficultyMedium": "Medium",
+      "difficultyHard": "Hard",
+      "enabled": "Enabled",
+      "imageUrl": "Image URL",
+      "order": "Order",
+      "preview": "Preview",
+      "import": "Import",
+      "export": "Export",
+      "importJson": "Import JSON",
+      "importCsv": "Import CSV",
+      "exportJson": "Export JSON",
+      "exportCsv": "Export CSV",
+      "reorder": "Reorder",
+      "moveUp": "Up",
+      "moveDown": "Down",
+      "totalQuestions": "Total questions",
+      "activeQuestions": "Active",
+      "saveQuestion": "Save question",
+      "questionSaved": "Question saved",
+      "questionDeleted": "Question deleted",
+      "questionsImported": "Imported {count} questions",
+      "questionsExported": "Exported {count} questions",
+      "noQuestions": "No questions yet",
+      "syncToSheets": "Sync to Sheets",
+      "syncFromSheets": "Pull from Sheets",
+      "lastSync": "Last sync",
+      "neverSynced": "Never synced",
+      "config": {
+        "title": "Quiz Configuration",
+        "startTime": "Start time",
+        "endTime": "End time",
+        "questionDuration": "Time per question (seconds)",
+        "maxQuestions": "Max questions per play",
+        "maxPoints": "Max reward points",
+        "comboBonus": "Combo bonus",
+        "description": "Quiz description",
+        "descriptionPlaceholder": "Description shown to students...",
+        "saveConfig": "Save configuration",
+        "configSaved": "Configuration saved"
+      }
+    },
+    "sheets": {
+      "title": "Google Sheets Sync",
+      "subtitle": "Manage 3-way sync: Sheets ↔ Firestore ↔ Supabase",
+      "status": "Status",
+      "lastSync": "Last sync",
+      "neverSynced": "Never synced",
+      "syncInterval": "Auto-sync every",
+      "syncIntervalValue": "15 minutes",
+      "spreadsheetId": "Spreadsheet ID",
+      "fullSync": "Full sync",
+      "pushToSheets": "Push to Sheets",
+      "pullFromSheets": "Pull from Sheets",
+      "syncing": "Syncing...",
+      "syncSuccess": "Sync successful!",
       "syncFailed": "Sync failed",
-      "decayEnabled": "Decay check activated",
-      "experimentCreated": "Experiment created",
-      "experimentStatusChanged": "Experiment status changed"
+      "syncLog": "Sync history",
+      "conflictLog": "Conflicts",
+      "noConflicts": "No conflicts",
+      "usersCount": "Users",
+      "quizCount": "Questions",
+      "configCount": "Configs",
+      "rewardsCount": "Rewards",
+      "logsCount": "Logs",
+      "healthCheck": "Connection check",
+      "firestoreStatus": "Firestore",
+      "supabaseStatus": "Supabase",
+      "sheetsStatus": "Google Sheets",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "error": "Error",
+      "lastError": "Last error",
+      "triggeredBy": "Triggered by",
+      "duration": "Duration",
+      "rowsWritten": "Rows written"
+    },
+    "system": {
+      "title": "System Status",
+      "subtitle": "Health check, audit log, cache & backup",
+      "uptime": "Uptime",
+      "memory": "Memory",
+      "dbConnections": "DB Connections",
+      "auditLog": "Audit Log",
+      "cacheManagement": "Cache management",
+      "clearCache": "Clear cache",
+      "cacheCleared": "Cache cleared",
+      "backupRestore": "Backup / Restore",
+      "backup": "Backup data.json",
+      "restore": "Restore",
+      "backupSuccess": "Backup successful",
+      "restoreSuccess": "Restore successful",
+      "serverLogs": "Server logs (last 100 lines)",
+      "actionCreate": "Create",
+      "actionUpdate": "Update",
+      "actionDelete": "Delete",
+      "actionSync": "Sync",
+      "actionLogin": "Login",
+      "byUser": "By",
+      "atTime": "At",
+      "details": "Details",
+      "rateLimitSettings": "Rate limit settings"
     }
   },
   "research": {
@@ -610,13 +706,27 @@
       "effectiveness": "Effectiveness",
       "social": "Social",
       "longitudinal": "Longitudinal"
+    },
+    "cohorts": {
+      "C": "Control",
+      "E1": "E1 (gamification)",
+      "E2": "E2 (+FL)",
+      "E3": "E3 (+Twin)",
+      "E4": "E4 (+Identity)"
+    },
+    "axisLabels": {
+      "identityChange": "Identity change",
+      "sortAccuracy": "Sort accuracy",
+      "d30Retention": "D30 retention"
     }
   },
   "app": {
     "restoringSession": "Restoring session",
     "restoringHint": "Getting your dashboard, learning progress, and experience space ready.",
-    "syncingLogin": "Syncing login session",
-    "syncingHint": "This will only take a moment to get you back to where you left off."
+    "syncingLogin": "Syncing login...",
+    "syncingHint": "Restoring your session",
+    "loadingDashboard": "Loading dashboard...",
+    "home": "Home"
   },
   "milestones": {
     "milestone": "Milestone",
@@ -900,7 +1010,8 @@
     "utl_10": "Safety Air Bag",
     "utl_11": "Insulating Rubber",
     "utl_12": "Quick Strike",
-    "utl_13": "Bio Degradation"
+    "utl_13": "Bio Degradation",
+    "unknown": "Unknown"
   },
   "flashcards": {
     "tabs": {
@@ -941,7 +1052,14 @@
       "organic": "Organic",
       "hazard": "Hazard"
     },
-    "stats": "Stats",
+    "stats": {
+      "atk": "Attack",
+      "hp": "HP",
+      "def": "Defense",
+      "spd": "Speed",
+      "crt": "Critical",
+      "int": "Intelligence"
+    },
     "shardCount": "{count} Shards",
     "shop": {
       "title": "Shard Shop",
@@ -998,15 +1116,7 @@
     "xpAdded": "+{exp} EXP added!",
     "newCardAdded": "New card added to collection!",
     "cardAdded": "Card added to collection!",
-    "purchaseFailed": "Purchase failed.",
-    "stats": {
-      "atk": "Attack",
-      "hp": "HP",
-      "def": "Defense",
-      "spd": "Speed",
-      "crt": "Critical",
-      "int": "Intelligence"
-    }
+    "purchaseFailed": "Purchase failed."
   },
   "campaign": {
     "worldMap": "World Map",
@@ -1024,16 +1134,46 @@
     "miniboss": "Mini Boss",
     "boss": "Boss",
     "eventStage": "Event",
-    "region_01": { "name": "Roadside Dump", "desc": "Where the journey begins. Household waste everywhere." },
-    "region_02": { "name": "Flea Market", "desc": "The flea market with all sorts of used items." },
-    "region_03": { "name": "Industrial Waste Zone", "desc": "Area heavy with industrial waste." },
-    "region_04": { "name": "Transfer Station", "desc": "City waste transfer station." },
-    "region_05": { "name": "Toxic Waste Land", "desc": "Land heavily polluted by toxic waste." },
-    "region_06": { "name": "Recycling Plant", "desc": "Modern plant with cutting-edge recycling technology." },
-    "region_07": { "name": "Plastic Ocean", "desc": "Ocean polluted by massive plastic waste." },
-    "region_08": { "name": "The Forbidden Zone", "desc": "Restricted area with dangerous mutant creatures." },
-    "region_09": { "name": "Abyssal Hellscape", "desc": "Bottomless abyss, home of garbage monsters." },
-    "region_10": { "name": "The Trash Throne", "desc": "Throne of the Trash King, site of the final battle." }
+    "region_01": {
+      "name": "Roadside Dump",
+      "desc": "Where the journey begins. Household waste everywhere."
+    },
+    "region_02": {
+      "name": "Flea Market",
+      "desc": "The flea market with all sorts of used items."
+    },
+    "region_03": {
+      "name": "Industrial Waste Zone",
+      "desc": "Area heavy with industrial waste."
+    },
+    "region_04": {
+      "name": "Transfer Station",
+      "desc": "City waste transfer station."
+    },
+    "region_05": {
+      "name": "Toxic Waste Land",
+      "desc": "Land heavily polluted by toxic waste."
+    },
+    "region_06": {
+      "name": "Recycling Plant",
+      "desc": "Modern plant with cutting-edge recycling technology."
+    },
+    "region_07": {
+      "name": "Plastic Ocean",
+      "desc": "Ocean polluted by massive plastic waste."
+    },
+    "region_08": {
+      "name": "The Forbidden Zone",
+      "desc": "Restricted area with dangerous mutant creatures."
+    },
+    "region_09": {
+      "name": "Abyssal Hellscape",
+      "desc": "Bottomless abyss, home of garbage monsters."
+    },
+    "region_10": {
+      "name": "The Trash Throne",
+      "desc": "Throne of the Trash King, site of the final battle."
+    }
   },
   "collection": {
     "newCard": "NEW CARD!",
@@ -1068,106 +1208,306 @@
     "possible": "Possible"
   },
   "stages": {
-    "s01_01": { "name": "First Trash Pile" },
-    "s01_02": { "name": "Bottle Area" },
-    "s01_03": { "name": "Plastic Bag Corner" },
-    "s01_04": { "name": "Paper Scrap Pile" },
-    "s01_05": { "name": "Mini Transfer Station" },
-    "s01_06": { "name": "Small Trash Area" },
-    "s01_07": { "name": "Metal Zone" },
-    "s01_08": { "name": "Food Waste Pile" },
-    "s01_09": { "name": "Elite Sorting Station" },
-    "s01_10": { "name": "Boss: Trash Lord" },
-    "s02_01": { "name": "Market Stalls" },
-    "s02_02": { "name": "Secondhand Area" },
-    "s02_03": { "name": "Plastic Zone" },
-    "s02_04": { "name": "Glass Area" },
-    "s02_05": { "name": "Battery Charging Station" },
-    "s02_06": { "name": "Electronics Area" },
-    "s02_07": { "name": "Old Books Stall" },
-    "s02_08": { "name": "Wood Area" },
-    "s02_09": { "name": "Elite Recycling Station" },
-    "s02_10": { "name": "Boss: Trash Doctor" },
-    "s03_01": { "name": "Steel Scrap Yard" },
-    "s03_02": { "name": "Old Car Zone" },
-    "s03_03": { "name": "Iron Scrap Pile" },
-    "s03_04": { "name": "Machinery Area" },
-    "s03_05": { "name": "Welding Station" },
-    "s03_06": { "name": "Engine Area" },
-    "s03_07": { "name": "Parts Yard" },
-    "s03_08": { "name": "Cable Area" },
-    "s03_09": { "name": "Mini Robot Station" },
-    "s03_10": { "name": "Boss: Metal King" },
-    "s04_01": { "name": "Recycling Zone 1" },
-    "s04_02": { "name": "Recycling Zone 2" },
-    "s04_03": { "name": "Recycling Zone 3" },
-    "s04_04": { "name": "Recycling Zone 4" },
-    "s04_05": { "name": "Plastic Press Station" },
-    "s04_06": { "name": "Melting Area" },
-    "s04_07": { "name": "Molding Zone" },
-    "s04_08": { "name": "Packaging Zone" },
-    "s04_09": { "name": "Gold Sorting Station" },
-    "s04_10": { "name": "Boss: Master Recycler" },
-    "s05_01": { "name": "Waste Area 1" },
-    "s05_02": { "name": "Waste Area 2" },
-    "s05_03": { "name": "Dead Battery Zone" },
-    "s05_04": { "name": "Chemical Waste Site" },
-    "s05_05": { "name": "Neutralization Station" },
-    "s05_06": { "name": "Waste Processing Zone" },
-    "s05_07": { "name": "Toxic Gas Area" },
-    "s05_08": { "name": "Radiation Zone" },
-    "s05_09": { "name": "Detox Station" },
-    "s05_10": { "name": "Boss: Toxic King" },
-    "s06_01": { "name": "Processing Zone 1" },
-    "s06_02": { "name": "Processing Zone 2" },
-    "s06_03": { "name": "Processing Zone 3" },
-    "s06_04": { "name": "Processing Zone 4" },
-    "s06_05": { "name": "Water Filter Station" },
-    "s06_06": { "name": "Sterilization Zone" },
-    "s06_07": { "name": "Clean Trash Area" },
-    "s06_08": { "name": "Reuse Zone" },
-    "s06_09": { "name": "Gold Sorting Station" },
-    "s06_10": { "name": "Boss: Regeneration Master" },
-    "s07_01": { "name": "Shallow Water 1" },
-    "s07_02": { "name": "Shallow Water 2" },
-    "s07_03": { "name": "Coral Reef" },
-    "s07_04": { "name": "Trash Beach" },
-    "s07_05": { "name": "Sea Water Filter Station" },
-    "s07_06": { "name": "Deep Zone 1" },
-    "s07_07": { "name": "Deep Zone 2" },
-    "s07_08": { "name": "High Pressure Area" },
-    "s07_09": { "name": "Ocean Rescue Station" },
-    "s07_10": { "name": "Boss: Ocean Garbage Monster" },
-    "s08_01": { "name": "Forbidden Border 1" },
-    "s08_02": { "name": "Forbidden Border 2" },
-    "s08_03": { "name": "Monster Zone" },
-    "s08_04": { "name": "Cursed Territory" },
-    "s08_05": { "name": "Monster Station" },
-    "s08_06": { "name": "Dark Zone" },
-    "s08_07": { "name": "Radiation Area" },
-    "s08_08": { "name": "Anomaly Point" },
-    "s08_09": { "name": "Alert Station" },
-    "s08_10": { "name": "Boss: God of Stagnation" },
-    "s09_01": { "name": "Hell Gate 1" },
-    "s09_02": { "name": "Hell Gate 2" },
-    "s09_03": { "name": "Fire Pit" },
-    "s09_04": { "name": "Ash Zone" },
-    "s09_05": { "name": "Inferno Station" },
-    "s09_06": { "name": "Furnace" },
-    "s09_07": { "name": "Coal Zone" },
-    "s09_08": { "name": "Poison Smoke Area" },
-    "s09_09": { "name": "Fire Cleanup Station" },
-    "s09_10": { "name": "Boss: Fire Master" },
-    "s10_01": { "name": "Trash Palace 1" },
-    "s10_02": { "name": "Trash Palace 2" },
-    "s10_03": { "name": "Royal Hall" },
-    "s10_04": { "name": "Treasure Vault" },
-    "s10_05": { "name": "Guard Station" },
-    "s10_06": { "name": "Royal Guard" },
-    "s10_07": { "name": "Royal Elite Guard" },
-    "s10_08": { "name": "Elite Guard" },
-    "s10_09": { "name": "Final Station" },
-    "s10_10": { "name": "FINAL BOSS: Great Trash King" }
+    "s01_01": {
+      "name": "First Trash Pile"
+    },
+    "s01_02": {
+      "name": "Bottle Area"
+    },
+    "s01_03": {
+      "name": "Plastic Bag Corner"
+    },
+    "s01_04": {
+      "name": "Paper Scrap Pile"
+    },
+    "s01_05": {
+      "name": "Mini Transfer Station"
+    },
+    "s01_06": {
+      "name": "Small Trash Area"
+    },
+    "s01_07": {
+      "name": "Metal Zone"
+    },
+    "s01_08": {
+      "name": "Food Waste Pile"
+    },
+    "s01_09": {
+      "name": "Elite Sorting Station"
+    },
+    "s01_10": {
+      "name": "Boss: Trash Lord"
+    },
+    "s02_01": {
+      "name": "Market Stalls"
+    },
+    "s02_02": {
+      "name": "Secondhand Area"
+    },
+    "s02_03": {
+      "name": "Plastic Zone"
+    },
+    "s02_04": {
+      "name": "Glass Area"
+    },
+    "s02_05": {
+      "name": "Battery Charging Station"
+    },
+    "s02_06": {
+      "name": "Electronics Area"
+    },
+    "s02_07": {
+      "name": "Old Books Stall"
+    },
+    "s02_08": {
+      "name": "Wood Area"
+    },
+    "s02_09": {
+      "name": "Elite Recycling Station"
+    },
+    "s02_10": {
+      "name": "Boss: Trash Doctor"
+    },
+    "s03_01": {
+      "name": "Steel Scrap Yard"
+    },
+    "s03_02": {
+      "name": "Old Car Zone"
+    },
+    "s03_03": {
+      "name": "Iron Scrap Pile"
+    },
+    "s03_04": {
+      "name": "Machinery Area"
+    },
+    "s03_05": {
+      "name": "Welding Station"
+    },
+    "s03_06": {
+      "name": "Engine Area"
+    },
+    "s03_07": {
+      "name": "Parts Yard"
+    },
+    "s03_08": {
+      "name": "Cable Area"
+    },
+    "s03_09": {
+      "name": "Mini Robot Station"
+    },
+    "s03_10": {
+      "name": "Boss: Metal King"
+    },
+    "s04_01": {
+      "name": "Recycling Zone 1"
+    },
+    "s04_02": {
+      "name": "Recycling Zone 2"
+    },
+    "s04_03": {
+      "name": "Recycling Zone 3"
+    },
+    "s04_04": {
+      "name": "Recycling Zone 4"
+    },
+    "s04_05": {
+      "name": "Plastic Press Station"
+    },
+    "s04_06": {
+      "name": "Melting Area"
+    },
+    "s04_07": {
+      "name": "Molding Zone"
+    },
+    "s04_08": {
+      "name": "Packaging Zone"
+    },
+    "s04_09": {
+      "name": "Gold Sorting Station"
+    },
+    "s04_10": {
+      "name": "Boss: Master Recycler"
+    },
+    "s05_01": {
+      "name": "Waste Area 1"
+    },
+    "s05_02": {
+      "name": "Waste Area 2"
+    },
+    "s05_03": {
+      "name": "Dead Battery Zone"
+    },
+    "s05_04": {
+      "name": "Chemical Waste Site"
+    },
+    "s05_05": {
+      "name": "Neutralization Station"
+    },
+    "s05_06": {
+      "name": "Waste Processing Zone"
+    },
+    "s05_07": {
+      "name": "Toxic Gas Area"
+    },
+    "s05_08": {
+      "name": "Radiation Zone"
+    },
+    "s05_09": {
+      "name": "Detox Station"
+    },
+    "s05_10": {
+      "name": "Boss: Toxic King"
+    },
+    "s06_01": {
+      "name": "Processing Zone 1"
+    },
+    "s06_02": {
+      "name": "Processing Zone 2"
+    },
+    "s06_03": {
+      "name": "Processing Zone 3"
+    },
+    "s06_04": {
+      "name": "Processing Zone 4"
+    },
+    "s06_05": {
+      "name": "Water Filter Station"
+    },
+    "s06_06": {
+      "name": "Sterilization Zone"
+    },
+    "s06_07": {
+      "name": "Clean Trash Area"
+    },
+    "s06_08": {
+      "name": "Reuse Zone"
+    },
+    "s06_09": {
+      "name": "Gold Sorting Station"
+    },
+    "s06_10": {
+      "name": "Boss: Regeneration Master"
+    },
+    "s07_01": {
+      "name": "Shallow Water 1"
+    },
+    "s07_02": {
+      "name": "Shallow Water 2"
+    },
+    "s07_03": {
+      "name": "Coral Reef"
+    },
+    "s07_04": {
+      "name": "Trash Beach"
+    },
+    "s07_05": {
+      "name": "Sea Water Filter Station"
+    },
+    "s07_06": {
+      "name": "Deep Zone 1"
+    },
+    "s07_07": {
+      "name": "Deep Zone 2"
+    },
+    "s07_08": {
+      "name": "High Pressure Area"
+    },
+    "s07_09": {
+      "name": "Ocean Rescue Station"
+    },
+    "s07_10": {
+      "name": "Boss: Ocean Garbage Monster"
+    },
+    "s08_01": {
+      "name": "Forbidden Border 1"
+    },
+    "s08_02": {
+      "name": "Forbidden Border 2"
+    },
+    "s08_03": {
+      "name": "Monster Zone"
+    },
+    "s08_04": {
+      "name": "Cursed Territory"
+    },
+    "s08_05": {
+      "name": "Monster Station"
+    },
+    "s08_06": {
+      "name": "Dark Zone"
+    },
+    "s08_07": {
+      "name": "Radiation Area"
+    },
+    "s08_08": {
+      "name": "Anomaly Point"
+    },
+    "s08_09": {
+      "name": "Alert Station"
+    },
+    "s08_10": {
+      "name": "Boss: God of Stagnation"
+    },
+    "s09_01": {
+      "name": "Hell Gate 1"
+    },
+    "s09_02": {
+      "name": "Hell Gate 2"
+    },
+    "s09_03": {
+      "name": "Fire Pit"
+    },
+    "s09_04": {
+      "name": "Ash Zone"
+    },
+    "s09_05": {
+      "name": "Inferno Station"
+    },
+    "s09_06": {
+      "name": "Furnace"
+    },
+    "s09_07": {
+      "name": "Coal Zone"
+    },
+    "s09_08": {
+      "name": "Poison Smoke Area"
+    },
+    "s09_09": {
+      "name": "Fire Cleanup Station"
+    },
+    "s09_10": {
+      "name": "Boss: Fire Master"
+    },
+    "s10_01": {
+      "name": "Trash Palace 1"
+    },
+    "s10_02": {
+      "name": "Trash Palace 2"
+    },
+    "s10_03": {
+      "name": "Royal Hall"
+    },
+    "s10_04": {
+      "name": "Treasure Vault"
+    },
+    "s10_05": {
+      "name": "Guard Station"
+    },
+    "s10_06": {
+      "name": "Royal Guard"
+    },
+    "s10_07": {
+      "name": "Royal Elite Guard"
+    },
+    "s10_08": {
+      "name": "Elite Guard"
+    },
+    "s10_09": {
+      "name": "Final Station"
+    },
+    "s10_10": {
+      "name": "FINAL BOSS: Great Trash King"
+    }
   },
   "newElements": {
     "energy": "Energy",
@@ -1185,162 +1525,111 @@
     "ult_03": "Time Loop",
     "ult_04": "Black Hole Devour"
   },
-  "admin": {
-    "tabs": {
-      "overview": "Overview",
-      "rewards": "Rewards",
-      "users": "Users",
-      "experiments": "Experiments",
-      "quiz": "Quiz",
-      "sheets": "Google Sheets",
-      "research": "Research",
-      "system": "System"
+  "smartBin": {
+    "kpis": {
+      "binsOnline": "Bins online",
+      "offline": "Offline",
+      "totalKg": "Total kg (24h)",
+      "co2KgSaved": "kg CO₂e avoided"
     },
-    "dashboardTitle": "Admin Dashboard",
-    "research": "Research",
-    "quiz": {
-      "title": "Quiz Mini-Game Manager",
-      "subtitle": "Create, edit questions and configure quiz",
-      "addQuestion": "Add question",
-      "editQuestion": "Edit question",
-      "deleteQuestion": "Delete question",
-      "confirmDelete": "Are you sure you want to delete this question?",
-      "content": "Question content",
-      "contentPlaceholder": "Enter question content...",
-      "optionA": "Option A",
-      "optionB": "Option B",
-      "optionC": "Option C",
-      "optionD": "Option D",
-      "correctKey": "Correct answer",
-      "points": "Points",
-      "category": "Category",
-      "difficulty": "Difficulty",
-      "difficultyEasy": "Easy",
-      "difficultyMedium": "Medium",
-      "difficultyHard": "Hard",
-      "enabled": "Enabled",
-      "imageUrl": "Image URL",
-      "order": "Order",
-      "preview": "Preview",
-      "import": "Import",
-      "export": "Export",
-      "importJson": "Import JSON",
-      "importCsv": "Import CSV",
-      "exportJson": "Export JSON",
-      "exportCsv": "Export CSV",
-      "reorder": "Reorder",
-      "moveUp": "Up",
-      "moveDown": "Down",
-      "totalQuestions": "Total questions",
-      "activeQuestions": "Active",
-      "saveQuestion": "Save question",
-      "questionSaved": "Question saved",
-      "questionDeleted": "Question deleted",
-      "questionsImported": "Imported {count} questions",
-      "questionsExported": "Exported {count} questions",
-      "noQuestions": "No questions yet",
-      "syncToSheets": "Sync to Sheets",
-      "syncFromSheets": "Pull from Sheets",
-      "lastSync": "Last sync",
-      "neverSynced": "Never synced",
-      "config": {
-        "title": "Quiz Configuration",
-        "startTime": "Start time",
-        "endTime": "End time",
-        "questionDuration": "Time per question (seconds)",
-        "maxQuestions": "Max questions per play",
-        "maxPoints": "Max reward points",
-        "comboBonus": "Combo bonus",
-        "description": "Quiz description",
-        "descriptionPlaceholder": "Description shown to students...",
-        "saveConfig": "Save configuration",
-        "configSaved": "Configuration saved"
-      }
+    "forecast": "24h Demand Forecast",
+    "hourLabels": {
+      "0": "00",
+      "6": "06",
+      "12": "12",
+      "18": "18",
+      "24": "24"
+    }
+  },
+  "survey": {
+    "submit": "Submit",
+    "submitted": "Submitted"
+  },
+  "theoryOfChange": {
+    "title": "Theory of Change",
+    "tagline": "Capability × Opportunity × Motivation → Behaviour → SDG Impact.",
+    "taglineHint": "Drag the slider to test interventions live.",
+    "nodes": {
+      "capability": "Capability",
+      "opportunity": "Opportunity",
+      "motivation": "Motivation",
+      "behaviour": "Behaviour"
     },
-    "sheets": {
-      "title": "Google Sheets Sync",
-      "subtitle": "Manage 3-way sync: Sheets ↔ Firestore ↔ Supabase",
-      "status": "Status",
-      "lastSync": "Last sync",
-      "neverSynced": "Never synced",
-      "syncInterval": "Auto-sync every",
-      "syncIntervalValue": "15 minutes",
-      "spreadsheetId": "Spreadsheet ID",
-      "fullSync": "Full sync",
-      "pushToSheets": "Push to Sheets",
-      "pullFromSheets": "Pull from Sheets",
-      "syncing": "Syncing...",
-      "syncSuccess": "Sync successful!",
-      "syncFailed": "Sync failed",
-      "syncLog": "Sync history",
-      "conflictLog": "Conflicts",
-      "noConflicts": "No conflicts",
-      "usersCount": "Users",
-      "quizCount": "Questions",
-      "configCount": "Configs",
-      "rewardsCount": "Rewards",
-      "logsCount": "Logs",
-      "healthCheck": "Connection check",
-      "firestoreStatus": "Firestore",
-      "supabaseStatus": "Supabase",
-      "sheetsStatus": "Google Sheets",
-      "connected": "Connected",
-      "disconnected": "Disconnected",
-      "error": "Error",
-      "lastError": "Last error",
-      "triggeredBy": "Triggered by",
-      "duration": "Duration",
-      "rowsWritten": "Rows written"
+    "kinds": {
+      "knowledgeSkill": "Knowledge / Skill",
+      "peerBinAccess": "Peer / Bin access",
+      "identityReward": "Identity / Reward",
+      "sortAccuracy": "Sort accuracy"
+    }
+  },
+  "voice": {
+    "title": "Switch language",
+    "on": "Enable voice",
+    "off": "Disable voice",
+    "lang": {
+      "vi": "VI",
+      "en": "EN"
+    }
+  },
+  "family": {
+    "open": "Open Family Mode",
+    "homeTitle": "Family Mode"
+  },
+  "error": {
+    "serverUnavailable": "Server unavailable",
+    "networkError": "Network error",
+    "unauthorized": "Your session has expired",
+    "forbidden": "You do not have permission",
+    "notFound": "Resource not found",
+    "validationFailed": "Invalid input",
+    "rateLimited": "Too many requests. Please slow down.",
+    "internal": "Something went wrong, please try again",
+    "clan": {
+      "full": "Clan limit reached. Please join an existing clan.",
+      "notFound": "Clan does not exist",
+      "notMember": "You are not a member of this clan",
+      "memberNotFound": "Member not found in clan",
+      "notLeader": "Only the leader can do this",
+      "missingTarget": "Member name is required",
+      "missingExp": "Not enough EXP",
+      "emptyMessage": "Message is empty",
+      "messageTooLong": "Message is too long"
     },
-    "research": {
-      "title": "Research Data",
-      "subtitle": "Behavior analysis, interventions, and novelty decay",
-      "overview": "Overview",
-      "retention": "Retention",
-      "interventions": "Interventions",
-      "personality": "Personality",
-      "leaderboard": "Leaderboard",
-      "decay": "Novelty Decay",
-      "exportCsv": "Export CSV",
-      "userLookup": "User lookup",
-      "userPlaceholder": "Enter UID or name...",
-      "triggerDecay": "Trigger decay detection",
-      "triggerIntervention": "Trigger intervention",
-      "totalUsers": "Total users",
-      "totalEvents": "Total events",
-      "avgSession": "Avg session",
-      "personalityDistribution": "Personality distribution",
-      "retentionDay1": "Retention D1",
-      "retentionDay7": "Retention D7",
-      "retentionDay30": "Retention D30",
-      "interventionEffectiveness": "Intervention effectiveness",
-      "noData": "No research data yet"
+    "chat": {
+      "empty": "Message is empty",
+      "tooLong": "Message is too long"
+    }
+  },
+  "email": {
+    "welcome": {
+      "subject": "Welcome to BMO Robot!"
     },
-    "system": {
-      "title": "System Status",
-      "subtitle": "Health check, audit log, cache & backup",
-      "uptime": "Uptime",
-      "memory": "Memory",
-      "dbConnections": "DB Connections",
-      "auditLog": "Audit Log",
-      "cacheManagement": "Cache management",
-      "clearCache": "Clear cache",
-      "cacheCleared": "Cache cleared",
-      "backupRestore": "Backup / Restore",
-      "backup": "Backup data.json",
-      "restore": "Restore",
-      "backupSuccess": "Backup successful",
-      "restoreSuccess": "Restore successful",
-      "serverLogs": "Server logs (last 100 lines)",
-      "actionCreate": "Create",
-      "actionUpdate": "Update",
-      "actionDelete": "Delete",
-      "actionSync": "Sync",
-      "actionLogin": "Login",
-      "byUser": "By",
-      "atTime": "At",
-      "details": "Details",
-      "rateLimitSettings": "Rate limit settings"
+    "passwordReset": {
+      "subject": "Reset your BMO Robot password"
+    }
+  },
+  "audit": {
+    "title": "Your data log",
+    "empty": "No events yet. When you scan waste or chat with BMO, those events will show up here.",
+    "loadError": "Could not load log: {{error}}",
+    "loading": "Loading…",
+    "loadMore": "Load more",
+    "messages": {
+      "scan": "You scanned a sorting image. The system does NOT store the image — only hash",
+      "consentGranted": "You consented to dataset contribution (revocable anytime).",
+      "consentRevoked": "You withdrew your dataset consent.",
+      "chatMessage": "You sent",
+      "chatMessageSuffix": "characters to the chatbot.",
+      "login": "You logged in.",
+      "logout": "You logged out.",
+      "rewardClaim": "You received",
+      "rewardSpent": "You spent",
+      "rewardPoints": "reward points.",
+      "federatedSubmit": "You contributed 1 federated-learning round (gradient clipped + noised before upload).",
+      "quizComplete": "You completed a quiz.",
+      "score": "Score",
+      "fallback": "Event",
+      "recorded": "was recorded."
     }
   }
 }

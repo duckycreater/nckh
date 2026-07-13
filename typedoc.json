@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "docs/api",
+  "entryPointStrategy": "expand",
+  "entryPoints": [
+    "./src/apiClient.ts",
+    "./src/apiContract.ts",
+    "./server/apiContract.ts"
+  ],
+  "tsconfig": "./typedoc.tsconfig.json",
+  "name": "BMO Robot — API Reference",
+  "readme": "./docs/api/README.md",
+  "gitRevision": "main",
+  "hideGenerator": true,
+  "githubPages": false,
+  "categorizeByGroup": true,
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  }
+}

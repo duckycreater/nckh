@@ -1,0 +1,32 @@
+{
+  "name": "waste-classifier",
+  "version": "v1",
+  "framework": "onnx",
+  "expectedInputSize": [
+    16
+  ],
+  "url": "/models/waste_classifier_v1.onnx",
+  "sha256": "83eca56f84c9e51b92473ab170b0b0ecf39f76f2611a1bdca17ca435a33a5261",
+  "license": "Apache-2.0",
+  "trainedOnSamples": 1920,
+  "registeredAt": 1783390043425,
+  "classOrder": [
+    "organic",
+    "plastic",
+    "paper",
+    "glass",
+    "metal",
+    "hazard"
+  ],
+  "classNamesVi": {
+    "organic": "Hữu cơ",
+    "plastic": "Nhựa",
+    "paper": "Giấy",
+    "glass": "Thủy tinh",
+    "metal": "Kim loại",
+    "hazard": "Nguy hại"
+  },
+  "inputSchema": "1x16 float32 feature vector (see scripts/train_and_export_waste_classifier.py)",
+  "outputSchema": "1x6 float32 logits (organic, plastic, paper, glass, metal, hazard)",
+  "runtime": "onnxruntime-web 1.19+"
+}

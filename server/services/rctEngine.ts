@@ -383,12 +383,10 @@ export function bonferroni(pvalues: number[], alpha = 0.05): { rejectedIdx: numb
 }
 
 // Simple z-test approximation for very large samples (Wald).
-// Used for the primary outcome visualisation. Two-sided p-value.
+// Two-sided p-value = erfc(|z|/√2) (with erf from A&S 7.1.26).
 export function zscoreTwoSidedP(z: number): number {
   if (Number.isNaN(z)) return 1;
   const abs = Math.abs(z);
-  // Abramowitz & Stegun 26.2.18 approximation of Q(z).
-  // Q(z) ≈ exp(-z²/2)/(z√(2π)) * sum_k ...; for our use 4-term expansion is enough.
   const a1 = 0.254829592;
   const a2 = -0.284496736;
   const a3 = 1.421413741;
@@ -396,9 +394,10 @@ export function zscoreTwoSidedP(z: number): number {
   const a5 = 1.061405429;
   const p = 0.3275911;
   const x = abs / Math.SQRT2;
-  let t = 1 / (1 + p * x);
-  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-  return Math.min(1, 2 * (1 - y));
+  const t = 1 / (1 + p * x);
+  const erf = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  // Two-sided p = erfc(|z|/√2) = 1 - erf(|z|/√2).
+  return Math.min(1, 1 - erf);
 }
 
 // Compute Welch's t-test p-value (two-sided) from summary statistics.
@@ -561,8 +560,9 @@ export function powerAnalysis(
   const de = 1 + (clusterSize - 1) * icc;
   const effN = (nClustersPerArm * clusterSize) / de;
   const zA = Math.abs(inverseNormalCDF(1 - alpha / 2));
-  const zB = zA - effectSize * Math.sqrt(effN);
-  const power = normalCDF(zB);
+  const nonCentrality = effectSize * Math.sqrt(effN);
+  // Two-sided power = Φ(δ - zA) + Φ(-δ - zA) where δ = effect·√N.
+  const power = normalCDF(nonCentrality - zA) + normalCDF(-nonCentrality - zA);
   return {
     alpha,
     nClustersPerArm,
@@ -570,7 +570,7 @@ export function powerAnalysis(
     icc,
     effectSize,
     effectiveSampleSize: effN,
-    power,
+    power: Math.min(1, Math.max(0, power)),
   };
 }
 
@@ -607,21 +607,22 @@ export function inverseNormalCDF(p: number): number {
     ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
 }
 
-// Standard normal CDF.
+// Standard normal CDF — A&S 7.1.26 Padé approximation of erf(|x|/√2).
+// Accurate to ~1.5e-7 across the real line.
 export function normalCDF(z: number): number {
-  // Abramowitz-Stegun 7.1.26.
   if (z < -8) return 0;
   if (z > 8) return 1;
-  let sum = 0;
-  const tm = z / Math.SQRT2;
-  for (let k = 0; k < 100; k++) {
-    const t = Math.pow(0.2316419, k + 1) / (factorial(k + 1) * (2 * k + 1)) *
-      Math.pow(tm, 2 * k + 1);
-    sum += t;
-    if (t < 1e-12) break;
-  }
-  const erf = (2 / Math.sqrt(Math.PI)) * sum;
-  return 0.5 * (1 + erf);
+  const x = Math.abs(z) / Math.SQRT2;
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p = 0.3275911;
+  const t = 1 / (1 + p * x);
+  const erf = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  // Φ(z) = ½(1 + erf(z/√2)).
+  return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
 }
 function factorial(k: number): number {
   let v = 1;

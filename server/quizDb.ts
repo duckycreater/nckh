@@ -79,10 +79,18 @@ export async function listQuizQuestions(): Promise<QuizQuestion[]> {
     throw new Error("Quiz database is not configured");
   }
 
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/quiz_questions?select=*&order=order.asc,question_id.asc`,
-    { method: "GET", headers: getHeaders() }
-  );
+  const url = `${supabaseUrl}/rest/v1/quiz_questions?select=*&order=order.asc,question_id.asc`;
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "GET", headers: getHeaders() });
+  } catch (e) {
+    const cause = (e as Error)?.cause as any;
+    throw new Error(
+      `fetch failed for ${url} (${(e as Error).message}${
+        cause?.code ? `, code=${cause.code}` : ""
+      }${cause?.message ? `: ${cause.message}` : ""})`,
+    );
+  }
 
   if (!res.ok) {
     throw new Error(`Failed to list quiz questions: ${res.status} ${await res.text()}`);
@@ -262,10 +270,19 @@ export async function getQuizConfig(): Promise<Record<string, any>> {
     return {};
   }
 
-  const res = await fetch(`${supabaseUrl}/rest/v1/quiz_config?select=key,value,updated_at,updated_by`, {
-    method: "GET",
-    headers: getHeaders(),
-  });
+  const url = `${supabaseUrl}/rest/v1/quiz_config?select=key,value,updated_at,updated_by`;
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "GET", headers: getHeaders() });
+  } catch (e) {
+    const cause = (e as Error)?.cause as any;
+    console.warn(
+      `[quizDb] fetch failed for ${url} (${(e as Error).message}${
+        cause?.code ? `, code=${cause.code}` : ""
+      })`,
+    );
+    return {};
+  }
 
   if (!res.ok) {
     console.warn(`[quizDb] Failed to fetch config: ${res.status}`);

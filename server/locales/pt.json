@@ -1,0 +1,68 @@
+{
+  "error": {
+    "serverUnavailable": "Servidor indisponível",
+    "networkError": "Erro de rede",
+    "unauthorized": "Não autorizado",
+    "forbidden": "Acesso proibido",
+    "notFound": "Não encontrado",
+    "validationFailed": "Validação falhou",
+    "rateLimited": "Muitas requisições. Tente novamente mais tarde.",
+    "internal": "Erro interno do servidor",
+    "methodNotAllowed": "Método não permitido",
+    "databaseUnavailable": "Banco de dados indisponível",
+    "clan": {
+      "full": "Limite de clã atingido. Entre em um clã existente.",
+      "notFound": "Clã não existe",
+      "notMember": "Você não é membro deste clã",
+      "memberNotFound": "Membro não encontrado no clã",
+      "notLeader": "Apenas o líder pode fazer isso",
+      "missingTarget": "Nome do membro é obrigatório",
+      "missingExp": "EXP insuficiente",
+      "emptyMessage": "Mensagem vazia",
+      "messageTooLong": "Mensagem muito longa"
+    },
+    "chat": {
+      "empty": "Mensagem vazia",
+      "tooLong": "Mensagem muito longa"
+    },
+    "scan": {
+      "notAnImage": "O arquivo deve ser uma imagem",
+      "noText": "Texto obrigatório",
+      "quotaExceeded": "Cota diária de análise excedida"
+    },
+    "auth": {
+      "invalidCredentials": "Usuário ou senha inválidos",
+      "accountTaken": "Conta já em uso",
+      "passwordTooShort": "A senha deve ter pelo menos 6 caracteres",
+      "sessionExpired": "Sessão expirada, faça login novamente"
+    },
+    "tournamentEnded": "O torneio terminou",
+    "nameTooShort": "Nome do clã muito curto",
+    "tagInvalid": "A tag do clã deve ter 2-5 caracteres",
+    "alreadyMember": "Você já está em um clã",
+    "tagTaken": "Tag de clã já em uso",
+    "notLeaderDisband": "Apenas o líder pode dissolver",
+    "badClanId": "ID de clã inválido",
+    "badUserId": "ID de usuário inválido",
+    "badRequest": "Requisição inválida",
+    "emptyBody": "Corpo da requisição vazio"
+  },
+  "email": {
+    "welcome": {
+      "subject": "Bem-vindo ao BMO Robot!",
+      "body": "Olá {name},\n\nBem-vindo ao BMO Robot! Estamos animados para ajudá-lo a construir hábitos ecológicos com IA no dispositivo, aprendizado federado e uma competição amigável.\n\nPara começar, faça login e realize sua primeira análise.\n\n— Equipe BMO Robot"
+    },
+    "passwordReset": {
+      "subject": "Redefina sua senha do BMO Robot"
+    },
+    "password_reset": {
+      "body": "Olá {name},\n\nRecebemos uma solicitação para redefinir sua senha do BMO Robot. Se foi você, use o link abaixo em até 24 horas para definir uma nova senha.\n\nLink: {link}\n\nSe você não fez essa solicitação, ignore este e-mail — sua senha permanecerá inalterada.\n\n— Equipe BMO Robot"
+    },
+    "achievement": {
+      "body": "Olá {name},\n\nParabéns por獲得 a insígnia \"{achievement}\"! Continue assim pelo planeta.\n\n— Equipe BMO Robot"
+    },
+    "weekly_summary": {
+      "body": "Olá {name},\n\nSua semana em resumo:\n\n• Análises: {scans}\n• CO₂e evitado: {co2} kg\n• Sequência: {streak} dias\n• Rank: #{rank}\n\nContinue!\n\n— Equipe BMO Robot"
+    }
+  }
+}

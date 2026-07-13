@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { computeEID4Score, EID4_ITEMS_VI, EID4_ITEMS_EN } from "../services/identityEngine";
 
 export interface ValidatedSurveyProps {
@@ -23,6 +24,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
   language = "vi",
   onSubmit,
 }) => {
+  const { t } = useTranslation();
   const items = language === "vi" ? EID4_ITEMS_VI : EID4_ITEMS_EN;
   const [responses, setResponses] = useState<number[]>(items.map(() => -1));
   const [submitted, setSubmitted] = useState(false);
@@ -149,7 +151,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
               : "cursor-not-allowed bg-slate-300 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
           }`}
         >
-          {submitted ? "Submitted" : "Submit"}
+          {submitted ? t("survey.submitted") : t("survey.submit")}
         </motion.button>
       </div>
     </div>

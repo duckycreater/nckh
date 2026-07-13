@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, Truck, BarChart2, AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export interface SmartBinTwinProps {
   emulatorUrl?: string;
@@ -144,11 +145,12 @@ export const SmartBinTwin: React.FC<SmartBinTwinProps> = ({
 // ─── KPI strip ───────────────────────────────────────────────────────────
 
 const KpiStrip: React.FC<{ kpis: KpiData }> = ({ kpis }) => {
+  const { t } = useTranslation();
   const tiles = [
-    { icon: <TrendingUp className="h-5 w-5" />, label: "Bins online", value: kpis.binsOnline, accent: "#0ea5e9" },
-    { icon: <AlertTriangle className="h-5 w-5" />, label: "Offline", value: kpis.binsOffline, accent: "#dc2626" },
-    { icon: <BarChart2 className="h-5 w-5" />, label: "Total kg (24h)", value: kpis.totalKg.toFixed(1), accent: "#16a34a" },
-    { icon: <Truck className="h-5 w-5" />, label: "kg CO₂e avoided", value: kpis.co2KgSaved.toFixed(2), accent: "#a16207" },
+    { icon: <TrendingUp className="h-5 w-5" />, label: t("smartBin.kpis.binsOnline"), value: kpis.binsOnline, accent: "#0ea5e9" },
+    { icon: <AlertTriangle className="h-5 w-5" />, label: t("smartBin.kpis.offline"), value: kpis.binsOffline, accent: "#dc2626" },
+    { icon: <BarChart2 className="h-5 w-5" />, label: t("smartBin.kpis.totalKg"), value: kpis.totalKg.toFixed(1), accent: "#16a34a" },
+    { icon: <Truck className="h-5 w-5" />, label: t("smartBin.kpis.co2KgSaved"), value: kpis.co2KgSaved.toFixed(2), accent: "#a16207" },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -173,17 +175,18 @@ const KpiStrip: React.FC<{ kpis: KpiData }> = ({ kpis }) => {
 // ─── Demand forecast ─────────────────────────────────────────────────────
 
 const DemandForecast: React.FC<{ forecast: ForecastBucket[] }> = ({ forecast }) => {
+  const { t } = useTranslation();
   const max = Math.max(1, ...forecast.map((b) => b.predictedKg));
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">24h Demand Forecast</p>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("smartBin.forecast")}</p>
       <div className="mt-3 flex h-32 items-end gap-1">
         {forecast.map((bucket, i) => (
           <div key={i} className="flex-1 rounded-t-sm" style={{ backgroundColor: ACCENT.plastic, height: `${(bucket.predictedKg / max) * 100}%` }} title={`${bucket.hour}:00 — ${bucket.predictedKg.toFixed(2)} kg`} />
         ))}
       </div>
       <div className="mt-2 flex justify-between text-[10px] text-slate-500">
-        <span>00</span><span>06</span><span>12</span><span>18</span><span>24</span>
+        <span>{t("smartBin.hourLabels.0")}</span><span>{t("smartBin.hourLabels.6")}</span><span>{t("smartBin.hourLabels.12")}</span><span>{t("smartBin.hourLabels.18")}</span><span>{t("smartBin.hourLabels.24")}</span>
       </div>
     </div>
   );

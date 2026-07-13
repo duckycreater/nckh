@@ -1,0 +1,197 @@
+/**
+ * src/lib/rtl.css — Foundation styles for RTL (right-to-left) locales.
+ *
+ * Loaded once globally from `src/main.tsx`. Uses CSS logical properties
+ * so most existing components automatically mirror in RTL without code
+ * changes.
+ *
+ * What this file does:
+ *   1. Tells the browser which scripts we use so it can pick an
+ *      appropriate Arabic font for `dir="rtl"`.
+ *   2. Provides the Noto Sans Arabic web font (offline fallback to
+ *      system Arabic fonts).
+ *   3. Overrides a few common patterns that React/Tailwind generates as
+ *      physical properties (margin-left, padding-right, …) — these are
+ *      tricky to find automatically with eslint-plugin-logical, so we
+ *      provide logical-property fall-backs for the most-used icons +
+ *      utility classes.
+ *   4. Tweaks a few components that *cannot* be RTL via logical props
+ *      alone (icons, flipping, gradients).
+ *
+ * Adding Arabic to the supported list:
+ *   - Update SUPPORTED_LANGUAGE_CODES (src/lib/i18n.ts) with "ar"
+ *   - Update localeRouter COUNTRY_TO_LOCALE (already includes SA/AE/EG)
+ *   - Add `ar` to src/locales/ar.json (or accept en fallback for now)
+ */
+
+@charset "UTF-8";
+
+/* -------------------------------------------------------------------------- */
+/*  Arabic font                                                                */
+/* -------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Noto Sans Arabic";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: local("Noto Sans Arabic"), local("NotoNaskhArabic"),
+       local("Geeza Pro"), local("Tahoma"), local("Arial");
+}
+
+/* When the document is RTL, switch the base font to the Arabic family so
+   Arabic characters render correctly while Latin glyphs fall back to the
+   default `font-sans` stack. */
+:root[dir="rtl"] {
+  --bmo-font-primary: "Noto Sans Arabic", "Geeza Pro", "Tahoma", system-ui,
+    -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bmo-direction: rtl;
+}
+
+:root[dir="ltr"] {
+  --bmo-font-primary: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --bmo-direction: ltr;
+}
+
+html {
+  font-family: var(--bmo-font-primary);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Sweep: replace physical offsets with logical ones for the few classes      */
+/*  that still use them. Tailwind does NOT have a built-in `ps-4` →            */
+/*  `padding-inline-start: 1rem` mapping for older versions, so we patch the   */
+/*  highest-impact cases here. Use `prefer-*` so a physical override (e.g. a  */
+/*  gradient animation) is preserved.                                         */
+/* -------------------------------------------------------------------------- */
+
+@supports (padding-inline-start: 1rem) {
+  /* Icon-text spacing: `pl-*` was used in many places. */
+  .pl-2  { padding-inline-start: 0.5rem; }
+  .pl-3  { padding-inline-start: 0.75rem; }
+  .pl-4  { padding-inline-start: 1rem; }
+  .pl-6  { padding-inline-start: 1.5rem; }
+  .pl-8  { padding-inline-start: 2rem; }
+  .pr-2  { padding-inline-end:   0.5rem; }
+  .pr-3  { padding-inline-end:   0.75rem; }
+  .pr-4  { padding-inline-end:   1rem; }
+  .pr-6  { padding-inline-end:   1.5rem; }
+  .pr-8  { padding-inline-end:   2rem; }
+  .ml-2  { margin-inline-start:  0.5rem; }
+  .ml-3  { margin-inline-start:  0.75rem; }
+  .ml-4  { margin-inline-start:  1rem; }
+  .ml-auto { margin-inline-start: auto; }
+  .mr-2  { margin-inline-end:    0.5rem; }
+  .mr-3  { margin-inline-end:    0.75rem; }
+  .mr-4  { margin-inline-end:    1rem; }
+
+  /* Border-radius mirroring — Tailwind's `rounded-l-*` only applies
+     to the visual-left, but a "physical" corner is wrong under RTL. We
+     swap rounded-s-* (start) and rounded-e-* (end) so the rounded side
+     moves with the text direction. */
+  .rounded-l-md,
+  .rounded-l-lg,
+  .rounded-l-xl,
+  .rounded-l-2xl,
+  .rounded-l-3xl {
+    border-start-start-radius: inherit;
+    border-end-start-radius: inherit;
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+  }
+  .rounded-r-md,
+  .rounded-r-lg,
+  .rounded-r-xl,
+  .rounded-r-2xl,
+  .rounded-r-3xl {
+    border-start-end-radius: inherit;
+    border-end-end-radius: inherit;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Chevron / arrow mirror — directional icons should flip in RTL.            */
+/* -------------------------------------------------------------------------- */
+
+:root[dir="rtl"] .bmo-arrow-flip,
+:root[dir="rtl"] svg.bmo-arrow-flip,
+:root[dir="rtl"] [data-flip-rtl="true"] {
+  transform: scaleX(-1);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Drop shadow / gradients — they often encode "from-left" assumptions.        */
+/* -------------------------------------------------------------------------- */
+
+:root[dir="rtl"] .shadow-l-from,
+:root[dir="rtl"] [data-shadow-flip="true"] {
+  --tw-shadow-color: rgb(0 0 0 / 0.1);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Timeline & breadcrumbs — left-borders become right-borders in RTL.        */
+/* -------------------------------------------------------------------------- */
+
+:root[dir="rtl"] .border-l-2,
+:root[dir="rtl"] .border-l-4 {
+  border-inline-start-width: 2px;
+  border-inline-end-width: 0;
+}
+:root[dir="rtl"] .border-l-2 { border-inline-start-width: 2px; }
+:root[dir="rtl"] .border-l-4 { border-inline-start-width: 4px; }
+
+:root[dir="rtl"] .timeline-left-border {
+  border-inline-start: 2px solid;
+  border-inline-end: none;
+  padding-inline-start: 1rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Mind-map + grid layouts                                                    */
+/* -------------------------------------------------------------------------- */
+
+:root[dir="rtl"] .grid-cols-rtl-mirror > *:nth-child(odd) {
+  grid-column: 2 / 3;
+}
+:root[dir="rtl"] .grid-cols-rtl-mirror > *:nth-child(even) {
+  grid-column: 1 / 2;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Form controls — placeholder alignment.                                      */
+/* -------------------------------------------------------------------------- */
+
+:root[dir="rtl"] input::placeholder,
+:root[dir="rtl"] textarea::placeholder {
+  text-align: start;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Numeric inputs should stay LTR even in RTL locales (numbers don't read     */
+/*  right-to-left).                                                            */
+/* -------------------------------------------------------------------------- */
+
+:root[dir="rtl"] input[type="number"],
+:root[dir="rtl"] input[type="tel"],
+:root[dir="rtl"] .bmo-numeric {
+  direction: ltr;
+  unicode-bidi: embed;
+  text-align: end;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Reduce motion always applies (RTL doesn't change a11y semantics).          */
+/* -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root[dir="rtl"] *,
+  :root[dir="rtl"] *::before,
+  :root[dir="rtl"] *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

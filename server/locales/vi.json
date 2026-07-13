@@ -1,0 +1,68 @@
+{
+  "error": {
+    "serverUnavailable": "Máy chủ không khả dụng",
+    "networkError": "Lỗi mạng",
+    "unauthorized": "Chưa đăng nhập hoặc phiên đã hết hạn",
+    "forbidden": "Bạn không có quyền truy cập",
+    "notFound": "Không tìm thấy tài nguyên",
+    "validationFailed": "Dữ liệu không hợp lệ",
+    "rateLimited": "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.",
+    "internal": "Đã xảy ra lỗi, vui lòng thử lại sau",
+    "methodNotAllowed": "Phương thức không được hỗ trợ",
+    "databaseUnavailable": "Cơ sở dữ liệu không khả dụng",
+    "clan": {
+      "full": "Đã đạt giới hạn clan. Hãy tham gia clan hiện có.",
+      "notFound": "Clan không tồn tại",
+      "notMember": "Bạn không phải thành viên clan",
+      "memberNotFound": "Thành viên không tồn tại trong clan",
+      "notLeader": "Chỉ chủ tịch mới có quyền",
+      "missingTarget": "Thiếu tên thành viên",
+      "missingExp": "Không đủ EXP",
+      "emptyMessage": "Tin nhắn trống",
+      "messageTooLong": "Tin nhắn quá dài"
+    },
+    "chat": {
+      "empty": "Tin nhắn trống",
+      "tooLong": "Tin nhắn quá dài"
+    },
+    "scan": {
+      "notAnImage": "Tệp phải là hình ảnh",
+      "noText": "Cần nhập nội dung",
+      "quotaExceeded": "Đã vượt quá hạn mức quét trong ngày"
+    },
+    "auth": {
+      "invalidCredentials": "Tài khoản hoặc mật khẩu không đúng",
+      "accountTaken": "Tài khoản đã được sử dụng",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 6 ký tự",
+      "sessionExpired": "Phiên đã hết hạn, vui lòng đăng nhập lại"
+    },
+    "tournamentEnded": "Giải đấu đã kết thúc",
+    "nameTooShort": "Tên clan quá ngắn",
+    "tagInvalid": "Tag clan phải 2-5 ký tự",
+    "alreadyMember": "Bạn đã ở trong một clan",
+    "tagTaken": "Tag clan đã tồn tại",
+    "notLeaderDisband": "Chỉ chủ tịch mới có quyền giải tán",
+    "badClanId": "ID clan không hợp lệ",
+    "badUserId": "ID người dùng không hợp lệ",
+    "badRequest": "Yêu cầu không hợp lệ",
+    "emptyBody": "Body yêu cầu trống"
+  },
+  "email": {
+    "welcome": {
+      "subject": "Chào mừng đến với BMO Robot!",
+      "body": "Xin chào {name},\n\nChào mừng bạn đến với BMO Robot! Chúng tôi rất vui được đồng hành cùng bạn xây dựng thói quen xanh nhờ AI trên thiết bị, học liên kết và một chút thi đua thân thiện.\n\nĐể bắt đầu, hãy đăng nhập và hoàn thành lần quét đầu tiên.\n\n— Đội ngũ BMO Robot"
+    },
+    "passwordReset": {
+      "subject": "Khôi phục mật khẩu BMO Robot"
+    },
+    "password_reset": {
+      "body": "Xin chào {name},\n\nChúng tôi nhận được yêu cầu khôi phục mật khẩu BMO Robot của bạn. Nếu đúng là bạn, hãy dùng liên kết dưới đây trong vòng 24 giờ để đặt mật khẩu mới.\n\nLiên kết khôi phục: {link}\n\nNếu bạn không thực hiện yêu cầu này, hãy bỏ qua email — mật khẩu của bạn sẽ không thay đổi.\n\n— Đội ngũ BMO Robot"
+    },
+    "achievement": {
+      "body": "Xin chào {name},\n\nChúc mừng bạn đã nhận huy hiệu \"{achievement}\"! Hãy tiếp tục hành động vì hành tinh nhé.\n\n— Đội ngũ BMO Robot"
+    },
+    "weekly_summary": {
+      "body": "Xin chào {name},\n\nĐây là tổng kết tuần của bạn:\n\n• Số lượt quét: {scans}\n• CO₂e tránh được: {co2} kg\n• Streak: {streak} ngày\n• Hạng: #{rank}\n\nCố lên!\n\n— Đội ngũ BMO Robot"
+    }
+  }
+}

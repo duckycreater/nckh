@@ -3,6 +3,7 @@ import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
 import { useTranslation } from "react-i18next";
 import { Badge, Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
+import { formatNumber } from "../lib/format";
 import { Minus, TrendingUp, TrendingDown, Trophy } from "lucide-react";
 
 interface LeaderboardEntry {
@@ -52,7 +53,9 @@ const PODIUM_NAME_TOP: Record<number, string> = {
 };
 
 export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const loc = i18n.language;
+  const fmt = (n: number) => formatNumber(n, loc);
   const [users, setUsers] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +194,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
         </div>
         <div className="text-right">
           <p className="text-base font-black text-emerald-600">
-            {typeof scoreDisplay === "number" ? scoreDisplay.toLocaleString() : scoreDisplay}
+            {typeof scoreDisplay === "number" ? fmt(scoreDisplay) : scoreDisplay}
           </p>
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{getScoreLabel()}</p>
         </div>
@@ -216,7 +219,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
               </div>
               <div className={`relative mt-1.5 ${PODIUM_NAME_TOP[pos]} flex flex-col items-center`}>
                 <p className={`max-w-20 truncate text-center text-xs font-bold leading-tight ${isCurrent ? "text-amber-700" : "text-slate-600"}`}>{user.name}</p>
-                <p className="text-[10px] font-black text-emerald-600">{getScoreDisplay(user).toLocaleString()}</p>
+                <p className="text-[10px] font-black text-emerald-600">{fmt(getScoreDisplay(user))}</p>
               </div>
               <div className={`relative mt-1 w-full rounded-t-2xl rounded-b-lg bg-gradient-to-b ${PODIUM_BG[pos]} flex flex-col items-center justify-end pb-3 pt-4 ${PODIUM_HEIGHT[pos]}`}>
                 <p className="text-xl font-black text-white drop-shadow-sm">{pos + 1}</p>
@@ -249,9 +252,9 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
             </div>
           </div>
           <div className="text-right">
-            <p className="text-lg font-black text-emerald-600">{getScoreDisplay(myEntry).toLocaleString()}</p>
+            <p className="text-lg font-black text-emerald-600">{fmt(getScoreDisplay(myEntry))}</p>
             {pointsToNext > 0 && (
-              <p className="text-[10px] text-slate-400">{t("leaderboard.pointsToNext", { points: pointsToNext.toLocaleString(), prevRank: currentRank - 1 })}</p>
+              <p className="text-[10px] text-slate-400">{t("leaderboard.pointsToNext", { points: fmt(pointsToNext), prevRank: currentRank - 1 })}</p>
             )}
           </div>
         </div>
@@ -311,7 +314,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-black text-violet-600">{clan.exp.toLocaleString()}</p>
+                      <p className="font-black text-violet-600">{fmt(clan.exp)}</p>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">EXP</p>
                     </div>
                   </div>

@@ -52,6 +52,49 @@ function formatTimestamp(d: Date = new Date()): string {
   return `${dd}/${mm}/${yy} ${h}:${m}:${s}`;
 }
 
+// Coerce any value (including Firestore Timestamps, nested objects, arrays, etc.)
+// into a primitive that the Google Sheets values.update API will accept.
+// Firestore Timestamp has shape { _seconds, _nanoseconds } on the wire; we
+// convert to an ISO string. We also handle Date, null/undefined, plain objects
+// and arrays defensively.
+function toCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? "" : value.toISOString();
+  }
+  // Firestore Timestamp has toDate() and seconds/nanoseconds
+  const v: any = value;
+  if (typeof v?.toDate === "function") {
+    try {
+      const d: Date = v.toDate();
+      return isNaN(d.getTime()) ? "" : d.toISOString();
+    } catch {
+      /* fall through */
+    }
+  }
+  if (
+    v &&
+    typeof v === "object" &&
+    typeof v._seconds === "number" &&
+    typeof v._nanoseconds === "number"
+  ) {
+    const ms = v._seconds * 1000 + Math.floor(v._nanoseconds / 1e6);
+    return new Date(ms).toISOString();
+  }
+  if (typeof v === "object") {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  }
+  return String(v);
+}
+
+function rowToCells(row: unknown[]): string[] {
+  return row.map(toCell);
+}
+
 function recordSync(result: any, error?: string) {
   const entry = { timestamp: new Date().toISOString(), result, error };
   lastSyncTime = entry.timestamp;
@@ -172,8 +215,8 @@ async function fetchUsersFromFirestore(): Promise<any[][]> {
       String(u.points ?? 0),
       u.role || "user",
       u.role === "suspended" ? "suspended" : "active",
-      u.createdAt || "",
-      u.lastActive || "",
+      toCell(u.createdAt),
+      toCell(u.lastActive),
       u.account_id || "",
     ]);
   }
@@ -323,12 +366,16 @@ export async function runFullSheetsSync(
             });
           }
         }
+        // Coerce every cell to a primitive the Sheets API accepts.
+        // Firestore Timestamp objects would otherwise be rejected with
+        // "Invalid values: struct_value { _seconds, _nanoseconds }".
+        const safeRows = rows.map(rowToCells);
         // Write new data
         await sheets.spreadsheets.values.update({
           spreadsheetId,
           range: `'${sheetName}'!A2`,
           valueInputOption: "USER_ENTERED",
-          requestBody: { values: rows },
+          requestBody: { values: safeRows },
         });
       } catch (e) {
         errors.push(`Failed to push ${sheetName}: ${(e as Error).message}`);

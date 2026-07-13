@@ -63,6 +63,9 @@ import { familyRouter } from "../server/routes/family.js";
 import { experimentsRouter } from "../server/routes/experiments.js";
 import { socialRouter } from "../server/routes/social.js";
 import { longitudinalRouter } from "../server/routes/longitudinal.js";
+import { userPreferencesRouter } from "../server/routes/userPreferences.js";
+import { localeMiddleware } from "../server/services/localeRouter.js";
+import { getErrorMessage, err } from "../server/services/errorMessages.js";
 import { createSessionToken, validateToken } from "../server/auth.js";
 import { initSessionStore } from "../server/services/sessionStore.js";
 
@@ -77,12 +80,18 @@ const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// ─── Locale middleware (Phase 5 of i18n plan) ──────────────────────────────
+// Resolves the requester's preferred locale from explicit header, then
+// Accept-Language, then GeoIP. Attaches `req.locale` for downstream routes
+// (error messages, email templates, audit logging).
+app.use(localeMiddleware);
+
 // ─── Session token management (shared via ./server/auth.ts) ───────────────────
 
 // ─── Auth Middleware ─────────────────────────────────────────────────────────
 function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const result = validateToken(req.headers.authorization);
-  if (!result) return res.status(401).json({ error: "Unauthorized" });
+  if (!result) return res.status(401).json({ error: getErrorMessage("error.unauthorized", (req as any).locale?.locale) });
   (req as any).userNick = result.nick;
   (req as any).isAdmin = result.isAdmin;
   next();
@@ -104,11 +113,11 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
   try {
     const user = await getUser(result.nick);
     if (!user || user.role !== "admin") {
-      return res.status(403).json({ error: "Forbidden: Admin access required" });
+      return err(res, 403, "error.forbidden", req as any);
     }
   } catch (e) {
     console.warn("[Admin] Access denied:", e);
-    return res.status(403).json({ error: "Forbidden: Admin access required" });
+    return err(res, 403, "error.forbidden", req as any);
   }
   next();
 }
@@ -1030,10 +1039,10 @@ app.post("/api/reward", async (req, res) => {
         adaptiveMessage: adaptiveMessage || undefined
       });
     } else {
-      res.status(404).json({ error: "User not found" });
+      err(res, 404, "error.notFound", req as any);
     }
   } catch (error) {
-    res.status(500).json({ error: "Failed to reward" });
+    err(res, 500, "error.internal", req as any);
   }
 });
 
@@ -1625,14 +1634,14 @@ app.get("/api/admin/users", requireAdmin, async (req, res) => {
     const allUsers = await getAllUsers();
     res.json(allUsers.map(u => ({ name: u.name, nick: u.nick, points: u.points, role: u.role || 'user', account_id: u.account_id })));
   } catch (e) {
-    res.status(500).json({ error: "Failed to fetch users" });
+    err(res, 500, "error.internal", req as any);
   }
 });
 
 app.post("/api/upload", requireAdmin, upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
+      return err(res, 400, "error.scan.noText", req as any);
     }
     const b64 = Buffer.from(req.file.buffer).toString("base64");
     let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
@@ -1644,7 +1653,7 @@ app.post("/api/upload", requireAdmin, upload.single("image"), async (req, res) =
     res.json({ url: result.secure_url });
   } catch (error) {
     console.error("Upload error", error);
-    res.status(500).json({ error: "Upload failed" });
+    err(res, 500, "error.internal", req as any);
   }
 });
 
@@ -2122,7 +2131,7 @@ app.post("/api/chat", async (req, res) => {
     const { messages, nickname } = req.body;
 
     if (!ai) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not set" });
+      return err(res, 500, "error.internal", req as any);
     }
 
     // Research: Get personality mode for personalized system prompt
@@ -2177,7 +2186,7 @@ app.post("/api/chat", async (req, res) => {
   } catch (error: any) {
     console.error("Unexpected chat error:", error);
     if (!res.headersSent) {
-      res.status(500).json({ error: "Lỗi không xác định" });
+      err(res, 500, "error.internal", req as any);
     }
   }
 });
@@ -2187,10 +2196,10 @@ app.post("/api/scan-garbage", async (req, res) => {
     const { imageBase64: bodyImageBase64, image, nickname, consentToRelease, locale, geoLat, geoLng } = req.body;
     const imageBase64 = bodyImageBase64 ?? image;
     if (!imageBase64) {
-      return res.status(400).json({ error: "imageBase64 or image field is required" });
+      return err(res, 400, "error.scan.noText", req as any);
     }
     if (!ai) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not set" });
+      return err(res, 500, "error.internal", req as any);
     }
 
     const startTime = Date.now();
@@ -2381,7 +2390,7 @@ app.post("/api/scan-garbage", async (req, res) => {
     // Only catches truly unexpected errors
     console.error("Unexpected scan error:", error);
     if (!res.headersSent) {
-      res.status(500).json({ error: "Lỗi không xác định" });
+      err(res, 500, "error.internal", req as any);
     }
   }
 });
@@ -2534,7 +2543,7 @@ app.post("/api/admin/sync-sheets", requireAdmin, async (req, res) => {
   try {
     const { spreadsheetId } = req.body;
     if (!spreadsheetId) {
-      return res.status(400).json({ error: "Missing spreadsheetId" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
 
     const totalImported = await syncGoogleSheetsData(spreadsheetId);
@@ -2587,10 +2596,10 @@ app.put("/api/admin/users/:nick/role", requireAdmin, async (req, res) => {
     const { nick } = req.params;
     const { role } = req.body;
     if (!["user", "admin"].includes(role)) {
-      return res.status(400).json({ error: "Invalid role. Must be 'user' or 'admin'." });
+      return err(res, 400, 'error.validationFailed', req as any);
     }
     const user = await getUser(nick);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return err(res, 404, "error.notFound", req as any);
     user.role = role;
     await saveUser(user);
     res.json({ success: true, message: `Đã đổi role của ${nick} thành ${role}` });
@@ -2605,10 +2614,10 @@ app.put("/api/admin/users/:nick/points", requireAdmin, async (req, res) => {
     const { nick } = req.params;
     const { points, reason } = req.body;
     if (typeof points !== "number") {
-      return res.status(400).json({ error: "Invalid points value" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const user = await getUser(nick);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return err(res, 404, "error.notFound", req as any);
     const oldPoints = user.points;
     user.points = Math.max(0, points);
     await saveUser(user);
@@ -2629,10 +2638,10 @@ app.post("/api/admin/users/:nick/adjust-points", requireAdmin, async (req, res) 
     const { nick } = req.params;
     const { delta, reason } = req.body;
     if (typeof delta !== "number") {
-      return res.status(400).json({ error: "Invalid delta value" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const user = await getUser(nick);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return err(res, 404, "error.notFound", req as any);
     const oldPoints = user.points;
     user.points = Math.max(0, user.points + delta);
     await saveUser(user);
@@ -2653,7 +2662,7 @@ app.put("/api/admin/users/:nick/suspend", requireAdmin, async (req, res) => {
     const { nick } = req.params;
     const { suspended } = req.body;
     const user = await getUser(nick);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return err(res, 404, "error.notFound", req as any);
     user.role = suspended ? "suspended" : (nick.toLowerCase().startsWith("admin") ? "admin" : "user");
     await saveUser(user);
     res.json({ success: true, message: suspended ? `Đã suspend ${nick}` : `Đã unsuspend ${nick}` });
@@ -2668,10 +2677,10 @@ app.post("/api/admin/users/:nick/reset-progress", requireAdmin, async (req, res)
     const { nick } = req.params;
     const { confirm } = req.query;
     if (confirm !== "true") {
-      return res.status(400).json({ error: "Must confirm with ?confirm=true" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const user = await getUser(nick);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return err(res, 404, "error.notFound", req as any);
     user.points = 0;
     user.hasPlayed = false;
     user.progress = undefined;
@@ -2696,7 +2705,7 @@ app.delete("/api/admin/users/:nick", requireAdmin, async (req, res) => {
     const { nick } = req.params;
     const { confirm } = req.query;
     if (confirm !== "true") {
-      return res.status(400).json({ error: "Must confirm with ?confirm=true" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     if (db) {
       await db.collection("users").doc(nick.toLowerCase()).delete();
@@ -2729,7 +2738,7 @@ app.post("/api/admin/decay/:userId/intervene", requireAdmin, async (req, res) =>
     const interventions = await noveltyDecayDetector.getRecommendedInterventions(userId);
     const intervention = interventions.find(i => i === interventionType) || interventions[0];
     if (!intervention) {
-      return res.status(404).json({ error: "No intervention available" });
+      return err(res, 404, "error.notFound", req as any);
     }
     const result = await noveltyDecayDetector.triggerIntervention(userId, intervention);
     res.json({ success: true, result });
@@ -2758,7 +2767,7 @@ app.get("/api/admin/quiz/questions", requireAdmin, async (_req, res) => {
 app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
   try {
     if (!isQuizDbConfigured()) {
-      return res.status(503).json({ error: "Quiz database is not configured" });
+      return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const body = req.body || {};
     const adminNick = (req as any).userNick || "admin";
@@ -2779,13 +2788,13 @@ app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
     };
 
     if (!newQuestion.content) {
-      return res.status(400).json({ error: "Content is required" });
+      return err(res, 400, "error.scan.noText", req as any);
     }
     if (newQuestion.options.length < 2) {
-      return res.status(400).json({ error: "At least 2 options are required" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     if (!["A", "B", "C", "D"].includes(newQuestion.correct_key)) {
-      return res.status(400).json({ error: "correct_key must be A, B, C, or D" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
 
     const created = await createQuizQuestion(newQuestion);
@@ -2811,11 +2820,11 @@ app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
 app.put("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
   try {
     if (!isQuizDbConfigured()) {
-      return res.status(503).json({ error: "Quiz database is not configured" });
+      return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const questionId = Number(req.params.id);
     if (!Number.isFinite(questionId)) {
-      return res.status(400).json({ error: "Invalid question id" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const body = req.body || {};
     const adminNick = (req as any).userNick || "admin";
@@ -2835,7 +2844,7 @@ app.put("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
 
     const updated = await updateQuizQuestion(questionId, updates);
     if (!updated) {
-      return res.status(404).json({ error: "Question not found" });
+      return err(res, 404, "error.notFound", req as any);
     }
 
     // Refresh in-memory cache
@@ -2859,11 +2868,11 @@ app.put("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
 app.delete("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
   try {
     if (!isQuizDbConfigured()) {
-      return res.status(503).json({ error: "Quiz database is not configured" });
+      return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const questionId = Number(req.params.id);
     if (!Number.isFinite(questionId)) {
-      return res.status(400).json({ error: "Invalid question id" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const adminNick = (req as any).userNick || "admin";
 
@@ -2890,11 +2899,11 @@ app.delete("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
 app.post("/api/admin/quiz/questions/reorder", requireAdmin, async (req, res) => {
   try {
     if (!isQuizDbConfigured()) {
-      return res.status(503).json({ error: "Quiz database is not configured" });
+      return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const { orderedIds } = req.body || {};
     if (!Array.isArray(orderedIds)) {
-      return res.status(400).json({ error: "orderedIds must be an array" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const adminNick = (req as any).userNick || "admin";
     await reorderQuizQuestions(orderedIds.map((id: any) => Number(id)));
@@ -2909,11 +2918,11 @@ app.post("/api/admin/quiz/questions/reorder", requireAdmin, async (req, res) => 
 app.post("/api/admin/quiz/questions/import", requireAdmin, async (req, res) => {
   try {
     if (!isQuizDbConfigured()) {
-      return res.status(503).json({ error: "Quiz database is not configured" });
+      return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const { questions } = req.body || {};
     if (!Array.isArray(questions)) {
-      return res.status(400).json({ error: "questions must be an array" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const adminNick = (req as any).userNick || "admin";
     const count = await bulkImportQuestions(questions, adminNick);
@@ -2928,7 +2937,7 @@ app.post("/api/admin/quiz/questions/import", requireAdmin, async (req, res) => {
 app.get("/api/admin/quiz/questions/export", requireAdmin, async (_req, res) => {
   try {
     if (!isQuizDbConfigured()) {
-      return res.status(503).json({ error: "Quiz database is not configured" });
+      return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const questions = await listQuizQuestions();
     res.setHeader("Content-Type", "application/json");
@@ -2956,7 +2965,7 @@ app.get("/api/admin/quiz/config", requireAdmin, async (_req, res) => {
 app.put("/api/admin/quiz/config", requireAdmin, async (req, res) => {
   try {
     if (!isQuizDbConfigured()) {
-      return res.status(503).json({ error: "Quiz database is not configured" });
+      return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const body = req.body || {};
     const adminNick = (req as any).userNick || "admin";
@@ -2972,7 +2981,7 @@ app.put("/api/admin/quiz/config", requireAdmin, async (req, res) => {
       Object.assign(dynamicConfig, body);
       await logAdminAction(adminNick, "quiz_config_update", "quiz_config", null, { count });
     } else {
-      return res.status(400).json({ error: "Provide {key, value} or batch object" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
 
     res.json({ success: true, config: dynamicConfig });
@@ -2988,7 +2997,7 @@ app.post("/api/admin/sheets/full-sync", requireAdmin, async (req, res) => {
   try {
     const { spreadsheetId } = req.body || {};
     if (!spreadsheetId) {
-      return res.status(400).json({ error: "Missing spreadsheetId" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const adminNick = (req as any).userNick || "admin";
 
@@ -3008,7 +3017,7 @@ app.post("/api/admin/sheets/push-to-sheets", requireAdmin, async (req, res) => {
   try {
     const { spreadsheetId } = req.body || {};
     if (!spreadsheetId) {
-      return res.status(400).json({ error: "Missing spreadsheetId" });
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const adminNick = (req as any).userNick || "admin";
 
@@ -3336,7 +3345,7 @@ async function startServer() {
 
   app.get("/api/reward-history/:nick", async (req, res) => {
     const user = await getUser(req.params.nick);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return err(res, 404, "error.notFound", req as any);
     const db = getDb();
     if (!db) return res.json([]);
     try {
@@ -3350,13 +3359,13 @@ async function startServer() {
       );
       res.json(rows);
     } catch (e) {
-      res.status(500).json({ error: "Failed to fetch reward history" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
   app.get("/api/reward-summary/:nick", async (req, res) => {
     const user = await getUser(req.params.nick);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return err(res, 404, "error.notFound", req as any);
     const db = getDb();
     if (!db) return res.json({ totalEarned: 0, totalSpent: 0, netChange: 0, txCount: 0 });
     try {
@@ -3372,14 +3381,14 @@ async function startServer() {
       }
       res.json({ totalEarned, totalSpent, netChange: totalEarned - totalSpent, txCount: rows.length });
     } catch (e) {
-      res.status(500).json({ error: "Failed to fetch reward summary" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
   // ─── Weekly Tournament ──────────────────────────────────────────────────────
   app.get("/api/tournament/current", async (_req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       // Get current week's Monday 00:00 Vietnam time (UTC+7)
       const now = new Date();
       const vnOffset = 7 * 60;
@@ -3442,14 +3451,14 @@ async function startServer() {
       });
     } catch (e) {
       console.error("[tournament/current]", e);
-      res.status(500).json({ error: "Failed to get tournament" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
   app.post("/api/tournament/join", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const now = new Date();
       const vnOffset = 7 * 60;
       const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -3468,12 +3477,12 @@ async function startServer() {
       const user = await getUser(nick);
 
       if (!tournamentDoc.exists) {
-        return res.status(404).json({ error: "Tournament not found" });
+        return err(res, 404, "error.notFound", req as any);
       }
       const tournamentData = tournamentDoc.data()!;
 
       if (tournamentData.status === "completed") {
-        return res.status(400).json({ error: "Tournament has ended" });
+        return err(res, 400, "error.tournamentEnded", req as any);
       }
 
       const alreadyJoined = tournamentData.participants?.some((p: any) => p.userId === nick);
@@ -3497,14 +3506,14 @@ async function startServer() {
       res.json({ joined: true, participant: newParticipant });
     } catch (e) {
       console.error("[tournament/join]", e);
-      res.status(500).json({ error: "Failed to join tournament" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
   app.get("/api/tournament/bracket", async (req, res) => {
     try {
       const { id } = req.query;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       let docRef;
       if (id) {
         docRef = db.collection("tournaments").doc(id as string);
@@ -3542,7 +3551,7 @@ async function startServer() {
       res.json({ bracket, participants: sorted });
     } catch (e) {
       console.error("[tournament/bracket]", e);
-      res.status(500).json({ error: "Failed to get bracket" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
@@ -3550,13 +3559,13 @@ async function startServer() {
   app.post("/api/pvp/match", requireAuth, async (req, res) => {
     try {
       const challengerNick = (req as any).userNick;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const WAGER = 20;
 
       const challenger = await getUser(challengerNick);
-      if (!challenger) return res.status(404).json({ error: "User not found" });
+      if (!challenger) return err(res, 404, "error.notFound", req as any);
       if ((challenger.points || 0) < WAGER) {
-        return res.status(400).json({ error: "Not enough EXP to enter (need 20 EXP)" });
+        return err(res, 400, "error.clan.missingExp", req as any);
       }
 
       // Get all users and pick a random opponent with similar rank (nearby points)
@@ -3566,7 +3575,7 @@ async function startServer() {
       );
 
       if (eligibleOpponents.length === 0) {
-        return res.status(404).json({ error: "No opponents available. Be the first to enter the arena!" });
+        return err(res, 404, "error.notFound", req as any);
       }
 
       // Pick opponent with closest points (rank matchmaking)
@@ -3606,7 +3615,7 @@ async function startServer() {
       });
     } catch (e) {
       console.error("[pvp/match]", e);
-      res.status(500).json({ error: "Failed to create match" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
@@ -3614,11 +3623,11 @@ async function startServer() {
     try {
       const { matchId, playerWon, rounds } = req.body;
       const nick = (req as any).userNick;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
       const matchRef = db.collection("pvp_matches").doc(matchId);
       const matchDoc = await matchRef.get();
-      if (!matchDoc.exists) return res.status(404).json({ error: "Match not found" });
+      if (!matchDoc.exists) return err(res, 404, "error.notFound", req as any);
 
       const match = matchDoc.data() as PvPMatch;
 
@@ -3654,14 +3663,14 @@ async function startServer() {
       res.json({ winnerId, reward: totalStake });
     } catch (e) {
       console.error("[pvp/result]", e);
-      res.status(500).json({ error: "Failed to submit result" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
   app.get("/api/pvp/history", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const matches: FirebaseFirestore.QuerySnapshot = await db
         .collection("pvp_matches")
         .where("status", "==", "completed")
@@ -3676,7 +3685,7 @@ async function startServer() {
       res.json(userMatches);
     } catch (e) {
       console.error("[pvp/history]", e);
-      res.status(500).json({ error: "Failed to get history" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
@@ -3696,7 +3705,7 @@ async function startServer() {
 
   app.get("/api/clans", async (_req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clansSnap = await db.collection("clans").orderBy("exp", "desc").limit(50).get();
       const clans = clansSnap.docs.map((d) => {
         const data = d.data();
@@ -3718,7 +3727,7 @@ async function startServer() {
       res.json({ clans, total: clans.length });
     } catch (e) {
       console.error("[clans]", e);
-      res.status(500).json({ error: "Failed to get clans" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
@@ -3726,22 +3735,22 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { name, tag, bio } = req.body || {};
-      if (!name || name.trim().length < 2) return res.status(400).json({ error: "Tên clan quá ngắn" });
-      if (!tag || tag.trim().length < 2 || tag.trim().length > 5) return res.status(400).json({ error: "Tag clan phải 2-5 ký tự" });
+      if (!name || name.trim().length < 2) return res.status(400).json({ error: getErrorMessage("error.clan.nameTooShort", (req as any).locale?.locale) });
+      if (!tag || tag.trim().length < 2 || tag.trim().length > 5) return res.status(400).json({ error: getErrorMessage("error.clan.tagInvalid", (req as any).locale?.locale) });
 
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return res.status(503).json({ error: getErrorMessage("error.databaseUnavailable", (req as any).locale?.locale) });
 
       // Check if user already in a clan
       const userClanSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
-      if (userClanSnap.exists) return res.status(400).json({ error: "Bạn đã ở trong một clan" });
+      if (userClanSnap.exists) return res.status(400).json({ error: getErrorMessage("error.clan.alreadyMember", (req as any).locale?.locale) });
 
       // Check clan count limit
       const clanCount = (await db.collection("clans").count().get()).data().count;
-      if (clanCount >= MAX_CLANS) return res.status(400).json({ error: "Đã đạt giới hạn clan. Hãy tham gia clan hiện có." });
+      if (clanCount >= MAX_CLANS) return res.status(400).json({ error: getErrorMessage("error.clan.full", (req as any).locale?.locale) });
 
       // Check tag uniqueness
       const tagSnap = await db.collection("clans").where("tag", "==", tag.trim().toUpperCase()).limit(1).get();
-      if (!tagSnap.empty) return res.status(400).json({ error: "Tag clan đã tồn tại" });
+      if (!tagSnap.empty) return res.status(400).json({ error: getErrorMessage("error.clan.tagTaken", (req as any).locale?.locale) });
 
       const clanRef = db.collection("clans").doc();
       const clanData = {
@@ -3779,16 +3788,16 @@ async function startServer() {
       res.json({ id: clanRef.id, ...clanData });
     } catch (e) {
       console.error("[clans/create]", e);
-      res.status(500).json({ error: "Failed to create clan" });
+      err(res, 500, "error.internal", req as any);
     }
   });
 
   app.get("/api/clan/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanSnap = await db.collection("clans").doc(id).get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
 
       const clanData = clanSnap.data()!;
 
@@ -3834,7 +3843,7 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { id } = req.params;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
       // Check if already in a clan
       const existingClan = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
@@ -3842,7 +3851,7 @@ async function startServer() {
 
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
 
       const memberIds: string[] = clanData.memberIds || [];
@@ -3881,11 +3890,11 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { id } = req.params;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
 
       if (clanData.leaderId === nick) return res.status(400).json({ error: "Chủ tịch không thể rời clan. Hãy chuyển giao hoặc giải tán clan." });
@@ -3913,20 +3922,20 @@ async function startServer() {
       const donateAmount = Math.max(10, Math.min(10000, Number(amount) || 0));
       if (donateAmount < 10) return res.status(400).json({ error: "Tối thiểu 10 EXP" });
 
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
       // Deduct from user
       const userSnap = await db.collection("users").doc(nick).get();
       const userData = userSnap.data()!;
       const userPoints = userData.points || 0;
-      if (userPoints < donateAmount) return res.status(400).json({ error: "Không đủ EXP" });
+      if (userPoints < donateAmount) return res.status(400).json({ error: getErrorMessage("error.clan.missingExp", (req as any).locale?.locale) });
 
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
 
       const clanData = clanSnap.data()!;
-      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: "Bạn không phải thành viên clan" });
+      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: getErrorMessage("error.clan.notMember", (req as any).locale?.locale) });
 
       await db.runTransaction(async (tx) => {
         // Deduct user points
@@ -3966,14 +3975,14 @@ async function startServer() {
       const nick = (req as any).userNick;
       const { id } = req.params;
       const { text } = req.body || {};
-      if (!text || text.trim().length === 0) return res.status(400).json({ error: "Tin nhắn trống" });
-      if (text.trim().length > 500) return res.status(400).json({ error: "Tin nhắn quá dài" });
+      if (!text || text.trim().length === 0) return res.status(400).json({ error: getErrorMessage("error.clan.emptyMessage", (req as any).locale?.locale) });
+      if (text.trim().length > 500) return res.status(400).json({ error: getErrorMessage("error.clan.messageTooLong", (req as any).locale?.locale) });
 
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanSnap = await db.collection("clans").doc(id).get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
-      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: "Bạn không phải thành viên clan" });
+      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: getErrorMessage("error.clan.notMember", (req as any).locale?.locale) });
 
       const userSnap = await db.collection("users").doc(nick).get();
       const userData = userSnap.data() || {};
@@ -3998,15 +4007,15 @@ async function startServer() {
       const nick = (req as any).userNick;
       const { id } = req.params;
       const { targetNick } = req.body || {};
-      if (!targetNick) return res.status(400).json({ error: "Thiếu tên thành viên" });
+      if (!targetNick) return res.status(400).json({ error: getErrorMessage("error.clan.missingTarget", (req as any).locale?.locale) });
 
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
-      if (clanData.leaderId !== nick) return res.status(403).json({ error: "Chỉ chủ tịch mới có quyền" });
-      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: "Thành viên không tồn tại trong clan" });
+      if (clanData.leaderId !== nick) return res.status(403).json({ error: getErrorMessage("error.clan.notLeader", (req as any).locale?.locale) });
+      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: getErrorMessage("error.clan.memberNotFound", (req as any).locale?.locale) });
 
       await clanRef.collection("members").doc(targetNick).update({ role: "officer" });
       res.json({ success: true });
@@ -4021,15 +4030,15 @@ async function startServer() {
       const nick = (req as any).userNick;
       const { id } = req.params;
       const { targetNick } = req.body || {};
-      if (!targetNick) return res.status(400).json({ error: "Thiếu tên thành viên" });
+      if (!targetNick) return res.status(400).json({ error: getErrorMessage("error.clan.missingTarget", (req as any).locale?.locale) });
 
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
-      if (clanData.leaderId !== nick) return res.status(403).json({ error: "Chỉ chủ tịch mới có quyền" });
-      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: "Thành viên không tồn tại trong clan" });
+      if (clanData.leaderId !== nick) return res.status(403).json({ error: getErrorMessage("error.clan.notLeader", (req as any).locale?.locale) });
+      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: getErrorMessage("error.clan.memberNotFound", (req as any).locale?.locale) });
 
       await db.runTransaction(async (tx) => {
         tx.update(clanRef, { leaderId: targetNick });
@@ -4050,11 +4059,11 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { id } = req.params;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: "Clan không tồn tại" });
-      if (clanSnap.data()!.leaderId !== nick) return res.status(403).json({ error: "Chỉ chủ tịch mới có quyền giải tán" });
+      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (clanSnap.data()!.leaderId !== nick) return res.status(403).json({ error: getErrorMessage("error.clan.notLeaderDisband", (req as any).locale?.locale) });
 
       const memberIds: string[] = clanSnap.data()!.memberIds || [];
       await db.runTransaction(async (tx) => {
@@ -4083,7 +4092,7 @@ async function startServer() {
   app.get("/api/user-clan", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const profileSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
       if (!profileSnap.exists) return res.json({ inClan: false, clanId: null, role: null });
 

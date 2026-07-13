@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext, useCallback, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, createContext, useContext, useCallback, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Auth } from "./components/Auth";
@@ -11,7 +11,7 @@ import CampaignStage from "./components/CampaignStage";
 import { User } from "./types";
 import { FamilyMode } from "./components/FamilyMode";
 import { Card, LoadingSpinner } from "./lib/ui";
-import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "./lib/i18n";
+import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode, onLanguageChanged } from "./lib/i18n";
 import { Globe } from "lucide-react";
 import { calculateLevel } from "./lib/useLevel";
 
@@ -28,12 +28,13 @@ const LazyFlashcards = lazy(() =>
   import("./components/Flashcards").then((m) => ({ default: m.Flashcards }))
 );
 
-function LoadingFallback({ message = "Đang tải..." }: { message?: string }) {
+function LoadingFallback({ message }: { message?: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-center py-20">
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 border-3 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{message ?? t("common.loading")}</p>
       </div>
     </div>
   );
@@ -99,16 +100,17 @@ function WorldMapRoute({ user }: { user: User }) {
 
 function FamilyRoute({ user }: { user: User }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 px-4 py-6">
       <div className="mx-auto max-w-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">Family Mode</h2>
+          <h2 className="text-lg font-bold">{t("family.homeTitle")}</h2>
           <button
             onClick={() => navigate("/home")}
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800"
           >
-            ← Về Home
+            ← {t("app.home")}
           </button>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -122,6 +124,7 @@ function FamilyRoute({ user }: { user: User }) {
 
 function FamilyModeStandalone({ user }: { user: User }) {
   const [open, setOpen] = useState(true);
+  const { t } = useTranslation();
   return (
     <>
       {!open && (
@@ -129,7 +132,7 @@ function FamilyModeStandalone({ user }: { user: User }) {
           onClick={() => setOpen(true)}
           className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 px-4 py-3 text-sm font-bold text-white"
         >
-          Mở Family Mode
+          {t("family.open")}
         </button>
       )}
       <FamilyMode user={user} isOpen={open} onClose={() => setOpen(false)} />
@@ -153,41 +156,91 @@ function LanguageSwitcher() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<LanguageCode>(getCurrentLanguage());
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSelect = (code: LanguageCode) => {
+  // Subscribe to language changes triggered elsewhere (e.g. Settings).
+  useEffect(() => {
+    return onLanguageChanged((code) => setCurrent(code));
+  }, []);
+
+  // Click-outside-to-close + Escape key handler.
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const handleSelect = async (code: LanguageCode) => {
     changeLanguage(code);
     setCurrent(code);
     setOpen(false);
+    // Best-effort: persist preference to server (fire-and-forget).
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (token) {
+        await fetch("/api/users/me/preferences", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ locale: code }),
+        });
+      }
+    } catch {
+      /* offline / unauthenticated — localStorage change still applies */
+    }
   };
 
   const currentLang = LANGUAGES.find((l) => l.code === current);
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t("settings.settings")}
         className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 transition-colors"
         title={t("settings.settings")}
       >
         <Globe size={15} />
-        <span>{currentLang?.flag}</span>
+        <span aria-hidden="true">{currentLang?.flag}</span>
         <span className="hidden sm:inline">{currentLang?.label}</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-44 rounded-2xl border border-gray-100 bg-white shadow-xl z-50 overflow-hidden">
+        <ul
+          role="listbox"
+          aria-label={t("settings.settings")}
+          className="absolute right-0 top-full mt-2 w-56 max-h-80 overflow-auto rounded-2xl border border-gray-100 bg-white shadow-xl z-50"
+        >
           {LANGUAGES.map((lang) => (
-            <button
-              key={lang.code}
-              onClick={() => handleSelect(lang.code)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition-colors ${
-                lang.code === current ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-700"
-              }`}
-            >
-              <span className="text-base">{lang.flag}</span>
-              <span>{lang.label}</span>
-            </button>
+            <li key={lang.code} role="option" aria-selected={lang.code === current}>
+              <button
+                type="button"
+                onClick={() => handleSelect(lang.code)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-start hover:bg-gray-50 transition-colors ${
+                  lang.code === current ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-700"
+                }`}
+              >
+                <span aria-hidden="true" className="text-base">{lang.flag}</span>
+                <span className="flex-1">{lang.label}</span>
+                {lang.code === current && <span aria-hidden="true" className="text-emerald-600">✓</span>}
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
@@ -300,7 +353,7 @@ export default function App() {
   if (typeof window !== "undefined" && PUBLIC_PATHS.includes(window.location.pathname)) {
     return (
       <ThemeProvider>
-        <Suspense fallback={<LoadingFallback message="Đang tải..." />}>
+        <Suspense fallback={<LoadingFallback />}>
           <GlobalImpactDashboard />
         </Suspense>
       </ThemeProvider>
@@ -324,7 +377,7 @@ export default function App() {
             <Route
               path="/:tab"
               element={
-                <Suspense fallback={<LoadingFallback message="Đang tải dashboard..." />}>
+                <Suspense fallback={<LoadingFallback message={t("app.loadingDashboard")} />}>
                   <LazyAdminDashboard user={user} onLogout={handleLogout} />
                 </Suspense>
               }

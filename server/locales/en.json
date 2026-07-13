@@ -1,0 +1,68 @@
+{
+  "error": {
+    "serverUnavailable": "Server unavailable",
+    "networkError": "Network error",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "notFound": "Not found",
+    "validationFailed": "Validation failed",
+    "rateLimited": "Too many requests, please slow down",
+    "internal": "Internal server error",
+    "methodNotAllowed": "Method not allowed",
+    "databaseUnavailable": "Database unavailable",
+    "clan": {
+      "full": "Clan limit reached. Please join an existing clan.",
+      "notFound": "Clan does not exist",
+      "notMember": "You are not a member of this clan",
+      "memberNotFound": "Member not found in clan",
+      "notLeader": "Only the leader can do this",
+      "missingTarget": "Member name is required",
+      "missingExp": "Not enough EXP",
+      "emptyMessage": "Message is empty",
+      "messageTooLong": "Message is too long"
+    },
+    "chat": {
+      "empty": "Message is empty",
+      "tooLong": "Message is too long"
+    },
+    "scan": {
+      "notAnImage": "File must be an image",
+      "noText": "Text is required",
+      "quotaExceeded": "Daily scan quota exceeded"
+    },
+    "auth": {
+      "invalidCredentials": "Invalid username or password",
+      "accountTaken": "Account already taken",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "sessionExpired": "Session expired, please log in again"
+    },
+    "tournamentEnded": "Tournament has ended",
+    "nameTooShort": "Clan name too short",
+    "tagInvalid": "Clan tag must be 2-5 characters",
+    "alreadyMember": "You are already in a clan",
+    "tagTaken": "Clan tag already taken",
+    "notLeaderDisband": "Only the leader can disband",
+    "badClanId": "Invalid clan id",
+    "badUserId": "Invalid user id",
+    "badRequest": "Bad request",
+    "emptyBody": "Request body is empty"
+  },
+  "email": {
+    "welcome": {
+      "subject": "Welcome to BMO Robot!",
+      "body": "Hi {name},\n\nWelcome to BMO Robot! We are excited to help you build eco-friendly habits through on-device AI, federated learning, and a touch of friendly competition.\n\nTo get started, log in and complete your first scan.\n\n— The BMO Robot team"
+    },
+    "passwordReset": {
+      "subject": "Reset your BMO Robot password"
+    },
+    "password_reset": {
+      "body": "Hi {name},\n\nWe received a request to reset your BMO Robot password. If you made this request, use the link below within 24 hours to set a new password.\n\nReset link: {link}\n\nIf you did not request this, you can safely ignore this email — your password will remain unchanged.\n\n— The BMO Robot team"
+    },
+    "achievement": {
+      "body": "Hi {name},\n\nCongratulations on earning the \"{achievement}\" badge! Keep up the great work for the planet.\n\n— The BMO Robot team"
+    },
+    "weekly_summary": {
+      "body": "Hi {name},\n\nHere is your week at a glance:\n\n• Scans: {scans}\n• CO₂e avoided: {co2} kg\n• Streak: {streak} days\n• Ranking: #{rank}\n\nKeep going!\n\n— The BMO Robot team"
+    }
+  }
+}

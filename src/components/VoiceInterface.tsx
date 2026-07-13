@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, VolumeX, X, Languages } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type Lang = "vi-VN" | "en-US";
 
@@ -58,6 +59,7 @@ function detectCommand(text: string): VoiceCommand {
 }
 
 export function VoiceInterface({ lang: initialLang = "vi-VN", onTranscript, onCommand, onClose }: Props) {
+  const { t } = useTranslation();
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -194,15 +196,15 @@ export function VoiceInterface({ lang: initialLang = "vi-VN", onTranscript, onCo
           <button
             onClick={toggleLang}
             className="flex h-11 items-center gap-1 rounded-full bg-slate-200 px-3 text-xs font-bold text-slate-700 shadow-md transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200"
-            title="Đổi ngôn ngữ"
+            title={t("voice.title")}
           >
             <Languages size={14} />
-            {lang === "vi-VN" ? "VI" : "EN"}
+            {lang === "vi-VN" ? t("voice.lang.vi") : t("voice.lang.en")}
           </button>
           <button
             onClick={toggleVoice}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200 text-slate-700 shadow-md transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200"
-            title={voiceEnabled ? "Tắt giọng nói" : "Bật giọng nói"}
+            title={voiceEnabled ? t("voice.off") : t("voice.on")}
           >
             {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>

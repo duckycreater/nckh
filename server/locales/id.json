@@ -1,0 +1,68 @@
+{
+  "error": {
+    "serverUnavailable": "Server tidak tersedia",
+    "networkError": "Kesalahan jaringan",
+    "unauthorized": "Tidak diizinkan",
+    "forbidden": "Akses dilarang",
+    "notFound": "Tidak ditemukan",
+    "validationFailed": "Validasi gagal",
+    "rateLimited": "Terlalu banyak permintaan, harap tunggu.",
+    "internal": "Kesalahan server internal",
+    "methodNotAllowed": "Metode tidak diizinkan",
+    "databaseUnavailable": "Basis data tidak tersedia",
+    "clan": {
+      "full": "Batas klan tercapai. Bergabunglah dengan klan yang ada.",
+      "notFound": "Klan tidak ada",
+      "notMember": "Anda bukan anggota klan ini",
+      "memberNotFound": "Anggota tidak ditemukan di klan",
+      "notLeader": "Hanya pemimpin yang dapat melakukan ini",
+      "missingTarget": "Nama anggota wajib diisi",
+      "missingExp": "EXP tidak cukup",
+      "emptyMessage": "Pesan kosong",
+      "messageTooLong": "Pesan terlalu panjang"
+    },
+    "chat": {
+      "empty": "Pesan kosong",
+      "tooLong": "Pesan terlalu panjang"
+    },
+    "scan": {
+      "notAnImage": "File harus berupa gambar",
+      "noText": "Teks wajib diisi",
+      "quotaExceeded": "Kuota pemindaian harian terlampaui"
+    },
+    "auth": {
+      "invalidCredentials": "Nama pengguna atau kata sandi salah",
+      "accountTaken": "Akun sudah digunakan",
+      "passwordTooShort": "Kata sandi minimal 6 karakter",
+      "sessionExpired": "Sesi kedaluwarsa, harap masuk lagi"
+    },
+    "tournamentEnded": "Turnamen telah berakhir",
+    "nameTooShort": "Nama klan terlalu pendek",
+    "tagInvalid": "Tag klan harus 2-5 karakter",
+    "alreadyMember": "Anda sudah berada di klan",
+    "tagTaken": "Tag klan sudah digunakan",
+    "notLeaderDisband": "Hanya pemimpin yang dapat membubarkan",
+    "badClanId": "ID klan tidak valid",
+    "badUserId": "ID pengguna tidak valid",
+    "badRequest": "Permintaan tidak valid",
+    "emptyBody": "Body permintaan kosong"
+  },
+  "email": {
+    "welcome": {
+      "subject": "Selamat datang di BMO Robot!",
+      "body": "Halo {name},\n\nSelamat datang di BMO Robot! Kami senang membantu Anda membangun kebiasaan ramah lingkungan melalui AI di perangkat, federated learning, dan sedikit kompetisi yang seru.\n\nUntuk memulai, masuk dan lakukan pemindaian pertama Anda.\n\n— Tim BMO Robot"
+    },
+    "passwordReset": {
+      "subject": "Reset kata sandi BMO Robot Anda"
+    },
+    "password_reset": {
+      "body": "Halo {name},\n\nKami menerima permintaan untuk mengatur ulang kata sandi BMO Robot Anda. Jika ini memang Anda, gunakan tautan berikut dalam 24 jam untuk membuat kata sandi baru.\n\nTautan: {link}\n\nJika Anda tidak merasa meminta ini, abaikan email ini — kata sandi Anda tidak akan berubah.\n\n— Tim BMO Robot"
+    },
+    "achievement": {
+      "body": "Halo {name},\n\nSelamat atas獲得nya lencana \"{achievement}\"! Terus berkarya untuk planet ini.\n\n— Tim BMO Robot"
+    },
+    "weekly_summary": {
+      "body": "Halo {name},\n\nRingkasan minggu Anda:\n\n• Pemindaian: {scans}\n• CO₂e dihindari: {co2} kg\n• Streak: {streak} hari\n• Peringkat: #{rank}\n\nTeruskan!\n\n— Tim BMO Robot"
+    }
+  }
+}

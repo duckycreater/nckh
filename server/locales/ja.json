@@ -1,0 +1,68 @@
+{
+  "error": {
+    "serverUnavailable": "サーバーが利用できません",
+    "networkError": "ネットワークエラー",
+    "unauthorized": "認証されていません",
+    "forbidden": "アクセスが禁止されています",
+    "notFound": "見つかりません",
+    "validationFailed": "入力が無効です",
+    "rateLimited": "リクエストが多すぎます。しばらくしてから再度お試しください。",
+    "internal": "サーバー内部エラー",
+    "methodNotAllowed": "メソッドが許可されていません",
+    "databaseUnavailable": "データベースが利用できません",
+    "clan": {
+      "full": "クランの上限に達しました。既存のクランに参加してください。",
+      "notFound": "クランが存在しません",
+      "notMember": "このクランのメンバーではありません",
+      "memberNotFound": "クラン内にメンバーが見つかりません",
+      "notLeader": "リーダーのみが実行できます",
+      "missingTarget": "メンバー名が必要です",
+      "missingExp": "経験値が不足しています",
+      "emptyMessage": "メッセージが空です",
+      "messageTooLong": "メッセージが長すぎます"
+    },
+    "chat": {
+      "empty": "メッセージが空です",
+      "tooLong": "メッセージが長すぎます"
+    },
+    "scan": {
+      "notAnImage": "ファイルは画像である必要があります",
+      "noText": "テキストが必要です",
+      "quotaExceeded": "1日のスキャン上限を超えました"
+    },
+    "auth": {
+      "invalidCredentials": "ユーザー名またはパスワードが無効です",
+      "accountTaken": "アカウントは既に使用されています",
+      "passwordTooShort": "パスワードは6文字以上である必要があります",
+      "sessionExpired": "セッションが切れました。再度ログインしてください"
+    },
+    "tournamentEnded": "トーナメントは終了しました",
+    "nameTooShort": "クラン名が短すぎます",
+    "tagInvalid": "クランタグは2〜5文字である必要があります",
+    "alreadyMember": "すでにクランに参加しています",
+    "tagTaken": "クランタグは既に使用されています",
+    "notLeaderDisband": "リーダーのみが解散できます",
+    "badClanId": "無効なクランID",
+    "badUserId": "無効なユーザーID",
+    "badRequest": "リクエストが無効です",
+    "emptyBody": "リクエストボディが空です"
+  },
+  "email": {
+    "welcome": {
+      "subject": "BMO Robot へようこそ！",
+      "body": "{name} 様\n\nBMO Robot へようこそ！オンデバイス AI、連合学習、そして友好的な競争を通じて、エコ習慣を身につけるお手伝いをします。\n\nまずはログインして最初のスキャンを完了してください。\n\n— BMO Robot チーム"
+    },
+    "passwordReset": {
+      "subject": "BMO Robot のパスワードをリセット"
+    },
+    "password_reset": {
+      "body": "{name} 様\n\nBMO Robot のパスワードリセットリクエストを受け付けました。本人確認のため、24 時間以内に以下のリンクから新しいパスワードを設定してください。\n\nリセットリンク：{link}\n\nこのリクエストに心当たりがない場合は、このメールを無視してください。パスワードは変更されません。\n\n— BMO Robot チーム"
+    },
+    "achievement": {
+      "body": "{name} 様\n\n「{achievement}」バッジの獲得おめでとうございます！地球のために引き続き頑張ってください。\n\n— BMO Robot チーム"
+    },
+    "weekly_summary": {
+      "body": "{name} 様\n\n今週の概要：\n\n• スキャン：{scans} 回\n• 削減 CO₂e：{co2} kg\n• 連続日数：{streak} 日\n• 順位：#{rank}\n\n頑張りましょう！\n\n— BMO Robot チーム"
+    }
+  }
+}

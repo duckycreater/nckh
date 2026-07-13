@@ -46,7 +46,12 @@ function bigModPow(base: bigint, exp: bigint, mod: bigint): bigint {
 }
 
 function bigL(x: bigint, n: bigint): bigint {
+  // L(x) = (x - 1) / n  for x ≡ 1 (mod n)
   return (x - 1n) / n;
+}
+
+function gcdAB(x: bigint, y: bigint): bigint {
+  return y === 0n ? x : gcdAB(y, x % y);
 }
 
 /** Generate a Paillier key pair. This is *not* constant-time and should
@@ -116,16 +121,30 @@ export function generatePaillierKeyPair(bitLength = 2048): PaillierKeyPair {
   // λ = lcm(p-1, q-1)
   const a = p - 1n;
   const b = q - 1n;
-  // gcd(a,b) used to compute lcm safely.
-  const gcdAB = (x: bigint, y: bigint): bigint => (y === 0n ? x : gcdAB(y, x % y));
   const lcm = (x: bigint, y: bigint) => (x * y) / gcdAB(x, y);
   const lambda = lcm(a, b);
-  const mu = bigModPow(bigL(bigModPow(g, lambda, n2), n), 1n, n);
+  // mu = (L(g^λ mod n²))⁻¹ mod n
+  const lGLambda = bigL(bigModPow(g, lambda, n2), n);
+  const mu = modInverse(lGLambda, n);
   return {
     publicKey: { n, g },
     privateKey: { lambda, mu },
     bitLength,
   };
+}
+
+/** Modular inverse via extended Euclidean; returns 0n if no inverse exists. */
+function modInverse(a: bigint, m: bigint): bigint {
+  if (gcdAB(a, m) !== 1n) return 0n;
+  // Extended Euclidean: find x s.t. a·x ≡ 1 (mod m).
+  let [old_r, r] = [a, m];
+  let [old_s, s] = [1n, 0n];
+  while (r !== 0n) {
+    const q = old_r / r;
+    [old_r, r] = [r, old_r - q * r];
+    [old_s, s] = [s, old_s - q * s];
+  }
+  return ((old_s % m) + m) % m;
 }
 
 /** Encrypt an integer `m` ∈ Z_n under a Paillier public key. */

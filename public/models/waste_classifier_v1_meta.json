@@ -1,0 +1,42 @@
+{
+  "name": "waste-classifier",
+  "version": "v1",
+  "framework": "onnx",
+  "expectedInputSize": [
+    16
+  ],
+  "inputSchema": "1x16 float32 feature vector (colour, shape, texture)",
+  "outputSchema": "1x6 float32 logits (organic, plastic, paper, glass, metal, hazard)",
+  "classOrder": [
+    "organic",
+    "plastic",
+    "paper",
+    "glass",
+    "metal",
+    "hazard"
+  ],
+  "classNamesVi": {
+    "organic": "Hữu cơ",
+    "plastic": "Nhựa",
+    "paper": "Giấy",
+    "glass": "Thủy tinh",
+    "metal": "Kim loại",
+    "hazard": "Nguy hại"
+  },
+  "url": "/models/waste_classifier_v1.onnx",
+  "sha256": "83eca56f84c9e51b92473ab170b0b0ecf39f76f2611a1bdca17ca435a33a5261",
+  "sizeBytes": 3308,
+  "license": "Apache-2.0",
+  "trainedOnSamples": 1920,
+  "validationAccuracy": 0.9979166666666667,
+  "trainingAccuracy": 0.9973958333333334,
+  "epochs": 50,
+  "hidden": 32,
+  "seed": 42,
+  "registeredAt": 1783390043424,
+  "provenance": {
+    "script": "scripts/train_and_export_waste_classifier.py",
+    "dataset": "synthetic Vietnamese-waste centroids (seeded)",
+    "license": "CC-BY-4.0"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "error": {
+    "serverUnavailable": "服务器不可用",
+    "networkError": "网络错误",
+    "unauthorized": "会话已过期",
+    "forbidden": "您没有权限",
+    "notFound": "未找到资源",
+    "validationFailed": "输入无效",
+    "rateLimited": "请求过于频繁，请稍后再试。",
+    "internal": "出现错误，请稍后再试",
+    "methodNotAllowed": "方法不被允许",
+    "databaseUnavailable": "数据库不可用",
+    "clan": {
+      "full": "已达到家族上限，请加入现有家族。",
+      "notFound": "家族不存在",
+      "notMember": "您不是此家族的成员",
+      "memberNotFound": "家族中找不到该成员",
+      "notLeader": "只有族长才能执行此操作",
+      "missingTarget": "需要提供成员名称",
+      "missingExp": "经验值不足",
+      "emptyMessage": "消息为空",
+      "messageTooLong": "消息过长"
+    },
+    "chat": {
+      "empty": "消息为空",
+      "tooLong": "消息过长"
+    },
+    "scan": {
+      "notAnImage": "文件必须是图片",
+      "noText": "请输入内容",
+      "quotaExceeded": "已超出每日扫描限额"
+    },
+    "auth": {
+      "invalidCredentials": "账号或密码错误",
+      "accountTaken": "账号已被占用",
+      "passwordTooShort": "密码至少 6 个字符",
+      "sessionExpired": "会话已过期，请重新登录"
+    },
+    "tournamentEnded": "锦标赛已结束",
+    "nameTooShort": "家族名称太短",
+    "tagInvalid": "家族标签必须 2-5 个字符",
+    "alreadyMember": "您已在家族中",
+    "tagTaken": "家族标签已被占用",
+    "notLeaderDisband": "只有族长才能解散",
+    "badClanId": "家族 ID 无效",
+    "badUserId": "用户 ID 无效",
+    "badRequest": "请求无效",
+    "emptyBody": "请求体为空"
+  },
+  "email": {
+    "welcome": {
+      "subject": "欢迎使用 BMO Robot！",
+      "body": "你好 {name},\n\n欢迎使用 BMO Robot！我们很高兴通过设备端 AI、联邦学习和友好的竞赛机制，帮助您养成环保习惯。\n\n请登录并完成首次扫描以开始。\n\n— BMO Robot 团队"
+    },
+    "passwordReset": {
+      "subject": "重置您的 BMO Robot 密码"
+    },
+    "password_reset": {
+      "body": "你好 {name},\n\n我们收到了重置您的 BMO Robot 密码的请求。如果是您本人操作，请在 24 小时内点击下方链接设置新密码。\n\n重置链接：{link}\n\n如果您没有发起此请求，请忽略此邮件，密码将保持不变。\n\n— BMO Robot 团队"
+    },
+    "achievement": {
+      "body": "你好 {name},\n\n恭喜您获得 \"{achievement}\" 徽章！继续为地球贡献力量吧。\n\n— BMO Robot 团队"
+    },
+    "weekly_summary": {
+      "body": "你好 {name},\n\n您本周的概况：\n\n• 扫描次数：{scans}\n• 避免的 CO₂e：{co2} kg\n• 连续天数：{streak} 天\n• 排名：#{rank}\n\n继续加油！\n\n— BMO Robot 团队"
+    }
+  }
+}

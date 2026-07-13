@@ -214,7 +214,7 @@ export default function CollectionReveal({ cardIds, isOpen, onClose, onCardColle
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.6, duration: 0.4 }}
                 >
-                  {card?.name ?? 'Unknown'}
+                  {card?.name ?? t("cards.unknown")}
                 </motion.h3>
 
                 {/* Element name flanked by accent dots */}

@@ -1,0 +1,1537 @@
+{
+  "common": {
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "buy": "Acheter",
+    "saving": "Enregistrement...",
+    "saved": "Enregistré !",
+    "error": "Une erreur est survenue",
+    "errorRetry": "Une erreur est survenue. Veuillez réessayer.",
+    "tryAgain": "Réessayer",
+    "loading": "Chargement...",
+    "back": "Retour",
+    "exit": "Quitter",
+    "next": "Suivant",
+    "done": "Terminé",
+    "confirm": "Confirmer",
+    "ok": "OK",
+    "yes": "Oui",
+    "no": "Non",
+    "points": "points",
+    "exp": "EXP",
+    "rank": "Rang",
+    "rankOf": "Rang #{rank}",
+    "you": "(Vous)",
+    "noData": "Pas encore de données",
+    "connectionError": "Erreur de connexion.",
+    "failed": "Échec."
+  },
+  "nav": {
+    "home": "Accueil",
+    "cards": "Collection",
+    "craft": "Fabriquer",
+    "leaderboard": "Classement"
+  },
+  "auth": {
+    "welcomeBack": "Bon retour ! Connectez-vous pour continuer.",
+    "account": "Compte",
+    "password": "Mot de passe",
+    "rememberLogin": "Se souvenir de moi",
+    "forgotPassword": "Mot de passe oublié ?",
+    "login": "CONNEXION",
+    "noAccount": "Pas de compte ?",
+    "registerNow": "S'inscrire",
+    "changePassword": "Changer le mot de passe ?",
+    "registerTitle": "NOUVEAU COMPTE",
+    "displayName": "Nom d'affichage",
+    "displayNamePlaceholder": "E.g.: John Doe",
+    "displayNameHint": "This name will be shown on your profile.",
+    "username": "Nom d'utilisateur",
+    "usernamePlaceholder": "E.g.: johndoe",
+    "usernameHint": "Used to log in. Cannot be changed later.",
+    "fullName": "Nom complet",
+    "fullNamePlaceholder": "E.g.: Nguyen Van A",
+    "fullNameHint": "Your full legal name (used for reporting and cohort grouping).",
+    "classGrade": "Classe / Niveau",
+    "classGradePlaceholder": "Select your grade",
+    "classGradeHint": "Used to group learners for experiments and reporting.",
+    "emailOptional": "E-mail (optionnel)",
+    "emailPlaceholder": "E.g.: johndoe@email.com",
+    "emailHint": "Used to recover your account if you forget your password.",
+    "passwordStrength": "Force du mot de passe",
+    "strengthWeak": "Faible",
+    "strengthMedium": "Moyen",
+    "strengthStrong": "Fort",
+    "orRegisterWith": "Ou inscrivez-vous avec",
+    "google": "Google",
+    "facebook": "Facebook",
+    "register": "S'INSCRIRE",
+    "hasAccount": "Vous avez déjà un compte ?",
+    "backToLogin": "Retour à la connexion",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "resetTitle": "Récupérer le mot de passe",
+    "resetSubtitle": "Enter your registered email or account. We'll send a recovery link.",
+    "emailOrUsername": "Email or Account",
+    "emailOrUsernamePlaceholder": "E.g.: johndoe@email.com",
+    "sendResetLink": "ENVOYER LE LIEN",
+    "backToLogin2": "Back to login",
+    "accountOrEmail": "Account",
+    "passwordMinChars": "Password must be at least 6 characters.",
+    "invalidEmail": "Invalid email.",
+    "invalidClass": "Please pick a grade between 1 and 12.",
+    "fillAccount": "Please enter email or account.",
+    "resetLinkSent": "Recovery link sent to your email.",
+    "accountNotFound": "No account found with this email.",
+    "connectionError": "Connection error.",
+    "lookupScore": "LOOK UP SCORE",
+    "oldPassword": "Old password",
+    "newPassword": "New password",
+    "completeProfileTitle": "Complete your profile",
+    "completeProfileSubtitle": "Please confirm your full name and class to continue.",
+    "completeProfileLater": "Later",
+    "completeProfileSave": "Save profile",
+    "profileSaved": "Profile saved."
+  },
+  "settings": {
+    "settings": "Paramètres",
+    "displayName": "Nom",
+    "password": "Mot de passe",
+    "displayNameUpdated": "Nom mis à jour.",
+    "display": "Display",
+    "profileAvatar": "Choose an avatar for your profile. Purchase at the Rewards Store.",
+    "profileFrame": "Choose a frame to decorate your profile. Purchase at the Rewards Store.",
+    "changeDisplayName": "Change display name",
+    "currentName": "Current name:",
+    "newDisplayName": "New display name",
+    "confirmPassword": "Confirm password",
+    "updateName": "Update Name",
+    "changePassword": "Changer le mot de passe",
+    "oldPassword": "Old password",
+    "newPassword": "New password (at least 6 characters)",
+    "confirmNewPassword": "Confirm new password",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "changePasswordSuccess": "Mot de passe modifié.",
+    "newPasswordMustDiffer": "New password must be different from the old one.",
+    "saveFailed": "Save failed.",
+    "connectionError": "Connection error."
+  },
+  "profile": {
+    "profile": "Profil",
+    "myProfile": "Mon profil",
+    "loadError": "Could not load profile",
+    "viewProfile": "View my profile",
+    "editProfile": "Edit Profile",
+    "uploadFailed": "Upload failed",
+    "uploadError": "Connection error during upload",
+    "onlyImages": "Only JPG, PNG, GIF, WEBP accepted",
+    "maxSize": "Image max 5MB",
+    "emptyName": "Name cannot be empty",
+    "enterPassword": "Enter password to confirm",
+    "saveSuccess": "Saved successfully!",
+    "saveFailed": "Save failed",
+    "connectionError": "Connection error",
+    "playerNotFound": "Player not found",
+    "backButton": "Back",
+    "levelTitle": "Level {level} · {title}",
+    "streakDays": "🔥 {streak} days",
+    "commitment": "Contribution (EXP)",
+    "expToNext": "{exp} EXP to next level",
+    "streak": "Jours de série",
+    "level": "Niveau",
+    "cardsOwned": "Cards owned",
+    "overview": "Overview",
+    "history": "Score History",
+    "challengesCompleted": "Challenges completed",
+    "rewardsRedeemed": "Rewards redeemed",
+    "checkinDays": "Check-in count",
+    "ui": "Interface",
+    "defaultTheme": "Default",
+    "noFrame": "No frame",
+    "change": "Change",
+    "collection": "Collection",
+    "deletePhoto": "Delete photo",
+    "newName": "Enter new name...",
+    "confirmPassword": "Confirm password *",
+    "enterAccountPassword": "Enter account password...",
+    "saveChanges": "Enregistrer",
+    "titles": {
+      "seedling": "Seedling",
+      "guardian": "Guardian",
+      "knight": "Environmental Knight"
+    },
+    "frames": {
+      "wooden": "Wooden Frame",
+      "ice": "Ice Frame",
+      "glow": "Earth Glow Frame",
+      "woodenDesc": "Sturdy as wood",
+      "iceDesc": "Pure as ice",
+      "glowDesc": "Radiant as earth"
+    },
+    "avatars": {
+      "seedling": "Green Sprout",
+      "guardian": "Water Warrior",
+      "knight": "Forest Leader"
+    }
+  },
+  "dashboard": {
+    "startStreakToday": "Start your streak today!",
+    "streakDanger": "🔥 Streak at risk! Keep the streak to get rewards!",
+    "streakInfo": "🔥 {days}-day streak - Fire level {level}",
+    "completeGreen": "Complete green challenges",
+    "craftFocus": "Craft & exchange focus",
+    "wheelResult": "Wheel: {label}",
+    "streakGift": "{days}-day streak gift",
+    "level": "Level {level}",
+    "quickTools": "Quick Tools",
+    "leaderboard": "Classement",
+    "milestone": {
+      "newTitle": "New milestone!",
+      "currentLevel": "Level {level}",
+      "expProgress": "{current} / {total} EXP",
+      "bonusExp": "+{bonus} EXP",
+      "continue": "Continue",
+      "maxReached": "Reached the highest milestone! 👑",
+      "start": "Start"
+    },
+    "myProfile": "My Profile",
+    "weeklyTournament": "Weekly Tournament",
+    "clan": "Community · Contribute",
+    "energyCore": "Energy Core Vault",
+    "energyStatus": "Status: Active",
+    "available": "Available",
+    "aiScanReward": "AI Scan & Reward (+50pts)",
+    "arena": "1v1 Arena · EXP Stakes",
+    "pvpArena": "PvP Arena",
+    "pvpArenaTitle": "1v1 Arena",
+    "tournament": "Weekly Tournament",
+    "tournamentDesc": "Top 8 · Big rewards",
+    "clanTitle": "Clan",
+    "levelLabel": "Level",
+    "pointsLabel": "Points",
+    "daysLabel": "Days",
+    "toolsLabel": "Tools",
+    "pvpLabel": "PvP",
+    "scanTitle": "Scanner les déchets",
+    "scanSubtitle": "Scannez, gagnez des récompenses"
+  },
+  "leaderboard": {
+    "leaderboard": "Classement",
+    "total": "Total",
+    "weekly": "Hebdomadaire",
+    "monthly": "Mensuel",
+    "clan": "Clan",
+    "loadError": "Could not load leaderboard",
+    "weeklyScore": "Weekly score",
+    "monthlyScore": "Monthly score",
+    "totalScore": "Score",
+    "yourRank": "Votre rang",
+    "yourRankInfo": "Rank #{rank} · {label}",
+    "pointsToNext": "Need {points} to pass #{prevRank}",
+    "noClan": "No clan yet",
+    "firstClan": "Be the first to create one!",
+    "clanLeaderboard": "Clan Leaderboard",
+    "clanMembers": "[{tag}] · {count} members",
+    "noClanData": "No data yet",
+    "firstRecord": "Be the first to set a record!"
+  },
+  "dailyChallenges": {
+    "dailyQuests": "Daily Quests",
+    "chainProgress": "Chain {current}/{total} ✦",
+    "chainComplete": "Chain complete!",
+    "allComplete": "All quests completed!",
+    "challenges": {
+      "personalBottle": "Personal water bottle",
+      "turnOffLight": "Turn off lights for 1 hour",
+      "aiExpert": "AI Expert",
+      "noPlastic": "Say no to plastic",
+      "recycleProper": "Recycle properly",
+      "walkOrBike": "Walk or bike",
+      "saveEnergy": "Save energy"
+    }
+  },
+  "minigame": {
+    "quizTitle": "Knowledge Quiz",
+    "quizSubtitle": "Challenge your knowledge for big bonus rewards every day!",
+    "questions": "{count} questions",
+    "timeLimit": "{minutes} minutes",
+    "comboSystem": "Combo system",
+    "startQuiz": "Start Quiz",
+    "correct": "Correct",
+    "confirmSubmit": "You haven't answered all questions. Are you sure you want to submit?",
+    "confirmSubmitTitle": "Confirm submission?",
+    "completed": "Complete! +{exp} EXP | Max combo: x{maxCombo}",
+    "connectionError": "Cannot connect to server.",
+    "serverError": "Connection error.",
+    "submitting": "Submitting...",
+    "submitQuiz": "Submit Quiz",
+    "questionProgress": "Question {current}/{total}",
+    "answered": "Answered: {answered}/{total}",
+    "wrong": "Wrong",
+    "comboMax": "Max combo: x{maxCombo}"
+  },
+  "aiScanner": {
+    "title": "Scanner intelligent de déchets",
+    "subtitle": "Take a photo or upload an image to get classification, detailed disposal guidance, and bonus points all in one clear flow.",
+    "cloudAI": "Cloud AI",
+    "localAI": "Local AI",
+    "status": "Status",
+    "cloudStatus": "Best for deeper analysis results from Cloud AI.",
+    "localLoading": "Local model is being prepared for on-device analysis.",
+    "localReady": "Local AI is ready for fast responses without sending images.",
+    "loadingModel": "Loading local model",
+    "loadingModelHint": "This may take a few extra seconds the first time.",
+    "uploadImage": "Téléverser une image",
+    "openCamera": "Ouvrir la caméra",
+    "cameraError": "Cannot access camera. Grant camera permission in your browser or upload an image from your device.",
+    "capture": "Capture",
+    "closeCamera": "Close Camera",
+    "startWithImage": "Start with an image",
+    "startImageHint": "Upload from your device or use the camera to get detailed, clear, and actionable analysis.",
+    "analyzing": "Analyzing image",
+    "analyzeNow": "Analyser maintenant",
+    "aiAnalyzing": "AI is analyzing the image",
+    "cloudAnalyzing": "Cloud AI is processing content and preparing classification suggestions.",
+    "localAnalyzing": "Local AI is making classifications directly on your device.",
+    "result": "Analysis Result",
+    "suggestion": "Disposal suggestions for you",
+    "model": "Model",
+    "latency": "Latency",
+    "confidence": "Confidence",
+    "localReward": "50 points for successful analysis with Local AI.",
+    "cloudReward": "50 points for successful scan with Cloud AI.",
+    "analyzeError": "Analysis error: {error}",
+    "connectionError": "Connection error calling AI. Please try again.",
+    "categories": {
+      "plastic": "Plastic",
+      "paper": "Paper",
+      "glass": "Glass",
+      "metal": "Metal",
+      "organic": "Organic",
+      "hazardous": "Hazardous"
+    },
+    "disposal": {
+      "plastic": "Rinse clean, flatten, and place in the blue recycling bin.",
+      "paper": "Fold neatly, remove wet/dirty parts, and place in the paper recycling bin.",
+      "glass": "Rinse clean, avoid breaking, and collect separately for glass.",
+      "metal": "Clean, can be crushed to save space, and place in the recycling compartment.",
+      "organic": "Place in organic waste bin or compost for natural fertilizer.",
+      "hazard": "Do not mix with regular waste. Take to a hazardous waste collection point."
+    }
+  },
+  "cardBattle": {
+    "campaignLevels": {
+      "level1": "Tin Can Wasteland",
+      "level2": "Toxic Plastic Swamp",
+      "level3": "Organic Compound Mountain",
+      "level4": "Rusty Metal Forest",
+      "level5": "Incinerator Core"
+    },
+    "turn": "Turn {turn}",
+    "selectCampaign": "Select Campaign",
+    "defeatBosses": "Defeat 3 bosses in a row!",
+    "start": "Bataille !",
+    "needCard": "At least 1 card needed to battle!",
+    "victory": "Victoire !",
+    "defeat": "Défaite",
+    "firstClear": "First Clear!",
+    "perfectClear": "PERFECT!",
+    "perfectHint": "No damage taken — Challenge completed!",
+    "reward": "Reward",
+    "claimReward": "Claim Reward",
+    "claimButton": "Claim",
+    "defeated": "has been defeated!",
+    "stunned": "is stunned, skipping turn!",
+    "stunnedMsg": "STUNNED!",
+    "swapCard": "Swap {old} → {new}",
+    "enemyRage": "Boss is enraged! ATK +30%",
+    "heavyIncoming": "Careful! Heavy attack incoming!",
+    "yourTurn": "Your turn!",
+    "bossAttacking": "Boss attacking!",
+    "swap": "Swap",
+    "bossActing": "Boss is acting...",
+    "castingSkill": "Using skill...",
+    "processing": "Processing...",
+    "heavyAtk": "Attack",
+    "poisonSkill": "Poison",
+    "burnSkill": "Heat Wave",
+    "elementalStorm": "Elemental Storm",
+    "defendSkill": "Defend",
+    "heavySkill": "Heavy Strike",
+    "heavyStrike": "HEAVY STRIKE!",
+    "preparingHeavy": "preparing a heavy strike!",
+    "dodged": "dodged the attack!",
+    "silenced": "is silenced, cannot use skills!",
+    "noEnergy": "Not enough energy!",
+    "dodgeSuccess": "dodged!",
+    "ultimate": "Ultimate!",
+    "allDefeated": "Team has been completely defeated.",
+    "upgradeOrSwap": "Upgrade cards or change strategy!",
+    "tip1": "Consider upgrading cards or adjusting your lineup.",
+    "retry": "Réessayer",
+    "exit": "Exit",
+    "battleLog": {
+      "shielded": "raised shield",
+      "healed": "healed HP",
+      "poisoned": "took poison damage",
+      "burning": "is burning",
+      "regen": "regenerated health",
+      "stunned": "was stunned",
+      "defBuff": "gained defense"
+    }
+  },
+  "achievement": {
+    "legendary": "LEGENDARY",
+    "superRare": "SUPER RARE",
+    "rare": "RARE",
+    "common": "COMMON",
+    "multiplier": "×"
+  },
+  "chatbot": {
+    "title": "Super Green Robot",
+    "subtitle": "Quick Q&A about waste sorting, recycling, and green living habits.",
+    "greeting": "Hello! I'm **Super Green Robot**. You can ask me about waste sorting, recycling, and eco-friendly disposal methods.",
+    "greetingUser": "Hello {user}! I'm **Super Green Robot**. You can ask me about waste sorting, recycling, and eco-friendly disposal methods.",
+    "quickQ1": "How to dispose of plastic waste?",
+    "quickQ2": "What is hazardous waste?",
+    "quickQ3": "How to recycle?",
+    "quickQ4": "Waste sorting tips",
+    "deleteHistory": "Delete chat history",
+    "closeChatbot": "Close chatbot",
+    "consult": "Instant consultation",
+    "perSession": "Save per user session",
+    "askPlaceholder": "Ask your question...",
+    "openChatbot": "Open chatbot",
+    "errorResponse": "Error: {error}",
+    "connectionError": "Cannot connect to server."
+  },
+  "dailyWheel": {
+    "title": "Lucky Wheel",
+    "subtitle": "Spin daily for rewards!",
+    "spin": "SPIN NOW",
+    "specialCard": "Special Card!",
+    "expReward": "+{exp} EXP",
+    "cardReward": "You received a random card!",
+    "jackpot": "You're the luckiest today!",
+    "claim": "Claim",
+    "alreadySpun": "Already spun today. See you tomorrow!",
+    "drawCard": "Draw Card"
+  },
+  "streakCalendar": {
+    "history": "Check-in History",
+    "last7Days": "Last 7 days",
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
+  },
+  "surpriseGift": {
+    "openning": "Opening gift...",
+    "streakGift": "{days}-day streak gift!",
+    "claim": "Claim Gift",
+    "close": "Close",
+    "tiers": {
+      "weeklyWarrior": "Weekly Warrior",
+      "halfMonthHero": "Half-Month Hero",
+      "monthLegend": "Monthly Legend",
+      "diamondRank": "Diamond Rank",
+      "legendMaster": "Legendary Master"
+    }
+  },
+  "levelUp": {
+    "levelUp": "Level Up!",
+    "streakActive": "Streak x{multiplier} is active!",
+    "continue": "Continue",
+    "bonusExp": "+{exp} EXP"
+  },
+  "clan": {
+    "clan": "Clan",
+    "back": "Back",
+    "createClan": "Create clan",
+    "searchClan": "Search clan...",
+    "noClans": "No clans",
+    "firstClan": "Be the first to create one!",
+    "nameMinChars": "Clan name must be at least 2 characters",
+    "tagChars": "Tag must be 2-5 characters",
+    "createError": "Error creating clan",
+    "createNewClan": "Create New Clan",
+    "clanName": "Clan name",
+    "clanTag": "Tag (2-5 chars, shown in [ ])",
+    "clanDesc": "Description (optional)",
+    "clanDescPlaceholder": "Our clan focuses on...",
+    "create": "Create clan",
+    "contributed": "Contributed {amount} EXP!",
+    "leaveConfirm": "Are you sure you want to leave this clan?",
+    "clanList": "Clan List",
+    "leader": "Leader",
+    "weeklyGoal": "This week's goal",
+    "contribute": "Contribute",
+    "members": "Members",
+    "quests": "Quests",
+    "messages": "Messages",
+    "noWeeklyQuest": "No weekly quests yet",
+    "questReward": "Reward: {reward} EXP",
+    "noMessages": "No messages yet. Be the first!",
+    "typeMessage": "Write a message...",
+    "leaveClan": "Leave clan",
+    "myClan": "Clan {name}",
+    "exploreClans": "Explore clans",
+    "checkingClan": "Checking clan..."
+  },
+  "store": {
+    "store": "Rewards Store",
+    "storeSubtitle": "Unlock avatars and profile frames to personalize your account.",
+    "frames": {
+      "wooden": "Wooden Frame",
+      "ice": "Ice Frame",
+      "glow": "Earth Glow Frame",
+      "woodenDesc": "Sturdy as wood",
+      "iceDesc": "Pure as ice",
+      "glowDesc": "Radiant as earth"
+    },
+    "owned": "Owned{count, plural, other { x#{count}}}",
+    "needPoints": "Need {cost} EXP",
+    "purchase": "Purchase item: {name}",
+    "avatars": {
+      "seedling": "Green Sprout",
+      "guardian": "Water Warrior",
+      "knight": "Forest Leader"
+    }
+  },
+  "admin": {
+    "tabs": {
+      "overview": "Overview",
+      "rewards": "Rewards",
+      "users": "Users",
+      "experiments": "Experiments",
+      "quiz": "Quiz",
+      "sheets": "Google Sheets",
+      "research": "Research",
+      "system": "System"
+    },
+    "dashboardTitle": "Admin Dashboard",
+    "research": {
+      "title": "Research Data",
+      "subtitle": "Behavior analysis, interventions, and novelty decay",
+      "overview": "Overview",
+      "retention": "Retention",
+      "interventions": "Interventions",
+      "personality": "Personality",
+      "leaderboard": "Leaderboard",
+      "decay": "Novelty Decay",
+      "exportCsv": "Export CSV",
+      "userLookup": "User lookup",
+      "userPlaceholder": "Enter UID or name...",
+      "triggerDecay": "Trigger decay detection",
+      "triggerIntervention": "Trigger intervention",
+      "totalUsers": "Total users",
+      "totalEvents": "Total events",
+      "avgSession": "Avg session",
+      "personalityDistribution": "Personality distribution",
+      "retentionDay1": "Retention D1",
+      "retentionDay7": "Retention D7",
+      "retentionDay30": "Retention D30",
+      "interventionEffectiveness": "Intervention effectiveness",
+      "noData": "No research data yet"
+    },
+    "quiz": {
+      "title": "Quiz Mini-Game Manager",
+      "subtitle": "Create, edit questions and configure quiz",
+      "addQuestion": "Add question",
+      "editQuestion": "Edit question",
+      "deleteQuestion": "Delete question",
+      "confirmDelete": "Are you sure you want to delete this question?",
+      "content": "Question content",
+      "contentPlaceholder": "Enter question content...",
+      "optionA": "Option A",
+      "optionB": "Option B",
+      "optionC": "Option C",
+      "optionD": "Option D",
+      "correctKey": "Correct answer",
+      "points": "Points",
+      "category": "Category",
+      "difficulty": "Difficulty",
+      "difficultyEasy": "Easy",
+      "difficultyMedium": "Medium",
+      "difficultyHard": "Hard",
+      "enabled": "Enabled",
+      "imageUrl": "Image URL",
+      "order": "Order",
+      "preview": "Preview",
+      "import": "Import",
+      "export": "Export",
+      "importJson": "Import JSON",
+      "importCsv": "Import CSV",
+      "exportJson": "Export JSON",
+      "exportCsv": "Export CSV",
+      "reorder": "Reorder",
+      "moveUp": "Up",
+      "moveDown": "Down",
+      "totalQuestions": "Total questions",
+      "activeQuestions": "Active",
+      "saveQuestion": "Save question",
+      "questionSaved": "Question saved",
+      "questionDeleted": "Question deleted",
+      "questionsImported": "Imported {count} questions",
+      "questionsExported": "Exported {count} questions",
+      "noQuestions": "No questions yet",
+      "syncToSheets": "Sync to Sheets",
+      "syncFromSheets": "Pull from Sheets",
+      "lastSync": "Last sync",
+      "neverSynced": "Never synced",
+      "config": {
+        "title": "Quiz Configuration",
+        "startTime": "Start time",
+        "endTime": "End time",
+        "questionDuration": "Time per question (seconds)",
+        "maxQuestions": "Max questions per play",
+        "maxPoints": "Max reward points",
+        "comboBonus": "Combo bonus",
+        "description": "Quiz description",
+        "descriptionPlaceholder": "Description shown to students...",
+        "saveConfig": "Save configuration",
+        "configSaved": "Configuration saved"
+      }
+    },
+    "sheets": {
+      "title": "Google Sheets Sync",
+      "subtitle": "Manage 3-way sync: Sheets ↔ Firestore ↔ Supabase",
+      "status": "Status",
+      "lastSync": "Last sync",
+      "neverSynced": "Never synced",
+      "syncInterval": "Auto-sync every",
+      "syncIntervalValue": "15 minutes",
+      "spreadsheetId": "Spreadsheet ID",
+      "fullSync": "Full sync",
+      "pushToSheets": "Push to Sheets",
+      "pullFromSheets": "Pull from Sheets",
+      "syncing": "Syncing...",
+      "syncSuccess": "Sync successful!",
+      "syncFailed": "Sync failed",
+      "syncLog": "Sync history",
+      "conflictLog": "Conflicts",
+      "noConflicts": "No conflicts",
+      "usersCount": "Users",
+      "quizCount": "Questions",
+      "configCount": "Configs",
+      "rewardsCount": "Rewards",
+      "logsCount": "Logs",
+      "healthCheck": "Connection check",
+      "firestoreStatus": "Firestore",
+      "supabaseStatus": "Supabase",
+      "sheetsStatus": "Google Sheets",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "error": "Error",
+      "lastError": "Last error",
+      "triggeredBy": "Triggered by",
+      "duration": "Duration",
+      "rowsWritten": "Rows written"
+    },
+    "system": {
+      "title": "System Status",
+      "subtitle": "Health check, audit log, cache & backup",
+      "uptime": "Uptime",
+      "memory": "Memory",
+      "dbConnections": "DB Connections",
+      "auditLog": "Audit Log",
+      "cacheManagement": "Cache management",
+      "clearCache": "Clear cache",
+      "cacheCleared": "Cache cleared",
+      "backupRestore": "Backup / Restore",
+      "backup": "Backup data.json",
+      "restore": "Restore",
+      "backupSuccess": "Backup successful",
+      "restoreSuccess": "Restore successful",
+      "serverLogs": "Server logs (last 100 lines)",
+      "actionCreate": "Create",
+      "actionUpdate": "Update",
+      "actionDelete": "Delete",
+      "actionSync": "Sync",
+      "actionLogin": "Login",
+      "byUser": "By",
+      "atTime": "At",
+      "details": "Details",
+      "rateLimitSettings": "Rate limit settings"
+    }
+  },
+  "research": {
+    "research": "Research Dashboard",
+    "researchSubtitle": "Track retention, experiments, AI models, and user behavior in a clear, readable, production-ready analytics space.",
+    "loadError": "Could not load research data",
+    "exported": "Data exported",
+    "exportFailed": "Export failed",
+    "checking": "Checking research database...",
+    "checkingHint": "Preparing analytics space for you.",
+    "notReady": "Research mode not ready",
+    "notReadyHint": "Research analytics system not connected. Check the research backend and try again.",
+    "back": "Back",
+    "retry": "Check Again",
+    "overview": "Overview",
+    "refreshOverview": "Refresh Overview",
+    "exportTab": "Export current tab",
+    "loadingData": "Loading research data",
+    "loadingHint": "Preparing charts, model results, and behavioral signals for you.",
+    "profileUsers": "Profile Users",
+    "personalityDist": "Personality Distribution",
+    "intervention": "Intervention",
+    "monitoringCohort": "Monitoring Cohort",
+    "overviewHint": "High-level signals to quickly scan before diving into each data group.",
+    "insights": "Overview insights",
+    "commonActions": "Common actions",
+    "statsAnalysis": "Statistical Analysis",
+    "noStats": "No statistics data yet",
+    "aiMetrics": "AI benchmark and confusion matrix",
+    "noMetrics": "No AI metrics yet",
+    "interventionEfficacy": "Intervention Efficacy",
+    "noIntervention": "No efficacy data yet",
+    "tab": "Tab {name}",
+    "dashboardTitle": "Research dashboard",
+    "dashboardSubtitle": "Research & analytics",
+    "tabs": {
+      "overview": "Overview",
+      "retention": "Retention",
+      "interventions": "Interventions",
+      "personality": "Personality",
+      "decay": "Engagement",
+      "simulation": "Simulation",
+      "aiMetrics": "AI Metrics",
+      "experiments": "Experiments",
+      "statistics": "Statistics",
+      "effectiveness": "Effectiveness",
+      "social": "Social",
+      "longitudinal": "Longitudinal"
+    }
+  },
+  "app": {
+    "restoringSession": "Restoring session",
+    "restoringHint": "Getting your dashboard, learning progress, and experience space ready.",
+    "syncingLogin": "Syncing login session",
+    "syncingHint": "This will only take a moment to get you back to where you left off."
+  },
+  "milestones": {
+    "milestone": "Milestone",
+    "unlocked": "Unlocked!",
+    "progress": "Progress: {current}/{target}"
+  },
+  "misc": {
+    "comboBonus": "Bonus x{multiplier}",
+    "pointsAdded": "Bonus points have been added to your account.",
+    "noResults": "No results found"
+  },
+  "cards": {
+    "names": {
+      "card_001": "PET Bottle",
+      "card_002": "Plastic Bag",
+      "card_003": "Plastic Straw",
+      "card_004": "Bottle Cap",
+      "card_005": "Food Container",
+      "card_006": "Plastic Bucket",
+      "card_007": "Toothbrush",
+      "card_008": "Plastic Cup",
+      "card_009": "Egg Tray",
+      "card_010": "Spray Bottle",
+      "card_011": "Pencil Case",
+      "card_012": "Zip Bag",
+      "card_013": "CD Case",
+      "card_014": "Tennis Ball",
+      "card_015": "Small Mirror",
+      "card_016": "Shampoo Bottle",
+      "card_017": "Cake Wrapper",
+      "card_018": "Syringe",
+      "card_019": "Baby Bottle",
+      "card_020": "Crossbody Bag",
+      "card_021": "Phone Case",
+      "card_022": "Shoe Sole",
+      "card_023": "Plastic Spoon",
+      "card_024": "Medicine Box",
+      "card_025": "Balloon",
+      "card_026": "Pencil Sharpener",
+      "card_027": "Plastic Knife",
+      "card_028": "Hair Clip",
+      "card_029": "Lunch Box",
+      "card_030": "Watch Strap",
+      "card_031": "Newspaper",
+      "card_032": "Cardboard",
+      "card_033": "Textbook",
+      "card_034": "Flyer",
+      "card_035": "Envelope",
+      "card_036": "Sticky Note",
+      "card_037": "Notebook",
+      "card_038": "Advertisement",
+      "card_039": "Gift Wrap",
+      "card_040": "Comic Book",
+      "card_041": "Map",
+      "card_042": "Test Paper",
+      "card_043": "Label",
+      "card_044": "Calendar",
+      "card_045": "Memo Paper",
+      "card_046": "Movie Ticket",
+      "card_047": "Greeting Card",
+      "card_048": "A4 Paper",
+      "card_049": "Cookbook",
+      "card_050": "Place Mat",
+      "card_051": "Book Cover",
+      "card_052": "Pastry Wrapper",
+      "card_053": "Student Notebook",
+      "card_054": "Grade Book",
+      "card_055": "Tea Filter",
+      "card_056": "Classified Ad",
+      "card_057": "Carbon Paper",
+      "card_058": "Sheet Music",
+      "card_059": "Manual",
+      "card_060": "Toilet Paper",
+      "card_061": "Beer Bottle",
+      "card_062": "Broken Glass",
+      "card_063": "Flower Vase",
+      "card_064": "Spectacles",
+      "card_065": "Soda Bottle",
+      "card_066": "Lab Bottle",
+      "card_067": "Light Bulb",
+      "card_068": "Water Bottle",
+      "card_069": "Perfume Bottle",
+      "card_070": "Glass Cup",
+      "card_071": "Champagne Bottle",
+      "card_072": "Jam Jar",
+      "card_073": "Magnifying Glass",
+      "card_074": "Wine Bottle",
+      "card_075": "Glass Jar",
+      "card_076": "Coffee Cup",
+      "card_077": "Cooking Oil Bottle",
+      "card_078": "Paint Jar",
+      "card_079": "Measuring Cup",
+      "card_080": "Milk Bottle",
+      "card_081": "Glass Bottle",
+      "card_082": "Tea Glass",
+      "card_083": "Cosmetic Jar",
+      "card_084": "Mineral Water Bottle",
+      "card_085": "Water Pitcher",
+      "card_086": "Small Beer Can",
+      "card_087": "Medicine Bottle",
+      "card_088": "Tumbler",
+      "card_089": "Liquor Bottle",
+      "card_090": "Spice Jar",
+      "card_091": "Soda Can",
+      "card_092": "Can Lid",
+      "card_093": "Tin Can",
+      "card_094": "Coin",
+      "card_095": "Bullet Shell",
+      "card_096": "Bone",
+      "card_097": "Electric Wire",
+      "card_098": "Water Pipe",
+      "card_099": "Frying Pan",
+      "card_100": "Cooking Pot",
+      "card_101": "Kitchen Knife",
+      "card_102": "Scissors",
+      "card_103": "Gas Tank",
+      "card_104": "Chain",
+      "card_105": "Padlock",
+      "card_106": "Gear",
+      "card_107": "Gold Leaf",
+      "card_108": "Fire Extinguisher",
+      "card_109": "Whistle",
+      "card_110": "Screw",
+      "card_111": "Clothes Hanger",
+      "card_112": "Hand Mirror",
+      "card_113": "Metal Tray",
+      "card_114": "Storage Box",
+      "card_115": "Can Case",
+      "card_116": "Beer Can",
+      "card_117": "Pan Base",
+      "card_118": "Grill Rack",
+      "card_119": "Wire Mesh",
+      "card_120": "Aluminum Ladder",
+      "card_121": "Leaf",
+      "card_122": "Branch",
+      "card_123": "Wood",
+      "card_124": "Bark",
+      "card_125": "Fruit",
+      "card_126": "Fruit Peel",
+      "card_127": "Seed",
+      "card_128": "Grass",
+      "card_129": "Seaweed",
+      "card_130": "Mushroom",
+      "card_131": "Fertilizer",
+      "card_132": "Animal Bone",
+      "card_133": "Seashell",
+      "card_134": "Clam Shell",
+      "card_135": "Crab Shell",
+      "card_136": "Fish Scale",
+      "card_137": "Feather",
+      "card_138": "Hair",
+      "card_139": "Fingernail",
+      "card_140": "Leather",
+      "card_141": "Meat",
+      "card_142": "Fish Bone",
+      "card_143": "Scale",
+      "card_144": "Turtle Shell",
+      "card_145": "Snail Shell",
+      "card_146": "Horn",
+      "card_147": "Ivory",
+      "card_148": "Eggshell",
+      "card_149": "Pomelo Peel",
+      "card_150": "Banana Peel",
+      "card_151": "Battery",
+      "card_152": "Pesticide",
+      "card_153": "Paint",
+      "card_154": "Solvent",
+      "card_155": "Acid",
+      "card_156": "Alkali",
+      "card_157": "Mercury",
+      "card_158": "Lead",
+      "card_159": "Asbestos",
+      "card_160": "Asphalt",
+      "card_161": "Motor Oil",
+      "card_162": "Printer Ink",
+      "card_163": "Glue",
+      "card_164": "Wax",
+      "card_165": "Rubber",
+      "card_166": "Synthetic Resin",
+      "card_167": "Cleaning Agent",
+      "card_168": "Dye",
+      "card_169": "Chemical Fertilizer",
+      "card_170": "Disinfectant",
+      "card_171": "Radioactive Material",
+      "card_172": "Tin",
+      "card_173": "Zinc",
+      "card_174": "Nickel",
+      "card_175": "Chromium",
+      "card_176": "Cadmium",
+      "card_177": "Barium",
+      "card_178": "Strontium",
+      "card_179": "Vanadium",
+      "card_180": "Manganese",
+      "card_295": "Ancient Polymer Banknote",
+      "card_296": "Telescope",
+      "card_297": "Ancient Lotus Seed",
+      "card_298": "Collector's Can",
+      "card_299": "Royal Crystal Bottle",
+      "card_300": "Heritage Box"
+    },
+    "elements": {
+      "plastic": "Plastic",
+      "paper": "Paper",
+      "glass": "Glass",
+      "metal": "Metal",
+      "organic": "Organic",
+      "hazard": "Hazardous"
+    },
+    "rarities": {
+      "common": "Common",
+      "rare": "Rare",
+      "uncommon": "Uncommon",
+      "superRare": "Super Rare",
+      "legendary": "Legendary"
+    },
+    "rarity": {
+      "common": "Common",
+      "rare": "Rare",
+      "uncommon": "Uncommon",
+      "epic": "Epic",
+      "superRare": "Super Rare",
+      "legendary": "Legendary"
+    },
+    "stat": {
+      "atk": "Attack",
+      "hp": "HP",
+      "def": "Defense",
+      "spd": "Speed",
+      "crt": "Crit",
+      "int": "Intelligence"
+    },
+    "def_01": "Shell Coating",
+    "def_02": "Invisible Shield",
+    "def_03": "Iron Armor",
+    "def_04": "Magnetic Barrier",
+    "def_05": "Energy Reflection",
+    "def_06": "Nano Protection Layer",
+    "def_07": "Glass Shield",
+    "def_08": "Hard Shell",
+    "def_09": "Defensive Laser",
+    "def_10": "Plasma Screen",
+    "def_11": "Elastic Rubber Layer",
+    "def_12": "Diamond Armor",
+    "def_13": "Radiation Shield",
+    "def_14": "Thick Wooden Wall",
+    "def_15": "Bubble Layer",
+    "def_16": "Drag Force",
+    "def_17": "Regenerative Plastic",
+    "def_18": "Tempered Glass",
+    "def_19": "Water Shield",
+    "def_20": "Primitive Shell",
+    "off_01": "Steel Blade",
+    "off_02": "Surprise Ambush",
+    "off_03": "Shock Wave",
+    "off_04": "High Voltage Shock",
+    "off_05": "Complete Burn",
+    "off_06": "System Infiltration",
+    "off_07": "Destructive Laser",
+    "off_08": "Metal Collision",
+    "off_09": "Corrosive Poison",
+    "off_10": "Ultra Drill",
+    "off_11": "Chain Reaction",
+    "off_12": "Sinew Severing",
+    "off_13": "Devastating Explosion",
+    "off_14": "Spinning Blade",
+    "off_15": "Cumulative Radiation",
+    "off_16": "Armor Pierce",
+    "off_17": "Terrifying Sound Wave",
+    "off_18": "Energy Absorption",
+    "off_19": "Sharp Sticks",
+    "off_20": "Total War",
+    "utl_01": "Miraculous Recovery",
+    "utl_02": "Devil Speed Jump",
+    "utl_03": "Protection Pack",
+    "utl_04": "Speed Boost",
+    "utl_05": "Rise from Ashes",
+    "utl_06": "Bounce Counter",
+    "utl_07": "Lightning Permit",
+    "utl_08": "Backup Battery Core",
+    "utl_09": "Resource Recovery",
+    "utl_10": "Safety Air Bag",
+    "utl_11": "Insulating Rubber",
+    "utl_12": "Quick Strike",
+    "utl_13": "Bio Degradation"
+  },
+  "flashcards": {
+    "tabs": {
+      "collection": "Collection",
+      "fusion": "Fusion",
+      "levelup": "Level Up",
+      "practice": "Practice",
+      "gacha": "Gacha",
+      "battle": "Battle Arena",
+      "roguelike": "Survival",
+      "shards": "Shards"
+    },
+    "shard": {
+      "xpSmall": "Small EXP Charm",
+      "xpSmallDesc": "+50 EXP for any card",
+      "xpLarge": "Large EXP Charm",
+      "xpLargeDesc": "+200 EXP for any card",
+      "xpMassive": "Massive EXP Charm",
+      "xpMassiveDesc": "+1000 EXP for any card",
+      "elementDesc": "Buy elemental rare card",
+      "rareType": "Rare Card",
+      "epicType": "Epic Card",
+      "legendaryType": "Legendary Card",
+      "legendaryDesc": "Buy ultra-rare legendary card",
+      "rarePlastic": "Rare: Plastic",
+      "rareOrganic": "Rare: Organic",
+      "epicHazard": "Epic: Hazard",
+      "epicMetal": "Epic: Metal",
+      "legendaryCard": "Legendary Card",
+      "notEnough": "Not enough"
+    },
+    "categories": {
+      "all": "All",
+      "plastic": "Plastic",
+      "paper": "Paper",
+      "glass": "Glass",
+      "metal": "Metal",
+      "organic": "Organic",
+      "hazard": "Hazard"
+    },
+    "stats": {
+      "atk": "Attack",
+      "hp": "HP",
+      "def": "Defense",
+      "spd": "Speed",
+      "crt": "Critical",
+      "int": "Intelligence"
+    },
+    "shardCount": "{count} Shards",
+    "shop": {
+      "title": "Shard Shop",
+      "duplicateHint": "When you open a duplicate (card you already own), it converts to 3 Shards.",
+      "upgradeHint": "Use shards to buy rare cards or upgrade items!",
+      "hint": "Each duplicate = 3 Shards"
+    },
+    "gacha": {
+      "open": "Open Gacha",
+      "close": "Close",
+      "spinning": "Opening...",
+      "result": "Result",
+      "newCard": "New card! Added to collection",
+      "duplicate": "You already have this card",
+      "collect": "Collect"
+    },
+    "toast": {
+      "added": "Card added to collection!",
+      "notEnough": "Not enough points to open gacha!",
+      "fusionSuccess": "Fusion successful!",
+      "levelUpSuccess": "Level up successful!"
+    },
+    "filter": {
+      "all": "All",
+      "byRarity": "By Rarity",
+      "byElement": "By Element",
+      "byPower": "By Power"
+    },
+    "collection": {
+      "title": "Collection",
+      "empty": "No cards in collection yet!",
+      "total": "Total Cards"
+    },
+    "pity": {
+      "epic": "{n} pulls until guaranteed Epic",
+      "legendary": "{n} pulls until guaranteed Legendary"
+    },
+    "searchPlaceholder": "Search cards by name...",
+    "levelup": {
+      "notEnough": "Not enough EXP!",
+      "success": "Level up successful to Lv.{level}!",
+      "successWithBonus": "Level up successful to Lv.{level}! +{exp} bonus EXP (Challenge)!",
+      "upgrading": "Level up card"
+    },
+    "fusionSuccess": "Fusion successful! +{exp} EXP",
+    "fusing": "Fusion",
+    "locked": "Locked",
+    "showLocked": "Show locked",
+    "hideLocked": "Hide locked",
+    "noCards": "No cards",
+    "tryChangingFilter": "Try changing filters.",
+    "cards": "Cards",
+    "collect": "Collect",
+    "xpAdded": "+{exp} EXP added!",
+    "newCardAdded": "New card added to collection!",
+    "cardAdded": "Card added to collection!",
+    "purchaseFailed": "Purchase failed."
+  },
+  "campaign": {
+    "worldMap": "World Map",
+    "worldMapSubtitle": "100 Stages to Conquer",
+    "playerLevel": "Level",
+    "stages": "Stages",
+    "totalStars": "Total Stars",
+    "requiredLevel": "Required Level",
+    "startCampaign": "Start Campaign",
+    "locked": "Locked",
+    "reachLevel": "Reach level",
+    "stage": "Stage",
+    "normal": "Normal",
+    "elite": "Elite",
+    "miniboss": "Mini Boss",
+    "boss": "Boss",
+    "eventStage": "Event",
+    "region_01": {
+      "name": "Roadside Dump",
+      "desc": "Where the journey begins. Household waste everywhere."
+    },
+    "region_02": {
+      "name": "Flea Market",
+      "desc": "The flea market with all sorts of used items."
+    },
+    "region_03": {
+      "name": "Industrial Waste Zone",
+      "desc": "Area heavy with industrial waste."
+    },
+    "region_04": {
+      "name": "Transfer Station",
+      "desc": "City waste transfer station."
+    },
+    "region_05": {
+      "name": "Toxic Waste Land",
+      "desc": "Land heavily polluted by toxic waste."
+    },
+    "region_06": {
+      "name": "Recycling Plant",
+      "desc": "Modern plant with cutting-edge recycling technology."
+    },
+    "region_07": {
+      "name": "Plastic Ocean",
+      "desc": "Ocean polluted by massive plastic waste."
+    },
+    "region_08": {
+      "name": "The Forbidden Zone",
+      "desc": "Restricted area with dangerous mutant creatures."
+    },
+    "region_09": {
+      "name": "Abyssal Hellscape",
+      "desc": "Bottomless abyss, home of garbage monsters."
+    },
+    "region_10": {
+      "name": "The Trash Throne",
+      "desc": "Throne of the Trash King, site of the final battle."
+    }
+  },
+  "collection": {
+    "newCard": "NEW CARD!",
+    "viewCollection": "View Collection",
+    "totalCards": "Total Cards",
+    "uniqueCards": "Unique Cards",
+    "missingCards": "Missing Cards",
+    "shinyCards": "Shiny Cards",
+    "eventCards": "Event Cards",
+    "filterBy": "Filter By",
+    "sortBy": "Sort By",
+    "rarity": "Rarity",
+    "element": "Element",
+    "all": "All",
+    "tapToReveal": "Tap to reveal",
+    "autoContinueIn": "Auto-continuing in {{seconds}}s",
+    "openPack": "Open pack",
+    "cardsRevealed": "Opened {{count}} cards"
+  },
+  "stamina": {
+    "stamina": "Stamina",
+    "maxStamina": "Max Stamina",
+    "refillIn": "Refills in",
+    "full": "Full",
+    "notEnough": "Not Enough Stamina"
+  },
+  "rewards": {
+    "xp": "XP",
+    "gold": "Gold",
+    "cardDrop": "Card Drop",
+    "guaranteed": "Guaranteed",
+    "possible": "Possible"
+  },
+  "stages": {
+    "s01_01": {
+      "name": "First Trash Pile"
+    },
+    "s01_02": {
+      "name": "Bottle Area"
+    },
+    "s01_03": {
+      "name": "Plastic Bag Corner"
+    },
+    "s01_04": {
+      "name": "Paper Scrap Pile"
+    },
+    "s01_05": {
+      "name": "Mini Transfer Station"
+    },
+    "s01_06": {
+      "name": "Small Trash Area"
+    },
+    "s01_07": {
+      "name": "Metal Zone"
+    },
+    "s01_08": {
+      "name": "Food Waste Pile"
+    },
+    "s01_09": {
+      "name": "Elite Sorting Station"
+    },
+    "s01_10": {
+      "name": "Boss: Trash Lord"
+    },
+    "s02_01": {
+      "name": "Market Stalls"
+    },
+    "s02_02": {
+      "name": "Secondhand Area"
+    },
+    "s02_03": {
+      "name": "Plastic Zone"
+    },
+    "s02_04": {
+      "name": "Glass Area"
+    },
+    "s02_05": {
+      "name": "Battery Charging Station"
+    },
+    "s02_06": {
+      "name": "Electronics Area"
+    },
+    "s02_07": {
+      "name": "Old Books Stall"
+    },
+    "s02_08": {
+      "name": "Wood Area"
+    },
+    "s02_09": {
+      "name": "Elite Recycling Station"
+    },
+    "s02_10": {
+      "name": "Boss: Trash Doctor"
+    },
+    "s03_01": {
+      "name": "Steel Scrap Yard"
+    },
+    "s03_02": {
+      "name": "Old Car Zone"
+    },
+    "s03_03": {
+      "name": "Iron Scrap Pile"
+    },
+    "s03_04": {
+      "name": "Machinery Area"
+    },
+    "s03_05": {
+      "name": "Welding Station"
+    },
+    "s03_06": {
+      "name": "Engine Area"
+    },
+    "s03_07": {
+      "name": "Parts Yard"
+    },
+    "s03_08": {
+      "name": "Cable Area"
+    },
+    "s03_09": {
+      "name": "Mini Robot Station"
+    },
+    "s03_10": {
+      "name": "Boss: Metal King"
+    },
+    "s04_01": {
+      "name": "Recycling Zone 1"
+    },
+    "s04_02": {
+      "name": "Recycling Zone 2"
+    },
+    "s04_03": {
+      "name": "Recycling Zone 3"
+    },
+    "s04_04": {
+      "name": "Recycling Zone 4"
+    },
+    "s04_05": {
+      "name": "Plastic Press Station"
+    },
+    "s04_06": {
+      "name": "Melting Area"
+    },
+    "s04_07": {
+      "name": "Molding Zone"
+    },
+    "s04_08": {
+      "name": "Packaging Zone"
+    },
+    "s04_09": {
+      "name": "Gold Sorting Station"
+    },
+    "s04_10": {
+      "name": "Boss: Master Recycler"
+    },
+    "s05_01": {
+      "name": "Waste Area 1"
+    },
+    "s05_02": {
+      "name": "Waste Area 2"
+    },
+    "s05_03": {
+      "name": "Dead Battery Zone"
+    },
+    "s05_04": {
+      "name": "Chemical Waste Site"
+    },
+    "s05_05": {
+      "name": "Neutralization Station"
+    },
+    "s05_06": {
+      "name": "Waste Processing Zone"
+    },
+    "s05_07": {
+      "name": "Toxic Gas Area"
+    },
+    "s05_08": {
+      "name": "Radiation Zone"
+    },
+    "s05_09": {
+      "name": "Detox Station"
+    },
+    "s05_10": {
+      "name": "Boss: Toxic King"
+    },
+    "s06_01": {
+      "name": "Processing Zone 1"
+    },
+    "s06_02": {
+      "name": "Processing Zone 2"
+    },
+    "s06_03": {
+      "name": "Processing Zone 3"
+    },
+    "s06_04": {
+      "name": "Processing Zone 4"
+    },
+    "s06_05": {
+      "name": "Water Filter Station"
+    },
+    "s06_06": {
+      "name": "Sterilization Zone"
+    },
+    "s06_07": {
+      "name": "Clean Trash Area"
+    },
+    "s06_08": {
+      "name": "Reuse Zone"
+    },
+    "s06_09": {
+      "name": "Gold Sorting Station"
+    },
+    "s06_10": {
+      "name": "Boss: Regeneration Master"
+    },
+    "s07_01": {
+      "name": "Shallow Water 1"
+    },
+    "s07_02": {
+      "name": "Shallow Water 2"
+    },
+    "s07_03": {
+      "name": "Coral Reef"
+    },
+    "s07_04": {
+      "name": "Trash Beach"
+    },
+    "s07_05": {
+      "name": "Sea Water Filter Station"
+    },
+    "s07_06": {
+      "name": "Deep Zone 1"
+    },
+    "s07_07": {
+      "name": "Deep Zone 2"
+    },
+    "s07_08": {
+      "name": "High Pressure Area"
+    },
+    "s07_09": {
+      "name": "Ocean Rescue Station"
+    },
+    "s07_10": {
+      "name": "Boss: Ocean Garbage Monster"
+    },
+    "s08_01": {
+      "name": "Forbidden Border 1"
+    },
+    "s08_02": {
+      "name": "Forbidden Border 2"
+    },
+    "s08_03": {
+      "name": "Monster Zone"
+    },
+    "s08_04": {
+      "name": "Cursed Territory"
+    },
+    "s08_05": {
+      "name": "Monster Station"
+    },
+    "s08_06": {
+      "name": "Dark Zone"
+    },
+    "s08_07": {
+      "name": "Radiation Area"
+    },
+    "s08_08": {
+      "name": "Anomaly Point"
+    },
+    "s08_09": {
+      "name": "Alert Station"
+    },
+    "s08_10": {
+      "name": "Boss: God of Stagnation"
+    },
+    "s09_01": {
+      "name": "Hell Gate 1"
+    },
+    "s09_02": {
+      "name": "Hell Gate 2"
+    },
+    "s09_03": {
+      "name": "Fire Pit"
+    },
+    "s09_04": {
+      "name": "Ash Zone"
+    },
+    "s09_05": {
+      "name": "Inferno Station"
+    },
+    "s09_06": {
+      "name": "Furnace"
+    },
+    "s09_07": {
+      "name": "Coal Zone"
+    },
+    "s09_08": {
+      "name": "Poison Smoke Area"
+    },
+    "s09_09": {
+      "name": "Fire Cleanup Station"
+    },
+    "s09_10": {
+      "name": "Boss: Fire Master"
+    },
+    "s10_01": {
+      "name": "Trash Palace 1"
+    },
+    "s10_02": {
+      "name": "Trash Palace 2"
+    },
+    "s10_03": {
+      "name": "Royal Hall"
+    },
+    "s10_04": {
+      "name": "Treasure Vault"
+    },
+    "s10_05": {
+      "name": "Guard Station"
+    },
+    "s10_06": {
+      "name": "Royal Guard"
+    },
+    "s10_07": {
+      "name": "Royal Elite Guard"
+    },
+    "s10_08": {
+      "name": "Elite Guard"
+    },
+    "s10_09": {
+      "name": "Final Station"
+    },
+    "s10_10": {
+      "name": "FINAL BOSS: Great Trash King"
+    }
+  },
+  "newElements": {
+    "energy": "Energy",
+    "water": "Water",
+    "tech": "Technology"
+  },
+  "newRarities": {
+    "uncommon": "Uncommon",
+    "mythical": "Mythical",
+    "event": "Event"
+  },
+  "newAbilities": {
+    "ult_01": "Super Reconstruction",
+    "ult_02": "Atomic Wave",
+    "ult_03": "Time Loop",
+    "ult_04": "Black Hole Devour"
+  },
+  "audit": {
+    "title": "Votre journal de données",
+    "empty": "Aucun événement pour l’instant. Quand vous scannez ou discutez avec BMO, ils apparaîtront ici.",
+    "loadError": "Impossible de charger le journal : {{error}}",
+    "loading": "Chargement…",
+    "loadMore": "Charger plus",
+    "messages": {
+      "scan": "Vous avez scanné une image de tri. Le système NE stocke PAS l’image — seulement le hash",
+      "consentGranted": "Vous avez consenti à contribuer au jeu de données (révocable à tout moment).",
+      "consentRevoked": "Vous avez retiré votre consentement.",
+      "chatMessage": "Vous avez envoyé",
+      "chatMessageSuffix": "caractères au chatbot.",
+      "login": "Vous vous êtes connecté.",
+      "logout": "Vous vous êtes déconnecté.",
+      "rewardClaim": "Vous avez reçu",
+      "rewardSpent": "Vous avez dépensé",
+      "rewardPoints": "points de récompense.",
+      "federatedSubmit": "Vous avez contribué 1 tour d’apprentissage fédéré (gradient coupé + bruité avant envoi).",
+      "quizComplete": "Vous avez terminé un quiz.",
+      "score": "Score",
+      "fallback": "Événement",
+      "recorded": "a été enregistré."
+    }
+  }
+}

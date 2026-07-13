@@ -5,6 +5,8 @@ import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../
 import { Globe, Shield } from "lucide-react";
 import { useTheme } from "../App";
 import { ContributeToDataset } from "./ContributeToDataset";
+import { PrivacyBudgetMeter } from "./PrivacyBudgetMeter";
+import { AuditTimeline } from "./AuditTimeline";
 
 interface SettingsProps {
   user: User;
@@ -597,6 +599,15 @@ function PrivacyTabContent({ user }: { user: User }) {
           BMO đã học gì từ bạn? Model version? DP ε/δ?
         </span>
       </button>
+
+      {/* Privacy budget meter + audit trail (visible, not modal) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <PrivacyBudgetMeter userId={user.account_id} />
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h4 className="text-sm font-bold text-slate-900 mb-2">Nhật ký sự kiện riêng tư</h4>
+          <AuditTimeline userId={user.account_id} />
+        </div>
+      </div>
 
       {showContributeModal && (
         <ContributeToDataset

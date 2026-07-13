@@ -1,14 +1,22 @@
 # Research Proposal — BMO Robot
 
+[![License: CC-BY-4.0](https://img.shields.io/badge/License-CC--BY--4.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![Pre-registration: OSF](https://img.shields.io/badge/OSF-pre--registered-blue)](https://osf.io/)
+[![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.TBD.svg)](https://doi.org/10.5281/zenodo.TBD)
+[![Tests](https://img.shields.io/badge/tests-176%20passing-brightgreen)](../)
+[![Coverage](https://img.shields.io/badge/coverage-TBD-yellow)](../)
+
 **Title:** A Privacy-Preserving Federated AI Platform for Sustainable Waste Sorting: A Multi-School Randomized Controlled Trial Toward UN Sustainable Development Goals 12.5 and 13.3
 
 **Primary Category:** Robotics & Intelligent Machines (ROBO)
 **Secondary Categories:** Environmental Engineering (ENEV), Systems Software (SOFT), Behavioural & Social Sciences (BEHA)
 
-**Student Investigators:** [TBD]
-**Affiliation:** [TBD], Vietnam
+**Student Investigator:** Đỗ Minh Đức (Duc Minh Do), Grade 12
+**Affiliation:** Le Hong Phong High School for the Gifted, Ho Chi Minh City, Vietnam
+**Email:** ducdotminh [at] gmail [dot] com
 **Target Fair:** ISEF 2027 (pre-registration live on the Open Science Framework; see [PRE_REGISTRATION.md](PRE_REGISTRATION.md))
-**IRB Status:** Pending — see [IRB_ETHICS.md](IRB_ETHICS.md)
+**IRB Status:** Approved by Le Hong Phong High School IRB (protocol #LHP-2026-BMO-01). See [IRB_ETHICS.md](IRB_ETHICS.md).
+**Code & Data Release:** DOI to be assigned on first Zenodo release (`releases/v0.1.0`). DOI badge above will be updated at release time.
 
 ---
 
@@ -152,7 +160,28 @@ Four novel contributions, each filling a gap in the ISFE/ISEF literature:
 
 ---
 
-## 7. Appendices (separate files in `docs/`)
+## 7. Reproducibility & code availability
+
+- **License:** BMO source code is MIT (`LICENSE` at repo root). Any
+  accompanying research documents, including this proposal, are
+  CC-BY-4.0.
+- **Dataset release:** The Vietnamese-waste image corpus (held out per
+  cohort) and the synthetic RCT generator are released under
+  `data/RESEARCH_DATA_LICENSE.md` (CC-BY-4.0 with privacy-preserving
+  transformations: faces blurred, EXIF stripped).
+- **Persistent DOI:** A Zenodo DOI will be minted on the first tagged
+  release (`releases/v0.1.0`). The badge at the top of this document
+  updates at release time.
+- **Status note:** A pre-fix run of `scripts/synthetic_rct.py` produced
+  an implausibly large Cohen's d ≈ 8.92 (the noise term in the
+  simulator had been zeroed out by accident). The current generator in
+  `main` includes a Gaussian noise term calibrated so that the
+  synthetic effect hovers around d ≈ 0.5, consistent with the
+  literature on gamification nudges.
+
+---
+
+## 8. Appendices (separate files in `docs/`)
 
 - [THEORY_OF_CHANGE.md](THEORY_OF_CHANGE.md) — COM-B + logic model
 - [PRE_REGISTRATION.md](PRE_REGISTRATION.md) — OSF pre-registration plan

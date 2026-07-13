@@ -16,6 +16,8 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Globe, Leaf, TreePine, Zap, Recycle, TreeDeciduous, Factory, Apple } from "lucide-react";
+import { TrustPanel } from "./TrustPanel";
+import { LiveFeedBadge } from "./LiveFeedBadge";
 
 const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_BASE_URL) || "";
 
@@ -101,6 +103,9 @@ export function GlobalImpactDashboard() {
             Mỗi lượt quét rác qua BMO đều được đo lường bằng phương pháp EPA WARM + IPCC AR6.
             Mọi con số đều có thể kiểm chứng (xem carbon ledger).
           </p>
+          <div className="mt-4 flex justify-center">
+            <LiveFeedBadge />
+          </div>
         </div>
 
         {/* Cohort switcher */}
@@ -224,6 +229,9 @@ export function GlobalImpactDashboard() {
             </details>
           </>
         ) : null}
+
+        {/* Live observability */}
+        <TrustPanel />
       </div>
     </div>
   );

@@ -29,9 +29,32 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
 PORT="${SMOKE_PORT:-3001}"
-TIMEOUT="${SMOKE_TIMEOUT:-30}"
+# First boot is slow because the server pulls 557 users from Firebase
+# and runs the Google Sheets auto-sync. Allow 90s in CI by default.
+TIMEOUT="${SMOKE_TIMEOUT:-90}"
 ADMIN_KEY="${ADMIN_API_KEY:-bmo-smoke-admin-key}"
 BASE="http://localhost:${PORT}"
+
+# Resolve node from PATH or fall back to a few well-known Windows installs
+# so the script works from PowerShell, WSL, Git-Bash, and CI runners.
+if command -v node >/dev/null 2>&1; then
+  NODE_BIN="$(command -v node)"
+elif [[ -x "/c/Program Files/nodejs/node.exe" ]]; then
+  NODE_BIN="/c/Program Files/nodejs/node.exe"
+elif [[ -x "/c/Program Files (x86)/nodejs/node.exe" ]]; then
+  NODE_BIN="/c/Program Files (x86)/nodejs/node.exe"
+elif [[ -x "/mnt/c/Program Files/nodejs/node.exe" ]]; then
+  NODE_BIN="/mnt/c/Program Files/nodejs/node.exe"
+elif [[ -x "/usr/bin/node" ]]; then
+  NODE_BIN="/usr/bin/node"
+else
+  echo "[smoke] node binary not found in PATH or known locations" >&2
+  echo "[smoke] tried: PATH, /c/Program Files/nodejs/node.exe," >&2
+  echo "[smoke]         /c/Program Files (x86)/nodejs/node.exe," >&2
+  echo "[smoke]         /mnt/c/Program Files/nodejs/node.exe, /usr/bin/node" >&2
+  exit 1
+fi
+echo "[smoke] using node=$NODE_BIN ($( "$NODE_BIN" --version ))"
 
 # ── args ────────────────────────────────────────────────────────────────────
 NO_BUILD=0
@@ -51,7 +74,7 @@ fi
 
 # ── build ───────────────────────────────────────────────────────────────────
 if [[ "$NO_BUILD" -eq 0 ]]; then
-  echo "[smoke] npm run build (Node $(node -v)) ..."
+  echo "[smoke] npm run build (Node $("$NODE_BIN" --version)) ..."
   npm run build >/tmp/smoke-build.log 2>&1 || {
     echo "[smoke] build failed — last 40 lines of /tmp/smoke-build.log:" >&2
     tail -n 40 /tmp/smoke-build.log >&2
@@ -67,8 +90,9 @@ fi
 # ── spawn server ────────────────────────────────────────────────────────────
 echo "[smoke] booting dist/server.cjs on :$PORT ..."
 PORT="$PORT" ADMIN_API_KEY="$ADMIN_KEY" \
+  NODE_ENV="${NODE_ENV:-production}" \
   RESEARCH_DB_ENABLED="${RESEARCH_DB_ENABLED:-false}" \
-  node dist/server.cjs >/tmp/smoke-server.log 2>&1 &
+  "$NODE_BIN" dist/server.cjs >/tmp/smoke-server.log 2>&1 &
 SERVER_PID=$!
 trap 'echo "[smoke] tearing down pid=$SERVER_PID"; kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true' EXIT
 
@@ -118,7 +142,7 @@ if [[ "$MODEL_STATUS" != "200" ]]; then
   echo "[smoke] body: $(cat /tmp/smoke-model.json)" >&2
   exit 1
 fi
-SHA=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/smoke-model.json','utf8')).manifest.sha256)" 2>/dev/null || echo "?")
+SHA=$("$NODE_BIN" -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/smoke-model.json','utf8')).manifest.sha256)" 2>/dev/null || echo "?")
 echo "[smoke] ✓ /api/models/waste-classifier 200 OK, sha256=${SHA:0:16}…"
 
 # ── /api/models/waste-classifier@missing should 404 ─────────────────────────

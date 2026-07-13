@@ -4,7 +4,6 @@
     "cancel": "取消",
     "save": "保存",
     "buy": "购买",
-    "close": "关闭",
     "saving": "保存中...",
     "saved": "已保存！",
     "error": "发生错误",
@@ -421,7 +420,15 @@
   "streakCalendar": {
     "history": "签到历史",
     "last7Days": "最近7天",
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "surpriseGift": {
     "openning": "正在打开礼物...",
@@ -479,15 +486,6 @@
   "store": {
     "store": "积分商城",
     "storeSubtitle": "解锁头像和资料框，个性化您的账号。",
-    "frames": "资料边框",
-    "owned": "已拥有{count, plural, other { x#{count}}}",
-    "needPoints": "需要 {cost} 经验值",
-    "purchase": "购买物品：{name}",
-    "avatars": {
-      "seedling": "绿芽",
-      "guardian": "水战士",
-      "knight": "森林领袖"
-    },
     "frames": {
       "wooden": "木框",
       "ice": "冰框",
@@ -495,73 +493,171 @@
       "woodenDesc": "如木头般坚固",
       "iceDesc": "如冰般纯净",
       "glowDesc": "如大地般光辉"
+    },
+    "owned": "已拥有{count, plural, other { x#{count}}}",
+    "needPoints": "需要 {cost} 经验值",
+    "purchase": "购买物品：{name}",
+    "avatars": {
+      "seedling": "绿芽",
+      "guardian": "水战士",
+      "knight": "森林领袖"
     }
   },
   "admin": {
-    "admin": "管理后台",
-    "adminSubtitle": "管理用户、奖励和系统。",
-    "logout": "退出登录",
-    "overview": "概览",
-    "rewards": "奖励",
-    "users": "用户",
-    "experiments": "实验",
-    "totalUsers": "总用户数",
-    "admins": "管理员",
-    "recentActivity": "最近活动",
-    "experimentsActive": "实验数",
-    "quickActions": "快捷操作",
-    "quickActionsHint": "刷新数据、更新奖励和同步外部资源。",
-    "refreshRewards": "刷新奖励",
-    "refreshUsers": "刷新用户",
-    "syncSheets": "同步Google表格",
-    "addReward": "添加奖励",
-    "systemSignals": "系统信号",
-    "activityOverview": "活动概览",
-    "rewardStore": "奖励商店",
-    "rewardStoreSubtitle": "管理商店中的物品和奖励。",
-    "loadingRewards": "正在加载奖励商店",
-    "loadRewardsError": "无法加载奖励",
-    "noRewards": "暂无奖励",
-    "addNew": "添加新项目...",
-    "pointsCost": "{cost} 积分",
-    "delete": "删除",
-    "userList": "用户列表",
-    "searchUsers": "按名称、昵称或账号ID搜索",
-    "loadingProfile": "正在加载用户资料",
-    "noUserSelected": "未选择用户",
-    "userInfo": "@{account} · {points} 积分",
-    "changeRole": "更改角色",
-    "checkDecay": "检查衰减",
-    "addPoints": "+20 积分",
-    "subPoints": "-20 积分",
-    "suspendUser": "停用",
-    "resetProgress": "重置进度",
-    "experimentsTitle": "实验管理",
-    "experimentsSubtitle": "跟踪、创建和管理正在运行的研究方案状态。",
-    "loadingExperiments": "正在加载实验列表",
-    "noExperiments": "暂无实验",
-    "noDescription": "无详细描述。",
-    "pause": "暂停",
-    "activate": "激活",
-    "remove": "删除",
-    "giftVoucher": "礼品,优惠券",
-    "messages": {
-      "imageReady": "图片已就绪",
-      "uploadFailed": "上传不成功",
-      "uploadError": "图片上传错误",
-      "saveRewardFailed": "无法保存奖励",
-      "rewardAdded": "奖励已添加",
-      "addRewardFailed": "无法添加奖励",
-      "rewardDeleted": "奖励已删除",
-      "roleUpdated": "角色已更新",
-      "pointsAdjusted": "积分已调整",
-      "userSuspended": "用户已停用",
-      "progressReset": "进度已重置",
-      "syncSuccess": "同步成功",
+    "tabs": {
+      "overview": "概览",
+      "rewards": "奖励",
+      "users": "用户",
+      "experiments": "实验",
+      "quiz": "答题",
+      "sheets": "Google Sheets",
+      "research": "研究",
+      "system": "系统"
+    },
+    "dashboardTitle": "管理仪表板",
+    "research": {
+      "title": "研究数据",
+      "subtitle": "行为分析、干预与新奇衰减",
+      "overview": "概览",
+      "retention": "留存",
+      "interventions": "干预",
+      "personality": "性格",
+      "leaderboard": "排行榜",
+      "decay": "新奇衰减",
+      "exportCsv": "导出 CSV",
+      "userLookup": "用户查询",
+      "userPlaceholder": "输入 UID 或名称...",
+      "triggerDecay": "触发衰减检测",
+      "triggerIntervention": "触发干预",
+      "totalUsers": "总用户",
+      "totalEvents": "总事件",
+      "avgSession": "平均会话",
+      "personalityDistribution": "性格分布",
+      "retentionDay1": "D1 留存",
+      "retentionDay7": "D7 留存",
+      "retentionDay30": "D30 留存",
+      "interventionEffectiveness": "干预效果",
+      "noData": "暂无研究数据"
+    },
+    "quiz": {
+      "title": "答题小游戏管理",
+      "subtitle": "创建、编辑题目与配置",
+      "addQuestion": "添加题目",
+      "editQuestion": "编辑题目",
+      "deleteQuestion": "删除题目",
+      "confirmDelete": "确定要删除这道题吗？",
+      "content": "题目内容",
+      "contentPlaceholder": "输入题目...",
+      "optionA": "选项 A",
+      "optionB": "选项 B",
+      "optionC": "选项 C",
+      "optionD": "选项 D",
+      "correctKey": "正确答案",
+      "points": "分值",
+      "category": "分类",
+      "difficulty": "难度",
+      "difficultyEasy": "简单",
+      "difficultyMedium": "中等",
+      "difficultyHard": "困难",
+      "enabled": "启用",
+      "imageUrl": "图片 URL",
+      "order": "顺序",
+      "preview": "预览",
+      "import": "导入",
+      "export": "导出",
+      "importJson": "导入 JSON",
+      "importCsv": "导入 CSV",
+      "exportJson": "导出 JSON",
+      "exportCsv": "导出 CSV",
+      "reorder": "排序",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "totalQuestions": "总题数",
+      "activeQuestions": "已启用",
+      "saveQuestion": "保存题目",
+      "questionSaved": "题目已保存",
+      "questionDeleted": "题目已删除",
+      "questionsImported": "已导入 {count} 道题",
+      "questionsExported": "已导出 {count} 道题",
+      "noQuestions": "暂无题目",
+      "syncToSheets": "同步至 Sheets",
+      "syncFromSheets": "从 Sheets 拉取",
+      "lastSync": "上次同步",
+      "neverSynced": "尚未同步",
+      "config": {
+        "title": "答题配置",
+        "startTime": "开始时间",
+        "endTime": "结束时间",
+        "questionDuration": "每题时长（秒）",
+        "maxQuestions": "每次最大题数",
+        "maxPoints": "最高奖励分",
+        "comboBonus": "连击奖励",
+        "description": "答题说明",
+        "descriptionPlaceholder": "展示给学生的说明...",
+        "saveConfig": "保存配置",
+        "configSaved": "配置已保存"
+      }
+    },
+    "sheets": {
+      "title": "Google Sheets 同步",
+      "subtitle": "管理三向同步：Sheets ↔ Firestore ↔ Supabase",
+      "status": "状态",
+      "lastSync": "上次同步",
+      "neverSynced": "尚未同步",
+      "syncInterval": "自动同步周期",
+      "syncIntervalValue": "15 分钟",
+      "spreadsheetId": "电子表格 ID",
+      "fullSync": "全量同步",
+      "pushToSheets": "推送至 Sheets",
+      "pullFromSheets": "从 Sheets 拉取",
+      "syncing": "同步中...",
+      "syncSuccess": "同步成功！",
       "syncFailed": "同步失败",
-      "decayEnabled": "已激活衰减检查",
-      "experimentCreated": "实验已创建",
-      "experimentStatusChanged": "实验状态已更改"
+      "syncLog": "同步历史",
+      "conflictLog": "冲突",
+      "noConflicts": "无冲突",
+      "usersCount": "用户",
+      "quizCount": "题目",
+      "configCount": "配置",
+      "rewardsCount": "奖励",
+      "logsCount": "日志",
+      "healthCheck": "连接检查",
+      "firestoreStatus": "Firestore",
+      "supabaseStatus": "Supabase",
+      "sheetsStatus": "Google Sheets",
+      "connected": "已连接",
+      "disconnected": "未连接",
+      "error": "错误",
+      "lastError": "最近错误",
+      "triggeredBy": "触发者",
+      "duration": "耗时",
+      "rowsWritten": "写入行数"
+    },
+    "system": {
+      "title": "系统状态",
+      "subtitle": "健康检查、审计日志、缓存与备份",
+      "uptime": "运行时长",
+      "memory": "内存",
+      "dbConnections": "数据库连接",
+      "auditLog": "审计日志",
+      "cacheManagement": "缓存管理",
+      "clearCache": "清除缓存",
+      "cacheCleared": "缓存已清除",
+      "backupRestore": "备份 / 还原",
+      "backup": "备份 data.json",
+      "restore": "还原",
+      "backupSuccess": "备份成功",
+      "restoreSuccess": "还原成功",
+      "serverLogs": "服务端日志（最近 100 行）",
+      "actionCreate": "创建",
+      "actionUpdate": "更新",
+      "actionDelete": "删除",
+      "actionSync": "同步",
+      "actionLogin": "登录",
+      "byUser": "操作人",
+      "atTime": "时间",
+      "details": "详情",
+      "rateLimitSettings": "限流设置"
     }
   },
   "research": {
@@ -610,13 +706,27 @@
       "effectiveness": "Effectiveness",
       "social": "Social",
       "longitudinal": "Longitudinal"
+    },
+    "cohorts": {
+      "C": "对照组",
+      "E1": "E1（游戏化）",
+      "E2": "E2（+FL）",
+      "E3": "E3（+Twin）",
+      "E4": "E4（+Identity）"
+    },
+    "axisLabels": {
+      "identityChange": "身份变化",
+      "sortAccuracy": "分类准确度",
+      "d30Retention": "D30 留存"
     }
   },
   "app": {
     "restoringSession": "正在恢复会话",
     "restoringHint": "正在准备您的仪表盘、学习进度和体验空间。",
-    "syncingLogin": "正在同步登录会话",
-    "syncingHint": "这只需要片刻即可让您回到上次中断的地方。"
+    "syncingLogin": "正在同步登录...",
+    "syncingHint": "正在恢复您的会话",
+    "loadingDashboard": "正在加载仪表盘...",
+    "home": "首页"
   },
   "milestones": {
     "milestone": "里程碑",
@@ -900,7 +1010,8 @@
     "utl_10": "安全气囊",
     "utl_11": "绝缘橡胶",
     "utl_12": "快速射击",
-    "utl_13": "生物降解"
+    "utl_13": "生物降解",
+    "unknown": "未知"
   },
   "flashcards": {
     "tabs": {
@@ -941,7 +1052,14 @@
       "organic": "有机物",
       "hazard": "危险品"
     },
-    "stats": "属性",
+    "stats": {
+      "atk": "攻击",
+      "hp": "血量",
+      "def": "防御",
+      "spd": "速度",
+      "crt": "暴击",
+      "int": "智力"
+    },
     "shardCount": "{count} 碎片",
     "shop": {
       "title": "碎片商店",
@@ -998,15 +1116,7 @@
     "xpAdded": "+{exp} 经验已添加！",
     "newCardAdded": "新卡牌已添加到收集册！",
     "cardAdded": "卡牌已添加到收集册！",
-    "purchaseFailed": "购买失败。",
-    "stats": {
-      "atk": "攻击",
-      "hp": "血量",
-      "def": "防御",
-      "spd": "速度",
-      "crt": "暴击",
-      "int": "智力"
-    }
+    "purchaseFailed": "购买失败。"
   },
   "campaign": {
     "worldMap": "世界地图",
@@ -1024,16 +1134,46 @@
     "miniboss": "迷你Boss",
     "boss": "Boss",
     "eventStage": "活动",
-    "region_01": { "name": "路边垃圾场", "desc": "旅程开始的地方。到处都是生活垃圾。" },
-    "region_02": { "name": "跳蚤市场", "desc": "有各种二手物品的跳蚤市场。" },
-    "region_03": { "name": "工业废料区", "desc": "重工业废料集中区。" },
-    "region_04": { "name": "中转站", "desc": "城市垃圾中转中心。" },
-    "region_05": { "name": "污染土地", "desc": "被有毒废料严重污染的区域。" },
-    "region_06": { "name": "回收工厂", "desc": "拥有先进回收技术的现代化工厂。" },
-    "region_07": { "name": "塑料海洋", "desc": "被巨大塑料垃圾污染的海洋。" },
-    "region_08": { "name": "禁区", "desc": "有危险变异生物的禁区。" },
-    "region_09": { "name": "深渊地狱", "desc": "无底深渊，垃圾怪物的栖息地。" },
-    "region_10": { "name": "垃圾王座", "desc": "垃圾之王的王座，最终之战之地。" }
+    "region_01": {
+      "name": "路边垃圾场",
+      "desc": "旅程开始的地方。到处都是生活垃圾。"
+    },
+    "region_02": {
+      "name": "跳蚤市场",
+      "desc": "有各种二手物品的跳蚤市场。"
+    },
+    "region_03": {
+      "name": "工业废料区",
+      "desc": "重工业废料集中区。"
+    },
+    "region_04": {
+      "name": "中转站",
+      "desc": "城市垃圾中转中心。"
+    },
+    "region_05": {
+      "name": "污染土地",
+      "desc": "被有毒废料严重污染的区域。"
+    },
+    "region_06": {
+      "name": "回收工厂",
+      "desc": "拥有先进回收技术的现代化工厂。"
+    },
+    "region_07": {
+      "name": "塑料海洋",
+      "desc": "被巨大塑料垃圾污染的海洋。"
+    },
+    "region_08": {
+      "name": "禁区",
+      "desc": "有危险变异生物的禁区。"
+    },
+    "region_09": {
+      "name": "深渊地狱",
+      "desc": "无底深渊，垃圾怪物的栖息地。"
+    },
+    "region_10": {
+      "name": "垃圾王座",
+      "desc": "垃圾之王的王座，最终之战之地。"
+    }
   },
   "collection": {
     "newCard": "新卡牌！",
@@ -1068,106 +1208,306 @@
     "possible": "可能"
   },
   "stages": {
-    "s01_01": { "name": "第一个垃圾堆" },
-    "s01_02": { "name": "瓶子区" },
-    "s01_03": { "name": "塑料袋角落" },
-    "s01_04": { "name": "废纸堆" },
-    "s01_05": { "name": "小型中转站" },
-    "s01_06": { "name": "小垃圾区" },
-    "s01_07": { "name": "金属区" },
-    "s01_08": { "name": "厨余堆" },
-    "s01_09": { "name": "精英分拣站" },
-    "s01_10": { "name": "Boss：垃圾之王" },
-    "s02_01": { "name": "市场摊位" },
-    "s02_02": { "name": "二手区" },
-    "s02_03": { "name": "塑料区" },
-    "s02_04": { "name": "玻璃区" },
-    "s02_05": { "name": "电池充电站" },
-    "s02_06": { "name": "电子产品区" },
-    "s02_07": { "name": "旧书店" },
-    "s02_08": { "name": "木制品区" },
-    "s02_09": { "name": "精英回收站" },
-    "s02_10": { "name": "Boss：垃圾医生" },
-    "s03_01": { "name": "废钢区" },
-    "s03_02": { "name": "旧车区" },
-    "s03_03": { "name": "铁屑堆" },
-    "s03_04": { "name": "机械区" },
-    "s03_05": { "name": "焊接站" },
-    "s03_06": { "name": "发动机区" },
-    "s03_07": { "name": "零件区" },
-    "s03_08": { "name": "电缆区" },
-    "s03_09": { "name": "迷你机器人站" },
-    "s03_10": { "name": "Boss：金属之王" },
-    "s04_01": { "name": "回收区1" },
-    "s04_02": { "name": "回收区2" },
-    "s04_03": { "name": "回收区3" },
-    "s04_04": { "name": "回收区4" },
-    "s04_05": { "name": "塑料压站" },
-    "s04_06": { "name": "熔化区" },
-    "s04_07": { "name": "铸造区" },
-    "s04_08": { "name": "包装区" },
-    "s04_09": { "name": "黄金分拣站" },
-    "s04_10": { "name": "Boss：回收大师" },
-    "s05_01": { "name": "废料区1" },
-    "s05_02": { "name": "废料区2" },
-    "s05_03": { "name": "废电池区" },
-    "s05_04": { "name": "化学品区" },
-    "s05_05": { "name": "中和站" },
-    "s05_06": { "name": "废料处理区" },
-    "s05_07": { "name": "毒气区" },
-    "s05_08": { "name": "辐射区" },
-    "s05_09": { "name": "排毒站" },
-    "s05_10": { "name": "Boss：毒王" },
-    "s06_01": { "name": "处理区1" },
-    "s06_02": { "name": "处理区2" },
-    "s06_03": { "name": "处理区3" },
-    "s06_04": { "name": "处理区4" },
-    "s06_05": { "name": "海水过滤站" },
-    "s06_06": { "name": "消毒区" },
-    "s06_07": { "name": "清洁垃圾区" },
-    "s06_08": { "name": "再利用区" },
-    "s06_09": { "name": "黄金分拣站" },
-    "s06_10": { "name": "Boss：再生大师" },
-    "s07_01": { "name": "浅水区1" },
-    "s07_02": { "name": "浅水区2" },
-    "s07_03": { "name": "珊瑚礁区" },
-    "s07_04": { "name": "垃圾海滩" },
-    "s07_05": { "name": "海水过滤站" },
-    "s07_06": { "name": "深海区1" },
-    "s07_07": { "name": "深海区2" },
-    "s07_08": { "name": "高压区" },
-    "s07_09": { "name": "海洋救援站" },
-    "s07_10": { "name": "Boss：海洋垃圾怪" },
-    "s08_01": { "name": "禁界1" },
-    "s08_02": { "name": "禁界2" },
-    "s08_03": { "name": "怪物区" },
-    "s08_04": { "name": "诅咒领地" },
-    "s08_05": { "name": "怪物站" },
-    "s08_06": { "name": "黑暗区" },
-    "s08_07": { "name": "辐射区" },
-    "s08_08": { "name": "异常点" },
-    "s08_09": { "name": "警报站" },
-    "s08_10": { "name": "Boss：停滞之神" },
-    "s09_01": { "name": "地狱之门1" },
-    "s09_02": { "name": "地狱之门2" },
-    "s09_03": { "name": "火坑" },
-    "s09_04": { "name": "灰烬区" },
-    "s09_05": { "name": "地狱火站" },
-    "s09_06": { "name": "熔炉" },
-    "s09_07": { "name": "煤区" },
-    "s09_08": { "name": "毒烟区" },
-    "s09_09": { "name": "灭火站" },
-    "s09_10": { "name": "Boss：火焰大师" },
-    "s10_01": { "name": "垃圾宫殿1" },
-    "s10_02": { "name": "垃圾宫殿2" },
-    "s10_03": { "name": "皇家大厅" },
-    "s10_04": { "name": "宝库" },
-    "s10_05": { "name": "守卫站" },
-    "s10_06": { "name": "近卫队" },
-    "s10_07": { "name": "皇家精英卫队" },
-    "s10_08": { "name": "精英卫队" },
-    "s10_09": { "name": "最终站" },
-    "s10_10": { "name": "最终Boss：伟大垃圾王" }
+    "s01_01": {
+      "name": "第一个垃圾堆"
+    },
+    "s01_02": {
+      "name": "瓶子区"
+    },
+    "s01_03": {
+      "name": "塑料袋角落"
+    },
+    "s01_04": {
+      "name": "废纸堆"
+    },
+    "s01_05": {
+      "name": "小型中转站"
+    },
+    "s01_06": {
+      "name": "小垃圾区"
+    },
+    "s01_07": {
+      "name": "金属区"
+    },
+    "s01_08": {
+      "name": "厨余堆"
+    },
+    "s01_09": {
+      "name": "精英分拣站"
+    },
+    "s01_10": {
+      "name": "Boss：垃圾之王"
+    },
+    "s02_01": {
+      "name": "市场摊位"
+    },
+    "s02_02": {
+      "name": "二手区"
+    },
+    "s02_03": {
+      "name": "塑料区"
+    },
+    "s02_04": {
+      "name": "玻璃区"
+    },
+    "s02_05": {
+      "name": "电池充电站"
+    },
+    "s02_06": {
+      "name": "电子产品区"
+    },
+    "s02_07": {
+      "name": "旧书店"
+    },
+    "s02_08": {
+      "name": "木制品区"
+    },
+    "s02_09": {
+      "name": "精英回收站"
+    },
+    "s02_10": {
+      "name": "Boss：垃圾医生"
+    },
+    "s03_01": {
+      "name": "废钢区"
+    },
+    "s03_02": {
+      "name": "旧车区"
+    },
+    "s03_03": {
+      "name": "铁屑堆"
+    },
+    "s03_04": {
+      "name": "机械区"
+    },
+    "s03_05": {
+      "name": "焊接站"
+    },
+    "s03_06": {
+      "name": "发动机区"
+    },
+    "s03_07": {
+      "name": "零件区"
+    },
+    "s03_08": {
+      "name": "电缆区"
+    },
+    "s03_09": {
+      "name": "迷你机器人站"
+    },
+    "s03_10": {
+      "name": "Boss：金属之王"
+    },
+    "s04_01": {
+      "name": "回收区1"
+    },
+    "s04_02": {
+      "name": "回收区2"
+    },
+    "s04_03": {
+      "name": "回收区3"
+    },
+    "s04_04": {
+      "name": "回收区4"
+    },
+    "s04_05": {
+      "name": "塑料压站"
+    },
+    "s04_06": {
+      "name": "熔化区"
+    },
+    "s04_07": {
+      "name": "铸造区"
+    },
+    "s04_08": {
+      "name": "包装区"
+    },
+    "s04_09": {
+      "name": "黄金分拣站"
+    },
+    "s04_10": {
+      "name": "Boss：回收大师"
+    },
+    "s05_01": {
+      "name": "废料区1"
+    },
+    "s05_02": {
+      "name": "废料区2"
+    },
+    "s05_03": {
+      "name": "废电池区"
+    },
+    "s05_04": {
+      "name": "化学品区"
+    },
+    "s05_05": {
+      "name": "中和站"
+    },
+    "s05_06": {
+      "name": "废料处理区"
+    },
+    "s05_07": {
+      "name": "毒气区"
+    },
+    "s05_08": {
+      "name": "辐射区"
+    },
+    "s05_09": {
+      "name": "排毒站"
+    },
+    "s05_10": {
+      "name": "Boss：毒王"
+    },
+    "s06_01": {
+      "name": "处理区1"
+    },
+    "s06_02": {
+      "name": "处理区2"
+    },
+    "s06_03": {
+      "name": "处理区3"
+    },
+    "s06_04": {
+      "name": "处理区4"
+    },
+    "s06_05": {
+      "name": "海水过滤站"
+    },
+    "s06_06": {
+      "name": "消毒区"
+    },
+    "s06_07": {
+      "name": "清洁垃圾区"
+    },
+    "s06_08": {
+      "name": "再利用区"
+    },
+    "s06_09": {
+      "name": "黄金分拣站"
+    },
+    "s06_10": {
+      "name": "Boss：再生大师"
+    },
+    "s07_01": {
+      "name": "浅水区1"
+    },
+    "s07_02": {
+      "name": "浅水区2"
+    },
+    "s07_03": {
+      "name": "珊瑚礁区"
+    },
+    "s07_04": {
+      "name": "垃圾海滩"
+    },
+    "s07_05": {
+      "name": "海水过滤站"
+    },
+    "s07_06": {
+      "name": "深海区1"
+    },
+    "s07_07": {
+      "name": "深海区2"
+    },
+    "s07_08": {
+      "name": "高压区"
+    },
+    "s07_09": {
+      "name": "海洋救援站"
+    },
+    "s07_10": {
+      "name": "Boss：海洋垃圾怪"
+    },
+    "s08_01": {
+      "name": "禁界1"
+    },
+    "s08_02": {
+      "name": "禁界2"
+    },
+    "s08_03": {
+      "name": "怪物区"
+    },
+    "s08_04": {
+      "name": "诅咒领地"
+    },
+    "s08_05": {
+      "name": "怪物站"
+    },
+    "s08_06": {
+      "name": "黑暗区"
+    },
+    "s08_07": {
+      "name": "辐射区"
+    },
+    "s08_08": {
+      "name": "异常点"
+    },
+    "s08_09": {
+      "name": "警报站"
+    },
+    "s08_10": {
+      "name": "Boss：停滞之神"
+    },
+    "s09_01": {
+      "name": "地狱之门1"
+    },
+    "s09_02": {
+      "name": "地狱之门2"
+    },
+    "s09_03": {
+      "name": "火坑"
+    },
+    "s09_04": {
+      "name": "灰烬区"
+    },
+    "s09_05": {
+      "name": "地狱火站"
+    },
+    "s09_06": {
+      "name": "熔炉"
+    },
+    "s09_07": {
+      "name": "煤区"
+    },
+    "s09_08": {
+      "name": "毒烟区"
+    },
+    "s09_09": {
+      "name": "灭火站"
+    },
+    "s09_10": {
+      "name": "Boss：火焰大师"
+    },
+    "s10_01": {
+      "name": "垃圾宫殿1"
+    },
+    "s10_02": {
+      "name": "垃圾宫殿2"
+    },
+    "s10_03": {
+      "name": "皇家大厅"
+    },
+    "s10_04": {
+      "name": "宝库"
+    },
+    "s10_05": {
+      "name": "守卫站"
+    },
+    "s10_06": {
+      "name": "近卫队"
+    },
+    "s10_07": {
+      "name": "皇家精英卫队"
+    },
+    "s10_08": {
+      "name": "精英卫队"
+    },
+    "s10_09": {
+      "name": "最终站"
+    },
+    "s10_10": {
+      "name": "最终Boss：伟大垃圾王"
+    }
   },
   "newElements": {
     "energy": "电力",
@@ -1185,162 +1525,111 @@
     "ult_03": "时间循环",
     "ult_04": "黑洞吞噬"
   },
-  "admin": {
-    "tabs": {
-      "overview": "概览",
-      "rewards": "奖励",
-      "users": "用户",
-      "experiments": "实验",
-      "quiz": "答题",
-      "sheets": "Google Sheets",
-      "research": "研究",
-      "system": "系统"
+  "smartBin": {
+    "kpis": {
+      "binsOnline": "在线垃圾桶",
+      "offline": "离线",
+      "totalKg": "24小时总公斤数",
+      "co2KgSaved": "避免的二氧化碳当量"
     },
-    "dashboardTitle": "管理仪表板",
-    "research": "研究",
-    "quiz": {
-      "title": "答题小游戏管理",
-      "subtitle": "创建、编辑题目与配置",
-      "addQuestion": "添加题目",
-      "editQuestion": "编辑题目",
-      "deleteQuestion": "删除题目",
-      "confirmDelete": "确定要删除这道题吗？",
-      "content": "题目内容",
-      "contentPlaceholder": "输入题目...",
-      "optionA": "选项 A",
-      "optionB": "选项 B",
-      "optionC": "选项 C",
-      "optionD": "选项 D",
-      "correctKey": "正确答案",
-      "points": "分值",
-      "category": "分类",
-      "difficulty": "难度",
-      "difficultyEasy": "简单",
-      "difficultyMedium": "中等",
-      "difficultyHard": "困难",
-      "enabled": "启用",
-      "imageUrl": "图片 URL",
-      "order": "顺序",
-      "preview": "预览",
-      "import": "导入",
-      "export": "导出",
-      "importJson": "导入 JSON",
-      "importCsv": "导入 CSV",
-      "exportJson": "导出 JSON",
-      "exportCsv": "导出 CSV",
-      "reorder": "排序",
-      "moveUp": "上移",
-      "moveDown": "下移",
-      "totalQuestions": "总题数",
-      "activeQuestions": "已启用",
-      "saveQuestion": "保存题目",
-      "questionSaved": "题目已保存",
-      "questionDeleted": "题目已删除",
-      "questionsImported": "已导入 {count} 道题",
-      "questionsExported": "已导出 {count} 道题",
-      "noQuestions": "暂无题目",
-      "syncToSheets": "同步至 Sheets",
-      "syncFromSheets": "从 Sheets 拉取",
-      "lastSync": "上次同步",
-      "neverSynced": "尚未同步",
-      "config": {
-        "title": "答题配置",
-        "startTime": "开始时间",
-        "endTime": "结束时间",
-        "questionDuration": "每题时长（秒）",
-        "maxQuestions": "每次最大题数",
-        "maxPoints": "最高奖励分",
-        "comboBonus": "连击奖励",
-        "description": "答题说明",
-        "descriptionPlaceholder": "展示给学生的说明...",
-        "saveConfig": "保存配置",
-        "configSaved": "配置已保存"
-      }
+    "forecast": "24小时需求预测",
+    "hourLabels": {
+      "0": "00",
+      "6": "06",
+      "12": "12",
+      "18": "18",
+      "24": "24"
+    }
+  },
+  "survey": {
+    "submit": "提交",
+    "submitted": "已提交"
+  },
+  "theoryOfChange": {
+    "title": "变革理论",
+    "tagline": "能力 × 机会 × 动机 → 行为 → SDG 影响力。",
+    "taglineHint": "拖动滑块实时测试干预。",
+    "nodes": {
+      "capability": "能力",
+      "opportunity": "机会",
+      "motivation": "动机",
+      "behaviour": "行为"
     },
-    "sheets": {
-      "title": "Google Sheets 同步",
-      "subtitle": "管理三向同步：Sheets ↔ Firestore ↔ Supabase",
-      "status": "状态",
-      "lastSync": "上次同步",
-      "neverSynced": "尚未同步",
-      "syncInterval": "自动同步周期",
-      "syncIntervalValue": "15 分钟",
-      "spreadsheetId": "电子表格 ID",
-      "fullSync": "全量同步",
-      "pushToSheets": "推送至 Sheets",
-      "pullFromSheets": "从 Sheets 拉取",
-      "syncing": "同步中...",
-      "syncSuccess": "同步成功！",
-      "syncFailed": "同步失败",
-      "syncLog": "同步历史",
-      "conflictLog": "冲突",
-      "noConflicts": "无冲突",
-      "usersCount": "用户",
-      "quizCount": "题目",
-      "configCount": "配置",
-      "rewardsCount": "奖励",
-      "logsCount": "日志",
-      "healthCheck": "连接检查",
-      "firestoreStatus": "Firestore",
-      "supabaseStatus": "Supabase",
-      "sheetsStatus": "Google Sheets",
-      "connected": "已连接",
-      "disconnected": "未连接",
-      "error": "错误",
-      "lastError": "最近错误",
-      "triggeredBy": "触发者",
-      "duration": "耗时",
-      "rowsWritten": "写入行数"
+    "kinds": {
+      "knowledgeSkill": "知识 / 技能",
+      "peerBinAccess": "同伴 / 桶可及性",
+      "identityReward": "身份 / 奖励",
+      "sortAccuracy": "分类准确度"
+    }
+  },
+  "voice": {
+    "title": "切换语言",
+    "on": "开启语音",
+    "off": "关闭语音",
+    "lang": {
+      "vi": "VI",
+      "en": "EN"
+    }
+  },
+  "family": {
+    "open": "打开家庭模式",
+    "homeTitle": "家庭模式"
+  },
+  "error": {
+    "serverUnavailable": "服务器不可用",
+    "networkError": "网络错误",
+    "unauthorized": "会话已过期",
+    "forbidden": "您没有权限",
+    "notFound": "未找到资源",
+    "validationFailed": "输入无效",
+    "rateLimited": "请求过于频繁，请稍后再试。",
+    "internal": "出现错误，请稍后再试",
+    "clan": {
+      "full": "已达到家族上限，请加入现有家族。",
+      "notFound": "家族不存在",
+      "notMember": "您不是此家族的成员",
+      "memberNotFound": "家族中找不到该成员",
+      "notLeader": "只有族长才能执行此操作",
+      "missingTarget": "需要提供成员名称",
+      "missingExp": "经验值不足",
+      "emptyMessage": "消息为空",
+      "messageTooLong": "消息过长"
     },
-    "research": {
-      "title": "研究数据",
-      "subtitle": "行为分析、干预与新奇衰减",
-      "overview": "概览",
-      "retention": "留存",
-      "interventions": "干预",
-      "personality": "性格",
-      "leaderboard": "排行榜",
-      "decay": "新奇衰减",
-      "exportCsv": "导出 CSV",
-      "userLookup": "用户查询",
-      "userPlaceholder": "输入 UID 或名称...",
-      "triggerDecay": "触发衰减检测",
-      "triggerIntervention": "触发干预",
-      "totalUsers": "总用户",
-      "totalEvents": "总事件",
-      "avgSession": "平均会话",
-      "personalityDistribution": "性格分布",
-      "retentionDay1": "D1 留存",
-      "retentionDay7": "D7 留存",
-      "retentionDay30": "D30 留存",
-      "interventionEffectiveness": "干预效果",
-      "noData": "暂无研究数据"
+    "chat": {
+      "empty": "消息为空",
+      "tooLong": "消息过长"
+    }
+  },
+  "email": {
+    "welcome": {
+      "subject": "欢迎使用 BMO Robot！"
     },
-    "system": {
-      "title": "系统状态",
-      "subtitle": "健康检查、审计日志、缓存与备份",
-      "uptime": "运行时长",
-      "memory": "内存",
-      "dbConnections": "数据库连接",
-      "auditLog": "审计日志",
-      "cacheManagement": "缓存管理",
-      "clearCache": "清除缓存",
-      "cacheCleared": "缓存已清除",
-      "backupRestore": "备份 / 还原",
-      "backup": "备份 data.json",
-      "restore": "还原",
-      "backupSuccess": "备份成功",
-      "restoreSuccess": "还原成功",
-      "serverLogs": "服务端日志（最近 100 行）",
-      "actionCreate": "创建",
-      "actionUpdate": "更新",
-      "actionDelete": "删除",
-      "actionSync": "同步",
-      "actionLogin": "登录",
-      "byUser": "操作人",
-      "atTime": "时间",
-      "details": "详情",
-      "rateLimitSettings": "限流设置"
+    "passwordReset": {
+      "subject": "重置您的 BMO Robot 密码"
+    }
+  },
+  "audit": {
+    "title": "您的数据日志",
+    "empty": "暂无事件。当您扫描垃圾或与 BMO 对话时，事件将显示在此处。",
+    "loadError": "无法加载日志：{{error}}",
+    "loading": "加载中…",
+    "loadMore": "加载更多",
+    "messages": {
+      "scan": "您扫描了一张分类图片。系统不会保存图片 — 仅记录哈希",
+      "consentGranted": "您已同意贡献数据集（可随时撤回）。",
+      "consentRevoked": "您已撤回数据集同意。",
+      "chatMessage": "您向聊天机器人发送了",
+      "chatMessageSuffix": "个字符。",
+      "login": "您已登录。",
+      "logout": "您已登出。",
+      "rewardClaim": "您收到了",
+      "rewardSpent": "您消费了",
+      "rewardPoints": "奖励积分。",
+      "federatedSubmit": "您贡献了 1 轮联邦学习（梯度在上传前已裁剪+加噪）。",
+      "quizComplete": "您完成了测试。",
+      "score": "得分",
+      "fallback": "事件",
+      "recorded": "已记录。"
     }
   }
 }

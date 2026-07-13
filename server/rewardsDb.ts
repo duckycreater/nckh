@@ -57,13 +57,21 @@ export async function listRewards(): Promise<RewardRecord[]> {
     throw new Error("Rewards database is not configured");
   }
 
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/rewards?select=id,name,description,cost,ingredients,image_url,color,bg_class,border_class&order=cost.asc,id.asc`,
-    {
+  const url = `${supabaseUrl}/rest/v1/rewards?select=id,name,description,cost,ingredients,image_url,color,bg_class,border_class&order=cost.asc,id.asc`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
       method: "GET",
       headers: getHeaders(),
-    }
-  );
+    });
+  } catch (e) {
+    const cause = (e as Error)?.cause as any;
+    throw new Error(
+      `fetch failed for ${url} (${(e as Error).message}${
+        cause?.code ? `, code=${cause.code}` : ""
+      }${cause?.message ? `: ${cause.message}` : ""})`,
+    );
+  }
 
   if (!res.ok) {
     throw new Error(`Failed to list rewards: ${res.status} ${await res.text()}`);

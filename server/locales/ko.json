@@ -1,0 +1,68 @@
+{
+  "error": {
+    "serverUnavailable": "서버를 사용할 수 없습니다",
+    "networkError": "네트워크 오류",
+    "unauthorized": "인증되지 않음",
+    "forbidden": "접근 금지",
+    "notFound": "찾을 수 없음",
+    "validationFailed": "입력값이 잘못되었습니다",
+    "rateLimited": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    "internal": "내부 서버 오류",
+    "methodNotAllowed": "허용되지 않은 메서드",
+    "databaseUnavailable": "데이터베이스를 사용할 수 없습니다",
+    "clan": {
+      "full": "클랜 한도에 도달했습니다. 기존 클랜에 가입하세요.",
+      "notFound": "클랜이 존재하지 않습니다",
+      "notMember": "이 클랜의 멤버가 아닙니다",
+      "memberNotFound": "클랜에서 멤버를 찾을 수 없습니다",
+      "notLeader": "리더만 수행할 수 있습니다",
+      "missingTarget": "멤버 이름이 필요합니다",
+      "missingExp": "경험치가 부족합니다",
+      "emptyMessage": "메시지가 비어 있습니다",
+      "messageTooLong": "메시지가 너무 깁니다"
+    },
+    "chat": {
+      "empty": "메시지가 비어 있습니다",
+      "tooLong": "메시지가 너무 깁니다"
+    },
+    "scan": {
+      "notAnImage": "파일은 이미지여야 합니다",
+      "noText": "텍스트가 필요합니다",
+      "quotaExceeded": "일일 스캔 할당량을 초과했습니다"
+    },
+    "auth": {
+      "invalidCredentials": "아이디 또는 비밀번호가 잘못되었습니다",
+      "accountTaken": "이미 사용 중인 계정입니다",
+      "passwordTooShort": "비밀번호는 최소 6자 이상이어야 합니다",
+      "sessionExpired": "세션이 만료되었습니다. 다시 로그인해 주세요"
+    },
+    "tournamentEnded": "토너먼트가 종료되었습니다",
+    "nameTooShort": "클랜 이름이 너무 짧습니다",
+    "tagInvalid": "클랜 태그는 2-5자여야 합니다",
+    "alreadyMember": "이미 클랜에 가입되어 있습니다",
+    "tagTaken": "클랜 태그가 이미 사용 중입니다",
+    "notLeaderDisband": "리더만解散할 수 있습니다",
+    "badClanId": "잘못된 클랜 ID",
+    "badUserId": "잘못된 사용자 ID",
+    "badRequest": "잘못된 요청",
+    "emptyBody": "요청 본문이 비어 있습니다"
+  },
+  "email": {
+    "welcome": {
+      "subject": "BMO Robot에 오신 것을 환영합니다!",
+      "body": "{name} 님, 안녕하세요.\n\nBMO Robot에 오신 것을 환영합니다! 온디바이스 AI, 연합 학습, 그리고 친근한 경쟁을 통해 친환경 습관을 만드는 데 도움을 드리겠습니다.\n\n시작하려면 로그인하고 첫 스캔을 완료하세요.\n\n— BMO Robot 팀"
+    },
+    "passwordReset": {
+      "subject": "BMO Robot 비밀번호 재설정"
+    },
+    "password_reset": {
+      "body": "{name} 님, 안녕하세요.\n\nBMO Robot 비밀번호 재설정 요청을 받았습니다. 본인이 요청한 경우 24시간 이내에 아래 링크로 새 비밀번호를 설정하세요.\n\n재설정 링크: {link}\n\n본인이 요청하지 않았다면 이 이메일을 무시하세요. 비밀번호는 변경되지 않습니다.\n\n— BMO Robot 팀"
+    },
+    "achievement": {
+      "body": "{name} 님, 안녕하세요.\n\n\"{achievement}\" 배지를 획득한 것을 축하합니다! 지구를 위해 계속 힘내세요.\n\n— BMO Robot 팀"
+    },
+    "weekly_summary": {
+      "body": "{name} 님, 안녕하세요.\n\n이번 주 요약:\n\n• 스캔: {scans}회\n• 절감 CO₂e: {co2} kg\n• 연속: {streak}일\n• 순위: #{rank}\n\n계속 화이팅!\n\n— BMO Robot 팀"
+    }
+  }
+}

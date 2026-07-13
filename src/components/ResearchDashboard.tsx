@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import {
   getSyntheticPopulation,
   summarisePopulation,
@@ -37,18 +38,26 @@ interface RctSummary {
   audit?: { merkleRoot: string; rounds: number };
 }
 
-const COHORT_LABELS: Record<CohortId, string> = {
-  C: "Control",
-  E1: "E1 (gamification)",
-  E2: "E2 (+FL)",
-  E3: "E3 (+Twin)",
-  E4: "E4 (+Identity)",
+const COHORT_LABEL_KEYS: Record<CohortId, string> = {
+  C: "research.cohorts.C",
+  E1: "research.cohorts.E1",
+  E2: "research.cohorts.E2",
+  E3: "research.cohorts.E3",
+  E4: "research.cohorts.E4",
 };
 
 export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
   endpoint = "/api/research/summary",
   refreshSeconds = 60,
 }) => {
+  const { t } = useTranslation();
+  const COHORT_LABELS: Record<CohortId, string> = {
+    C: t("research.cohorts.C"),
+    E1: t("research.cohorts.E1"),
+    E2: t("research.cohorts.E2"),
+    E3: t("research.cohorts.E3"),
+    E4: t("research.cohorts.E4"),
+  };
   const [summary, setSummary] = useState<RctSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [nUsers, setNUsers] = useState(1000);
@@ -145,8 +154,8 @@ const CohortTable: React.FC<{ rows: RctRow[]; labels: Record<CohortId, string> }
             <th className="py-2 pl-3">Cohort</th>
             <th>n</th>
             <th>Δ Identity (mean ± SD)</th>
-            <th>Sort accuracy</th>
-            <th>D30 retention</th>
+            <th>{t("research.axisLabels.sortAccuracy")}</th>
+            <th>{t("research.axisLabels.d30Retention")}</th>
             <th>kg CO₂e / wk</th>
             <th>Cohen&apos;s d</th>
           </tr>
@@ -189,7 +198,8 @@ const PrimaryTestsCard: React.FC<{
   tests: NonNullable<RctSummary["primaryTests"]>;
   corrected: { holm: { rejectedIdx: number[]; adjustedP: number[] }; bonf: { rejectedIdx: number[]; adjustedP: number[] } } | null;
 }> = ({ tests, corrected }) => {
-  const labels = ["Identity change", "Sort accuracy", "D30 retention"];
+  const { t } = useTranslation();
+  const labels = [t("research.axisLabels.identityChange"), t("research.axisLabels.sortAccuracy"), t("research.axisLabels.d30Retention")];
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Primary tests (E4 vs C)</p>

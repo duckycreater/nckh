@@ -4,7 +4,6 @@
     "cancel": "Hủy",
     "save": "Lưu",
     "buy": "Mua",
-    "close": "Đóng",
     "saving": "Đang lưu...",
     "saved": "Đã lưu!",
     "error": "Có lỗi xảy ra",
@@ -421,7 +420,15 @@
   "streakCalendar": {
     "history": "Lịch Sử Check-in",
     "last7Days": "7 ngày gần nhất",
-    "weekdays": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+    "weekdays": [
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "CN"
+    ]
   },
   "surpriseGift": {
     "openning": "Đang mở quà...",
@@ -479,15 +486,6 @@
   "store": {
     "store": "Cửa hàng điểm thưởng",
     "storeSubtitle": "Mở khóa avatar và khung hồ sơ để cá nhân hóa tài khoản của bạn.",
-    "frames": "Khung viền",
-    "owned": "Đã sở hữu{count, plural, other { x#{count}}}",
-    "needPoints": "Cần {cost} EXP",
-    "purchase": "Mua vật phẩm: {name}",
-    "avatars": {
-      "seedling": "Mầm Xanh",
-      "guardian": "Chiến Binh Nước",
-      "knight": "Thủ Lĩnh Rừng"
-    },
     "frames": {
       "wooden": "Khung Gỗ",
       "ice": "Khung Băng",
@@ -495,73 +493,171 @@
       "woodenDesc": "Bền vững như gỗ",
       "iceDesc": "Tinh khiết như băng",
       "glowDesc": "Huy hoàng như đất"
+    },
+    "owned": "Đã sở hữu{count, plural, other { x#{count}}}",
+    "needPoints": "Cần {cost} EXP",
+    "purchase": "Mua vật phẩm: {name}",
+    "avatars": {
+      "seedling": "Mầm Xanh",
+      "guardian": "Chiến Binh Nước",
+      "knight": "Thủ Lĩnh Rừng"
     }
   },
   "admin": {
-    "admin": "Dashboard quản trị",
-    "adminSubtitle": "Quản lý người dùng, phần thưởng và hệ thống.",
-    "logout": "Đăng xuất",
-    "overview": "Tổng quan",
-    "rewards": "Phần thưởng",
-    "users": "Người dùng",
-    "experiments": "Thí nghiệm",
-    "totalUsers": "Tổng người dùng",
-    "admins": "Quản trị viên",
-    "recentActivity": "Hoạt động gần đây",
-    "experimentsActive": "Thí nghiệm",
-    "quickActions": "Thao tác nhanh",
-    "quickActionsHint": "Làm mới dữ liệu, cập nhật rewards và đồng bộ nguồn ngoài.",
-    "refreshRewards": "Làm mới phần thưởng",
-    "refreshUsers": "Làm mới người dùng",
-    "syncSheets": "Đồng bộ Google Sheets",
-    "addReward": "Thêm phần thưởng",
-    "systemSignals": "Tín hiệu hệ thống",
-    "activityOverview": "Bức tranh hoạt động",
-    "rewardStore": "Kho phần thưởng",
-    "rewardStoreSubtitle": "Quản lý các vật phẩm và điểm thưởng có sẵn trong cửa hàng.",
-    "loadingRewards": "Đang tải kho phần thưởng",
-    "loadRewardsError": "Không thể tải phần thưởng",
-    "noRewards": "Chưa có phần thưởng nào",
-    "addNew": "Hãy thêm mục mới...",
-    "pointsCost": "{cost} điểm",
-    "delete": "Xóa",
-    "userList": "Danh sách người dùng",
-    "searchUsers": "Tìm theo tên, nick hoặc account id",
-    "loadingProfile": "Đang tải hồ sơ người dùng",
-    "noUserSelected": "Chưa chọn người dùng",
-    "userInfo": "@{account} · {points} điểm",
-    "changeRole": "Đổi vai trò",
-    "checkDecay": "Kiểm tra suy giảm",
-    "addPoints": "+20 điểm",
-    "subPoints": "-20 điểm",
-    "suspendUser": "Tạm khóa",
-    "resetProgress": "Reset tiến độ",
-    "experimentsTitle": "Điều phối thí nghiệm",
-    "experimentsSubtitle": "Theo dõi, tạo mới và quản lý trạng thái các kịch bản nghiên cứu đang chạy.",
-    "loadingExperiments": "Đang tải danh sách thí nghiệm",
-    "noExperiments": "Chưa có thí nghiệm nào",
-    "noDescription": "Không có mô tả chi tiết.",
-    "pause": "Tạm dừng",
-    "activate": "Kích hoạt",
-    "remove": "Xóa",
-    "giftVoucher": "Quà tặng,E-Voucher",
-    "messages": {
-      "imageReady": "Ảnh đã sẵn sàng",
-      "uploadFailed": "Upload chưa thành công",
-      "uploadError": "Lỗi upload ảnh",
-      "saveRewardFailed": "Không thể lưu phần thưởng",
-      "rewardAdded": "Đã thêm phần thưởng",
-      "addRewardFailed": "Không thể thêm phần thưởng",
-      "rewardDeleted": "Đã xóa phần thưởng",
-      "roleUpdated": "Vai trò đã được cập nhật",
-      "pointsAdjusted": "Điểm đã được điều chỉnh",
-      "userSuspended": "Đã tạm khóa người dùng",
-      "progressReset": "Đã reset tiến độ",
-      "syncSuccess": "Đồng bộ thành công",
-      "syncFailed": "Sync thất bại",
-      "decayEnabled": "Đã kích hoạt kiểm tra suy giảm",
-      "experimentCreated": "Đã tạo thí nghiệm",
-      "experimentStatusChanged": "Trạng thái thí nghiệm đã thay đổi"
+    "tabs": {
+      "overview": "Tổng quan",
+      "rewards": "Phần thưởng",
+      "users": "Người dùng",
+      "experiments": "Thí nghiệm",
+      "quiz": "Quiz",
+      "sheets": "Google Sheets",
+      "research": "Nghiên cứu",
+      "system": "Hệ thống"
+    },
+    "dashboardTitle": "Dashboard quản trị",
+    "research": {
+      "title": "Dữ liệu nghiên cứu",
+      "subtitle": "Phân tích hành vi, can thiệp và novelty decay",
+      "overview": "Tổng quan",
+      "retention": "Retention",
+      "interventions": "Can thiệp",
+      "personality": "Tính cách",
+      "leaderboard": "Bảng xếp hạng",
+      "decay": "Novelty Decay",
+      "exportCsv": "Xuất CSV",
+      "userLookup": "Tra cứu người dùng",
+      "userPlaceholder": "Nhập UID hoặc tên...",
+      "triggerDecay": "Kích hoạt phát hiện decay",
+      "triggerIntervention": "Kích hoạt can thiệp",
+      "totalUsers": "Tổng người dùng",
+      "totalEvents": "Tổng sự kiện",
+      "avgSession": "Phiên trung bình",
+      "personalityDistribution": "Phân bố tính cách",
+      "retentionDay1": "Retention D1",
+      "retentionDay7": "Retention D7",
+      "retentionDay30": "Retention D30",
+      "interventionEffectiveness": "Hiệu quả can thiệp",
+      "noData": "Chưa có dữ liệu nghiên cứu"
+    },
+    "quiz": {
+      "title": "Quản lý Mini Game Quiz",
+      "subtitle": "Tạo, chỉnh sửa câu hỏi và cấu hình quiz",
+      "addQuestion": "Thêm câu hỏi",
+      "editQuestion": "Sửa câu hỏi",
+      "deleteQuestion": "Xóa câu hỏi",
+      "confirmDelete": "Bạn có chắc muốn xóa câu hỏi này?",
+      "content": "Nội dung câu hỏi",
+      "contentPlaceholder": "Nhập nội dung câu hỏi...",
+      "optionA": "Đáp án A",
+      "optionB": "Đáp án B",
+      "optionC": "Đáp án C",
+      "optionD": "Đáp án D",
+      "correctKey": "Đáp án đúng",
+      "points": "Điểm",
+      "category": "Chủ đề",
+      "difficulty": "Độ khó",
+      "difficultyEasy": "Dễ",
+      "difficultyMedium": "Trung bình",
+      "difficultyHard": "Khó",
+      "enabled": "Kích hoạt",
+      "imageUrl": "URL hình ảnh",
+      "order": "Thứ tự",
+      "preview": "Xem trước",
+      "import": "Nhập",
+      "export": "Xuất",
+      "importJson": "Nhập JSON",
+      "importCsv": "Nhập CSV",
+      "exportJson": "Xuất JSON",
+      "exportCsv": "Xuất CSV",
+      "reorder": "Sắp xếp lại",
+      "moveUp": "Lên",
+      "moveDown": "Xuống",
+      "totalQuestions": "Tổng câu hỏi",
+      "activeQuestions": "Đang kích hoạt",
+      "saveQuestion": "Lưu câu hỏi",
+      "questionSaved": "Đã lưu câu hỏi",
+      "questionDeleted": "Đã xóa câu hỏi",
+      "questionsImported": "Đã nhập {count} câu hỏi",
+      "questionsExported": "Đã xuất {count} câu hỏi",
+      "noQuestions": "Chưa có câu hỏi nào",
+      "syncToSheets": "Đồng bộ lên Sheets",
+      "syncFromSheets": "Kéo từ Sheets",
+      "lastSync": "Đồng bộ lần cuối",
+      "neverSynced": "Chưa đồng bộ",
+      "config": {
+        "title": "Cấu hình Quiz",
+        "startTime": "Thời gian bắt đầu",
+        "endTime": "Thời gian kết thúc",
+        "questionDuration": "Thời gian mỗi câu (giây)",
+        "maxQuestions": "Số câu tối đa mỗi lượt",
+        "maxPoints": "Điểm thưởng tối đa",
+        "comboBonus": "Điểm combo",
+        "description": "Mô tả quiz",
+        "descriptionPlaceholder": "Mô tả hiển thị cho học sinh...",
+        "saveConfig": "Lưu cấu hình",
+        "configSaved": "Đã lưu cấu hình"
+      }
+    },
+    "sheets": {
+      "title": "Đồng bộ Google Sheets",
+      "subtitle": "Quản lý đồng bộ 3 chiều: Sheets ↔ Firestore ↔ Supabase",
+      "status": "Trạng thái",
+      "lastSync": "Lần đồng bộ cuối",
+      "neverSynced": "Chưa đồng bộ",
+      "syncInterval": "Tự động đồng bộ mỗi",
+      "syncIntervalValue": "15 phút",
+      "spreadsheetId": "Spreadsheet ID",
+      "fullSync": "Đồng bộ toàn bộ",
+      "pushToSheets": "Đẩy lên Sheets",
+      "pullFromSheets": "Kéo từ Sheets",
+      "syncing": "Đang đồng bộ...",
+      "syncSuccess": "Đồng bộ thành công!",
+      "syncFailed": "Đồng bộ thất bại",
+      "syncLog": "Lịch sử đồng bộ",
+      "conflictLog": "Xung đột",
+      "noConflicts": "Không có xung đột",
+      "usersCount": "Người dùng",
+      "quizCount": "Câu hỏi",
+      "configCount": "Cấu hình",
+      "rewardsCount": "Phần thưởng",
+      "logsCount": "Nhật ký",
+      "healthCheck": "Kiểm tra kết nối",
+      "firestoreStatus": "Firestore",
+      "supabaseStatus": "Supabase",
+      "sheetsStatus": "Google Sheets",
+      "connected": "Đã kết nối",
+      "disconnected": "Mất kết nối",
+      "error": "Lỗi",
+      "lastError": "Lỗi cuối",
+      "triggeredBy": "Kích hoạt bởi",
+      "duration": "Thời gian",
+      "rowsWritten": "Dòng đã ghi"
+    },
+    "system": {
+      "title": "Trạng thái hệ thống",
+      "subtitle": "Health check, audit log, cache & backup",
+      "uptime": "Uptime",
+      "memory": "Bộ nhớ",
+      "dbConnections": "Kết nối DB",
+      "auditLog": "Nhật ký Admin",
+      "cacheManagement": "Quản lý cache",
+      "clearCache": "Xóa cache",
+      "cacheCleared": "Đã xóa cache",
+      "backupRestore": "Sao lưu / Khôi phục",
+      "backup": "Sao lưu data.json",
+      "restore": "Khôi phục",
+      "backupSuccess": "Sao lưu thành công",
+      "restoreSuccess": "Khôi phục thành công",
+      "serverLogs": "Server logs (100 dòng cuối)",
+      "actionCreate": "Tạo",
+      "actionUpdate": "Cập nhật",
+      "actionDelete": "Xóa",
+      "actionSync": "Đồng bộ",
+      "actionLogin": "Đăng nhập",
+      "byUser": "Bởi",
+      "atTime": "Lúc",
+      "details": "Chi tiết",
+      "rateLimitSettings": "Cài đặt Rate Limit"
     }
   },
   "research": {
@@ -610,13 +706,27 @@
       "effectiveness": "Effectiveness",
       "social": "Social",
       "longitudinal": "Longitudinal"
+    },
+    "cohorts": {
+      "C": "Đối chứng",
+      "E1": "E1 (gamification)",
+      "E2": "E2 (+FL)",
+      "E3": "E3 (+Twin)",
+      "E4": "E4 (+Identity)"
+    },
+    "axisLabels": {
+      "identityChange": "Thay đổi bản ngã",
+      "sortAccuracy": "Độ chính xác phân loại",
+      "d30Retention": "Retention D30"
     }
   },
   "app": {
     "restoringSession": "Đang khôi phục phiên làm việc",
     "restoringHint": "Chuẩn bị lại bảng điều khiển, tiến trình học tập và không gian trải nghiệm của bạn.",
-    "syncingLogin": "Đang đồng bộ phiên đăng nhập",
-    "syncingHint": "Việc này chỉ mất trong chốc lát để bạn quay lại đúng nơi đang dở dang."
+    "syncingLogin": "Đang đồng bộ đăng nhập...",
+    "syncingHint": "Đang khôi phục phiên của bạn",
+    "loadingDashboard": "Đang tải dashboard...",
+    "home": "Trang chính"
   },
   "milestones": {
     "milestone": "Cột mốc",
@@ -712,7 +822,8 @@
     "utl_10": "Túi Khí Bảo Hộ",
     "utl_11": "Cao Su Cách Nhiệt",
     "utl_12": "Xạ Kích Nhanh",
-    "utl_13": "Phân Hủy Sinh Học"
+    "utl_13": "Phân Hủy Sinh Học",
+    "unknown": "Không xác định"
   },
   "flashcards": {
     "tabs": {
@@ -753,7 +864,14 @@
       "organic": "Hữu cơ",
       "hazard": "Nguy hại"
     },
-    "stats": "Chỉ số",
+    "stats": {
+      "atk": "Tấn công",
+      "hp": "Máu",
+      "def": "Phòng thủ",
+      "spd": "Tốc độ",
+      "crt": "Bạo kích",
+      "int": "Trí tuệ"
+    },
     "shardCount": "{count} Mảnh Ghép",
     "shop": {
       "title": "Cửa Hàng Mảnh Ghép",
@@ -810,15 +928,7 @@
     "xpAdded": "+{exp} EXP đã được thêm!",
     "newCardAdded": "Thẻ mới đã được thêm vào bộ sưu tập!",
     "cardAdded": "Thẻ đã được thêm vào bộ sưu tập!",
-    "purchaseFailed": "Mua thất bại.",
-    "stats": {
-      "atk": "Tấn công",
-      "hp": "Máu",
-      "def": "Phòng thủ",
-      "spd": "Tốc độ",
-      "crt": "Bạo kích",
-      "int": "Trí tuệ"
-    }
+    "purchaseFailed": "Mua thất bại."
   },
   "campaign": {
     "worldMap": "Bản Đồ Thế Giới",
@@ -836,16 +946,46 @@
     "miniboss": "Mini Boss",
     "boss": "Boss",
     "eventStage": "Sự Kiện",
-    "region_01": { "name": "Bãi Rác Ven Đường", "desc": "Nơi hành trình bắt đầu. Rác thải sinh hoạt khắp nơi." },
-    "region_02": { "name": "Khu Chợ Trời", "desc": "Khu chợ trời với đủ loại rác đã qua sử dụng." },
-    "region_03": { "name": "Bãi Rác Công Nghiệp", "desc": "Khu vực tập trung chất thải công nghiệp nặng." },
-    "region_04": { "name": "Trạm Trung Chuyển", "desc": "Trạm trung chuyển rác trung tâm thành phố." },
-    "region_05": { "name": "Vùng Đất Chất Thải", "desc": "Vùng đất bị ô nhiễm nặng bởi chất thải độc hại." },
-    "region_06": { "name": "Nhà Máy Tái Chế", "desc": "Nhà máy tái chế hiện đại với công nghệ tiên tiến." },
-    "region_07": { "name": "Đại Dương Rác", "desc": "Đại dương bị ô nhiễm bởi rác nhựa khổng lồ." },
-    "region_08": { "name": "Vùng Cấm Địa", "desc": "Khu vực cấm với sinh vật đột biến nguy hiểm." },
-    "region_09": { "name": "Vực Thẳm Địa Ngục", "desc": "Vực thẳm không đáy, nơi trú ngụ của quái vật rác." },
-    "region_10": { "name": "Ngai Vàng Rác Thải", "desc": "Ngai vàng của vua rác, nơi trậnchiến cuối cùng." }
+    "region_01": {
+      "name": "Bãi Rác Ven Đường",
+      "desc": "Nơi hành trình bắt đầu. Rác thải sinh hoạt khắp nơi."
+    },
+    "region_02": {
+      "name": "Khu Chợ Trời",
+      "desc": "Khu chợ trời với đủ loại rác đã qua sử dụng."
+    },
+    "region_03": {
+      "name": "Bãi Rác Công Nghiệp",
+      "desc": "Khu vực tập trung chất thải công nghiệp nặng."
+    },
+    "region_04": {
+      "name": "Trạm Trung Chuyển",
+      "desc": "Trạm trung chuyển rác trung tâm thành phố."
+    },
+    "region_05": {
+      "name": "Vùng Đất Chất Thải",
+      "desc": "Vùng đất bị ô nhiễm nặng bởi chất thải độc hại."
+    },
+    "region_06": {
+      "name": "Nhà Máy Tái Chế",
+      "desc": "Nhà máy tái chế hiện đại với công nghệ tiên tiến."
+    },
+    "region_07": {
+      "name": "Đại Dương Rác",
+      "desc": "Đại dương bị ô nhiễm bởi rác nhựa khổng lồ."
+    },
+    "region_08": {
+      "name": "Vùng Cấm Địa",
+      "desc": "Khu vực cấm với sinh vật đột biến nguy hiểm."
+    },
+    "region_09": {
+      "name": "Vực Thẳm Địa Ngục",
+      "desc": "Vực thẳm không đáy, nơi trú ngụ của quái vật rác."
+    },
+    "region_10": {
+      "name": "Ngai Vàng Rác Thải",
+      "desc": "Ngai vàng của vua rác, nơi trậnchiến cuối cùng."
+    }
   },
   "collection": {
     "newCard": "THẺ MỚI!",
@@ -880,106 +1020,306 @@
     "possible": "Có Thể"
   },
   "stages": {
-    "s01_01": { "name": "Đống Rác Đầu Tiên" },
-    "s01_02": { "name": "Khu Vực Chai Lọ" },
-    "s01_03": { "name": "Góc Túi Nilon" },
-    "s01_04": { "name": "Đống Giấy Vụn" },
-    "s01_05": { "name": "Trạm Trung Chuyển Mini" },
-    "s01_06": { "name": "Bãi Rác Nhỏ" },
-    "s01_07": { "name": "Khu Vực Kim Loại" },
-    "s01_08": { "name": "Đống Thức Ăn Thừa" },
-    "s01_09": { "name": "Trạm Phân Loại Elite" },
-    "s01_10": { "name": "Boss: Chúa Rác" },
-    "s02_01": { "name": "Gian Hàng Chợ" },
-    "s02_02": { "name": "Khu Vực Đồ Cũ" },
-    "s02_03": { "name": "Góc Đồ Nhựa" },
-    "s02_04": { "name": "Khu Vực Đồ Thủy Tinh" },
-    "s02_05": { "name": "Trạm Sạc Pin" },
-    "s02_06": { "name": "Khu Vực Đồ Điện Tử" },
-    "s02_07": { "name": "Gian Hàng Sách Cũ" },
-    "s02_08": { "name": "Khu Vực Đồ Gỗ" },
-    "s02_09": { "name": "Trạm Tái Chế Elite" },
-    "s02_10": { "name": "Boss: Bác Sĩ Rác" },
-    "s03_01": { "name": "Bãi Thép Phế Liệu" },
-    "s03_02": { "name": "Khu Vực Ô Tô Cũ" },
-    "s03_03": { "name": "Đống Sắt Vụn" },
-    "s03_04": { "name": "Khu Vực Máy Móc" },
-    "s03_05": { "name": "Trạm Hàn Điện" },
-    "s03_06": { "name": "Khu Vực Động Cơ" },
-    "s03_07": { "name": "Bãi Linh Kiện" },
-    "s03_08": { "name": "Khu Vực Dây Cáp" },
-    "s03_09": { "name": "Trạm Robot Mini" },
-    "s03_10": { "name": "Boss: Ông Trùm Kim Loại" },
-    "s04_01": { "name": "Khu Tái Chế 1" },
-    "s04_02": { "name": "Khu Tái Chế 2" },
-    "s04_03": { "name": "Khu Tái Chế 3" },
-    "s04_04": { "name": "Khu Tái Chế 4" },
-    "s04_05": { "name": "Trạm Ép Nhựa" },
-    "s04_06": { "name": "Khu Nấu Chảy" },
-    "s04_07": { "name": "Khu Đúc Khuôn" },
-    "s04_08": { "name": "Khu Đóng Gói" },
-    "s04_09": { "name": "Trạm Tái Sinh" },
-    "s04_10": { "name": "Boss: Đại Sư Tái Chế" },
-    "s05_01": { "name": "Bãi Chất Thải 1" },
-    "s05_02": { "name": "Bãi Chất Thải 2" },
-    "s05_03": { "name": "Khu Pin Chết" },
-    "s05_04": { "name": "Bãi Hóa Chất" },
-    "s05_05": { "name": "Trạm Trung Hòa" },
-    "s05_06": { "name": "Khu Xử Lý Chất Thải" },
-    "s05_07": { "name": "Bãi Khí Độc" },
-    "s05_08": { "name": "Khu Phóng Xạ" },
-    "s05_09": { "name": "Trạm Dọn Độc" },
-    "s05_10": { "name": "Boss: Vua Chất Độc" },
-    "s06_01": { "name": "Khu Xử Lý 1" },
-    "s06_02": { "name": "Khu Xử Lý 2" },
-    "s06_03": { "name": "Khu Xử Lý 3" },
-    "s06_04": { "name": "Khu Xử Lý 4" },
-    "s06_05": { "name": "Trạm Lọc Nước" },
-    "s06_06": { "name": "Khu Khử Trùng" },
-    "s06_07": { "name": "Bãi Rác Sạch" },
-    "s06_08": { "name": "Khu Tái Sử Dụng" },
-    "s06_09": { "name": "Trạm Phân Loại Vàng" },
-    "s06_10": { "name": "Boss: Đại Sư Tái Sinh" },
-    "s07_01": { "name": "Vùng Nước Nông 1" },
-    "s07_02": { "name": "Vùng Nước Nông 2" },
-    "s07_03": { "name": "Khu Rặng San Hô" },
-    "s07_04": { "name": "Bãi Biển Rác" },
-    "s07_05": { "name": "Trạm Lọc Nước Biển" },
-    "s07_06": { "name": "Vùng Sâu 1" },
-    "s07_07": { "name": "Vùng Sâu 2" },
-    "s07_08": { "name": "Khu Vực Áp Suất Cao" },
-    "s07_09": { "name": "Trạm Cứu Hộ Đại Dương" },
-    "s07_10": { "name": "Boss: Thủy Quái Rác" },
-    "s08_01": { "name": "Biên Giới Cấm 1" },
-    "s08_02": { "name": "Biên Giới Cấm 2" },
-    "s08_03": { "name": "Khu Vực Quái Vật" },
-    "s08_04": { "name": "Lãnh Thổ Bị Nguyền" },
-    "s08_05": { "name": "Trạm Quái Vật" },
-    "s08_06": { "name": "Vùng Tối Tăm" },
-    "s08_07": { "name": "Khu Vực Bức Xạ" },
-    "s08_08": { "name": "Điểm Dị Thường" },
-    "s08_09": { "name": "Trạm Cảnh Báo" },
-    "s08_10": { "name": "Boss: Thần Bế Tắc" },
-    "s09_01": { "name": "Cửa Địa Ngục 1" },
-    "s09_02": { "name": "Cửa Địa Ngục 2" },
-    "s09_03": { "name": "Hố Lửa" },
-    "s09_04": { "name": "Khu Vực Tro Tàn" },
-    "s09_05": { "name": "Trạm Hỏa Ngục" },
-    "s09_06": { "name": "Lò Thiêu" },
-    "s09_07": { "name": "Vùng Than" },
-    "s09_08": { "name": "Khu Vực Khói Độc" },
-    "s09_09": { "name": "Trạm Dọn Lửa" },
-    "s09_10": { "name": "Boss: Hỏa Diệm Sư" },
-    "s10_01": { "name": "Cung Điện Rác 1" },
-    "s10_02": { "name": "Cung Điện Rác 2" },
-    "s10_03": { "name": "Sảnh Hoàng Gia" },
-    "s10_04": { "name": "Kho Báu Rác" },
-    "s10_05": { "name": "Trạm Bảo Vệ" },
-    "s10_06": { "name": "Đội Vệ Binh" },
-    "s10_07": { "name": "Cận Vệ Hoàng Gia" },
-    "s10_08": { "name": "Vệ Binh Elite" },
-    "s10_09": { "name": "Trạm Cuối Cùng" },
-    "s10_10": { "name": "BOSS CUỐI CÙNG: Vua Rác Vĩ Đại" }
+    "s01_01": {
+      "name": "Đống Rác Đầu Tiên"
+    },
+    "s01_02": {
+      "name": "Khu Vực Chai Lọ"
+    },
+    "s01_03": {
+      "name": "Góc Túi Nilon"
+    },
+    "s01_04": {
+      "name": "Đống Giấy Vụn"
+    },
+    "s01_05": {
+      "name": "Trạm Trung Chuyển Mini"
+    },
+    "s01_06": {
+      "name": "Bãi Rác Nhỏ"
+    },
+    "s01_07": {
+      "name": "Khu Vực Kim Loại"
+    },
+    "s01_08": {
+      "name": "Đống Thức Ăn Thừa"
+    },
+    "s01_09": {
+      "name": "Trạm Phân Loại Elite"
+    },
+    "s01_10": {
+      "name": "Boss: Chúa Rác"
+    },
+    "s02_01": {
+      "name": "Gian Hàng Chợ"
+    },
+    "s02_02": {
+      "name": "Khu Vực Đồ Cũ"
+    },
+    "s02_03": {
+      "name": "Góc Đồ Nhựa"
+    },
+    "s02_04": {
+      "name": "Khu Vực Đồ Thủy Tinh"
+    },
+    "s02_05": {
+      "name": "Trạm Sạc Pin"
+    },
+    "s02_06": {
+      "name": "Khu Vực Đồ Điện Tử"
+    },
+    "s02_07": {
+      "name": "Gian Hàng Sách Cũ"
+    },
+    "s02_08": {
+      "name": "Khu Vực Đồ Gỗ"
+    },
+    "s02_09": {
+      "name": "Trạm Tái Chế Elite"
+    },
+    "s02_10": {
+      "name": "Boss: Bác Sĩ Rác"
+    },
+    "s03_01": {
+      "name": "Bãi Thép Phế Liệu"
+    },
+    "s03_02": {
+      "name": "Khu Vực Ô Tô Cũ"
+    },
+    "s03_03": {
+      "name": "Đống Sắt Vụn"
+    },
+    "s03_04": {
+      "name": "Khu Vực Máy Móc"
+    },
+    "s03_05": {
+      "name": "Trạm Hàn Điện"
+    },
+    "s03_06": {
+      "name": "Khu Vực Động Cơ"
+    },
+    "s03_07": {
+      "name": "Bãi Linh Kiện"
+    },
+    "s03_08": {
+      "name": "Khu Vực Dây Cáp"
+    },
+    "s03_09": {
+      "name": "Trạm Robot Mini"
+    },
+    "s03_10": {
+      "name": "Boss: Ông Trùm Kim Loại"
+    },
+    "s04_01": {
+      "name": "Khu Tái Chế 1"
+    },
+    "s04_02": {
+      "name": "Khu Tái Chế 2"
+    },
+    "s04_03": {
+      "name": "Khu Tái Chế 3"
+    },
+    "s04_04": {
+      "name": "Khu Tái Chế 4"
+    },
+    "s04_05": {
+      "name": "Trạm Ép Nhựa"
+    },
+    "s04_06": {
+      "name": "Khu Nấu Chảy"
+    },
+    "s04_07": {
+      "name": "Khu Đúc Khuôn"
+    },
+    "s04_08": {
+      "name": "Khu Đóng Gói"
+    },
+    "s04_09": {
+      "name": "Trạm Tái Sinh"
+    },
+    "s04_10": {
+      "name": "Boss: Đại Sư Tái Chế"
+    },
+    "s05_01": {
+      "name": "Bãi Chất Thải 1"
+    },
+    "s05_02": {
+      "name": "Bãi Chất Thải 2"
+    },
+    "s05_03": {
+      "name": "Khu Pin Chết"
+    },
+    "s05_04": {
+      "name": "Bãi Hóa Chất"
+    },
+    "s05_05": {
+      "name": "Trạm Trung Hòa"
+    },
+    "s05_06": {
+      "name": "Khu Xử Lý Chất Thải"
+    },
+    "s05_07": {
+      "name": "Bãi Khí Độc"
+    },
+    "s05_08": {
+      "name": "Khu Phóng Xạ"
+    },
+    "s05_09": {
+      "name": "Trạm Dọn Độc"
+    },
+    "s05_10": {
+      "name": "Boss: Vua Chất Độc"
+    },
+    "s06_01": {
+      "name": "Khu Xử Lý 1"
+    },
+    "s06_02": {
+      "name": "Khu Xử Lý 2"
+    },
+    "s06_03": {
+      "name": "Khu Xử Lý 3"
+    },
+    "s06_04": {
+      "name": "Khu Xử Lý 4"
+    },
+    "s06_05": {
+      "name": "Trạm Lọc Nước"
+    },
+    "s06_06": {
+      "name": "Khu Khử Trùng"
+    },
+    "s06_07": {
+      "name": "Bãi Rác Sạch"
+    },
+    "s06_08": {
+      "name": "Khu Tái Sử Dụng"
+    },
+    "s06_09": {
+      "name": "Trạm Phân Loại Vàng"
+    },
+    "s06_10": {
+      "name": "Boss: Đại Sư Tái Sinh"
+    },
+    "s07_01": {
+      "name": "Vùng Nước Nông 1"
+    },
+    "s07_02": {
+      "name": "Vùng Nước Nông 2"
+    },
+    "s07_03": {
+      "name": "Khu Rặng San Hô"
+    },
+    "s07_04": {
+      "name": "Bãi Biển Rác"
+    },
+    "s07_05": {
+      "name": "Trạm Lọc Nước Biển"
+    },
+    "s07_06": {
+      "name": "Vùng Sâu 1"
+    },
+    "s07_07": {
+      "name": "Vùng Sâu 2"
+    },
+    "s07_08": {
+      "name": "Khu Vực Áp Suất Cao"
+    },
+    "s07_09": {
+      "name": "Trạm Cứu Hộ Đại Dương"
+    },
+    "s07_10": {
+      "name": "Boss: Thủy Quái Rác"
+    },
+    "s08_01": {
+      "name": "Biên Giới Cấm 1"
+    },
+    "s08_02": {
+      "name": "Biên Giới Cấm 2"
+    },
+    "s08_03": {
+      "name": "Khu Vực Quái Vật"
+    },
+    "s08_04": {
+      "name": "Lãnh Thổ Bị Nguyền"
+    },
+    "s08_05": {
+      "name": "Trạm Quái Vật"
+    },
+    "s08_06": {
+      "name": "Vùng Tối Tăm"
+    },
+    "s08_07": {
+      "name": "Khu Vực Bức Xạ"
+    },
+    "s08_08": {
+      "name": "Điểm Dị Thường"
+    },
+    "s08_09": {
+      "name": "Trạm Cảnh Báo"
+    },
+    "s08_10": {
+      "name": "Boss: Thần Bế Tắc"
+    },
+    "s09_01": {
+      "name": "Cửa Địa Ngục 1"
+    },
+    "s09_02": {
+      "name": "Cửa Địa Ngục 2"
+    },
+    "s09_03": {
+      "name": "Hố Lửa"
+    },
+    "s09_04": {
+      "name": "Khu Vực Tro Tàn"
+    },
+    "s09_05": {
+      "name": "Trạm Hỏa Ngục"
+    },
+    "s09_06": {
+      "name": "Lò Thiêu"
+    },
+    "s09_07": {
+      "name": "Vùng Than"
+    },
+    "s09_08": {
+      "name": "Khu Vực Khói Độc"
+    },
+    "s09_09": {
+      "name": "Trạm Dọn Lửa"
+    },
+    "s09_10": {
+      "name": "Boss: Hỏa Diệm Sư"
+    },
+    "s10_01": {
+      "name": "Cung Điện Rác 1"
+    },
+    "s10_02": {
+      "name": "Cung Điện Rác 2"
+    },
+    "s10_03": {
+      "name": "Sảnh Hoàng Gia"
+    },
+    "s10_04": {
+      "name": "Kho Báu Rác"
+    },
+    "s10_05": {
+      "name": "Trạm Bảo Vệ"
+    },
+    "s10_06": {
+      "name": "Đội Vệ Binh"
+    },
+    "s10_07": {
+      "name": "Cận Vệ Hoàng Gia"
+    },
+    "s10_08": {
+      "name": "Vệ Binh Elite"
+    },
+    "s10_09": {
+      "name": "Trạm Cuối Cùng"
+    },
+    "s10_10": {
+      "name": "BOSS CUỐI CÙNG: Vua Rác Vĩ Đại"
+    }
   },
   "newElements": {
     "energy": "Điện",
@@ -997,162 +1337,111 @@
     "ult_03": "Vòng Tròn Thời Gian",
     "ult_04": "Hố Đen Nuốt Chửng"
   },
-  "admin": {
-    "tabs": {
-      "overview": "Tổng quan",
-      "rewards": "Phần thưởng",
-      "users": "Người dùng",
-      "experiments": "Thí nghiệm",
-      "quiz": "Quiz",
-      "sheets": "Google Sheets",
-      "research": "Nghiên cứu",
-      "system": "Hệ thống"
+  "smartBin": {
+    "kpis": {
+      "binsOnline": "Thùng trực tuyến",
+      "offline": "Ngoại tuyến",
+      "totalKg": "Tổng kg (24h)",
+      "co2KgSaved": "kg CO₂e tránh được"
     },
-    "dashboardTitle": "Dashboard quản trị",
-    "research": "Nghiên cứu",
-    "quiz": {
-      "title": "Quản lý Mini Game Quiz",
-      "subtitle": "Tạo, chỉnh sửa câu hỏi và cấu hình quiz",
-      "addQuestion": "Thêm câu hỏi",
-      "editQuestion": "Sửa câu hỏi",
-      "deleteQuestion": "Xóa câu hỏi",
-      "confirmDelete": "Bạn có chắc muốn xóa câu hỏi này?",
-      "content": "Nội dung câu hỏi",
-      "contentPlaceholder": "Nhập nội dung câu hỏi...",
-      "optionA": "Đáp án A",
-      "optionB": "Đáp án B",
-      "optionC": "Đáp án C",
-      "optionD": "Đáp án D",
-      "correctKey": "Đáp án đúng",
-      "points": "Điểm",
-      "category": "Chủ đề",
-      "difficulty": "Độ khó",
-      "difficultyEasy": "Dễ",
-      "difficultyMedium": "Trung bình",
-      "difficultyHard": "Khó",
-      "enabled": "Kích hoạt",
-      "imageUrl": "URL hình ảnh",
-      "order": "Thứ tự",
-      "preview": "Xem trước",
-      "import": "Nhập",
-      "export": "Xuất",
-      "importJson": "Nhập JSON",
-      "importCsv": "Nhập CSV",
-      "exportJson": "Xuất JSON",
-      "exportCsv": "Xuất CSV",
-      "reorder": "Sắp xếp lại",
-      "moveUp": "Lên",
-      "moveDown": "Xuống",
-      "totalQuestions": "Tổng câu hỏi",
-      "activeQuestions": "Đang kích hoạt",
-      "saveQuestion": "Lưu câu hỏi",
-      "questionSaved": "Đã lưu câu hỏi",
-      "questionDeleted": "Đã xóa câu hỏi",
-      "questionsImported": "Đã nhập {count} câu hỏi",
-      "questionsExported": "Đã xuất {count} câu hỏi",
-      "noQuestions": "Chưa có câu hỏi nào",
-      "syncToSheets": "Đồng bộ lên Sheets",
-      "syncFromSheets": "Kéo từ Sheets",
-      "lastSync": "Đồng bộ lần cuối",
-      "neverSynced": "Chưa đồng bộ",
-      "config": {
-        "title": "Cấu hình Quiz",
-        "startTime": "Thời gian bắt đầu",
-        "endTime": "Thời gian kết thúc",
-        "questionDuration": "Thời gian mỗi câu (giây)",
-        "maxQuestions": "Số câu tối đa mỗi lượt",
-        "maxPoints": "Điểm thưởng tối đa",
-        "comboBonus": "Điểm combo",
-        "description": "Mô tả quiz",
-        "descriptionPlaceholder": "Mô tả hiển thị cho học sinh...",
-        "saveConfig": "Lưu cấu hình",
-        "configSaved": "Đã lưu cấu hình"
-      }
+    "forecast": "Dự báo 24h",
+    "hourLabels": {
+      "0": "00",
+      "6": "06",
+      "12": "12",
+      "18": "18",
+      "24": "24"
+    }
+  },
+  "survey": {
+    "submit": "Gửi",
+    "submitted": "Đã gửi"
+  },
+  "theoryOfChange": {
+    "title": "Lý thuyết thay đổi",
+    "tagline": "Năng lực × Cơ hội × Động lực → Hành vi → Tác động SDG.",
+    "taglineHint": "Kéo thanh trượt để thử nghiệm can thiệp trực tiếp.",
+    "nodes": {
+      "capability": "Năng lực",
+      "opportunity": "Cơ hội",
+      "motivation": "Động lực",
+      "behaviour": "Hành vi"
     },
-    "sheets": {
-      "title": "Đồng bộ Google Sheets",
-      "subtitle": "Quản lý đồng bộ 3 chiều: Sheets ↔ Firestore ↔ Supabase",
-      "status": "Trạng thái",
-      "lastSync": "Lần đồng bộ cuối",
-      "neverSynced": "Chưa đồng bộ",
-      "syncInterval": "Tự động đồng bộ mỗi",
-      "syncIntervalValue": "15 phút",
-      "spreadsheetId": "Spreadsheet ID",
-      "fullSync": "Đồng bộ toàn bộ",
-      "pushToSheets": "Đẩy lên Sheets",
-      "pullFromSheets": "Kéo từ Sheets",
-      "syncing": "Đang đồng bộ...",
-      "syncSuccess": "Đồng bộ thành công!",
-      "syncFailed": "Đồng bộ thất bại",
-      "syncLog": "Lịch sử đồng bộ",
-      "conflictLog": "Xung đột",
-      "noConflicts": "Không có xung đột",
-      "usersCount": "Người dùng",
-      "quizCount": "Câu hỏi",
-      "configCount": "Cấu hình",
-      "rewardsCount": "Phần thưởng",
-      "logsCount": "Nhật ký",
-      "healthCheck": "Kiểm tra kết nối",
-      "firestoreStatus": "Firestore",
-      "supabaseStatus": "Supabase",
-      "sheetsStatus": "Google Sheets",
-      "connected": "Đã kết nối",
-      "disconnected": "Mất kết nối",
-      "error": "Lỗi",
-      "lastError": "Lỗi cuối",
-      "triggeredBy": "Kích hoạt bởi",
-      "duration": "Thời gian",
-      "rowsWritten": "Dòng đã ghi"
+    "kinds": {
+      "knowledgeSkill": "Kiến thức / Kỹ năng",
+      "peerBinAccess": "Bạn bè / Truy cập thùng",
+      "identityReward": "Bản ngã / Phần thưởng",
+      "sortAccuracy": "Độ chính xác phân loại"
+    }
+  },
+  "voice": {
+    "title": "Đổi ngôn ngữ",
+    "on": "Bật giọng nói",
+    "off": "Tắt giọng nói",
+    "lang": {
+      "vi": "VI",
+      "en": "EN"
+    }
+  },
+  "family": {
+    "open": "Mở Family Mode",
+    "homeTitle": "Family Mode"
+  },
+  "error": {
+    "serverUnavailable": "Máy chủ không khả dụng",
+    "networkError": "Lỗi mạng",
+    "unauthorized": "Phiên đăng nhập đã hết hạn",
+    "forbidden": "Bạn không có quyền truy cập",
+    "notFound": "Không tìm thấy tài nguyên",
+    "validationFailed": "Dữ liệu không hợp lệ",
+    "rateLimited": "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.",
+    "internal": "Đã xảy ra lỗi, vui lòng thử lại sau",
+    "clan": {
+      "full": "Đã đạt giới hạn clan. Hãy tham gia clan hiện có.",
+      "notFound": "Clan không tồn tại",
+      "notMember": "Bạn không phải thành viên clan",
+      "memberNotFound": "Thành viên không tồn tại trong clan",
+      "notLeader": "Chỉ chủ tịch mới có quyền",
+      "missingTarget": "Thiếu tên thành viên",
+      "missingExp": "Không đủ EXP",
+      "emptyMessage": "Tin nhắn trống",
+      "messageTooLong": "Tin nhắn quá dài"
     },
-    "research": {
-      "title": "Dữ liệu nghiên cứu",
-      "subtitle": "Phân tích hành vi, can thiệp và novelty decay",
-      "overview": "Tổng quan",
-      "retention": "Retention",
-      "interventions": "Can thiệp",
-      "personality": "Tính cách",
-      "leaderboard": "Bảng xếp hạng",
-      "decay": "Novelty Decay",
-      "exportCsv": "Xuất CSV",
-      "userLookup": "Tra cứu người dùng",
-      "userPlaceholder": "Nhập UID hoặc tên...",
-      "triggerDecay": "Kích hoạt phát hiện decay",
-      "triggerIntervention": "Kích hoạt can thiệp",
-      "totalUsers": "Tổng người dùng",
-      "totalEvents": "Tổng sự kiện",
-      "avgSession": "Phiên trung bình",
-      "personalityDistribution": "Phân bố tính cách",
-      "retentionDay1": "Retention D1",
-      "retentionDay7": "Retention D7",
-      "retentionDay30": "Retention D30",
-      "interventionEffectiveness": "Hiệu quả can thiệp",
-      "noData": "Chưa có dữ liệu nghiên cứu"
+    "chat": {
+      "empty": "Tin nhắn trống",
+      "tooLong": "Tin nhắn quá dài"
+    }
+  },
+  "email": {
+    "welcome": {
+      "subject": "Chào mừng đến với BMO Robot!"
     },
-    "system": {
-      "title": "Trạng thái hệ thống",
-      "subtitle": "Health check, audit log, cache & backup",
-      "uptime": "Uptime",
-      "memory": "Bộ nhớ",
-      "dbConnections": "Kết nối DB",
-      "auditLog": "Nhật ký Admin",
-      "cacheManagement": "Quản lý cache",
-      "clearCache": "Xóa cache",
-      "cacheCleared": "Đã xóa cache",
-      "backupRestore": "Sao lưu / Khôi phục",
-      "backup": "Sao lưu data.json",
-      "restore": "Khôi phục",
-      "backupSuccess": "Sao lưu thành công",
-      "restoreSuccess": "Khôi phục thành công",
-      "serverLogs": "Server logs (100 dòng cuối)",
-      "actionCreate": "Tạo",
-      "actionUpdate": "Cập nhật",
-      "actionDelete": "Xóa",
-      "actionSync": "Đồng bộ",
-      "actionLogin": "Đăng nhập",
-      "byUser": "Bởi",
-      "atTime": "Lúc",
-      "details": "Chi tiết",
-      "rateLimitSettings": "Cài đặt Rate Limit"
+    "passwordReset": {
+      "subject": "Khôi phục mật khẩu BMO Robot"
+    }
+  },
+  "audit": {
+    "title": "Nhật ký dữ liệu của bạn",
+    "empty": "Chưa có sự kiện nào. Khi bạn quét rác hoặc trò chuyện với BMO, các sự kiện này sẽ xuất hiện ở đây.",
+    "loadError": "Không tải được nhật ký: {{error}}",
+    "loading": "Đang tải…",
+    "loadMore": "Tải thêm",
+    "messages": {
+      "scan": "Bạn quét một bức ảnh phân loại. Hệ thống KHÔNG lưu ảnh — chỉ ghi hash",
+      "consentGranted": "Bạn đã đồng ý đóng góp dữ liệu (có thể thu hồi bất kỳ lúc nào).",
+      "consentRevoked": "Bạn đã rút lại đồng ý đóng góp dữ liệu.",
+      "chatMessage": "Bạn gửi",
+      "chatMessageSuffix": "ký tự tới chatbot.",
+      "login": "Bạn đã đăng nhập.",
+      "logout": "Bạn đã đăng xuất.",
+      "rewardClaim": "Bạn nhận",
+      "rewardSpent": "Bạn đã tiêu",
+      "rewardPoints": "điểm thưởng.",
+      "federatedSubmit": "Bạn đã đóng góp 1 vòng federated learning (gradient đã được clip+noise trước khi gửi).",
+      "quizComplete": "Hoàn thành bài kiểm tra.",
+      "score": "Điểm",
+      "fallback": "Sự kiện",
+      "recorded": "được ghi nhận."
     }
   }
 }

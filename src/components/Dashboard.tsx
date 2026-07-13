@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { User } from "../types";
+import { formatNumber } from "../lib/format";
 import { Minigame } from "./Minigame";
 import { Leaderboard } from "./Leaderboard";
 import { AIScanner } from "./AIScanner";
@@ -65,7 +66,9 @@ interface DashboardProps {
 }
 
 export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const loc = i18n.language;
+  const fmt = (n: number) => formatNumber(n, loc);
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
 
@@ -300,7 +303,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-2">
                   <StatCard label={t("dashboard.levelLabel")} value={`Lv.${level}`} icon={<Star size={16} />} accent="bg-violet-50 text-violet-600" />
-                  <StatCard label={t("dashboard.pointsLabel")} value={user.points.toLocaleString()} icon={<Zap size={16} />} />
+                  <StatCard label={t("dashboard.pointsLabel")} value={fmt(user.points)} icon={<Zap size={16} />} />
                   <StatCard label={t("dashboard.daysLabel")} value={`${streakDays}d`} icon={<Flame size={16} className="text-amber-500" />} accent="bg-amber-50 text-amber-600" />
                 </div>
 

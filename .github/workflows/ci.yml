@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Allow one concurrent run per ref; cancel superseded runs on the same ref
+# to save CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & path-check (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Type-check (tsc --noEmit)
+        run: npm run lint
+
+      - name: ESLint (warnings only)
+        run: npx --yes eslint@9.16.0 src server tests --ext .ts,.tsx || true
+
+      - name: Prettier check
+        run: npm run format:check
+        continue-on-error: true
+
+      - name: Mixed-slash / case-collision guard
+        run: npm run check:paths
+
+      - name: Hard-coded secrets guard
+        run: npm run check:secrets
+
+      - name: i18n parity + duplicate-key guard
+        run: node scripts/check-i18n.cjs
+
+      - name: Email + error i18n smoke
+        run: node --experimental-strip-types --no-warnings scripts/smoke-i18n.ts
+
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run unit + integration tests
+        run: npm test
+        env:
+          # CI-friendly defaults — secrets are never required for tests
+          NODE_ENV: test
+          RESEARCH_DB_ENABLED: 'false'
+          ADMIN_API_KEY: ci-admin-key
+
+  build:
+    name: Build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build SPA + bundle server
+        run: npm run build
+        env:
+          NODE_ENV: production
+          ADMIN_API_KEY: ci-admin-key
+
+      - name: Upload build artifacts
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.node }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  codeql:
+    name: CodeQL security baseline
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: typescript, javascript
+          queries: security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:typescript"
+
+  contract-smoke:
+    name: API contract smoke
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Boot server in background
+        run: |
+          node dist/server.cjs &
+          for i in {1..30}; do
+            sleep 1
+            curl -sf http://localhost:3000/api/health && break
+          done
+
+      - name: Hit /api/health (must return 200 JSON)
+        run: curl -sf http://localhost:3000/api/health | tee health.json
+
+      - name: Hit admin endpoint with x-admin-key
+        run: |
+          curl -sf -H "x-admin-key: ${{ secrets.ADMIN_API_KEY || 'ci-admin-key' }}" \
+            http://localhost:3000/api/admin/stats | head -c 200
