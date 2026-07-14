@@ -28,6 +28,7 @@
  */
 
 import crypto from "crypto";
+import { uniformModN, laplaceSample } from "./secureSampling.js";
 
 /** Modular exponentiation with bigint support. */
 function bigModPow(base: bigint, exp: bigint, mod: bigint): bigint {
@@ -155,12 +156,15 @@ export function paillierEncrypt(m: number | bigint, pub: { n: bigint; g: bigint 
   if (mb < 0n || mb >= n) {
     throw new Error(`Message ${m} must be in [0, n)`);
   }
-  // Choose r ∈ Z*_n
-  let r: bigint;
-  do {
-    const bytes = crypto.randomBytes(256 / 8);
-    r = BigInt(`0x${bytes.toString("hex")}`) % n;
-  } while (r === 0n || gcdAB(r, n) !== 1n);
+  // Sample r uniformly from Z_n using `secureSampling.uniformModN`, which
+  // pulls 2048 bits of CSPRNG entropy and rejects only r=0 (negligible
+  // and unbiased).
+  //
+  // Security note (Layer 2.5): the previous implementation sampled 32 bytes
+  // (256 bits) and rejected when gcd(r, n) ≠ 1, which biased r away from
+  // small prime factors. For an IND-CPA-secure Paillier instance we need
+  // uniformly distributed r ∈ Z*_n, so we now draw full entropy.
+  const r = uniformModN(n);
   // g^m * r^n mod n^2
   const gm = bigModPow(pub.g, mb, n2);
   const rn = bigModPow(r, n, n2);
@@ -215,15 +219,26 @@ export function paillierEncryptVector(
 }
 
 /** Add noise INSIDE encryption (Laplace on plaintext domain). */
+/**
+ * Encrypt v + Lap(0, sensitivity/epsilon) under the Paillier public key.
+ *
+ * `paillierEncryptWithLaplaceNoise` adds the noise INSIDE the plaintext
+ * before encryption, so the noise contribution is indelibly bound to the
+ * ciphertext. This is the right place to add DP noise in a federated-
+ * learning context: clients can each contribute noise before encryption,
+ * and the server learns only the noisy aggregate even after decryption.
+ *
+ * Security: noise is sampled from `secureSampling.sampleUniform01` —
+ * `Math.random()` is forbidden here because it's predictable.
+ */
 export function paillierEncryptWithLaplaceNoise(
   v: number,
   pub: { n: bigint; g: bigint },
   sensitivity: number,
   epsilon: number
 ): bigint {
-  // Laplace sample via inverse CDF.
-  const u = Math.random() - 0.5;
-  const lapNoise = Math.round(-sensitivity / epsilon * Math.sign(u) * Math.log(1 - 2 * Math.abs(u)));
+  const b = sensitivity / epsilon;
+  const lapNoise = Math.round(b * laplaceSample());
   return paillierEncrypt(v + lapNoise, pub);
 }
 
