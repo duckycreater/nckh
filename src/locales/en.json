@@ -383,9 +383,14 @@
   "achievement": {
     "legendary": "LEGENDARY",
     "superRare": "SUPER RARE",
+    "epic": "EPIC",
     "rare": "RARE",
     "common": "COMMON",
-    "multiplier": "×"
+    "multiplier": "×",
+    "rarityLegendary": "LEGENDARY",
+    "rarityEpic": "EPIC",
+    "rarityRare": "RARE",
+    "rarityCommon": "COMMON"
   },
   "chatbot": {
     "title": "Super Green Robot",
@@ -444,10 +449,12 @@
     }
   },
   "levelUp": {
+    "header": "Level Up!",
     "levelUp": "Level Up!",
     "streakActive": "Streak x{multiplier} is active!",
     "continue": "Continue",
-    "bonusExp": "+{exp} EXP"
+    "bonusExp": "+{amount} EXP",
+    "aria": "You just reached level {level}"
   },
   "clan": {
     "clan": "Clan",
@@ -1129,6 +1136,24 @@
     "locked": "Locked",
     "reachLevel": "Reach level",
     "stage": "Stage",
+    "stageNotFound": "Stage not found",
+    "backToMap": "← Back to map",
+    "enemies": "Enemies",
+    "boss": "Boss",
+    "bossCard": "Boss Card #{{id}}",
+    "bossStats": "HP x{{hp}} | ATK x{{atk}}",
+    "rewardsHeading": "Rewards (3 Stars)",
+    "gold": "Gold",
+    "startBattle": "⚔️ Start Battle",
+    "stageBoss": "BOSS BATTLE",
+    "stageElite": "ELITE STAGE",
+    "stageMiniboss": "MINIBOSS STAGE",
+    "stageNormal": "NORMAL STAGE",
+    "stageBossHint": "Defeat the boss to clear this stage!",
+    "stageEliteHint": "A powerful enemy awaits!",
+    "stageMinibossHint": "A mini-boss guards this area!",
+    "stageNormalHint": "Clear all enemies to win!",
+    "placeholderHint": "Combat system under development. You can go back to the map and pick another stage.",
     "normal": "Normal",
     "elite": "Elite",
     "miniboss": "Mini Boss",

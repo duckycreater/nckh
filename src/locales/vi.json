@@ -382,10 +382,15 @@
   },
   "achievement": {
     "legendary": "HUYỀN THOẠI",
-    "superRare": "SỌ RARE",
+    "superRare": "SIÊU HIẾM",
+    "epic": "SỰ KIỆN",
     "rare": "HIẾM",
     "common": "THÔNG THƯỜNG",
-    "multiplier": "×"
+    "multiplier": "×",
+    "rarityLegendary": "HUYỀN THOẠI",
+    "rarityEpic": "SIÊU HIẾM",
+    "rarityRare": "HIẾM",
+    "rarityCommon": "THÔNG THƯỜNG"
   },
   "chatbot": {
     "title": "Robot Siêu Cấp Xanh",
@@ -444,10 +449,12 @@
     }
   },
   "levelUp": {
+    "header": "Lên cấp!",
     "levelUp": "Lên cấp!",
     "streakActive": "Streak x{multiplier} đang hoạt động!",
     "continue": "Tiếp tục",
-    "bonusExp": "+{exp} EXP"
+    "bonusExp": "+{amount} EXP",
+    "aria": "Bạn vừa lên cấp {level}"
   },
   "clan": {
     "clan": "Clan",
@@ -941,6 +948,24 @@
     "locked": "🔒 Đã Khóa",
     "reachLevel": "Cần đạt cấp",
     "stage": "Chặng",
+    "stageNotFound": "Không tìm thấy chặng",
+    "backToMap": "← Quay lại bản đồ",
+    "enemies": "Kẻ địch",
+    "boss": "Trùm",
+    "bossCard": "Thẻ trùm #{{id}}",
+    "bossStats": "HP x{{hp}} | ATK x{{atk}}",
+    "rewardsHeading": "Phần thưởng (3 Sao)",
+    "gold": "Vàng",
+    "startBattle": "⚔️ Bắt đầu trận đấu",
+    "stageBoss": "TRẬN TRÙM",
+    "stageElite": "CHẶNG TINH ANH",
+    "stageMiniboss": "CHẶNG TIỂU TRÙM",
+    "stageNormal": "CHẶNG THƯỜNG",
+    "stageBossHint": "Đánh bại trùm để hoàn thành chặng!",
+    "stageEliteHint": "Một kẻ địch hùng mạnh đang chờ!",
+    "stageMinibossHint": "Có tiểu trùm canh khu vực này!",
+    "stageNormalHint": "Dọn sạch kẻ địch để chiến thắng!",
+    "placeholderHint": "Trận đấu đang được phát triển. Bạn có thể quay lại bản đồ và chọn chặng khác.",
     "normal": "Thường",
     "elite": "Elite",
     "miniboss": "Mini Boss",

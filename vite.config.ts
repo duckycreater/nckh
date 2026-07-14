@@ -36,8 +36,11 @@ export default defineConfig(() => {
           scope: '/',
           lang: 'vi',
           icons: [
-            {src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png'},
-            {src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png'},
+            // Layer 1.8 — every icon entry gets `purpose: "any maskable"`
+            // so the install prompt and the home-screen launcher both
+            // render correctly on Android 12+ adaptive icons.
+            {src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable'},
+            {src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable'},
             {src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable'},
           ],
         },
@@ -107,7 +110,7 @@ export default defineConfig(() => {
               },
             },
           ],
-          navigateFallback: '/index.html',
+          navigateFallback: '/offline.html',
           navigateFallbackDenylist: [/^\/api\//],
           globPatterns: ['**/*.{js,css,html,svg,png,webp,ico,woff,woff2}'],
         },

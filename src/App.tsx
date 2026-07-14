@@ -33,7 +33,7 @@ function LoadingFallback({ message }: { message?: string }) {
   return (
     <div className="flex items-center justify-center py-20">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
         <p className="text-sm text-gray-500 dark:text-gray-400">{message ?? t("common.loading")}</p>
       </div>
     </div>
@@ -262,9 +262,6 @@ export default function App() {
   const [restoring, setRestoring] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
 
-  // Public routes that don't require login (Phase 4)
-  const PUBLIC_PATHS = ["/impact"];
-
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (token) {
@@ -349,19 +346,27 @@ export default function App() {
     return <RestoringScreen />;
   }
 
-  // Public route: /impact (Phase 4 - no login required)
-  if (typeof window !== "undefined" && PUBLIC_PATHS.includes(window.location.pathname)) {
+  // Layer 1.5 — `/impact` is a real React Router route rendered BEFORE
+  // the auth gate. We use `useLocation` inside `<RouterRoot>` so the
+  // impact dashboard mounts as a real child of `<BrowserRouter>` (so
+  // `useNavigate` and `useParams` work). The legacy `window.location`
+  // bypass is removed because it (a) duplicated the router's job and
+  // (b) made useParams/useNavigate unavailable inside the dashboard.
+  if (!user) {
     return (
       <ThemeProvider>
-        <Suspense fallback={<LoadingFallback />}>
-          <GlobalImpactDashboard />
-        </Suspense>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/impact" element={
+              <Suspense fallback={<LoadingFallback />}>
+                <GlobalImpactDashboard />
+              </Suspense>
+            } />
+            <Route path="*" element={<Auth onLogin={handleLogin} />} />
+          </Routes>
+        </BrowserRouter>
       </ThemeProvider>
     );
-  }
-
-  if (!user) {
-    return <Auth onLogin={handleLogin} />;
   }
 
   const isAdmin = user.role === "admin";

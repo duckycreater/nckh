@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Trophy, Star, Flame, CheckCircle2 } from "lucide-react";
 import {
   ALL_ACHIEVEMENTS,
@@ -28,6 +29,7 @@ export function triggerAchievement(achievement: Achievement) {
 
 // ─── AchievementPopup Component ──────────────────────────────────────────────────
 export function AchievementPopup() {
+  const { t } = useTranslation();
   const [queue, setQueue] = useState<AchievementUnlock[]>([]);
   const [active, setActive] = useState<AchievementUnlock | null>(null);
   const DISMISS_DELAY = 3800;
@@ -111,9 +113,10 @@ export function AchievementPopup() {
                 <div className="mb-1 flex items-center gap-2">
                   <Trophy size={12} className={cfg.labelColor} />
                   <span className={`text-[10px] font-black uppercase tracking-widest ${cfg.labelColor}`}>
-                    {active.achievement.rarity === "legendary" ? "HUYỀN THOẠI" :
-                     active.achievement.rarity === "epic" ? "SỌ RARE" :
-                     active.achievement.rarity === "rare" ? "HIẾM" : "THÔNG THƯỜNG"}
+                    {active.achievement.rarity === "legendary" ? t("achievement.rarityLegendary") :
+                     active.achievement.rarity === "epic" ? t("achievement.rarityEpic") :
+                     active.achievement.rarity === "rare" ? t("achievement.rarityRare") :
+                     t("achievement.rarityCommon")}
                   </span>
                 </div>
 

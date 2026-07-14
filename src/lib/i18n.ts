@@ -99,6 +99,68 @@ if (!i18n.isInitialized) {
   });
 }
 
+/**
+ * Per-locale map of <title> + <meta name=description>. Layer 1.4 — we
+ * deliberately ship one string per locale here rather than calling
+ * `t("meta.title")` because the meta tags are visible to the browser
+ * before i18next has hydrated and we want the right title to render on
+ * the very first paint.
+ */
+const META: Record<string, { title: string; description: string }> = {
+  vi: {
+    title: "BMO Robot — Phân loại rác thông minh",
+    description:
+      "BMO Robot là nền tảng phân loại rác thông minh với AI on-device, federated learning và bảo vệ quyền riêng tư.",
+  },
+  en: {
+    title: "BMO Robot — Smart Waste Sorting",
+    description:
+      "BMO Robot — smart Vietnamese-waste sorting PWA with on-device AI, federated learning, and differential-privacy analytics.",
+  },
+  zh: {
+    title: "BMO Robot — 智能垃圾分类",
+    description:
+      "BMO Robot 是一款智能垃圾分类 PWA,内置端侧 AI、联邦学习和差分隐私分析。",
+  },
+  es: {
+    title: "BMO Robot — Clasificación inteligente de residuos",
+    description:
+      "BMO Robot — PWA de clasificación inteligente de residuos con IA en el dispositivo, aprendizaje federado y privacidad diferencial.",
+  },
+  fr: {
+    title: "BMO Robot — Tri intelligent des déchets",
+    description:
+      "BMO Robot — PWA de tri intelligent des déchets avec IA embarquée, apprentissage fédéré et confidentialité différentielle.",
+  },
+  ja: {
+    title: "BMO Robot — スマート分別",
+    description:
+      "BMO Robot — オンデバイス AI、フェデレーテッド ラーニング、差分プライバシーを備えたスマート分別 PWA。",
+  },
+  ko: {
+    title: "BMO Robot — 스마트 폐기물 분류",
+    description:
+      "BMO Robot — 온디바이스 AI, 연합 학습, 차등 개인정보 보호 분석을 갖춘 스마트 폐기물 분류 PWA.",
+  },
+  id: {
+    title: "BMO Robot — Pemilahan sampah pintar",
+    description:
+      "BMO Robot — PWA pemilahan sampah pintar dengan AI di perangkat, federated learning, dan privasi diferensial.",
+  },
+};
+
+/** Apply per-locale `<title>` + `<meta name=description>` to <head>. */
+function syncDocumentMeta(lng: string) {
+  if (typeof document === "undefined") return;
+  const meta = META[lng] ?? META.en!;
+  document.title = meta.title;
+  const descEl = document.querySelector('meta[name="description"]');
+  if (descEl) descEl.setAttribute("content", meta.description);
+  // Update <html lang> as well so screen readers and search engines get
+  // the right language.
+  document.documentElement.setAttribute("lang", lng);
+}
+
 /** Change UI language and persist. Notifies subscribers (LanguageSwitcher). */
 export function changeLanguage(code: LanguageCode) {
   i18n.changeLanguage(code);
@@ -110,10 +172,22 @@ export function changeLanguage(code: LanguageCode) {
     const rtlCodes = new Set(["ar", "he", "fa", "ur", "yi"]);
     document.documentElement.setAttribute("dir", rtlCodes.has(code) ? "rtl" : "ltr");
   }
+  // Update <title>, <meta description>, <html lang>.
+  syncDocumentMeta(code);
   // Notify listeners outside React (e.g. main.tsx sets <html dir>).
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("bmo:languageChanged", { detail: code }));
   }
+}
+
+// Apply the initial language once, after i18next has had a chance to fire
+// `languageChanged`. This makes the very first paint show the correct title
+// even when the persisted language differs from the default.
+i18n.on("languageChanged", syncDocumentMeta);
+if (typeof document !== "undefined") {
+  // Cover the boot race where `languageChanged` has already fired before
+  // we attached the listener (i18next is synchronous on init).
+  syncDocumentMeta(getCurrentLanguage());
 }
 
 export function getCurrentLanguage(): LanguageCode {

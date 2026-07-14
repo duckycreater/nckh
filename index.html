@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,11 +9,16 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta
-      name="description"
-      content="BMO Robot là nền tảng phân loại rác thông minh với trải nghiệm học tập, tích điểm và quản trị trực quan hơn."
-    />
-    <title>BMO Robot | Phân loại rác thông minh</title>
+    <!--
+      Layer 1.4 — `<html lang>`, `<title>`, and `<meta name=description>`
+      are kept in English here as a sane default and updated by the
+      `languageChanged` handler in src/lib/i18n.ts to follow the user's
+      chosen locale. Without that handler the page would be stuck on
+      whatever language the HTML shipped with — confusing for judges and
+      end-users alike.
+    -->
+    <meta name="description" content="BMO Robot — smart Vietnamese-waste sorting PWA with on-device AI, federated learning, and differential-privacy analytics." />
+    <title>BMO Robot — Smart Waste Sorting</title>
   </head>
   <body>
     <div id="root"></div>

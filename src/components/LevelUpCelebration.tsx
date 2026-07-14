@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Star, Zap, TrendingUp } from "lucide-react";
 import { calculateLevel, TIER_NAMES } from "../lib/useLevel";
 import { getStreakMultiplier } from "../lib/streakPersistence";
@@ -21,14 +22,17 @@ export function LevelUpCelebration({
   streakDays,
   onClose,
 }: LevelUpCelebrationProps) {
+  // Layer 1.3 — every string below now flows through `t()` so the popup
+  // is fully translated (en, vi, zh, es, fr, ja, ko, id).
+  const { t } = useTranslation();
   const multiplier = streakDays ? getStreakMultiplier(streakDays) : 1;
 
   const oldTierData = TIER_NAMES[`t${Math.min(Math.ceil(oldLevel / 3), 10)}`] ?? TIER_NAMES.t1;
   const newTierData = TIER_NAMES[`t${Math.min(Math.ceil(newLevel / 3), 10)}`] ?? TIER_NAMES.t1;
 
   useEffect(() => {
-    const t = setTimeout(() => onClose(), 4500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onClose(), 4500);
+    return () => clearTimeout(timer);
   }, [onClose]);
 
   const tierChanged = newLevel !== oldLevel;
@@ -42,6 +46,9 @@ export function LevelUpCelebration({
         transition={{ duration: 0.3 }}
         className="pointer-events-none fixed inset-0 z-[220] flex flex-col items-center justify-center bg-black/20"
         onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("levelUp.aria", { level: newLevel })}
       >
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -53,8 +60,8 @@ export function LevelUpCelebration({
         >
           {/* Header */}
           <div className="flex items-center justify-center gap-1.5 mb-4">
-            <Star size={16} className="text-amber-500 fill-amber-400" />
-            <span className="text-sm font-bold text-amber-600">Lên cấp!</span>
+            <Star size={16} className="text-amber-500 fill-amber-400" aria-hidden="true" />
+            <span className="text-sm font-bold text-amber-600">{t("levelUp.header")}</span>
           </div>
 
           {/* Level transition */}
@@ -64,7 +71,7 @@ export function LevelUpCelebration({
               <div className="text-[10px] text-gray-400">{oldTierData.full}</div>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <Zap size={18} className="text-amber-500 fill-amber-400" />
+              <Zap size={18} className="text-amber-500 fill-amber-400" aria-hidden="true" />
               <div className="h-px w-12 bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
             </div>
             <div className="text-center">
@@ -81,19 +88,21 @@ export function LevelUpCelebration({
           </div>
 
           {/* Tier badge */}
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 px-3 py-1.5">
-              <span className="text-xl">{newTierData.emoji}</span>
-              <span className={`text-sm font-bold ${newTierData.color}`}>{newTierData.short}</span>
+          {tierChanged && (
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 px-3 py-1.5">
+                <span className="text-xl" aria-hidden="true">{newTierData.emoji}</span>
+                <span className={`text-sm font-bold ${newTierData.color}`}>{newTierData.short}</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Streak notice */}
           {streakDays !== undefined && streakDays > 1 && (
             <div className="flex items-center justify-center gap-1.5 mb-3 rounded-xl bg-amber-50 border border-amber-200 px-3 py-1.5">
-              <TrendingUp size={13} className="text-amber-500" />
+              <TrendingUp size={13} className="text-amber-500" aria-hidden="true" />
               <span className="text-xs font-semibold text-amber-700">
-                Streak x{multiplier.toFixed(1)} đang hoạt động!
+                {t("levelUp.streakActive", { multiplier: multiplier.toFixed(1) })}
               </span>
             </div>
           )}
@@ -101,8 +110,10 @@ export function LevelUpCelebration({
           {/* Bonus EXP */}
           {bonusExp > 0 && (
             <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2">
-              <Zap size={15} className="text-emerald-500 fill-emerald-400" />
-              <span className="text-sm font-semibold text-emerald-700">+{bonusExp.toLocaleString()} EXP</span>
+              <Zap size={15} className="text-emerald-500 fill-emerald-400" aria-hidden="true" />
+              <span className="text-sm font-semibold text-emerald-700">
+                {t("levelUp.bonusExp", { amount: bonusExp.toLocaleString() })}
+              </span>
             </div>
           )}
 
@@ -110,8 +121,9 @@ export function LevelUpCelebration({
           <button
             onClick={onClose}
             className="mt-4 w-full rounded-xl border border-gray-200 bg-gray-50 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+            aria-label={t("common.close")}
           >
-            Tiếp tục
+            {t("levelUp.continue")}
           </button>
         </motion.div>
       </motion.div>
