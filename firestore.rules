@@ -1,9 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // All writes come from the trusted server-side Firebase Admin SDK.
-    // Client-side security rules are permissive since the app doesn't use
-    // Firebase client SDK — all data flows through our Express backend.
-    allow read, write: if true;
+    // SECURITY (Layer 4.10): All writes come from the trusted server-side
+    // Firebase Admin SDK. Client-side rules deny by default; if a future
+    // feature needs client-side access it must be opened with a guarded
+    // match path AND a request.auth check. Read the SECURITY.md threat
+    // model before adding any client-readable collection.
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }

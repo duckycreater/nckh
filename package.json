@@ -22,10 +22,15 @@
     "smoke:bash": "bash scripts/smoke.sh",
     "train:model": "python scripts/train_and_export_waste_classifier.py --epochs 50",
     "benchmark": "python scripts/benchmark_models.py",
-    "lint": "scripts\\eslint.cmd src server tests",
-    "lint:fix": "scripts\\eslint.cmd src server tests --fix",
-    "format": "scripts\\prettier.cmd --write \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\"",
-    "format:check": "scripts\\prettier.cmd --check \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\""
+    "codegen:i18n": "node scripts/codegen-i18n.cjs",
+    "lint": "eslint src server tests",
+    "lint:fix": "eslint src server tests --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\""
+  },
+  "engines": {
+    "node": ">=20 <23"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

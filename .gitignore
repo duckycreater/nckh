@@ -8,8 +8,27 @@ coverage/
 !.env.example
 service-account-key.json
 firebase-applet-config.json
+firebase-applet-config.local.json
 *.local
 .vite/
 .cursor/
 .playwright-mcp/
 *.ps1
+
+# Local-only research data — never publish (Layer 4.2)
+data.json
+
+# Vendored upstream plugin marketplace (Layer 4.3) — clone separately
+plugins-main/
+
+# Build artefacts & dev smoke logs (Layer 4.9)
+*.docx
+bmo-*.png
+__*.txt
+__file_tree.txt
+health*.json
+smoke-*.log
+smoke-*-err.log
+health-out.json
+metadata.json
+logs/

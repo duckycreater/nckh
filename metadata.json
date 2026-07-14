@@ -1,6 +1,0 @@
-{
-  "name": "BMO Robot - Phân Loại Rác",
-  "description": "Hệ thống quản lý điểm thưởng và minigame dành cho người dùng BMO Robot.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
