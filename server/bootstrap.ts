@@ -748,7 +748,6 @@ app.post("/api/robot", async (req, res) => {
     if (!legacyOk && !hmacOk) {
       return res.status(401).json({ result: "error", message: "Sai mã bảo mật" });
     }
-    }
 
     const user = await getUser(nickname);
     if (user) {
