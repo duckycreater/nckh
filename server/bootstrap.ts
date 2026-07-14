@@ -66,7 +66,14 @@ import { longitudinalRouter } from "../server/routes/longitudinal.js";
 import { userPreferencesRouter } from "../server/routes/userPreferences.js";
 import { localeMiddleware } from "../server/services/localeRouter.js";
 import { getErrorMessage, err } from "../server/services/errorMessages.js";
-import { createSessionToken, validateToken } from "../server/auth.js";
+import {
+  createSessionToken,
+  validateToken,
+  hashPassword,
+  verifyPassword,
+  isLikelyHash,
+  requireAuth,
+} from "../server/auth.js";
 import { initSessionStore } from "../server/services/sessionStore.js";
 
 cloudinary.config({
@@ -695,12 +702,49 @@ function getGroqClient() {
 }
 
 // 1. Robot Webhook
+// Layer 2.2 — replace the hardcoded shared-secret "BMO_ROBOT_2025" with a
+// constant-time HMAC-signed request that includes a timestamp window. The
+// secret lives in `BMO_ROBOT_SHARED_SECRET` (env var) and is documented in
+// `.env.example`. This blocks replay attacks: an attacker who copies a
+// captured signature can't reuse it after the 5-minute window closes.
 app.post("/api/robot", async (req, res) => {
   try {
-    const { nickname, key } = req.body;
-    if (key !== "BMO_ROBOT_2025") {
-      res.json({ result: "error", message: "Sai mã bảo mật" });
-      return;
+    const sharedSecret = process.env.BMO_ROBOT_SHARED_SECRET;
+    if (!sharedSecret) {
+      console.error("[robot] BMO_ROBOT_SHARED_SECRET is not set");
+      return res.status(503).json({ result: "error", message: "Robot endpoint not configured" });
+    }
+    const { nickname, key, ts, sig } = req.body ?? {};
+    if (!nickname || typeof nickname !== "string") {
+      return res.status(400).json({ result: "error", message: "Thiếu nickname" });
+    }
+    // Legacy path: callers that still send the shared secret as `key` get
+    // a deprecation warning but are accepted for one minor release so the
+    // on-device firmware doesn't break mid-pilot.
+    let legacyOk = false;
+    if (typeof key === "string" && key === sharedSecret) {
+      legacyOk = true;
+      console.warn(`[robot] deprecated legacy-secret call for ${nickname}; please update firmware to HMAC`);
+    }
+    let hmacOk = false;
+    if (typeof ts === "number" && typeof sig === "string") {
+      const skewMs = Math.abs(Date.now() - ts);
+      if (skewMs <= 5 * 60 * 1000) {
+        const expected = crypto
+          .createHmac("sha256", sharedSecret)
+          .update(`${nickname}:${ts}`)
+          .digest("hex");
+        // constant-time compare to prevent timing attacks
+        const a = Buffer.from(expected, "hex");
+        const b = Buffer.from(sig, "hex");
+        if (a.length === b.length) {
+          hmacOk = crypto.timingSafeEqual(a, b);
+        }
+      }
+    }
+    if (!legacyOk && !hmacOk) {
+      return res.status(401).json({ result: "error", message: "Sai mã bảo mật" });
+    }
     }
 
     const user = await getUser(nickname);
@@ -739,9 +783,12 @@ app.post("/api/login", async (req, res) => {
   }
 
   if (user) {
-    if (user.pass === login_password) {
-
-      // Auto grant admin if nickname starts with admin
+    // Layer 2.1 — verify password with bcrypt; auto-migrate legacy plaintext
+    // to a bcrypt hash on first successful login so legacy data.json users
+    // keep working without leaving cleartext in the DB.
+    const ok = await verifyPassword(login_password, user.pass);
+    if (ok) {
+      // Auto-grant admin if nickname starts with admin
       let role = user.role;
       if (login_nickname.toLowerCase().startsWith('admin')) {
         role = 'admin';
@@ -752,6 +799,19 @@ app.post("/api/login", async (req, res) => {
           } catch (e) {
             console.error("[login] saveUser failed:", e?.message || e);
           }
+        }
+      }
+
+      // Migrate plaintext password to bcrypt hash in-place (best-effort;
+      // if the DB write fails the user can still log in — we just retry
+      // the migration next time).
+      if (!isLikelyHash(user.pass)) {
+        try {
+          user.pass = await hashPassword(login_password);
+          await saveUser(user);
+          console.info(`[login] migrated plaintext → bcrypt for ${user.nick}`);
+        } catch (e) {
+          console.warn(`[login] bcrypt migration failed for ${user.nick}:`, e?.message || e);
         }
       }
 
@@ -944,8 +1004,10 @@ app.post("/api/register", async (req, res) => {
   });
 });
 
-app.post("/api/change-password", async (req, res) => {
-  const { cp_nickname, cp_old_pass, cp_new_pass } = req.body;
+app.post("/api/change-password", requireAuth, async (req, res) => {
+  // Layer 2.3 — you can only change your own password.
+  const cp_nickname = (req as any).userNick as string;
+  const { cp_old_pass, cp_new_pass } = req.body ?? {};
 
   let user;
   try {
@@ -955,8 +1017,10 @@ app.post("/api/change-password", async (req, res) => {
     return res.status(500).json({ success: false, message: "Lỗi server, vui lòng thử lại." });
   }
   if (user) {
-    if (user.pass === cp_old_pass) {
-      user.pass = cp_new_pass;
+    // Layer 2.1 — verify with bcrypt; auto-migrate plaintext → bcrypt.
+    const ok = await verifyPassword(cp_old_pass, user.pass);
+    if (ok) {
+      user.pass = await hashPassword(cp_new_pass);
       try {
         await saveUser(user);
       } catch (e) {
@@ -972,9 +1036,13 @@ app.post("/api/change-password", async (req, res) => {
   }
 });
 
-app.post("/api/reward", async (req, res) => {
+app.post("/api/reward", requireAuth, async (req, res) => {
   try {
-    const { nickname, points, reason } = req.body;
+    // Layer 2.3 — the recipient is the authenticated user. We reject any
+    // client-supplied nickname; an admin-issued reward should use the
+    // dedicated /api/admin endpoints.
+    const nickname = (req as any).userNick as string;
+    const { points, reason } = req.body ?? {};
     const user = await getUser(nickname);
     if (user) {
       // Calculate streak multiplier for positive rewards
@@ -1046,8 +1114,10 @@ app.post("/api/reward", async (req, res) => {
   }
 });
 
-app.post("/api/change-name", async (req, res) => {
-  const { cn_nickname, cn_newname, cn_password } = req.body;
+app.post("/api/change-name", requireAuth, async (req, res) => {
+  // Layer 2.3 — you can only change your own display name.
+  const cn_nickname = (req as any).userNick as string;
+  const { cn_newname, cn_password } = req.body ?? {};
   const newName = (cn_newname || "").trim();
 
   if (!newName) {
@@ -1057,8 +1127,18 @@ app.post("/api/change-name", async (req, res) => {
 
   const user = await getUser(cn_nickname);
   if (user) {
-    if (user.pass === cn_password) {
+    // Layer 2.1 — verify with bcrypt; auto-migrate plaintext → bcrypt.
+    const ok = await verifyPassword(cn_password, user.pass);
+    if (ok) {
       user.name = newName;
+      // Best-effort migration of the password hash if it was plaintext.
+      if (!isLikelyHash(user.pass)) {
+        try {
+          user.pass = await hashPassword(cn_password);
+        } catch (e) {
+          console.warn("[change-name] bcrypt migration failed:", e?.message || e);
+        }
+      }
       await saveUser(user);
       res.json({
         success: true,
@@ -1076,9 +1156,12 @@ app.post("/api/change-name", async (req, res) => {
 // Update profile metadata (full name + class grade) for existing users.
 // Used by the in-app profile-completion popup so legacy users can fill in
 // the new profile fields without re-registering.
-app.post("/api/profile/meta", async (req, res) => {
-  const { nickname, full_name, class_grade } = req.body;
-  const nick = (nickname || "").trim();
+app.post("/api/profile/meta", requireAuth, async (req, res) => {
+  // Layer 2.3 — only allow updating YOUR OWN profile metadata. The
+  // client-supplied `nickname` is ignored in favour of the token's nick.
+  const nickname = (req as any).userNick as string;
+  const { full_name, class_grade } = req.body ?? {};
+  const nick = nickname.trim();
 
   if (!nick) {
     return res.status(400).json({ success: false, message: "Thiếu tên tài khoản." });
@@ -1133,8 +1216,10 @@ app.post("/api/profile/meta", async (req, res) => {
 });
 
 // Update avatar/frame preference
-app.post("/api/update-preference", async (req, res) => {
-  const { nickname, selectedAvatar, selectedFrame } = req.body;
+app.post("/api/update-preference", requireAuth, async (req, res) => {
+  // Layer 2.3 — only your own preferences.
+  const nickname = (req as any).userNick as string;
+  const { selectedAvatar, selectedFrame } = req.body ?? {};
   try {
     const user = await getUser(nickname);
     if (!user) {
@@ -1150,8 +1235,8 @@ app.post("/api/update-preference", async (req, res) => {
   }
 });
 
-// Update profile (name + avatar + frame) — password-confirmed, optional session auth
-app.put("/api/profile", async (req, res) => {
+// Update profile (name + avatar + frame) — Layer 2.3 requireAuth + bcrypt-confirmed
+app.put("/api/profile", requireAuth, async (req, res) => {
   const { nickname, name, selectedAvatar, selectedFrame, customAvatarUrl, pass } = req.body;
   try {
     const authHeader = req.headers.authorization;
@@ -1319,10 +1404,12 @@ app.post("/api/rewards", requireAdmin, async (req, res) => {
 });
 
 // ─── Card Fusion: combine 3 copies → upgraded version ────────────────────────
-app.post("/api/cards/fuse", async (req, res) => {
+app.post("/api/cards/fuse", requireAuth, async (req, res) => {
   try {
-    const { nickname, cardId } = req.body;
-    if (!nickname || !cardId) {
+    // Layer 2.3 — you can only fuse cards you own.
+    const nickname = (req as any).userNick as string;
+    const { cardId } = req.body ?? {};
+    if (!cardId) {
       return res.status(400).json({ success: false, error: "Missing fields" });
     }
 
@@ -1366,10 +1453,12 @@ app.post("/api/cards/fuse", async (req, res) => {
 });
 
 // ─── Card Level Up: spend XP to level up owned cards ─────────────────────────
-app.post("/api/cards/levelup", async (req, res) => {
+app.post("/api/cards/levelup", requireAuth, async (req, res) => {
   try {
-    const { nickname, cardId } = req.body;
-    if (!nickname || !cardId) {
+    // Layer 2.3 — you can only level up cards you own.
+    const nickname = (req as any).userNick as string;
+    const { cardId } = req.body ?? {};
+    if (!cardId) {
       return res.status(400).json({ success: false, error: "Missing fields" });
     }
 
@@ -1438,8 +1527,10 @@ const CARD_SHOP_ITEMS: Record<string, { rarity: string; element: string; cardId:
 
 app.post("/api/shards/purchase", requireAuth, async (req, res) => {
   try {
-    const { nickname, itemId } = req.body;
-    if (!nickname || !itemId) {
+    // Layer 2.3 — purchases are debited to the authenticated user.
+    const nickname = (req as any).userNick as string;
+    const { itemId } = req.body ?? {};
+    if (!itemId) {
       return res.status(400).json({ success: false, error: "Missing fields" });
     }
 
@@ -1518,12 +1609,11 @@ app.get("/api/cards/levels/:nickname", async (req, res) => {
 // ─── Multi-card gacha pull ───────────────────────────────────────────────────
 // POST /api/cards/gacha-pull { nickname, count }
 // Returns an array of resolved cards (max 10) with isNew + shardsAwarded flags.
-app.post("/api/cards/gacha-pull", async (req, res) => {
+app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
   try {
-    const { nickname, count: rawCount } = req.body || {};
-    if (!nickname || typeof nickname !== "string") {
-      return res.status(400).json({ success: false, error: "Missing nickname" });
-    }
+    // Layer 2.3 — pulls are debited to the authenticated user.
+    const nickname = (req as any).userNick as string;
+    const { count: rawCount } = req.body ?? {};
     const count = Math.max(1, Math.min(10, Number.parseInt(String(rawCount ?? 1), 10) || 1));
 
     const user = await getUser(nickname);
@@ -1712,9 +1802,11 @@ app.get("/api/user/:nick", async (req, res) => {
 });
 
 // User Progress & Guild Progress APIs
-app.post("/api/user-progress", async (req, res) => {
+app.post("/api/user-progress", requireAuth, async (req, res) => {
   try {
-    const { nickname, type, data, redeemInfo, pullCount } = req.body;
+    // Layer 2.3 — progress mutations target the authenticated user.
+    const nickname = (req as any).userNick as string;
+    const { type, data, redeemInfo, pullCount } = req.body ?? {};
     console.log(`[user-progress] type=${type} data=${data} nickname=${nickname}`);
 
     // Read progress from dedicated user_progress collection (not users/{nick})
@@ -2052,8 +2144,10 @@ async function writeGoogleSheetsLog(
   }
 }
 
-app.post("/api/exam/submit", async (req, res) => {
-  const { nickname, userAnswers } = req.body;
+app.post("/api/exam/submit", requireAuth, async (req, res) => {
+  // Layer 2.3 — exam answers and grading credit to the authenticated user.
+  const nickname = (req as any).userNick as string;
+  const { userAnswers } = req.body ?? {};
   const user = await getUser(nickname);
 
   if (!user) {
