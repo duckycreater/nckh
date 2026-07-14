@@ -73,6 +73,9 @@ import {
   verifyPassword,
   isLikelyHash,
   requireAuth,
+  disableUser,
+  enableUser,
+  isUserDisabled,
 } from "../server/auth.js";
 import { initSessionStore } from "../server/services/sessionStore.js";
 
@@ -2228,13 +2231,21 @@ app.post("/api/chat", async (req, res) => {
       return err(res, 500, "error.internal", req as any);
     }
 
-    // Research: Get personality mode for personalized system prompt
+    // Research: Get personality mode for personalized system prompt.
+    // Layer 2.7 — `personalityEngine.getPersonality(nickname)` runs
+    // asynchronously, but `generateContent` was kicked off below on the
+    // SAME tick. The AI then used an un-overridden system prompt for
+    // fast in-cache personalities. We now `await` so the personality
+    // ALWAYS overrides before the request leaves the server.
     let systemInstruction = `Bạn là Robot Siêu Cấp Xanh, một chuyên gia về bảo vệ môi trường, phân loại rác thải. Tính cách của bạn vui vẻ, nhiệt tình, luôn động viên mọi người bảo vệ trái đất. Bạn chỉ tập trung trả lời các câu hỏi liên quan đến phân loại rác, bảo vệ môi trường, sống xanh. Nếu được hỏi ngoài lề, hãy khéo léo lái câu chuyện về bảo vệ môi trường.`;
 
     if (isDbConnected() && nickname) {
-      personalityEngine.getPersonality(nickname).then((mode) => {
+      try {
+        const mode = await personalityEngine.getPersonality(nickname);
         systemInstruction = personalityEngine.getPrompt(mode);
-      }).catch(() => {});
+      } catch (pe) {
+        console.warn("[chat] personality lookup failed, using default:", pe?.message);
+      }
     }
 
     const formattedMessages = messages.map((m: any) => ({
@@ -2242,27 +2253,32 @@ app.post("/api/chat", async (req, res) => {
       parts: [{ text: m.content }],
     }));
 
-    const response = await Promise.race([
-      ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: formattedMessages,
-        config: { systemInstruction },
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("AI_TIMEOUT")), 30_000)
-      ),
-    ]).catch((err: any) => {
-      const isTimeout = err?.message?.includes("AI_TIMEOUT") || err?.name === "AbortError";
-      console.error(isTimeout ? "Chat AI timeout:" : "Chat AI error:", err?.message);
-      res.status(isTimeout ? 504 : 500).json({
-        error: isTimeout
-          ? "AI đang bận. Vui lòng thử lại."
-          : "Lỗi AI: " + (err?.message || "Unknown"),
-      });
-      throw err;
-    });
+    let response: any;
+    try {
+      response = await Promise.race([
+        ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: formattedMessages,
+          config: { systemInstruction },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("AI_TIMEOUT")), 30_000)
+        ),
+      ]);
+    } catch (aiErr: any) {
+      const isTimeout = aiErr?.message?.includes("AI_TIMEOUT") || aiErr?.name === "AbortError";
+      console.error(isTimeout ? "Chat AI timeout:" : "Chat AI error:", aiErr?.message);
+      if (!res.headersSent) {
+        res.status(isTimeout ? 504 : 500).json({
+          error: isTimeout ? "AI đang bận. Vui lòng thử lại." : "Lỗi AI: " + (aiErr?.message || "Unknown"),
+        });
+      }
+      return;
+    }
 
-    res.json({ message: response?.text || "" });
+    if (!res.headersSent) {
+      res.json({ message: response?.text || "" });
+    }
 
     // DB writes — fire-and-forget
     if (nickname) {
@@ -2760,6 +2776,51 @@ app.put("/api/admin/users/:nick/suspend", requireAdmin, async (req, res) => {
     user.role = suspended ? "suspended" : (nick.toLowerCase().startsWith("admin") ? "admin" : "user");
     await saveUser(user);
     res.json({ success: true, message: suspended ? `Đã suspend ${nick}` : `Đã unsuspend ${nick}` });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// POST /api/admin/users/:nick/disable - Layer 2.10 — instantly revoke
+// every active token for a user. Distinct from /suspend (which just
+// flips a role flag in DB): this path also purges their session cache
+// so subsequent API calls fail with 401 even before the DB write
+// completes. Used by admins to cut off compromised accounts.
+app.post("/api/admin/users/:nick/disable", requireAdmin, async (req, res) => {
+  try {
+    const { nick } = req.params;
+    if (!nick || typeof nick !== "string" || nick.length > 64) {
+      return err(res, 400, "error.validationFailed", req as any);
+    }
+    disableUser(nick);
+    // Audit log
+    try {
+      await eventLogger.log(req.body.actor || "admin", "user_disabled", {
+        target: nick,
+        ts: new Date().toISOString(),
+      });
+    } catch {}
+    res.json({ success: true, message: `Đã vô hiệu hóa ${nick}` });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// POST /api/admin/users/:nick/enable - Layer 2.10 — re-enable a
+// previously disabled user. Note: any tokens that were issued before
+// the disable were purged from cache at disable time, so a re-enabled
+// user must sign back in once to receive fresh tokens.
+app.post("/api/admin/users/:nick/enable", requireAdmin, async (req, res) => {
+  try {
+    const { nick } = req.params;
+    if (!nick || typeof nick !== "string" || nick.length > 64) {
+      return err(res, 400, "error.validationFailed", req as any);
+    }
+    enableUser(nick);
+    try {
+      await eventLogger.log(req.body.actor || "admin", "user_enabled", { target: nick });
+    } catch {}
+    res.json({ success: true, message: `Đã kích hoạt lại ${nick}` });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
   }
@@ -4222,7 +4283,45 @@ async function startServer() {
     res.status(err.statusCode || 500).json({ error: err.message || "Internal server error" });
   });
 
-  // ── SPA fallback + 404 catch-all (must be LAST) ────────────────────────
+  // ── SPA fallback + 404 catch-all (must be LAST) ────────────────────────────
+  // Layer 2.9 — every unknown /api route returns a localised JSON 404.
+  // Any wrong-method call to a known route gets a localised JSON 405
+  // with an Allow header (computed lazily on first hit). Both behaviours
+  // are registered BOTH in dev (Vite middlewareMode) and production so
+  // the client `await res.json()` call never blows up with
+  // "Unexpected token '<'".
+  app.all(/^\/api\/.*/, (req, res, next) => {
+    // Let the request pass through if another route handler is about to
+    // match it. The 404/405 catch-all sits at the very end of the chain.
+    if (req.method === "OPTIONS") return next();
+
+    const accepted = new Set<string>();
+    for (const layer of app._router.stack as Array<{ route?: { path: string; methods: Record<string, boolean> }; regexp?: RegExp }>) {
+      if (!layer.route) continue;
+      // Wildcards and params are intentionally conservative.
+      const rp = layer.route.path;
+      if (rp.includes("*") || rp.includes(":")) continue;
+      if (req.path === rp || (rp.endsWith("/") && req.path.startsWith(rp))) {
+        for (const m of Object.keys(layer.route.methods)) accepted.add(m.toUpperCase());
+      }
+    }
+
+    if (accepted.size > 0 && !accepted.has(req.method)) {
+      const allow = Array.from(accepted).sort().join(", ");
+      res.setHeader("Allow", allow);
+      return res.status(405).json({
+        error: "Method Not Allowed",
+        code: "method_not_allowed",
+        allow,
+      });
+    }
+    return res.status(404).json({
+      error: "Not Found",
+      code: "not_found",
+      path: req.path,
+    });
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -4236,12 +4335,6 @@ async function startServer() {
     // gets the index.html so client-side routing works on refresh.
     app.get(/^\/(?!api\/).*/, (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
-    });
-    // Unknown /api/* paths return JSON 404 instead of the SPA HTML,
-    // so client `await res.json()` calls don't blow up with
-    // "Unexpected token '<'".
-    app.all(/^\/api\/.*/, (_req, res) => {
-      res.status(404).json({ error: "Not Found" });
     });
   }
 

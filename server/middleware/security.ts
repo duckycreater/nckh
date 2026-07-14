@@ -107,31 +107,107 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+/**
+ * Per-IP token-bucket rate limiter (Layer 2.12).
+ *
+ * Why not `express-rate-limit`?
+ *   - It is fixed-window, so a client can burst 2× the per-minute budget
+ *     in the last second of one window and the first second of the next.
+ *   - Token-bucket gives a smoother ceiling with a configurable burst
+ *     capacity (`capacity`) and refill rate (`refillPerSec`). This is
+ *     the same primitive used by Stripe, Cloudflare, and the AWS SDK.
+ *
+ * Mechanics (per IP):
+ *   - bucket starts at full `capacity`
+ *   - each request consumes 1 token (rejected when bucket is empty)
+ *   - `refillPerSec` tokens/second refill continuously
+ *   - idle bucket → `min(refillPerSec * elapsed, capacity)` tokens
+ *
+ * The bucket table is bounded at 10k entries; older IPs are evicted
+ * (not LRU — we just drop the first hit we find past the cap to keep
+ * this O(1)). For the scale BMO runs at (single-tenant, <1k QPS) the
+ * table never grows past a few thousand rows anyway.
+ *
+ * Memory: ~30 bytes per bucket entry ⇒ 10k entries ≈ 300 KB.
+ */
+type Bucket = { tokens: number; updated: number };
+const buckets: Map<string, Bucket> = new Map();
+const MAX_BUCKETS = 10_000;
+
+function consumeToken(
+  ip: string,
+  capacity: number,
+  refillPerSec: number
+): { ok: boolean; retryAfterMs: number; remaining: number } {
+  const now = Date.now();
+  let b = buckets.get(ip);
+  if (!b) {
+    b = { tokens: capacity, updated: now };
+    if (buckets.size >= MAX_BUCKETS) {
+      // Evict a random entry to keep memory bounded.
+      const firstKey = buckets.keys().next().value;
+      if (firstKey) buckets.delete(firstKey);
+    }
+    buckets.set(ip, b);
+  }
+  // Refill
+  const dt = (now - b.updated) / 1000;
+  if (dt > 0) {
+    b.tokens = Math.min(capacity, b.tokens + dt * refillPerSec);
+    b.updated = now;
+  }
+  if (b.tokens >= 1) {
+    b.tokens -= 1;
+    return { ok: true, retryAfterMs: 0, remaining: Math.floor(b.tokens) };
+  }
+  // Time until 1 token available.
+  const retryAfterMs = Math.ceil(((1 - b.tokens) / refillPerSec) * 1000);
+  return { ok: false, retryAfterMs, remaining: 0 };
+}
+
+function makeBucketLimiter(opts: {
+  capacity: number;
+  refillPerSec: number;
+  message: string;
+  name: string;
+}): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = (req.ip ?? req.socket?.remoteAddress ?? "unknown").toString();
+    const result = consumeToken(ip, opts.capacity, opts.refillPerSec);
+    res.setHeader("X-RateLimit-Limit", String(opts.capacity));
+    res.setHeader("X-RateLimit-Remaining", String(result.remaining));
+    if (!result.ok) {
+      res.setHeader("Retry-After", String(Math.ceil(result.retryAfterMs / 1000)));
+      res.status(429).json({
+        ok: false,
+        error: "too_many_requests",
+        message: opts.message,
+        retry_after_ms: result.retryAfterMs,
+      });
+      return;
+    }
+    next();
+  };
+}
+
 export function buildAuthRateLimiter(): RequestHandler {
-  return rateLimit({
-    windowMs: 60_000,
-    limit: envInt("RL_AUTH_PER_MIN", 5),
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
-    message: {
-      ok: false,
-      error: "too_many_requests",
-      message: "Too many login attempts. Please try again in a minute.",
-    },
+  // Auth is treated as the highest-risk surface: 5 token burst, refill
+  // 1 token / 12 s ⇒ sustained 5 req / min, same headline number as
+  // before, but burst-immune.
+  return makeBucketLimiter({
+    capacity: envInt("RL_AUTH_BURST", 5),
+    refillPerSec: envInt("RL_AUTH_REFILL_PER_MIN", 5) / 60,
+    message: "Too many login attempts. Please try again shortly.",
+    name: "auth",
   });
 }
 
 export function buildScanRateLimiter(): RequestHandler {
-  return rateLimit({
-    windowMs: 60_000,
-    limit: envInt("RL_SCAN_PER_MIN", 100),
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
-    message: {
-      ok: false,
-      error: "too_many_requests",
-      message: "Scan rate limit exceeded. Please slow down.",
-    },
+  return makeBucketLimiter({
+    capacity: envInt("RL_SCAN_BURST", 20),
+    refillPerSec: envInt("RL_SCAN_PER_MIN", 100) / 60,
+    message: "Scan rate limit exceeded. Please slow down.",
+    name: "scan",
   });
 }
 
@@ -203,15 +279,10 @@ export function buildCsp(): RequestHandler {
 }
 
 export function buildDefaultRateLimiter(): RequestHandler {
-  return rateLimit({
-    windowMs: 60_000,
-    limit: envInt("RL_DEFAULT_PER_MIN", 300),
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
-    message: {
-      ok: false,
-      error: "too_many_requests",
-      message: "Rate limit exceeded.",
-    },
+  return makeBucketLimiter({
+    capacity: envInt("RL_DEFAULT_BURST", 60),
+    refillPerSec: envInt("RL_DEFAULT_PER_MIN", 300) / 60,
+    message: "Rate limit exceeded.",
+    name: "default",
   });
 }

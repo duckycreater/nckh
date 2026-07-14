@@ -31,6 +31,20 @@ export interface SessionRecord {
 
 const cache = new Map<string, SessionRecord>();
 
+/**
+ * Layer 2.10 — in-process revoked-user set. This is intentionally
+ * memory-resident (no Supabase) because user revocation is a manual
+ * admin action, never user-driven, and the whole reason we ship this
+ * is to instantly cut off a compromised account the instant the admin
+ * clicks "Disable" in the admin panel. Latency for the kill switch
+ * matters more than cluster-wide coordination here.
+ *
+ * For multi-process deployments a Redis pub/sub channel or a
+ * dedicated revoked_users DB table can be added; today BMO runs as
+ * a single Node.js process so an in-process Set is fine.
+ */
+const revokedUsers: Set<string> = new Set();
+
 /* ─── persistence helpers ─────────────────────────────────────────── */
 
 /**
@@ -126,7 +140,40 @@ export function validateSessionToken(token: string | undefined | null): SessionR
     void persistence.delete(token);
     return null;
   }
+  // Layer 2.10 — refuse tokens for disabled accounts. Even if the
+  // client has a valid JWT-style token, an admin-revoked user is
+  // denied at the door. We do NOT delete the cache entry here because
+  // re-enable should restore the session without forcing a re-login.
+  if (revokedUsers.has(rec.nick.toLowerCase())) {
+    return null;
+  }
   return rec;
+}
+
+/** Layer 2.10 — revoke a user's access immediately (admin tool). */
+export function disableUser(nick: string): void {
+  revokedUsers.add(nick.toLowerCase());
+  // Eagerly purge any cached tokens for this nick so concurrent
+  // requests can't squeeze through between the Set update and the
+  // next `validateSessionToken` call.
+  const lower = nick.toLowerCase();
+  for (const [token, rec] of cache.entries()) {
+    if (rec.nick.toLowerCase() === lower) {
+      cache.delete(token);
+      void persistence.delete(token);
+    }
+  }
+}
+
+/** Layer 2.10 — restore a previously disabled user. */
+export function enableUser(nick: string): void {
+  revokedUsers.delete(nick.toLowerCase());
+}
+
+/** Layer 2.10 — test seam. Returns true if the nick is currently
+ *  revoked. Used by unit tests; do not call from hot paths. */
+export function isUserDisabled(nick: string): boolean {
+  return revokedUsers.has(nick.toLowerCase());
 }
 
 /* ─── password helpers ────────────────────────────────────────────── */

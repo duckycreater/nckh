@@ -276,12 +276,13 @@ researchRouter.get("/export/:type", requireAuth, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
 
-  const validTypes = ["events", "interventions", "decay", "reflections", "sessions", "metrics"];
-  if (!validTypes.includes(type)) {
-    return res.status(400).json({ error: "Invalid export type" });
-  }
-
-  const tableMap: Record<string, string> = {
+  // Layer 2.13 — single source of truth. The `table` field is the
+  // EXACTLY-validated identifier we paste into the SQL string; if it
+  // is missing or fails the regex below we 400. The regex pins it to
+  // `[a-z_]+` which is more than enough for our schema and explicitly
+  // forbids everything that could break out of the identifier context
+  // (spaces, dots, semicolons, quotes, dashes).
+  const TABLE_REGISTRY: Record<string, string> = {
     events: "behavioral_events",
     interventions: "adaptive_interventions",
     decay: "novelty_decay_log",
@@ -289,9 +290,13 @@ researchRouter.get("/export/:type", requireAuth, async (req, res) => {
     sessions: "research_sessions",
     metrics: "experiment_metrics",
   };
+  const table = TABLE_REGISTRY[type];
+  if (!table || !/^[a-z_]+$/.test(table)) {
+    return res.status(400).json({ error: "Invalid export type" });
+  }
 
   try {
-    const { rows } = await db.query(`SELECT * FROM ${tableMap[type]} ORDER BY 1 DESC LIMIT 50000`);
+    const { rows } = await db.query(`SELECT * FROM ${table} ORDER BY 1 DESC LIMIT 50000`);
     if (rows.length === 0) {
       return res.json({ message: "No data to export", count: 0 });
     }

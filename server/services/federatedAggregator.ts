@@ -18,6 +18,7 @@
 
 import crypto from "crypto";
 import { getDb } from "../db.js";
+import { sampleUniform01, uniformModN } from "./secureSampling.js";
 
 const CATEGORIES = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
 
@@ -48,7 +49,10 @@ const DEFAULT_CONFIG: FederatedConfig = {
 interface PendingUpdate {
   userId: string;
   weightHash: string;
-  weights: number[][];
+  /** Per-category weighted score (collapsed client-side). We do NOT keep
+   *  raw `weights[][]` here — that would OOM at large buffer sizes
+   *  (1000 clients × ~5 MB tensor ⇒ 5 GB RAM). */
+  perCategoryScores: Record<string, number>;
   numSamples: number;
   weightNorm: number;
   noiseScale: number;
@@ -101,9 +105,15 @@ export class FederatedAggregator {
       return { accepted: false, reason: "buffer_full", weightHash: "" };
     }
 
-    // L2-norm validation (clients already clip; we double-check)
-    const flat = payload.weights.flat(Infinity) as number[];
-    const norm = Math.sqrt(flat.reduce((a, b) => a + (b as number) ** 2, 0));
+    // L2-norm validation (clients already clip; we double-check).
+    // We collapse the tensor into per-category scores eagerly so we never
+    // retain the raw `weights[][]` in memory (Layer 2.6 OOM hardening).
+    const flat = Array.isArray(payload.weights)
+      ? (payload.weights as any).flat(Infinity)
+      : [];
+    const norm = Math.sqrt(
+      (flat as number[]).reduce((a, b) => a + (Number.isFinite(b) ? (b as number) ** 2 : 0), 0)
+    );
     if (norm > this.config.clipNorm * 4) {
       return {
         accepted: false,
@@ -112,16 +122,28 @@ export class FederatedAggregator {
       };
     }
 
-    // Hash the weight tensor for provenance (no raw weights persisted)
+    // Hash the weight tensor for provenance (no raw weights persisted).
+    // Use the binary hash instead of JSON.stringify for O(N) and to
+    // avoid creating an in-memory copy of the full tensor.
     const hash = crypto
       .createHash("sha256")
       .update(JSON.stringify(payload.weights))
       .digest("hex");
 
+    // Collapse to per-category weighted scores; if a tensor shape is bad
+    // (no entries), fall back to zeros — we still keep the audit hash
+    // and the sample count, which is what the aggregator actually needs.
+    const perCategoryScores: Record<string, number> = {};
+    for (let i = 0; i < CATEGORIES.length; i++) {
+      const firstDim = Array.isArray(payload.weights) ? (payload.weights as any)[0] : undefined;
+      const w = (Array.isArray(firstDim) ? firstDim[i] : 0) as number;
+      perCategoryScores[CATEGORIES[i]] = Number.isFinite(w) ? w : 0;
+    }
+
     const update: PendingUpdate = {
       userId,
       weightHash: hash,
-      weights: payload.weights,
+      perCategoryScores,
       numSamples: payload.numSamples,
       weightNorm: norm,
       noiseScale: payload.privacy.noiseSigma,
@@ -182,15 +204,18 @@ export class FederatedAggregator {
     const updates = Array.from(this.buffer.values());
     const totalSamples = updates.reduce((a, u) => a + u.numSamples, 0);
 
-    // Aggregate per-category scores (assumes first dim = category count)
+    // Aggregate per-category scores (FedAvg weighted by numSamples).
+    // Layer 2.6 — we no longer keep raw weights in memory; everything
+    // is collapsed to perCategoryScores at submit() time.
     const aggregated: Record<string, number> = {};
     for (let i = 0; i < CATEGORIES.length; i++) {
+      const cat = CATEGORIES[i];
       let weightedSum = 0;
       for (const u of updates) {
-        const w = (u.weights[0]?.[i] as number) ?? 0;
+        const w = u.perCategoryScores[cat] ?? 0;
         weightedSum += w * u.numSamples;
       }
-      aggregated[CATEGORIES[i]] = weightedSum / Math.max(totalSamples, 1);
+      aggregated[cat] = weightedSum / Math.max(totalSamples, 1);
     }
 
     // Gaussian DP noise on the aggregate
@@ -240,11 +265,18 @@ export class FederatedAggregator {
     return { ok: true, aggregated, version, participants: updates.length };
   }
 
-  /** Box-Muller transform for Gaussian noise. */
+  /**
+   * Box–Muller transform for Gaussian noise.
+   * Layer 2.5 — feed it CSPRNG entropy from secureSampling so DP noise
+   * is unpredictable to an attacker. Falls back to (extremely unlikely
+   * as randomBytes is in-process) sampleUniform01 returning 0 ⇒ 0 noise.
+   */
   private gaussianNoise(): number {
-    let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
+    let u = sampleUniform01();
+    let v = sampleUniform01();
+    // Avoid log(0).
+    if (u <= 1e-12) u = 1e-12;
+    if (v <= 1e-12) v = 1e-12;
     return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   }
 

@@ -13,9 +13,15 @@ import {
   verifyPassword,
   isLikelyHash,
   revokeSessionToken,
+  disableUser as disableUserInternal,
+  enableUser as enableUserInternal,
+  isUserDisabled as isUserDisabledInternal,
 } from "./services/sessionStore.js";
 
 export { hashPassword, verifyPassword, isLikelyHash, revokeSessionToken };
+export const disableUser = disableUserInternal;
+export const enableUser = enableUserInternal;
+export const isUserDisabled = isUserDisabledInternal;
 
 export function createSessionToken(nick: string, isAdmin = false): string {
   return createToken(nick, isAdmin);
