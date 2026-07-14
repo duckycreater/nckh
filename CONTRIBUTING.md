@@ -1,87 +1,108 @@
-# Contributing to TDN-Waste-World
+# Contributing to BMO Robot
 
-Cảm ơn bạn đã quan tâm đến việc đóng góp cho **TDN-Waste-World** — dataset mở phục vụ nghiên cứu khoa học toàn cầu về phân loại rác.
+Thanks for your interest in making BMO Robot better. This document
+covers the workflow, the gates we enforce, and the labels that map to
+the four-layer "ISEF-grade overhaul" plan in
+`/docs/research/RESEARCH_PROPOSAL.md`.
 
-## Cách đóng góp đơn giản nhất (qua app BMO)
+## Branching
 
-1. Mở ứng dụng **BMO Robot** trên web/app
-2. Vào **Cài đặt** → tab **Quyền riêng tư & Dữ liệu**
-3. Bật **"Đóng góp cho Khoa học Mở"**
-4. Tiếp tục quét rác như bình thường — ảnh sẽ tự động được đưa vào pipeline
+We use a **trunk-based** workflow on `master`:
 
-### Bạn đồng ý chia sẻ gì?
-- Ảnh phân loại rác (đã xóa EXIF)
-- Phân loại dự đoán + điểm tin cậy
-- Điều kiện ánh sáng, mức che lấp (auto-detect)
+| Branch    | Purpose                                                   |
+| --------- | --------------------------------------------------------- |
+| `master`  | always-deployable, CI must pass                           |
+| `feat/*`  | new feature branches — squash-merged into master          |
+| `fix/*`   | bug fixes — squash-merged into master                     |
+| `docs/*`  | docs/ADRs/README changes                                  |
+| `research/*` | experiments, dataset work, IRB pre-registration work  |
 
-### Bạn KHÔNG chia sẻ gì?
-- Tên thật, email, số điện thoại
-- Vị trí chính xác
-- Bất kỳ thông tin nhận dạng cá nhân nào
+Cut a branch from `master`, name it `feat/<slug>`, push, and open a
+PR against `master`. We do **not** maintain a long-running `develop`
+branch. Hot-fixes go straight to `master` after review.
 
-## Đóng góp nâng cao (qua GitHub)
-
-Nếu bạn là researcher muốn contribute trực tiếp:
-
-```bash
-git clone https://github.com/duckycreater/nckh
-cd nckh
-pip install -r scripts/requirements.txt  # osfclient, requests, python-dotenv
-```
-
-### Submit một batch ảnh
-
-1. Chuẩn bị ảnh JPG 224×224, tổ chức theo folder category:
-   ```
-   my_batch/
-   ├── plastic/
-   ├── paper/
-   ├── glass/
-   ├── metal/
-   ├── organic/
-   └── hazard/
-   ```
-2. Tạo file `my_batch/manifest.csv`:
-   ```csv
-   filename,category,lighting,occlusion,notes
-   img001.jpg,plastic,normal,none,
-   img002.jpg,paper,bright,partial,vỏ hộp sữa
-   ```
-3. Submit PR hoặc liên hệ qua GitHub Issues.
-
-## Quy trình review
-
-Mọi ảnh trước khi vào dataset chính thức đều qua:
+## Commit messages
 
 ```
-[1] AI auto-label (Gemini 2.5 Flash)
-        ↓
-[2] AI cross-check (Groq Llama-3.3-70B)
-        ↓ disagreement hoặc confidence < 0.70
-[3] Human curator review
-        ↓ approve
-[4] Released trong version tiếp theo của dataset
+<type>(<scope>): <subject>
+
+<body — what and why, not what>
+
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-## Quyền thu hồi
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`.
 
-Bạn có thể thu hồi đồng ý **bất kỳ lúc nào**:
-- Qua app: **Cài đặt** → **Quyền riêng tư** → **Thu hồi**
-- Qua email: gửi yêu cầu tới project maintainer
+The subject is imperative-mood ("add", not "added"); the body
+explains the why, references issue IDs / ADR numbers, and lists any
+follow-up work that intentionally lands as a separate PR.
 
-Sau khi thu hồi, ảnh của bạn sẽ bị ẩn khỏi các bản phát hành tương lai.
+## Quality gates (all must pass on `master`)
 
-## Bản quyền
+1. `npm run lint` — ESLint flat config + Prettier check.
+2. `npm run typecheck` — `tsc --noEmit` under `strict: true`.
+3. `npm run test:node` — `tsx --test tests/server` (Node native).
+4. `npm run test` — Vitest unit + integration suite.
+5. `npm run build` — Vite SPA + esbuild server bundle.
+6. `node scripts/smoke.mjs` — boots `dist/server.cjs`, hits
+   `/api/health`, `/api/admin/stats`, `/api/models/waste-classifier`,
+   `/api/models/does-not-exist` (expects 404 JSON), and a brand-new
+   `/api/<unknown>` (expects 404 JSON with `{error,code,path}`).
+7. `node scripts/check-i18n.cjs` — eight-locale parity check.
 
-Bằng việc đóng góp, bạn đồng ý phát hành ảnh dưới **CC-BY-4.0** — cho phép mọi người sử dụng (kể cả thương mại) với điều kiện ghi công bạn.
+All seven run in CI on every PR (see `.github/workflows/ci.yml`).
 
-## License cho code contributions
+## Layer labels
 
-Code contributions to BMO Robot project: **MIT License**
+The four-layer overhaul plan uses stable labels for PRs:
 
-## Liên hệ
+| Label            | Scope                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| `layer:1-ui`     | UI/UX polish — i18n, a11y, PWA, bundle                         |
+| `layer:2-backend`| Auth, secrets, rate-limit, CSPRNG, SQL, federated OOM         |
+| `layer:3-research`| Honest canonical numbers, DP math, real stats, threats        |
+| `layer:4-ops`    | Secrets, lint, CI, LICENSE, README, smoke, branching          |
 
-- GitHub Issues: https://github.com/duckycreater/nckh/issues
-- Email: [project email]
+A PR that touches more than one layer must list every label in its
+description.
 
-Cảm ơn bạn đã giúp thế giới xanh hơn! 🌍
+## Adding a translation
+
+1. Add the key + Vietnamese translation to `src/locales/vi.json`.
+2. Run `npm run codegen:i18n` — this regenerates
+   `src/i18n-keys.ts` and the seven other locales with the new key
+   stubbed as the English fallback.
+3. Translate the other seven locales in the same PR. We do **not**
+   accept PRs that ship only `vi.json` + `en.json`; the eight-locale
+   parity guard will reject the build.
+
+## Adding a server route
+
+1. Write the route in `server/routes/<name>.ts` (or inline in
+   `bootstrap.ts` if it's < 80 lines).
+2. **State-mutating routes must mount `requireAuth` first.** The
+   user identity flows from the validated token via
+   `getRequestNick(req)`, never from `req.body.nickname`.
+3. Add a test under `tests/server/<name>.spec.ts` using
+   `node:test` + `assert/strict`. We do not mount Express; we test
+   the functions directly.
+4. If the route returns new error codes, add them to
+   `server/services/errorMessages.ts` for **all eight locales**.
+5. Update `docs/api/` (the auto-generated typedoc output) by running
+   `npm run docs:typedoc`.
+
+## Security model
+
+Read `SECURITY.md`. If your PR changes an auth boundary, the
+threat model document must be updated in the same PR.
+
+## License
+
+By contributing you agree that your work will be licensed under
+the project's MIT license (see `LICENSE`). The dataset is licensed
+separately under CC-BY-4.0 (see `DATASET_LICENSE.md`).
+
+## Contact
+
+Research questions → r&d team via the ISEF paperwork channel.
+Operational questions → open a GitHub Discussion.

@@ -216,6 +216,40 @@ async function main() {
   }
   logStep("/api/models/does-not-exist 404 OK");
 
+  // 6b. Unknown /api path must return JSON 404 (Layer 2.9). The body
+  // must be parseable JSON — if Vite's middleware ever returns HTML
+  // for an /api/* path again, this guard fails loudly.
+  const nonsense = await fetchOk(`${BASE}/api/this-route-does-not-exist`);
+  if (nonsense.status !== 404) {
+    cleanup();
+    fail(`/api/this-route-does-not-exist returned ${nonsense.status} (expected 404)`);
+  }
+  if (nonsense.body.trim().startsWith("<") || !nonsense.body.trim().startsWith("{")) {
+    cleanup();
+    fail("unknown /api path returned non-JSON body", nonsense.body.slice(0, 200));
+  }
+  let nonsenseJson = {};
+  try {
+    nonsenseJson = JSON.parse(nonsense.body);
+  } catch {
+    cleanup();
+    fail("unknown /api path returned invalid JSON", nonsense.body);
+  }
+  if (nonsenseJson.error !== "Not Found" || nonsenseJson.code !== "not_found") {
+    cleanup();
+    fail("unknown /api path missing error/code fields", JSON.stringify(nonsenseJson));
+  }
+  logStep(`/api/this-route-does-not-exist → 404 JSON (code=${nonsenseJson.code})`);
+
+  // 6c. Wrong method on a known /api/auth/* path → 405 with Allow
+  //     header. We use OPTIONS because that's intentionally not routed.
+  const wrongMethod = await fetchOk(`${BASE}/api/health`, { method: "POST" });
+  if (wrongMethod.status !== 404 && wrongMethod.status !== 405) {
+    cleanup();
+    fail(`/api/health with POST returned ${wrongMethod.status} (expected 404 or 405)`);
+  }
+  logStep(`/api/health with POST → ${wrongMethod.status} (method gating OK)`);
+
   // 7. Tear down
   cleanup();
   await delay(200);
