@@ -4,6 +4,8 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
+const CACHE_VERSION = 'v2';
+
 /**
  * vite.config.ts
  *
@@ -45,6 +47,12 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          // Force a one-time cache namespace migration after the app moved
+          // from Google Fonts to self-hosted fonts. Otherwise an older
+          // bmo-app-shell cache can keep serving CSS that still imports the
+          // blocked Google Fonts stylesheet.
+          cleanupOutdatedCaches: true,
+          importScripts: ['/sw-legacy-cleanup.js'],
           // 3 cache buckets with very different lifetimes.
           runtimeCaching: [
             {
@@ -52,7 +60,7 @@ export default defineConfig(() => {
               urlPattern: ({request}) => request.destination === 'document',
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'bmo-app-shell',
+                cacheName: `bmo-app-shell-${CACHE_VERSION}`,
                 networkTimeoutSeconds: 5,
                 expiration: {maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 7},
               },
@@ -60,10 +68,12 @@ export default defineConfig(() => {
             {
               // JS / CSS / workers — StaleWhileRevalidate so cached chunks stay
               // available offline, but updates appear after refresh.
-              urlPattern: ({request}) => ['script', 'style', 'worker'].includes(request.destination),
+              urlPattern: ({url, request}) =>
+                url.origin === self.location.origin &&
+                ['script', 'style', 'worker'].includes(request.destination),
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'bmo-app-shell',
+                cacheName: `bmo-app-shell-${CACHE_VERSION}`,
                 expiration: {maxEntries: 256, maxAgeSeconds: 60 * 60 * 24 * 14},
               },
             },
@@ -74,7 +84,7 @@ export default defineConfig(() => {
               urlPattern: /\/fonts\/.*\.woff2$/,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'bmo-fonts',
+                cacheName: `bmo-fonts-${CACHE_VERSION}`,
                 expiration: {maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 365},
                 cacheableResponse: {statuses: [0, 200]},
               },
@@ -85,7 +95,7 @@ export default defineConfig(() => {
               urlPattern: /\/models\//,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'bmo-static-models',
+                cacheName: `bmo-static-models-${CACHE_VERSION}`,
                 expiration: {maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 30},
                 cacheableResponse: {statuses: [0, 200]},
               },
@@ -95,7 +105,7 @@ export default defineConfig(() => {
               urlPattern: ({url}) => url.pathname.startsWith('/api/models/'),
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'bmo-api-data',
+                cacheName: `bmo-api-data-${CACHE_VERSION}`,
                 expiration: {maxEntries: 64, maxAgeSeconds: 60 * 60 * 24},
               },
             },
@@ -111,7 +121,7 @@ export default defineConfig(() => {
                 !url.pathname.startsWith('/api/federated/submit'),
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'bmo-api-data',
+                cacheName: `bmo-api-data-${CACHE_VERSION}`,
                 expiration: {maxEntries: 64, maxAgeSeconds: 60 * 60 * 6},
               },
             },
@@ -120,7 +130,7 @@ export default defineConfig(() => {
               urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'bmo-images',
+                cacheName: `bmo-images-${CACHE_VERSION}`,
                 expiration: {maxEntries: 128, maxAgeSeconds: 60 * 60 * 24 * 30},
               },
             },
