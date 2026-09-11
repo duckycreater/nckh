@@ -56,7 +56,7 @@ export interface IdentityPrime {
  */
 export function selectIdentityPrime(
   user: Partial<User>,
-  options?: { language?: Language; previousPrimes?: string[]; rngSeed?: number }
+  options?: { language?: Language; previousPrimes?: string[]; rngSeed?: number },
 ): IdentityPrime | null {
   const language = options?.language ?? "vi";
   const breakdown = computeBreakdown(user);
@@ -81,28 +81,118 @@ export function selectIdentityPrime(
   return null;
 }
 
-const IDENTITY_PRIMES: { id: string; language: Language; text: string; intensity: "low" | "medium" | "high"; target: "reflectiveMotivation" | "automaticMotivation" }[] = [
+const IDENTITY_PRIMES: {
+  id: string;
+  language: Language;
+  text: string;
+  intensity: "low" | "medium" | "high";
+  target: "reflectiveMotivation" | "automaticMotivation";
+}[] = [
   // VI - high intensity
-  { id: "vi.1", language: "vi", text: "Bạn vừa hành động như một người phân loại rác — xin chúc mừng người bạn mới!", intensity: "high", target: "reflectiveMotivation" },
-  { id: "vi.2", language: "vi", text: "Mỗi lần phân loại là bạn đang sống đúng con người mình muốn trở thành.", intensity: "high", target: "reflectiveMotivation" },
-  { id: "vi.3", language: "vi", text: "Tin vào bản thân: người phân loại rác chính là bạn, không chỉ bây giờ mà còn ngày mai.", intensity: "high", target: "reflectiveMotivation" },
+  {
+    id: "vi.1",
+    language: "vi",
+    text: "Bạn vừa hành động như một người phân loại rác — xin chúc mừng người bạn mới!",
+    intensity: "high",
+    target: "reflectiveMotivation",
+  },
+  {
+    id: "vi.2",
+    language: "vi",
+    text: "Mỗi lần phân loại là bạn đang sống đúng con người mình muốn trở thành.",
+    intensity: "high",
+    target: "reflectiveMotivation",
+  },
+  {
+    id: "vi.3",
+    language: "vi",
+    text: "Tin vào bản thân: người phân loại rác chính là bạn, không chỉ bây giờ mà còn ngày mai.",
+    intensity: "high",
+    target: "reflectiveMotivation",
+  },
   // VI - medium
-  { id: "vi.4", language: "vi", text: "Bạn có để ý mỗi khi mình làm đúng, mình thấy năng lượng tốt hơn không?", intensity: "medium", target: "automaticMotivation" },
-  { id: "vi.5", language: "vi", text: "Một quyết định nhỏ — một cốc nhựa đúng chỗ — là một câu chuyện lớn về con người bạn.", intensity: "medium", target: "reflectiveMotivation" },
+  {
+    id: "vi.4",
+    language: "vi",
+    text: "Bạn có để ý mỗi khi mình làm đúng, mình thấy năng lượng tốt hơn không?",
+    intensity: "medium",
+    target: "automaticMotivation",
+  },
+  {
+    id: "vi.5",
+    language: "vi",
+    text: "Một quyết định nhỏ — một cốc nhựa đúng chỗ — là một câu chuyện lớn về con người bạn.",
+    intensity: "medium",
+    target: "reflectiveMotivation",
+  },
   // VI - low
-  { id: "vi.6", language: "vi", text: "Cảm ơn bạn — người trân trọng điều nhỏ xinh.", intensity: "low", target: "automaticMotivation" },
-  { id: "vi.7", language: "vi", text: "Bạn đã tiết kiệm 0.027 kg CO₂e — và một chút tự hào nữa.", intensity: "low", target: "automaticMotivation" },
+  {
+    id: "vi.6",
+    language: "vi",
+    text: "Cảm ơn bạn — người trân trọng điều nhỏ xinh.",
+    intensity: "low",
+    target: "automaticMotivation",
+  },
+  {
+    id: "vi.7",
+    language: "vi",
+    text: "Bạn đã tiết kiệm 0.027 kg CO₂e — và một chút tự hào nữa.",
+    intensity: "low",
+    target: "automaticMotivation",
+  },
 
   // EN - high
-  { id: "en.1", language: "en", text: "You just acted like a sorter — congratulations on the new identity!", intensity: "high", target: "reflectiveMotivation" },
-  { id: "en.2", language: "en", text: "Every time you sort, you live the person you want to be.", intensity: "high", target: "reflectiveMotivation" },
-  { id: "en.3", language: "en", text: "Trust yourself: you are the kind of person who sorts.", intensity: "high", target: "reflectiveMotivation" },
+  {
+    id: "en.1",
+    language: "en",
+    text: "You just acted like a sorter — congratulations on the new identity!",
+    intensity: "high",
+    target: "reflectiveMotivation",
+  },
+  {
+    id: "en.2",
+    language: "en",
+    text: "Every time you sort, you live the person you want to be.",
+    intensity: "high",
+    target: "reflectiveMotivation",
+  },
+  {
+    id: "en.3",
+    language: "en",
+    text: "Trust yourself: you are the kind of person who sorts.",
+    intensity: "high",
+    target: "reflectiveMotivation",
+  },
   // EN - medium
-  { id: "en.4", language: "en", text: "Have you noticed you feel better when you make the right call?", intensity: "medium", target: "automaticMotivation" },
-  { id: "en.5", language: "en", text: "A small choice — one cup in the right bin — is a big story about you.", intensity: "medium", target: "reflectiveMotivation" },
+  {
+    id: "en.4",
+    language: "en",
+    text: "Have you noticed you feel better when you make the right call?",
+    intensity: "medium",
+    target: "automaticMotivation",
+  },
+  {
+    id: "en.5",
+    language: "en",
+    text: "A small choice — one cup in the right bin — is a big story about you.",
+    intensity: "medium",
+    target: "reflectiveMotivation",
+  },
   // EN - low
-  { id: "en.6", language: "en", text: "Thanks, friend. Small acts, big heart.", intensity: "low", target: "automaticMotivation" },
-  { id: "en.7", language: "en", text: "You just saved 0.027 kg CO₂e — and a little pride too.", intensity: "low", target: "automaticMotivation" },
+  {
+    id: "en.6",
+    language: "en",
+    text: "Thanks, friend. Small acts, big heart.",
+    intensity: "low",
+    target: "automaticMotivation",
+  },
+  {
+    id: "en.7",
+    language: "en",
+    text: "You just saved 0.027 kg CO₂e — and a little pride too.",
+    intensity: "low",
+    target: "automaticMotivation",
+  },
 ];
 
 function mulberry32(seed: number): () => number {
@@ -135,13 +225,15 @@ export function computeEID4Score(responsesVi: number[]): number {
  */
 export function recommendedPrimeFrequency(
   user: Partial<User>,
-  weekIndex: number
+  weekIndex: number,
 ): { perWeek: number; reason: string } {
   const breakdown = computeBreakdown(user);
   const motivation = breakdown.subscores.reflectiveMotivation;
   if (motivation >= 0.78) return { perWeek: 0, reason: "Reflective motivation already high" };
-  if (motivation < 0.30) return { perWeek: 5, reason: "Reflective motivation very low — 5 primes per week" };
-  if (motivation < 0.50) return { perWeek: 4, reason: "Reflective motivation low — 4 primes per week" };
+  if (motivation < 0.3)
+    return { perWeek: 5, reason: "Reflective motivation very low — 5 primes per week" };
+  if (motivation < 0.5)
+    return { perWeek: 4, reason: "Reflective motivation low — 4 primes per week" };
   if (motivation < 0.65) return { perWeek: 2, reason: "Moderate motivation — 2 primes per week" };
   // 0.65 to 0.78 → 1 prime every other week
   return {

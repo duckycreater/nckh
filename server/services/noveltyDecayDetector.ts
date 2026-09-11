@@ -28,7 +28,7 @@ export interface DecayState {
   daysSinceLogin: number;
   isDecaying: boolean;
   decaySeverity: "none" | "mild" | "moderate" | "severe";
-  forecastScore?: number;  // Predicted score in 7 days
+  forecastScore?: number; // Predicted score in 7 days
 }
 
 export interface InterventionResult {
@@ -105,7 +105,7 @@ class NoveltyDecayDetector {
       const { rows } = await this.db.query(
         `SELECT engagement_score, recorded_at FROM novelty_decay_log
          WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 14`,
-        [userId]
+        [userId],
       );
       if (rows.length < 3) return undefined;
 
@@ -135,35 +135,44 @@ class NoveltyDecayDetector {
     avgSessionDuration: number;
   }> {
     if (!this.db) {
-      return { engagementScore: 1, streakStability: 1, featureDiversity: 0.5, daysSinceLogin: 0, sessionCount: 0, totalActions: 0, avgSessionDuration: 0 };
+      return {
+        engagementScore: 1,
+        streakStability: 1,
+        featureDiversity: 0.5,
+        daysSinceLogin: 0,
+        sessionCount: 0,
+        totalActions: 0,
+        avgSessionDuration: 0,
+      };
     }
 
     try {
-      const [recentMetrics, sessionMetrics, actionCount, featureCount, streakMetrics] = await Promise.all([
-        this.db.query(
-          `SELECT AVG(engagement_score) as avg_score FROM novelty_decay_log WHERE user_id = $1 AND recorded_at > NOW() - INTERVAL '7 days'`,
-          [userId]
-        ),
-        this.db.query(
-          `SELECT COUNT(*) as sessions, AVG(duration_seconds) as avg_dur FROM research_sessions WHERE user_id = $1 AND started_at > NOW() - INTERVAL '7 days'`,
-          [userId]
-        ),
-        this.db.query(
-          `SELECT COUNT(*) as total_actions FROM behavioral_events WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
-        ),
-        this.db.query(
-          `SELECT COUNT(DISTINCT (metadata->>'feature_name')) as feature_count FROM behavioral_events WHERE user_id = $1 AND event_type = 'feature_used' AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
-        ),
-        this.db.query(
-          `SELECT streak_days, COUNT(*) as cnt FROM (
+      const [recentMetrics, sessionMetrics, actionCount, featureCount, streakMetrics] =
+        await Promise.all([
+          this.db.query(
+            `SELECT AVG(engagement_score) as avg_score FROM novelty_decay_log WHERE user_id = $1 AND recorded_at > NOW() - INTERVAL '7 days'`,
+            [userId],
+          ),
+          this.db.query(
+            `SELECT COUNT(*) as sessions, AVG(duration_seconds) as avg_dur FROM research_sessions WHERE user_id = $1 AND started_at > NOW() - INTERVAL '7 days'`,
+            [userId],
+          ),
+          this.db.query(
+            `SELECT COUNT(*) as total_actions FROM behavioral_events WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '7 days'`,
+            [userId],
+          ),
+          this.db.query(
+            `SELECT COUNT(DISTINCT (metadata->>'feature_name')) as feature_count FROM behavioral_events WHERE user_id = $1 AND event_type = 'feature_used' AND timestamp > NOW() - INTERVAL '7 days'`,
+            [userId],
+          ),
+          this.db.query(
+            `SELECT streak_days, COUNT(*) as cnt FROM (
             SELECT (metadata->>'streak_days')::int as streak_days FROM behavioral_events
             WHERE user_id = $1 AND event_type IN ('streak_update', 'streak_break') AND timestamp > NOW() - INTERVAL '30 days'
           ) sub GROUP BY streak_days ORDER BY cnt DESC LIMIT 5`,
-          [userId]
-        ),
-      ]);
+            [userId],
+          ),
+        ]);
 
       const engagementScore = parseFloat(recentMetrics.rows[0]?.avg_score || "1");
       const sessions = parseInt(sessionMetrics.rows[0]?.sessions || "0");
@@ -182,7 +191,7 @@ class NoveltyDecayDetector {
 
       const lastLogin = await this.db.query(
         `SELECT MAX(timestamp) as last_login FROM behavioral_events WHERE user_id = $1 AND event_type = 'login'`,
-        [userId]
+        [userId],
       );
       let daysSinceLogin = 0;
       if (lastLogin.rows[0]?.last_login) {
@@ -190,7 +199,8 @@ class NoveltyDecayDetector {
         daysSinceLogin = Math.floor((Date.now() - lastLoginDate.getTime()) / (1000 * 60 * 60 * 24));
       }
 
-      const baseEngagement = (sessions * 0.2) + (totalActions * 0.05) + (featureDiversity * 0.3) + (streakStability * 0.3);
+      const baseEngagement =
+        sessions * 0.2 + totalActions * 0.05 + featureDiversity * 0.3 + streakStability * 0.3;
       const normalizedScore = Math.min(1, baseEngagement / 3);
 
       return {
@@ -204,17 +214,28 @@ class NoveltyDecayDetector {
       };
     } catch (e) {
       console.warn("[NoveltyDecayDetector] Failed to compute metrics:", (e as Error).message);
-      return { engagementScore: 1, streakStability: 1, featureDiversity: 0.5, daysSinceLogin: 0, sessionCount: 0, totalActions: 0, avgSessionDuration: 0 };
+      return {
+        engagementScore: 1,
+        streakStability: 1,
+        featureDiversity: 0.5,
+        daysSinceLogin: 0,
+        sessionCount: 0,
+        totalActions: 0,
+        avgSessionDuration: 0,
+      };
     }
   }
 
-  private async computeTrend(metrics: { engagementScore: number; sessionCount: number; totalActions: number }, userId: string): Promise<number> {
+  private async computeTrend(
+    metrics: { engagementScore: number; sessionCount: number; totalActions: number },
+    userId: string,
+  ): Promise<number> {
     if (!this.db) return 0;
 
     try {
       const { rows } = await this.db.query(
         `SELECT engagement_score, recorded_at FROM novelty_decay_log WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 5`,
-        [userId]
+        [userId],
       );
 
       if (rows.length < 2) return 0;
@@ -228,8 +249,13 @@ class NoveltyDecayDetector {
   }
 
   private classifyDecaySeverity(
-    metrics: { engagementScore: number; daysSinceLogin: number; featureDiversity: number; totalActions: number },
-    trend: number
+    metrics: {
+      engagementScore: number;
+      daysSinceLogin: number;
+      featureDiversity: number;
+      totalActions: number;
+    },
+    trend: number,
   ): "none" | "mild" | "moderate" | "severe" {
     const score = metrics.engagementScore;
     const gap = metrics.daysSinceLogin;
@@ -243,13 +269,25 @@ class NoveltyDecayDetector {
     return "none";
   }
 
-  private async logDecayState(userId: string, metrics: any, trend: number, severity: string): Promise<void> {
+  private async logDecayState(
+    userId: string,
+    metrics: any,
+    trend: number,
+    severity: string,
+  ): Promise<void> {
     if (!this.db) return;
     try {
       await this.db.query(
         `INSERT INTO novelty_decay_log (user_id, engagement_score, session_duration_seconds, streak_stability, feature_diversity, days_since_login)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [userId, metrics.engagementScore, metrics.avgSessionDuration || 0, metrics.streakStability, metrics.featureDiversity, metrics.daysSinceLogin]
+        [
+          userId,
+          metrics.engagementScore,
+          metrics.avgSessionDuration || 0,
+          metrics.streakStability,
+          metrics.featureDiversity,
+          metrics.daysSinceLogin,
+        ],
       );
     } catch (e) {
       console.warn("[NoveltyDecayDetector] Failed to log decay state:", (e as Error).message);
@@ -258,7 +296,10 @@ class NoveltyDecayDetector {
 
   async shouldTriggerIntervention(userId: string): Promise<boolean> {
     const decayState = await this.detectDecay(userId);
-    return decayState.isDecaying && (decayState.decaySeverity === "moderate" || decayState.decaySeverity === "severe");
+    return (
+      decayState.isDecaying &&
+      (decayState.decaySeverity === "moderate" || decayState.decaySeverity === "severe")
+    );
   }
 
   async getRecommendedInterventions(userId: string): Promise<InterventionAction[]> {
@@ -284,7 +325,10 @@ class NoveltyDecayDetector {
     return interventions.slice(0, 3);
   }
 
-  async triggerIntervention(userId: string, action: InterventionAction): Promise<{ success: boolean; message: string; eventData?: any }> {
+  async triggerIntervention(
+    userId: string,
+    action: InterventionAction,
+  ): Promise<{ success: boolean; message: string; eventData?: any }> {
     await eventLogger.logIntervention(userId, action, { triggered_by: "novelty_decay_detector" });
 
     switch (action) {
@@ -307,9 +351,15 @@ class NoveltyDecayDetector {
     }
   }
 
-  private async triggerNewEvent(userId: string): Promise<{ success: boolean; message: string; eventData?: any }> {
+  private async triggerNewEvent(
+    userId: string,
+  ): Promise<{ success: boolean; message: string; eventData?: any }> {
     if (!this.ai) {
-      return { success: true, message: "Tuần Sự Kiện Đặc Biệt đã bắt đầu! Kiểm tra thử thách mới.", eventData: { eventName: "Special Event Week", bonusMultiplier: 1.5 } };
+      return {
+        success: true,
+        message: "Tuần Sự Kiện Đặc Biệt đã bắt đầu! Kiểm tra thử thách mới.",
+        eventData: { eventName: "Special Event Week", bonusMultiplier: 1.5 },
+      };
     }
 
     try {
@@ -345,16 +395,22 @@ Respond in JSON format:
       console.warn("[NoveltyDecayDetector] Failed to generate event:", (e as Error).message);
     }
 
-    return { success: true, message: "Tuần Sự Kiện Đặc Biệt đã bắt đầu!", eventData: { eventName: "Special Event Week", bonusMultiplier: 1.5 } };
+    return {
+      success: true,
+      message: "Tuần Sự Kiện Đặc Biệt đã bắt đầu!",
+      eventData: { eventName: "Special Event Week", bonusMultiplier: 1.5 },
+    };
   }
 
-  private async triggerMissionShuffle(userId: string): Promise<{ success: boolean; message: string }> {
+  private async triggerMissionShuffle(
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       // 1. Mark current missions as expired
       if (this.db) {
         await this.db.query(
           `UPDATE event_missions SET status = 'expired' WHERE user_id = $1 AND status = 'active'`,
-          [userId]
+          [userId],
         );
       }
 
@@ -374,23 +430,50 @@ Respond in JSON format:
             newMissions.map((m) => m.description),
             newMissions.map((m) => m.target),
             newMissions.map((m) => m.reward),
-          ]
+          ],
         );
       }
 
-      return { success: true, message: `Nhiệm vụ tuần này đã được làm mới! ${newMissions.length} thử thách mới đang chờ bạn!` };
+      return {
+        success: true,
+        message: `Nhiệm vụ tuần này đã được làm mới! ${newMissions.length} thử thách mới đang chờ bạn!`,
+      };
     } catch (e) {
       console.warn("[NoveltyDecayDetector] triggerMissionShuffle failed:", (e as Error).message);
-      return { success: true, message: "Nhiệm vụ tuần này đã được làm mới! Khám phá các thử thách mới nhé!" };
+      return {
+        success: true,
+        message: "Nhiệm vụ tuần này đã được làm mới! Khám phá các thử thách mới nhé!",
+      };
     }
   }
 
   private async generateNewMissions(userId: string): Promise<EventMission[]> {
     if (!this.ai) {
       return [
-        { title: "Thu thập 5 loại rác khác nhau", description: "Quét và phân loại 5 loại rác", target: 5, progress: 0, reward: 50, status: "active" },
-        { title: "Hoàn thành 3 câu đố", description: "Trả lời đúng 3 câu hỏi về môi trường", target: 3, progress: 0, reward: 30, status: "active" },
-        { title: "Chia sẻ 1 thành tích", description: "Chia sẻ thành tích lên mạng xã hội", target: 1, progress: 0, reward: 20, status: "active" },
+        {
+          title: "Thu thập 5 loại rác khác nhau",
+          description: "Quét và phân loại 5 loại rác",
+          target: 5,
+          progress: 0,
+          reward: 50,
+          status: "active",
+        },
+        {
+          title: "Hoàn thành 3 câu đố",
+          description: "Trả lời đúng 3 câu hỏi về môi trường",
+          target: 3,
+          progress: 0,
+          reward: 30,
+          status: "active",
+        },
+        {
+          title: "Chia sẻ 1 thành tích",
+          description: "Chia sẻ thành tích lên mạng xã hội",
+          target: 1,
+          progress: 0,
+          reward: 20,
+          status: "active",
+        },
       ];
     }
 
@@ -400,8 +483,9 @@ Respond in JSON format:
 
       const response = await this.ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: [{
-          text: `Generate 3 personalized weekly missions for a gamified waste classification app${profileHint}.
+        contents: [
+          {
+            text: `Generate 3 personalized weekly missions for a gamified waste classification app${profileHint}.
 The missions should match the user's behavioral profile.
 Respond ONLY as JSON array:
 [
@@ -409,7 +493,8 @@ Respond ONLY as JSON array:
   ...
 ]
 Target is how many times the action needs to be done. Reward is points earned. Keep targets small (3-5).`,
-        }],
+          },
+        ],
       });
 
       const text = response.text || "";
@@ -422,13 +507,36 @@ Target is how many times the action needs to be done. Reward is points earned. K
     }
 
     return [
-      { title: "Thu thập 5 loại rác", description: "Quét 5 loại rác khác nhau", target: 5, progress: 0, reward: 50, status: "active" },
-      { title: "Hoàn thành 3 câu đố", description: "Trả lời đúng 3 câu hỏi", target: 3, progress: 0, reward: 30, status: "active" },
-      { title: "Chia sẻ 1 thành tích", description: "Chia sẻ thành tích", target: 1, progress: 0, reward: 20, status: "active" },
+      {
+        title: "Thu thập 5 loại rác",
+        description: "Quét 5 loại rác khác nhau",
+        target: 5,
+        progress: 0,
+        reward: 50,
+        status: "active",
+      },
+      {
+        title: "Hoàn thành 3 câu đố",
+        description: "Trả lời đúng 3 câu hỏi",
+        target: 3,
+        progress: 0,
+        reward: 30,
+        status: "active",
+      },
+      {
+        title: "Chia sẻ 1 thành tích",
+        description: "Chia sẻ thành tích",
+        target: 1,
+        progress: 0,
+        reward: 20,
+        status: "active",
+      },
     ];
   }
 
-  private async triggerDialogueRefresh(userId: string): Promise<{ success: boolean; message: string }> {
+  private async triggerDialogueRefresh(
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
     // Log dialogue refresh event - user gets fresh chatbot content
     await eventLogger.logFeatureUse(userId, "dialogue_refresh", { triggered_by: "novelty_decay" });
     return { success: true, message: "Robot có tin mới để chia sẻ với bạn! Hãy trò chuyện ngay!" };
@@ -437,10 +545,15 @@ Target is how many times the action needs to be done. Reward is points earned. K
   private async triggerRewardShift(userId: string): Promise<{ success: boolean; message: string }> {
     // Log reward shift - indicates new rewards are available
     await eventLogger.logFeatureUse(userId, "reward_shift", { triggered_by: "novelty_decay" });
-    return { success: true, message: "Cửa hàng phần thưởng đã được cập nhật! Nhiều phần thưởng mới đang chờ bạn!" };
+    return {
+      success: true,
+      message: "Cửa hàng phần thưởng đã được cập nhật! Nhiều phần thưởng mới đang chờ bạn!",
+    };
   }
 
-  private async triggerHiddenChallenge(userId: string): Promise<{ success: boolean; message: string }> {
+  private async triggerHiddenChallenge(
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
     // Create a hidden challenge in the DB
     if (this.db) {
       try {
@@ -448,18 +561,26 @@ Target is how many times the action needs to be done. Reward is points earned. K
           `INSERT INTO event_missions (user_id, title, description, target, progress, reward, status, expires_at)
            VALUES ($1, 'THỬ THÁCH ẨN', 'Hoàn thành thử thách bí mật để nhận 3x phần thưởng!', 1, 0, 150, 'active', NOW() + INTERVAL '3 days')
            ON CONFLICT (event_id, user_id, title) DO NOTHING`,
-          [userId]
+          [userId],
         );
       } catch {
         // OK if fails - challenge still shows in message
       }
     }
-    return { success: true, message: "THỬ THÁCH ẨN ĐÃ ĐƯỢC MỞ KHÓA! Hoàn thành để nhận phần thưởng đặc biệt 3x!" };
+    return {
+      success: true,
+      message: "THỬ THÁCH ẨN ĐÃ ĐƯỢC MỞ KHÓA! Hoàn thành để nhận phần thưởng đặc biệt 3x!",
+    };
   }
 
-  private async triggerStreakReminder(userId: string): Promise<{ success: boolean; message: string }> {
+  private async triggerStreakReminder(
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
     await eventLogger.logFeatureUse(userId, "streak_reminder", { triggered_by: "novelty_decay" });
-    return { success: true, message: "Ngày mai là ngày quan trọng! Đừng quên đăng nhập để giữ streak của bạn!" };
+    return {
+      success: true,
+      message: "Ngày mai là ngày quan trọng! Đừng quên đăng nhập để giữ streak của bạn!",
+    };
   }
 
   private async triggerSocialNudge(userId: string): Promise<{ success: boolean; message: string }> {
@@ -473,7 +594,7 @@ Target is how many times the action needs to be done. Reward is points earned. K
       const { rows } = await this.db.query(
         `SELECT DATE(recorded_at) as day, AVG(engagement_score) as avg_engagement, COUNT(DISTINCT user_id) as user_count
          FROM novelty_decay_log WHERE recorded_at > NOW() - INTERVAL '${days} days'
-         GROUP BY DATE(recorded_at) ORDER BY day`
+         GROUP BY DATE(recorded_at) ORDER BY day`,
       );
       return rows;
     } catch {

@@ -26,6 +26,7 @@ const TOKEN_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 export interface SessionRecord {
   nick: string;
   isAdmin: boolean;
+  accountId?: string;
   expires: number;
 }
 
@@ -117,9 +118,9 @@ export function setSessionPersistence(p: SessionPersistence | null): void {
 
 /* ─── public API ──────────────────────────────────────────────────── */
 
-export function createSessionToken(nick: string, isAdmin = false): string {
+export function createSessionToken(nick: string, isAdmin = false, accountId?: string): string {
   const token = crypto.randomBytes(32).toString("hex");
-  const rec: SessionRecord = { nick, isAdmin, expires: Date.now() + TOKEN_TTL };
+  const rec: SessionRecord = { nick, isAdmin, accountId, expires: Date.now() + TOKEN_TTL };
   cache.set(token, rec);
   // fire-and-forget; we never block the auth response on DB latency
   void persistence.insert(token, rec);
@@ -129,6 +130,17 @@ export function createSessionToken(nick: string, isAdmin = false): string {
 export function revokeSessionToken(token: string): void {
   cache.delete(token);
   void persistence.delete(token);
+}
+
+/** Revoke every active session belonging to one account. */
+export function revokeUserSessions(nick: string): void {
+  const lower = nick.toLowerCase();
+  for (const [token, rec] of cache.entries()) {
+    if (rec.nick.toLowerCase() === lower) {
+      cache.delete(token);
+      void persistence.delete(token);
+    }
+  }
 }
 
 export function validateSessionToken(token: string | undefined | null): SessionRecord | null {
@@ -156,13 +168,7 @@ export function disableUser(nick: string): void {
   // Eagerly purge any cached tokens for this nick so concurrent
   // requests can't squeeze through between the Set update and the
   // next `validateSessionToken` call.
-  const lower = nick.toLowerCase();
-  for (const [token, rec] of cache.entries()) {
-    if (rec.nick.toLowerCase() === lower) {
-      cache.delete(token);
-      void persistence.delete(token);
-    }
-  }
+  revokeUserSessions(nick);
 }
 
 /** Layer 2.10 — restore a previously disabled user. */
@@ -202,6 +208,35 @@ export async function initSessionStore(): Promise<void> {
   const now = Date.now();
   for (const [token, rec] of cache.entries()) {
     if (rec.expires < now) cache.delete(token);
+  }
+  // Restore unexpired sessions after a process restart.  The in-memory cache
+  // remains the hot path, while Supabase is the durable source of truth.
+  const db = getDb();
+  if (db) {
+    try {
+      const { rows } = await db.query(
+        `SELECT token, nick, is_admin,
+                EXTRACT(EPOCH FROM expires_at) * 1000 AS expires
+         FROM session_tokens
+         WHERE expires_at > NOW()
+         ORDER BY expires_at DESC
+         LIMIT 10000`,
+      );
+      for (const row of rows) {
+        if (typeof row.token === "string" && typeof row.nick === "string") {
+          cache.set(row.token, {
+            nick: row.nick,
+            isAdmin: row.is_admin === true,
+            expires: Number(row.expires),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(
+        "[sessionStore] restore failed; starting with an empty cache:",
+        (e as Error).message,
+      );
+    }
   }
   await persistence.sweep();
 }

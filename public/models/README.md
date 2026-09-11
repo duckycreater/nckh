@@ -14,6 +14,11 @@ before loading.
 | `waste-classifier@v1` (meta)| [`waste_classifier_v1_meta.json`](waste_classifier_v1_meta.json) | 1.4 KB | — | Apache-2.0  | — | accompanying class labels + provenance |
 | runtime manifest            | [`manifest.json`](manifest.json)              | 0.7 KB | — | Apache-2.0  | — | consumed by `src/services/localModelRunner.ts` |
 
+An optional `waste_classifier_v1_conformal_profile.json` can be published next
+to the model after fitting on a locked, labelled calibration set with
+`npm run calibrate:model`. The client loads it only when its class order and
+finite-sample fields validate; no profile means no uncalibrated abstention claim.
+
 Full SHA-256 of the canonical ONNX artifact:
 
 ```
@@ -44,13 +49,15 @@ common Vietnamese household-waste categories: `organic`, `plastic`,
 
 1. The PWA fetches `GET /api/models/waste-classifier` (see
    [`server/routes/models.ts`](../routes/models.ts)).
-2. The response is a signed manifest:
+2. The response is a server-signed manifest:
    `{ manifest: {...}, signature: <hmac-sha256-hex> }`.
-3. The client verifies the HMAC against `BMO_MODEL_HMAC_SECRET` and
-   checks the manifest's `sha256` against the downloaded bytes
-   (see [`src/services/modelRegistry.ts`](../../src/services/modelRegistry.ts)).
-4. If either check fails, the model is **not** loaded; the client
-   falls back to cloud Gemini vision or to a heuristic classifier.
+3. The server verifies the HMAC internally. The browser validates the
+   manifest schema, downloads the model, and checks its SHA-256 against the
+   pinned digest before ONNX Runtime sees the bytes. A browser must not carry
+   the server HMAC secret.
+4. If the digest check fails, the model is **not** loaded. A temporary fetch
+   failure can use the service-worker cache; the scan path never substitutes a
+   heuristic classifier for a failed model load.
 
 ## How to add or update a model
 

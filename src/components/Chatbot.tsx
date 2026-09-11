@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Bot, X, Send, Trash2, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import { ReasoningChainView, type ReasoningChain } from "./ReasoningChainView";
+import { getAuthHeaders } from "../lib/auth";
 
 interface Message {
   role: "user" | "assistant";
@@ -14,10 +15,10 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
   const { t } = useTranslation();
   const storageKey = `ecoquest:chat:${currentUser || "guest"}`;
   const [isOpen, setIsOpen] = useState(false);
-  const getWelcomeContent = (user?: string): string =>
-    user
-      ? t("chatbot.greetingUser", { user })
-      : t("chatbot.greeting");
+  const getWelcomeContent = useCallback(
+    (user?: string): string => (user ? t("chatbot.greetingUser", { user }) : t("chatbot.greeting")),
+    [t],
+  );
 
   const SUGGESTED_QUESTIONS = [
     t("chatbot.quickQ1"),
@@ -53,7 +54,7 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
         }
       }
     } catch (e) {
-      console.warn('[Chatbot] Failed to load chat history:', e);
+      console.warn("[Chatbot] Failed to load chat history:", e);
     }
     setMessages([{ role: "assistant", content: getWelcomeContent(currentUser) }]);
   }, [storageKey, initialized, currentUser, getWelcomeContent]);
@@ -77,9 +78,9 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
-          messages: newMessages.map((m) => ({
+          messages: newMessages.slice(-30).map((m) => ({
             role: m.role,
             content: m.content,
           })),
@@ -99,17 +100,23 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
           },
         ]);
       } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: t("chatbot.errorResponse", { error: data.error }) }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: t("chatbot.errorResponse", { error: data.error }) },
+        ]);
       }
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: t("chatbot.connectionError") }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: t("chatbot.connectionError") },
+      ]);
     } finally {
       setIsTyping(false);
     }
   };
 
   const handleClear = () => {
-      setMessages([{ role: "assistant", content: getWelcomeContent(currentUser) }]);
+    setMessages([{ role: "assistant", content: getWelcomeContent(currentUser) }]);
     localStorage.removeItem(storageKey);
   };
 
@@ -152,7 +159,11 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
     try {
       const fd = new FormData();
       fd.append("audio", blob, "voice.webm");
-      const r = await fetch("/api/voice/transcribe", { method: "POST", body: fd });
+      const r = await fetch("/api/voice/transcribe", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: fd,
+      });
       const data = await r.json();
       if (!r.ok) {
         setVoiceError(data.error || "Voice failed");
@@ -166,7 +177,8 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
   };
 
   const toggleRecording = () => {
-    if (isRecording) stopRecording(); else startRecording();
+    if (isRecording) stopRecording();
+    else startRecording();
   };
 
   return (
@@ -227,7 +239,10 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
             )}
 
             {messages.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={idx}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
                 {msg.role === "assistant" && (
                   <div className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600">
                     <Bot size={18} />
@@ -256,9 +271,18 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
                   <Bot size={18} />
                 </div>
                 <div className="flex gap-1 rounded-2xl rounded-bl-none border border-slate-100 bg-white px-4 py-3 shadow-sm">
-                  <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: "0ms" }} />
-                  <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: "150ms" }} />
-                  <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: "300ms" }} />
+                  <div
+                    className="h-2 w-2 animate-bounce rounded-full bg-gray-400"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <div
+                    className="h-2 w-2 animate-bounce rounded-full bg-gray-400"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <div
+                    className="h-2 w-2 animate-bounce rounded-full bg-gray-400"
+                    style={{ animationDelay: "300ms" }}
+                  />
                 </div>
               </div>
             )}
@@ -267,12 +291,15 @@ export function Chatbot({ currentUser }: { currentUser?: string }) {
 
           <div className="border-t border-slate-100 bg-white p-4">
             {voiceError && (
-              <p className="mb-2 rounded bg-rose-50 px-2 py-1 text-[10px] text-rose-600">{voiceError}</p>
+              <p className="mb-2 rounded bg-rose-50 px-2 py-1 text-[10px] text-rose-600">
+                {voiceError}
+              </p>
             )}
             <div className="flex overflow-hidden rounded-full border border-transparent bg-slate-100 transition-all focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/15">
               <input
                 type="text"
                 value={input}
+                maxLength={4000}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder={t("chatbot.askPlaceholder")}

@@ -25,14 +25,10 @@ const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`,
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toBeType: (t: string) => assert.strictEqual(typeof v, t),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
@@ -90,32 +86,36 @@ describe("auditTrail.AuditTrail", () => {
   it("append increments seq and chains hashes", () => {
     resetAuditTrail();
     const trail = getAuditTrail();
-    const e1 = trail.append("fl_round", {round: 1, sigma: 0.5});
+    const e1 = trail.append("fl_round", { round: 1, sigma: 0.5 });
     expect(e1.seq).toBe(1);
     expect(e1.prevHash).toMatch(/^[0-9a-f]{64}$/);
     expect(e1.thisHash).toMatch(/^[0-9a-f]{64}$/);
     expect(e1.merkleRoot).toMatch(/^[0-9a-f]{64}$/);
-    const e2 = trail.append("opt_out", {userId: "u1"});
+    const e2 = trail.append("opt_out", { userId: "u1" });
     expect(e2.prevHash).toBe(e1.thisHash);
     expect(trail.length).toBe(3); // GENESIS + 2
   });
   it("apply sanitiser to payload before hashing", () => {
     resetAuditTrail();
     const trail = getAuditTrail();
-    const e = trail.append("fl_round", {round: 1, secretKey: "TOP_SECRET"}, {
-      sanitise: (p) => {
-        const {secretKey, ...rest} = p;
-        return rest;
+    const e = trail.append(
+      "fl_round",
+      { round: 1, secretKey: "TOP_SECRET" },
+      {
+        sanitise: (p) => {
+          const { secretKey, ...rest } = p;
+          return rest;
+        },
       },
-    });
+    );
     expect(e.payload.secretKey).toBeUndefined();
     expect(e.payload.round).toBe(1);
   });
   it("verifySnapshot returns ok=true on a clean trail", () => {
     resetAuditTrail();
     const trail = getAuditTrail();
-    trail.append("fl_round", {round: 1});
-    trail.append("cohort_assignment", {schoolId: "s1"});
+    trail.append("fl_round", { round: 1 });
+    trail.append("cohort_assignment", { schoolId: "s1" });
     const v = trail.verifySnapshot();
     expect(v.ok).toBe(true);
     expect(v.brokenSeq).toBeNull();
@@ -123,12 +123,12 @@ describe("auditTrail.AuditTrail", () => {
   it("verifySnapshot detects tamper", () => {
     resetAuditTrail();
     const trail = getAuditTrail();
-    trail.append("fl_round", {round: 1});
+    trail.append("fl_round", { round: 1 });
     const v = trail.verifySnapshot();
     expect(v.ok).toBe(true);
     // Manually tamper with the first real event's payload (in-memory only).
     const events = trail.getAll();
-    (events[1] as {payload: Record<string, unknown>}).payload = {round: 999};
+    (events[1] as { payload: Record<string, unknown> }).payload = { round: 999 };
     const v2 = trail.verifySnapshot();
     expect(v2.ok).toBe(false);
     expect(v2.brokenSeq).toBe(1);
@@ -136,7 +136,7 @@ describe("auditTrail.AuditTrail", () => {
   it("latest() and currentRoot() reflect the most recent append", () => {
     resetAuditTrail();
     const trail = getAuditTrail();
-    const e = trail.append("fl_round", {round: 7});
+    const e = trail.append("fl_round", { round: 7 });
     expect(trail.latest()?.thisHash).toBe(e.thisHash);
     expect(trail.currentRoot()).toBe(e.merkleRoot);
   });

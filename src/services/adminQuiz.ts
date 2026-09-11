@@ -18,16 +18,17 @@ export interface QuizQuestion {
 }
 
 const token = () => localStorage.getItem("auth_token") || "";
-const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
 
 const headers = (json = false): HeadersInit => ({
   ...(json ? { "Content-Type": "application/json" } : {}),
   Authorization: token() ? `Bearer ${token()}` : "",
-  "x-admin-key": adminApiKey,
 });
 
 async function request<T>(url: string, opts: RequestInit = {}): Promise<T> {
-  const res = await fetch(url, { ...opts, headers: { ...headers(Boolean(opts.body)), ...(opts.headers as any) } });
+  const res = await fetch(url, {
+    ...opts,
+    headers: { ...headers(Boolean(opts.body)), ...(opts.headers as any) },
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `HTTP ${res.status}`);
@@ -80,6 +81,6 @@ export const adminQuizApi = {
   syncToSheets: () =>
     request<{ success: boolean; users: number; quizQuestions: number }>(
       "/api/admin/quiz/sync-to-sheets",
-      { method: "POST", body: JSON.stringify({}) }
+      { method: "POST", body: JSON.stringify({}) },
     ),
 };

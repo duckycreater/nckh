@@ -9,6 +9,7 @@
  * Reuses the shared aiRouter Groq + Gemini clients to avoid duplicate connections.
  */
 
+import crypto from "node:crypto";
 import { getGroq, getGemini } from "./aiRouter";
 
 const CATEGORIES = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
@@ -43,7 +44,6 @@ export interface CurateResult {
 }
 
 export class DatasetCurator {
-
   /**
    * Main entry: curate a scan and decide if it can be auto-released
    */
@@ -130,7 +130,9 @@ export class DatasetCurator {
         },
         {
           role: "user",
-          content: `Mô tả ảnh: "${input.geminiAnalysisText.slice(0, 500)}"\n\nTop-6 xác suất:\n${Object.entries(input.topKPredictions)
+          content: `Mô tả ảnh: "${input.geminiAnalysisText.slice(0, 500)}"\n\nTop-6 xác suất:\n${Object.entries(
+            input.topKPredictions,
+          )
             .sort((a, b) => b[1] - a[1])
             .map(([k, v]) => `- ${CATEGORY_VI[k] || k} (${k}): ${(v * 100).toFixed(1)}%`)
             .join("\n")}\n\nLoại nào đúng nhất?`,
@@ -143,7 +145,9 @@ export class DatasetCurator {
 
     const text = completion.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(text);
-    const cat = String(parsed.category || "").toLowerCase().trim();
+    const cat = String(parsed.category || "")
+      .toLowerCase()
+      .trim();
     if (!CATEGORIES.includes(cat)) {
       throw new Error(`Invalid category from Groq: ${cat}`);
     }
@@ -158,10 +162,7 @@ export class DatasetCurator {
    * Detect lighting or occlusion via Gemini multi-modal (best-effort)
    * Returns single-word tag; falls back to "unknown" if anything fails.
    */
-  async detectImageAttribute(
-    imageBase64: string,
-    kind: "lighting" | "occlusion",
-  ): Promise<string> {
+  async detectImageAttribute(imageBase64: string, kind: "lighting" | "occlusion"): Promise<string> {
     try {
       const genai = getGemini();
       if (!genai) return "unknown";
@@ -185,15 +186,12 @@ export class DatasetCurator {
             },
           ],
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("timeout")), 8_000),
-        ),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 8_000)),
       ]);
 
       const text = (response?.text || "").toLowerCase();
-      const tags = kind === "lighting"
-        ? ["bright", "normal", "dim", "dark"]
-        : ["none", "partial", "heavy"];
+      const tags =
+        kind === "lighting" ? ["bright", "normal", "dim", "dark"] : ["none", "partial", "heavy"];
       for (const tag of tags) {
         if (text.includes(tag)) return tag;
       }
@@ -207,9 +205,10 @@ export class DatasetCurator {
    * Compute SHA-256 hash of image bytes (for dedup + provenance)
    */
   static hashImage(base64Data: string): string {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const crypto = require("crypto");
-    return crypto.createHash("sha256").update(base64Data).digest("hex");
+    // Hash the decoded bytes, not the textual base64 representation.  This
+    // makes deduplication stable across line wrapping and data-URI variants.
+    const bytes = Buffer.from(base64Data, "base64");
+    return crypto.createHash("sha256").update(bytes).digest("hex");
   }
 }
 

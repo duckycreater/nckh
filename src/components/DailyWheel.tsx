@@ -13,46 +13,95 @@ export interface WheelSegment {
 }
 
 const SEGMENTS: WheelSegment[] = [
-  { label: "+10 EXP",   labelVi: "+10 EXP",    reward: 10,  type: "exp",    color: "#065f46", textColor: "#6ee7b7" },
-  { label: "+25 EXP",   labelVi: "+25 EXP",    reward: 25,  type: "exp",    color: "#1e3a5f", textColor: "#93c5fd" },
-  { label: "+20 EXP",   labelVi: "+20 EXP",    reward: 20,  type: "exp",    color: "#4a1d96", textColor: "#c4b5fd" },
-  { label: "JACKPOT!",  labelVi: "JACKPOT!",   reward: 500, type: "jackpot", color: "#78350f", textColor: "#fbbf24" },
-  { label: "+15 EXP",   labelVi: "+15 EXP",    reward: 15,  type: "exp",    color: "#134e4a", textColor: "#5eead4" },
-  { label: "+30 EXP",   labelVi: "+30 EXP",    reward: 30,  type: "exp",    color: "#3b0764", textColor: "#d8b4fe" },
-  { label: "Card Drop", labelVi: "Rút Bài",    reward: 1,   type: "card",   color: "#1e3a5f", textColor: "#93c5fd" },
-  { label: "+50 EXP",   labelVi: "+50 EXP",    reward: 50,  type: "exp",    color: "#065f46", textColor: "#6ee7b7" },
+  {
+    label: "+10 EXP",
+    labelVi: "+10 EXP",
+    reward: 10,
+    type: "exp",
+    color: "#065f46",
+    textColor: "#6ee7b7",
+  },
+  {
+    label: "+25 EXP",
+    labelVi: "+25 EXP",
+    reward: 25,
+    type: "exp",
+    color: "#1e3a5f",
+    textColor: "#93c5fd",
+  },
+  {
+    label: "+20 EXP",
+    labelVi: "+20 EXP",
+    reward: 20,
+    type: "exp",
+    color: "#4a1d96",
+    textColor: "#c4b5fd",
+  },
+  {
+    label: "JACKPOT!",
+    labelVi: "JACKPOT!",
+    reward: 500,
+    type: "jackpot",
+    color: "#78350f",
+    textColor: "#fbbf24",
+  },
+  {
+    label: "+15 EXP",
+    labelVi: "+15 EXP",
+    reward: 15,
+    type: "exp",
+    color: "#134e4a",
+    textColor: "#5eead4",
+  },
+  {
+    label: "+30 EXP",
+    labelVi: "+30 EXP",
+    reward: 30,
+    type: "exp",
+    color: "#3b0764",
+    textColor: "#d8b4fe",
+  },
+  {
+    label: "Card Drop",
+    labelVi: "Rút Bài",
+    reward: 1,
+    type: "card",
+    color: "#1e3a5f",
+    textColor: "#93c5fd",
+  },
+  {
+    label: "+50 EXP",
+    labelVi: "+50 EXP",
+    reward: 50,
+    type: "exp",
+    color: "#065f46",
+    textColor: "#6ee7b7",
+  },
 ];
+const SEGMENT_ANGLE = (2 * Math.PI) / SEGMENTS.length;
 
-const WEIGHTS = [15, 15, 15, 1, 15, 15, 14, 10]; // jackpot = 1%
-const TOTAL_WEIGHT = WEIGHTS.reduce((a, b) => a + b, 0);
-
-function weightedRandom(): number {
-  let r = Math.random() * TOTAL_WEIGHT;
-  for (let i = 0; i < WEIGHTS.length; i++) {
-    r -= WEIGHTS[i];
-    if (r <= 0) return i;
-  }
-  return 0;
+export interface WheelSpinResult {
+  segmentIndex: number;
+  earnedPoints: number;
+  points: number;
+  claimDate: string;
 }
 
 interface DailyWheelProps {
-  userId: string;
   lastSpinDate?: string;
-  onSpin: (segment: WheelSegment) => void;
+  onSpin: () => Promise<WheelSpinResult>;
   onClose: () => void;
 }
 
-export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheelProps) {
+export function DailyWheel({ lastSpinDate, onSpin, onClose }: DailyWheelProps) {
   const { t } = useTranslation();
   const [spinning, setSpinning] = useState(false);
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [rotation, setRotation] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [result, setResult] = useState<WheelSegment | null>(null);
+  const [error, setError] = useState("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
-
-  const SEGMENT_ANGLE = (2 * Math.PI) / SEGMENTS.length;
 
   // Draw wheel on canvas
   const drawWheel = useCallback((targetRotation: number) => {
@@ -106,7 +155,7 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
     ctx.shadowBlur = 12;
     ctx.fill();
     ctx.restore();
-  }, [SEGMENTS, SEGMENT_ANGLE]);
+  }, []);
 
   // Initial draw
   useEffect(() => {
@@ -114,11 +163,26 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
   }, [drawWheel, rotation]);
 
   // Animate spin
-  const spin = useCallback(() => {
+  const spin = useCallback(async () => {
     if (spinning) return;
     setSpinning(true);
+    setError("");
 
-    const targetIdx = weightedRandom();
+    let claim: WheelSpinResult;
+    try {
+      claim = await onSpin();
+    } catch (claimError) {
+      setSpinning(false);
+      setError(claimError instanceof Error ? claimError.message : t("auth.connectionError"));
+      return;
+    }
+
+    const targetIdx = claim.segmentIndex;
+    if (!Number.isInteger(targetIdx) || targetIdx < 0 || targetIdx >= SEGMENTS.length) {
+      setSpinning(false);
+      setError(t("auth.connectionError"));
+      return;
+    }
     // Calculate where the pointer (top) lands on the target segment
     // Pointer is at -PI/2 (top). We want segment `targetIdx` to be at top.
     // Wheel rotates clockwise, so we need to rotate to put targetIdx at top.
@@ -129,7 +193,8 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
 
     // Add several full rotations for effect
     const fullRotations = 4 + Math.random() * 2;
-    const totalRotation = rotation + fullRotations * 2 * Math.PI + targetAngle - (rotation % (2 * Math.PI));
+    const totalRotation =
+      rotation + fullRotations * 2 * Math.PI + targetAngle - (rotation % (2 * Math.PI));
 
     const startRot = rotation;
     const startTime = performance.now();
@@ -146,7 +211,6 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
       if (t < 1) {
         animRef.current = requestAnimationFrame(animate);
       } else {
-        setSelectedIdx(targetIdx);
         setResult(SEGMENTS[targetIdx]);
         setSpinning(false);
         setShowResult(true);
@@ -154,12 +218,9 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
     };
 
     animRef.current = requestAnimationFrame(animate);
-  }, [spinning, rotation, drawWheel]);
+  }, [drawWheel, onSpin, rotation, spinning, t]);
 
   const handleClaim = () => {
-    if (result) {
-      onSpin(result);
-    }
     onClose();
   };
 
@@ -199,7 +260,12 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
         {/* Wheel container */}
         <div className="relative">
           {/* Glow ring */}
-          <div className="absolute inset-0 rounded-full opacity-30 blur-xl" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.3) 0%, transparent 70%)" }} />
+          <div
+            className="absolute inset-0 rounded-full opacity-30 blur-xl"
+            style={{
+              background: "radial-gradient(circle, rgba(245,158,11,0.3) 0%, transparent 70%)",
+            }}
+          />
 
           {/* Canvas wheel */}
           <motion.canvas
@@ -245,20 +311,20 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
             >
               <div className="mb-3">
                 <span className="text-lg">{result.type === "jackpot" ? "🎉" : "✨"}</span>
-                <p className={`mt-1 text-2xl font-black ${result.type === "jackpot" ? "text-amber-400 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]" : "text-white"}`}>
-                  {result.type === "jackpot" ? "JACKPOT!" :
-                   result.type === "card" ? t("dailyWheel.specialCard") :
-                   t("dailyWheel.expReward", { exp: result.reward })}
+                <p
+                  className={`mt-1 text-2xl font-black ${result.type === "jackpot" ? "text-amber-400 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]" : "text-white"}`}
+                >
+                  {result.type === "jackpot"
+                    ? "JACKPOT!"
+                    : result.type === "card"
+                      ? t("dailyWheel.specialCard")
+                      : t("dailyWheel.expReward", { exp: result.reward })}
                 </p>
                 {result.type === "card" && (
-                  <p className="mt-1 text-sm text-slate-400">
-                    {t("dailyWheel.cardReward")}
-                  </p>
+                  <p className="mt-1 text-sm text-slate-400">{t("dailyWheel.cardReward")}</p>
                 )}
                 {result.type === "jackpot" && (
-                  <p className="mt-1 text-sm text-amber-300">
-                    {t("dailyWheel.jackpot")}
-                  </p>
+                  <p className="mt-1 text-sm text-amber-300">{t("dailyWheel.jackpot")}</p>
                 )}
               </div>
 
@@ -274,6 +340,8 @@ export function DailyWheel({ userId, lastSpinDate, onSpin, onClose }: DailyWheel
             </motion.div>
           )}
         </AnimatePresence>
+
+        {error && <p className="mt-4 text-center text-sm font-semibold text-red-300">{error}</p>}
 
         {/* Already spun state */}
         {lastSpinDate && (

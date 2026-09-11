@@ -38,7 +38,15 @@ class SimulationEngine {
 
   async predictDropoutRisk(userId: string): Promise<SimulationResult> {
     if (!this.db) {
-      return { userId, predictionType: "dropout_risk", predictedValue: 30, confidence: 0.3, horizonDays: 7, reasoning: "No DB connected", factors: {} };
+      return {
+        userId,
+        predictionType: "dropout_risk",
+        predictedValue: 30,
+        confidence: 0.3,
+        horizonDays: 7,
+        reasoning: "No DB connected",
+        factors: {},
+      };
     }
 
     try {
@@ -46,20 +54,20 @@ class SimulationEngine {
         this.db.query(
           `SELECT COUNT(*) as actions, COUNT(DISTINCT DATE(timestamp)) as active_days
            FROM behavioral_events WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT engagement_score FROM novelty_decay_log WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 14`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT MAX((metadata->>'streak_days')::int) as current_streak
            FROM behavioral_events WHERE user_id = $1 AND event_type IN ('streak_update', 'streak_break') AND timestamp > NOW() - INTERVAL '14 days'`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT COUNT(*) as recent_interventions FROM adaptive_interventions WHERE user_id = $1 AND triggered_at > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
       ]);
 
@@ -79,17 +87,31 @@ class SimulationEngine {
       };
 
       // Logistic regression (pre-fitted coefficients)
-      const beta = { intercept: 0.8, engagement: -1.5, activeDays: -1.0, streak: -0.8, actions: -0.6, interventions: 0.3 };
-      const logit = beta.intercept + beta.engagement * f.engagement + beta.activeDays * f.activeDays + beta.streak * f.streak + beta.actions * f.actions + beta.interventions * f.interventions;
+      const beta = {
+        intercept: 0.8,
+        engagement: -1.5,
+        activeDays: -1.0,
+        streak: -0.8,
+        actions: -0.6,
+        interventions: 0.3,
+      };
+      const logit =
+        beta.intercept +
+        beta.engagement * f.engagement +
+        beta.activeDays * f.activeDays +
+        beta.streak * f.streak +
+        beta.actions * f.actions +
+        beta.interventions * f.interventions;
       let prob = 1 / (1 + Math.exp(-logit));
       prob = Math.max(0, Math.min(1, prob));
 
       // Bootstrap CI (simplified: analytical approximation)
-      const se = Math.sqrt(prob * (1 - prob) / Math.max(1, actions));
+      const se = Math.sqrt((prob * (1 - prob)) / Math.max(1, actions));
       const ciLower = Math.max(0, prob - 1.96 * se);
       const ciUpper = Math.min(1, prob + 1.96 * se);
 
-      const confidence = engagementScores.length >= 7 ? 0.85 : engagementScores.length >= 3 ? 0.65 : 0.4;
+      const confidence =
+        engagementScores.length >= 7 ? 0.85 : engagementScores.length >= 3 ? 0.65 : 0.4;
 
       let reasoning = "";
       if (prob < 0.2) {
@@ -103,9 +125,17 @@ class SimulationEngine {
       }
       if (recentInterventions > 0) reasoning += " Recent interventions applied.";
 
-      await this.savePrediction(userId, "dropout_risk", prob, confidence, ciLower, ciUpper,
+      await this.savePrediction(
+        userId,
+        "dropout_risk",
+        prob,
+        confidence,
+        ciLower,
+        ciUpper,
         prob > 0.6 ? "high" : prob > 0.3 ? "medium" : "low",
-        { ...f }, 7);
+        { ...f },
+        7,
+      );
 
       return {
         userId,
@@ -121,30 +151,57 @@ class SimulationEngine {
       };
     } catch (e) {
       console.warn("[SimulationEngine] Dropout prediction failed:", (e as Error).message);
-      return { userId, predictionType: "dropout_risk", predictedValue: 30, confidence: 0.3, horizonDays: 7, reasoning: "Prediction error", factors: {} };
+      return {
+        userId,
+        predictionType: "dropout_risk",
+        predictedValue: 30,
+        confidence: 0.3,
+        horizonDays: 7,
+        reasoning: "Prediction error",
+        factors: {},
+      };
     }
   }
 
   async predictEngagementForecast(userId: string): Promise<SimulationResult> {
     if (!this.db) {
-      return { userId, predictionType: "engagement_forecast", predictedValue: 70, confidence: 0.5, horizonDays: 14, reasoning: "No DB", factors: {} };
+      return {
+        userId,
+        predictionType: "engagement_forecast",
+        predictedValue: 70,
+        confidence: 0.5,
+        horizonDays: 14,
+        reasoning: "No DB",
+        factors: {},
+      };
     }
 
     try {
       const { rows } = await this.db.query(
         `SELECT engagement_score FROM novelty_decay_log WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 14`,
-        [userId]
+        [userId],
       );
 
       if (rows.length < 3) {
-        return { userId, predictionType: "engagement_forecast", predictedValue: 50, confidence: 0.3, horizonDays: 14, reasoning: "Insufficient data for prediction", factors: {} };
+        return {
+          userId,
+          predictionType: "engagement_forecast",
+          predictedValue: 50,
+          confidence: 0.3,
+          horizonDays: 14,
+          reasoning: "Insufficient data for prediction",
+          factors: {},
+        };
       }
 
       const scores = rows.map((r: any) => r.engagement_score || 0.5).reverse();
       const n = scores.length;
 
       // Linear regression: predict next 7 days
-      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+      let sumX = 0,
+        sumY = 0,
+        sumXY = 0,
+        sumX2 = 0;
       for (let i = 0; i < n; i++) {
         sumX += i;
         sumY += scores[i];
@@ -157,7 +214,10 @@ class SimulationEngine {
 
       // R-squared
       const meanY = sumY / n;
-      const sse = scores.reduce((s: number, y: number, i: number) => s + Math.pow(y - (intercept + slope * i), 2), 0);
+      const sse = scores.reduce(
+        (s: number, y: number, i: number) => s + Math.pow(y - (intercept + slope * i), 2),
+        0,
+      );
       const sst = scores.reduce((s: number, y: number) => s + Math.pow(y - meanY, 2), 0);
       const rSquared = sst > 0 ? 1 - sse / sst : 0;
 
@@ -165,7 +225,7 @@ class SimulationEngine {
       const predicted = Math.max(0, Math.min(1, intercept + slope * futureX));
 
       // Bootstrap CI for slope
-      const slopeSe = Math.sqrt(sse / (n - 2)) / Math.sqrt(sumX2 - sumX * sumX / n);
+      const slopeSe = Math.sqrt(sse / (n - 2)) / Math.sqrt(sumX2 - (sumX * sumX) / n);
       const slopeCiLower = slope - 1.96 * slopeSe;
       const slopeCiUpper = slope + 1.96 * slopeSe;
 
@@ -181,10 +241,17 @@ class SimulationEngine {
       }
       if (predicted < 0.4) reasoning += " WARNING: Intervention likely needed.";
 
-      await this.savePrediction(userId, "engagement_forecast", predicted, confidence,
+      await this.savePrediction(
+        userId,
+        "engagement_forecast",
+        predicted,
+        confidence,
         Math.max(0, predicted - 1.96 * 0.05),
         Math.min(1, predicted + 1.96 * 0.05),
-        undefined, { slope, intercept, rSquared }, 14);
+        undefined,
+        { slope, intercept, rSquared },
+        14,
+      );
 
       return {
         userId,
@@ -195,15 +262,28 @@ class SimulationEngine {
         upperCI: Math.min(100, Math.round((predicted + 0.05) * 100)),
         horizonDays: 14,
         reasoning,
-        factors: { slope: Math.round(slope * 1000) / 1000, rSquared: Math.round(rSquared * 1000) / 1000 },
+        factors: {
+          slope: Math.round(slope * 1000) / 1000,
+          rSquared: Math.round(rSquared * 1000) / 1000,
+        },
       };
     } catch (e) {
       console.warn("[SimulationEngine] Engagement forecast failed:", (e as Error).message);
-      return { userId, predictionType: "engagement_forecast", predictedValue: 50, confidence: 0.3, horizonDays: 14, reasoning: "Prediction error", factors: {} };
+      return {
+        userId,
+        predictionType: "engagement_forecast",
+        predictedValue: 50,
+        confidence: 0.3,
+        horizonDays: 14,
+        reasoning: "Prediction error",
+        factors: {},
+      };
     }
   }
 
-  async predictInterventionEffectiveness(interventionType: string): Promise<{ effectiveness: number; sampleSize: number; reasoning: string }> {
+  async predictInterventionEffectiveness(
+    interventionType: string,
+  ): Promise<{ effectiveness: number; sampleSize: number; reasoning: string }> {
     if (!this.db) {
       return { effectiveness: 0, sampleSize: 0, reasoning: "No DB" };
     }
@@ -212,7 +292,7 @@ class SimulationEngine {
       const { rows } = await this.db.query(
         `SELECT AVG(effectiveness_score) as avg_eff, COUNT(*) as sample_size
          FROM adaptive_interventions WHERE intervention_type = $1 AND effectiveness_score IS NOT NULL`,
-        [interventionType]
+        [interventionType],
       );
 
       const effectiveness = parseFloat(rows[0]?.avg_eff || "0");
@@ -247,7 +327,7 @@ class SimulationEngine {
     upperCI: number,
     riskLevel: string | undefined,
     factors: Record<string, number>,
-    horizon: number
+    horizon: number,
   ): Promise<void> {
     if (!this.db) return;
     try {
@@ -255,7 +335,17 @@ class SimulationEngine {
         `INSERT INTO simulation_predictions
          (user_id, prediction_type, predicted_value, confidence, lower_ci, upper_ci, risk_level, factors, prediction_horizon_days)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [userId, predictionType, value, confidence, lowerCI, upperCI, riskLevel || null, JSON.stringify(factors), horizon]
+        [
+          userId,
+          predictionType,
+          value,
+          confidence,
+          lowerCI,
+          upperCI,
+          riskLevel || null,
+          JSON.stringify(factors),
+          horizon,
+        ],
       );
     } catch (e) {
       console.warn("[SimulationEngine] Failed to save prediction:", (e as Error).message);

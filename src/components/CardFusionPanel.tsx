@@ -6,8 +6,16 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, Lock, Zap, Star, ChevronRight, RefreshCw,
-  Info, Award, X, Heart,
+  Sparkles,
+  Lock,
+  Zap,
+  Star,
+  ChevronRight,
+  RefreshCw,
+  Info,
+  Award,
+  X,
+  Heart,
 } from "lucide-react";
 
 interface FusionableCard {
@@ -126,7 +134,8 @@ export function CardFusionPanel({ userId }: { userId: string }) {
       <div className="flex items-start gap-2 rounded-xl bg-blue-50/50 border border-blue-200/30 p-3">
         <Info size={14} className="text-blue-400 shrink-0 mt-0.5" />
         <div className="text-[11px] text-blue-600 leading-relaxed">
-          <strong>Card Fusion:</strong> Ghép 2 card cùng loại cùng loại để có cơ hội nhận card hiếm hơn. Tuần này (Thứ 7-CN) có bonus!
+          <strong>Card Fusion:</strong> Ghép 2 card cùng loại cùng loại để có cơ hội nhận card hiếm
+          hơn. Tuần này (Thứ 7-CN) có bonus!
         </div>
       </div>
 
@@ -137,9 +146,7 @@ export function CardFusionPanel({ userId }: { userId: string }) {
           <p className="text-sm font-bold text-slate-400">
             Cần tối thiểu 2 card cùng loại để fusion
           </p>
-          <p className="text-xs text-slate-500">
-            Gacha pull nhiều hơn để có card trùng lặp!
-          </p>
+          <p className="text-xs text-slate-500">Gacha pull nhiều hơn để có card trùng lặp!</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -221,7 +228,10 @@ export function CardFusionPanel({ userId }: { userId: string }) {
               >
                 🎴
               </div>
-              <span className="text-[10px] font-bold" style={{ color: RARITY_COLORS[selected.rarity] }}>
+              <span
+                className="text-[10px] font-bold"
+                style={{ color: RARITY_COLORS[selected.rarity] }}
+              >
                 {RARITY_LABELS[selected.rarity]}
               </span>
             </div>
@@ -241,7 +251,10 @@ export function CardFusionPanel({ userId }: { userId: string }) {
               >
                 🎴
               </div>
-              <span className="text-[10px] font-bold" style={{ color: RARITY_COLORS[rarityAbove(selected.rarity)] }}>
+              <span
+                className="text-[10px] font-bold"
+                style={{ color: RARITY_COLORS[rarityAbove(selected.rarity)] }}
+              >
                 {RARITY_LABELS[rarityAbove(selected.rarity)]}
               </span>
             </div>
@@ -303,9 +316,7 @@ export function CardFusionPanel({ userId }: { userId: string }) {
                   >
                     ✨
                   </motion.div>
-                  <h3 className="text-lg font-black text-white mb-1">
-                    Fusion Thành Công!
-                  </h3>
+                  <h3 className="text-lg font-black text-white mb-1">Fusion Thành Công!</h3>
                   <div
                     className="inline-block rounded-full px-3 py-1 text-xs font-black mb-3"
                     style={{
@@ -315,20 +326,22 @@ export function CardFusionPanel({ userId }: { userId: string }) {
                   >
                     {RARITY_LABELS[result.resultRarity]}
                   </div>
-                  <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-                    {result.lore}
-                  </p>
+                  <p className="text-sm text-slate-400 mb-4 leading-relaxed">{result.lore}</p>
                   <div className="flex justify-center gap-4 mb-4">
                     {result.fusionXP > 0 && (
                       <div className="flex items-center gap-1">
                         <Zap size={14} className="text-amber-400" />
-                        <span className="text-sm font-black text-amber-400">+{result.fusionXP} XP</span>
+                        <span className="text-sm font-black text-amber-400">
+                          +{result.fusionXP} XP
+                        </span>
                       </div>
                     )}
                     {result.consolationPoints > 0 && (
                       <div className="flex items-center gap-1">
                         <Star size={14} className="text-blue-400" />
-                        <span className="text-sm font-black text-blue-400">+{result.consolationPoints} pts</span>
+                        <span className="text-sm font-black text-blue-400">
+                          +{result.consolationPoints} pts
+                        </span>
                       </div>
                     )}
                   </div>
@@ -342,12 +355,8 @@ export function CardFusionPanel({ userId }: { userId: string }) {
                   >
                     😢
                   </motion.div>
-                  <h3 className="text-lg font-black text-white mb-1">
-                    Fusion Thất Bại
-                  </h3>
-                  <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-                    {result.lore}
-                  </p>
+                  <h3 className="text-lg font-black text-white mb-1">Fusion Thất Bại</h3>
+                  <p className="text-sm text-slate-400 mb-4 leading-relaxed">{result.lore}</p>
                   {result.consolationPoints > 0 && (
                     <div className="flex justify-center gap-2 mb-4">
                       <Star size={14} className="text-blue-400" />
@@ -380,9 +389,9 @@ function rarityAbove(rarity: string): string {
 
 function baseSuccessRate(rarity: string): number {
   const rates: Record<string, number> = {
-    common: 0.30,
+    common: 0.3,
     uncommon: 0.25,
-    rare: 0.20,
+    rare: 0.2,
     epic: 0.15,
     legendary: 0,
   };

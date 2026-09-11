@@ -4,8 +4,8 @@ benchmark_models.py — Compare BMO on-device model vs DWaste baseline.
 Reports mAP, latency, energy per scan, and model size for:
   - DWaste YOLOv8n (Kunwar 2025)
   - TrashNet ResNet-50 baseline
-  - BMO MLP waste-classifier (ours, from public/models/waste_classifier_v1.onnx)
-  - BMO Quantised INT8 (ours, hypothetical)
+  - BMO MLP waste-classifier (shipped artifact, measured separately below)
+  - BMO Quantised INT8 (planned experiment, not a reported result)
 
 Headline numbers (DWaste / TrashNet) are calibrated from the cited
 papers and from public MobileNetV3-Small ONNX benchmarks on
@@ -46,9 +46,8 @@ from pathlib import Path
 from typing import Any
 
 
-# Headline numbers (calibrated from cited papers / MLPerf). The
-# "actual" BMO row is filled in by the live inference block below
-# when the model artifact is present.
+# Reference numbers are retained for context only. They are not measurements
+# of the shipped BMO MLP and must never be presented as project results.
 BENCHMARKS: list[dict[str, Any]] = [
     {
         "name": "DWaste YOLOv8n (quantised)",
@@ -71,8 +70,8 @@ BENCHMARKS: list[dict[str, Any]] = [
         "paper": "Thung & Yang 2016 (offline baseline)",
     },
     {
-        "name": "BMO MobileNetV3-Small (ours, MLPerf)",
-        "category": "ours",
+        "name": "MobileNetV3-Small reference (MLPerf)",
+        "category": "reference",
         "mAP": 0.92,
         "latency_ms": 80,
         "energy_per_scan_mJ": 28,
@@ -81,8 +80,8 @@ BENCHMARKS: list[dict[str, Any]] = [
         "paper": "Google MLPerf MobileNetV3-Small INT8 (calibration)",
     },
     {
-        "name": "BMO Quantised INT8 (ours, MLPerf)",
-        "category": "ours",
+        "name": "MobileNetV3-Small INT8 reference (MLPerf)",
+        "category": "reference",
         "mAP": 0.91,
         "latency_ms": 42,
         "energy_per_scan_mJ": 14,
@@ -187,14 +186,15 @@ def render_markdown(live: dict[str, Any] | None, git_full: str, git_short: str) 
         f"_Source commit: `{git_full}` (short: `{git_short}`)_",
         f"_Source script: [`scripts/benchmark_models.py`](benchmark_models.py)_",
         "",
-        "## Headline",
+        "## Reference context (not project evidence)",
         "",
-        "| Metric | DWaste (Kunwar 2025) | BMO (ours, MLPerf) | Δ |",
-        "|---|---|---|---|",
-        f"| mAP / top-1 | {BENCHMARKS[0]['mAP']:.2f} | {BENCHMARKS[2]['mAP']:.2f} | +{BENCHMARKS[2]['mAP'] - BENCHMARKS[0]['mAP']:.2f} |",
-        f"| Latency (ms) | {BENCHMARKS[0]['latency_ms']:.0f} | {BENCHMARKS[2]['latency_ms']:.0f} | -{(1 - BENCHMARKS[2]['latency_ms']/BENCHMARKS[0]['latency_ms'])*100:.0f}% |",
-        f"| Energy / scan (mJ) | {BENCHMARKS[0]['energy_per_scan_mJ']:.0f} | {BENCHMARKS[2]['energy_per_scan_mJ']:.0f} | -{(1 - BENCHMARKS[2]['energy_per_scan_mJ']/BENCHMARKS[0]['energy_per_scan_mJ'])*100:.0f}% |",
-        f"| Model size (MB) | {BENCHMARKS[0]['size_MB']:.1f} | {BENCHMARKS[2]['size_MB']:.1f} | -{(1 - BENCHMARKS[2]['size_MB']/BENCHMARKS[0]['size_MB'])*100:.0f}% |",
+        "The following published/reference values provide scale only. They are not a head-to-head result because the datasets, devices and model are different.",
+        "",
+        "| Metric | Reference only |",
+        "|---|---|",
+        f"| DWaste reference mAP / top-1 | {BENCHMARKS[0]['mAP']:.2f} |",
+        f"| MobileNetV3-Small reference latency | {BENCHMARKS[2]['latency_ms']:.0f} ms |",
+        f"| MobileNetV3-Small INT8 reference latency | {BENCHMARKS[3]['latency_ms']:.0f} ms |",
         "",
         "## Full table",
         "",
@@ -250,23 +250,21 @@ def render_markdown(live: dict[str, Any] | None, git_full: str, git_short: str) 
         "",
         "## Federated-training stack (RQ2)",
         "",
-        "| Property | DWaste | BMO |",
-        "|---|---|---|",
-        "| Federated rounds @ ε ≤ 1.0 | not supported | **50+** |",
-        "| DP guarantee | none | **Rényi** |",
-        "| Audit log completeness | n/a | **100%** (Merkle-rooted) |",
-        "| Smart-bin route optimisation | none | **OR-Tools / greedy 2-opt** |",
+        "| Property | Status in this repository |",
+        "|---|---|",
+        "| Federated rounds @ ε ≤ 1.0 | protocol/instrumentation; result pending |",
+        "| DP guarantee | accountant implemented; deployment audit pending |",
+        "| Audit log completeness | implementation present; measured coverage pending |",
+        "| Smart-bin route optimisation | algorithm present; field benchmark pending |",
         "",
         "## Discussion",
         "",
-        "BMO's quantised MobileNetV3-Small dominates DWaste on every axis that matters",
-        "for real adolescent deployment in Vietnam: latency under 50 ms (less than one perception",
-        "tick), 14 mJ/scan (≈ 14 million scans per battery charge on a 4000 mAh phone),",
-        "and a model size that fits in < 1.5 MB on the App Store. Federated training +",
-        "Rényi DP budget is the privacy innovation; the COM-B-grounded behaviour-change",
-        "stack is the behaviour innovation; the smart-bin digital twin is the systems-level",
-        "innovation. Together they cross the chasm from prototype (DWaste) to a privacy-",
-        "compliant, real-world deployed system.",
+        "The shipped artifact is a deterministic 16-feature MLP trained on synthetic centroids.",
+        "Its synthetic validation score and CPU timing are reported only in the live-run section",
+        "and are not evidence of real-world image accuracy. A national-level claim requires a",
+        "locked, site-disjoint Vietnamese-waste image test set, device-stratified latency/energy",
+        "measurements and a preregistered analysis. Federated learning and Rényi DP are",
+        "instrumented capabilities; their effectiveness remains an empirical question.",
         "",
         "## Provenance",
         "",

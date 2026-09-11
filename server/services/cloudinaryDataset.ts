@@ -60,18 +60,15 @@ export async function uploadToDataset(
   }
 
   try {
-    const result = await cloudinary.uploader.upload(
-      `data:image/jpeg;base64,${base64Data}`,
-      {
-        folder: `${FOLDER}/${metadata.category}`,
-        public_id: `scan_${metadata.scanId}_${Date.now()}`,
-        tags: [...TAGS, `user_${metadata.userId}`, `cat_${metadata.category}`],
-        // Anonymize: strip EXIF (GPS, camera info)
-        // Cloudinary has built-in EXIF stripping for uploads
-        overwrite: false,
-        unique_filename: true,
-      },
-    );
+    const result = await cloudinary.uploader.upload(`data:image/jpeg;base64,${base64Data}`, {
+      folder: `${FOLDER}/${metadata.category}`,
+      public_id: `scan_${metadata.scanId}_${Date.now()}`,
+      tags: [...TAGS, `user_${metadata.userId}`, `cat_${metadata.category}`],
+      // Anonymize: strip EXIF (GPS, camera info)
+      // Cloudinary has built-in EXIF stripping for uploads
+      overwrite: false,
+      unique_filename: true,
+    });
 
     return {
       url: result.secure_url,

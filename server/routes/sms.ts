@@ -7,17 +7,48 @@
  */
 
 import { Router } from "express";
-import { isTwilioConfigured, parseInboundWebhook, sendSMS, formatSMSReply, handleUSSD } from "../services/smsChannel.js";
+import {
+  isTwilioConfigured,
+  parseInboundWebhook,
+  sendSMS,
+  formatSMSReply,
+  handleUSSD,
+} from "../services/smsChannel.js";
 import { resolveLocale } from "../services/localeRouter.js";
 import { visionPipeline } from "../services/visionPipeline.js";
 import { transcribeAudio } from "../services/voiceSTT.js";
 import { getGroq, getGemini } from "../services/aiRouter.js";
+import { validateToken } from "../auth.js";
+import twilio from "twilio";
 
 function requireAdmin(req: any, res: any, next: () => void) {
-  const adminKey = req.headers["x-admin-key"];
-  if (adminKey !== process.env.ADMIN_API_KEY) {
-    res.status(403).json({ error: "Admin required" });
-    return;
+  const configuredKey = process.env.ADMIN_API_KEY?.trim();
+  const suppliedKey =
+    typeof req.headers["x-admin-key"] === "string" ? req.headers["x-admin-key"] : "";
+  if (configuredKey && suppliedKey === configuredKey) return next();
+  const result = validateToken(req.headers.authorization);
+  if (!result) return res.status(401).json({ error: "Unauthorized" });
+  if (!result.isAdmin) return res.status(403).json({ error: "Admin required" });
+  req.userNick = result.nick;
+  next();
+}
+
+function requireTwilioSignature(req: any, res: any, next: () => void) {
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
+  if (!authToken) return res.status(503).json({ error: "Twilio webhook is not configured" });
+  const signature =
+    typeof req.headers["x-twilio-signature"] === "string" ? req.headers["x-twilio-signature"] : "";
+  if (!signature) return res.status(403).json({ error: "Invalid Twilio signature" });
+
+  const configuredBase = (process.env.PUBLIC_API_URL || process.env.PUBLIC_APP_URL || "")
+    .trim()
+    .replace(/\/$/, "");
+  const requestUrl = configuredBase
+    ? `${configuredBase}${req.originalUrl}`
+    : `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+  const params = req.body && typeof req.body === "object" ? req.body : {};
+  if (!twilio.validateRequest(authToken, signature, requestUrl, params)) {
+    return res.status(403).json({ error: "Invalid Twilio signature" });
   }
   next();
 }
@@ -29,8 +60,8 @@ export function smsRouter(): Router {
     res.json({ configured: isTwilioConfigured() });
   });
 
-  // POST /api/sms/inbound - Twilio webhook (no auth; Twilio's signature is the trust boundary)
-  router.post("/inbound", async (req, res) => {
+  // POST /api/sms/inbound - Twilio's signed webhook is the trust boundary.
+  router.post("/inbound", requireTwilioSignature, async (req, res) => {
     try {
       const inbound = parseInboundWebhook(req.body || {});
       const country = (req.body?.FromCountry as string) || "VN";
@@ -50,13 +81,17 @@ export function smsRouter(): Router {
           } else {
             const response = await ai.models.generateContent({
               model: "gemini-2.5-flash",
-              contents: [{
-                role: "user",
-                parts: [
-                  { text: "Classify this waste image in 1 word: plastic/paper/glass/metal/organic/hazard" },
-                  { inlineData: { data: buf.toString("base64"), mimeType: "image/jpeg" } },
-                ],
-              }],
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      text: "Classify this waste image in 1 word: plastic/paper/glass/metal/organic/hazard",
+                    },
+                    { inlineData: { data: buf.toString("base64"), mimeType: "image/jpeg" } },
+                  ],
+                },
+              ],
             });
             const text = response?.text || "";
             const cat = visionPipeline.parseGeminiResponseToCategory(text);
@@ -84,7 +119,10 @@ export function smsRouter(): Router {
             max_tokens: 200,
             temperature: 0.6,
           });
-          reply = (completion.choices[0]?.message?.content || "Sorry, I couldn't reply.").slice(0, 320);
+          reply = (completion.choices[0]?.message?.content || "Sorry, I couldn't reply.").slice(
+            0,
+            320,
+          );
         }
       }
 

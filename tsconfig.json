@@ -17,6 +17,7 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "strict": true,
+    "useUnknownInCatchVariables": false,
     "noUncheckedIndexedAccess": false,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
@@ -31,6 +32,7 @@
   },
   "exclude": [
     "node_modules",
+    "plugins-main",
     "dist",
     "coverage",
     "scripts/_archive"

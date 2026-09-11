@@ -40,6 +40,17 @@ export interface User {
   engagementScore?: number;
   createdAt?: string;
   lastActive?: string;
+  totalScans?: number;
+  accuracy?: number;
+  quizzesCompleted?: number;
+  chatMessagesCount?: number;
+  binAccessScore?: number;
+  friendCount?: number;
+  environmentalIdentityScore?: number;
+  streakDays?: number;
+  lastActiveAt?: number;
+  lastWheelClaimDate?: string;
+  claimedStreakGifts?: number[];
 }
 
 export interface RewardItem {
@@ -125,7 +136,10 @@ export interface ConfusionMatrixData {
   matrix: Record<string, Record<string, number>>;
   labels: string[];
   overallAccuracy: number;
-  perClassMetrics: Record<string, { precision: number; recall: number; f1: number; support: number }>;
+  perClassMetrics: Record<
+    string,
+    { precision: number; recall: number; f1: number; support: number }
+  >;
 }
 
 // Experiment types
@@ -209,7 +223,7 @@ export interface PvPMatchmakingResult {
 export interface Tournament {
   id: string;
   weekStart: string; // ISO date
-  weekEnd: string;   // ISO date
+  weekEnd: string; // ISO date
   status: "upcoming" | "active" | "completed";
   participants: TournamentParticipant[];
   bracket: TournamentBracket | null;
@@ -265,24 +279,25 @@ export interface TournamentStatus {
 export interface Clan {
   id: string;
   name: string;
-  tag: string;          // short tag like "ECO", "BIN"
+  tag: string; // short tag like "ECO", "BIN"
   leaderId: string;
   memberIds: string[];
-  exp: number;          // total clan EXP
+  memberCount?: number;
+  exp: number; // total clan EXP
   level: number;
   bio: string;
   createdAt: number;
   weeklyDonations: number;
-  weeklyGoal: number;   // target donations for the week
-  avatarSeed: string;  // for generated avatar
+  weeklyGoal: number; // target donations for the week
+  avatarSeed: string; // for generated avatar
 }
 
 export interface ClanMember {
   userId: string;
   nick: string;
   role: "owner" | "officer" | "member";
-  expContributed: number;   // total EXP donated to clan
-  weeklyDonation: number;   // this week's donation
+  expContributed: number; // total EXP donated to clan
+  weeklyDonation: number; // this week's donation
   joinedAt: number;
   level: number;
 }
@@ -294,7 +309,7 @@ export interface ClanQuest {
   descVi: string;
   target: number;
   progress: number;
-  reward: number;   // EXP reward for completion
+  reward: number; // EXP reward for completion
   completed: boolean;
   expiresAt: number;
 }

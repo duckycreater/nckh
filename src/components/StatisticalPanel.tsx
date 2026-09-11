@@ -8,9 +8,7 @@ interface StatisticalPanelProps {
 export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps) {
   if (!data) {
     return (
-      <div className="text-center py-8 text-gray-400 italic">
-        No experiment data available yet.
-      </div>
+      <div className="text-center py-8 text-gray-400 italic">No experiment data available yet.</div>
     );
   }
 
@@ -21,12 +19,25 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
     <div className="space-y-8">
       {/* Hypotheses Header */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-        <h3 className="font-bold text-emerald-800 text-sm mb-2">Research Hypotheses - {experimentName}</h3>
+        <h3 className="font-bold text-emerald-800 text-sm mb-2">
+          Research Hypotheses - {experimentName}
+        </h3>
         <div className="grid md:grid-cols-2 gap-2 text-xs text-emerald-700">
-          <p><span className="font-bold">H1:</span> Adaptive rewards increase 7-day retention by &gt;20% (vs control)</p>
-          <p><span className="font-bold">H2:</span> Mentor chatbot mode produces higher engagement than Playful</p>
-          <p><span className="font-bold">H3:</span> Novelty decay detection reduces dropout by &gt;30%</p>
-          <p><span className="font-bold">H4:</span> Social interactions increase retention by &gt;15%</p>
+          <p>
+            <span className="font-bold">H1:</span> Adaptive rewards increase 7-day retention by
+            &gt;20% (vs control)
+          </p>
+          <p>
+            <span className="font-bold">H2:</span> Mentor chatbot mode produces higher engagement
+            than Playful
+          </p>
+          <p>
+            <span className="font-bold">H3:</span> Novelty decay detection reduces dropout by
+            &gt;30%
+          </p>
+          <p>
+            <span className="font-bold">H4:</span> Social interactions increase retention by &gt;15%
+          </p>
         </div>
       </div>
 
@@ -36,13 +47,14 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
           <div className="flex items-start gap-3">
             <div className="text-blue-500 mt-0.5">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
             </div>
             <div>
               <h4 className="font-bold text-blue-800 text-sm">Power Analysis</h4>
               <p className="text-xs text-blue-700 mt-1">
-                Minimum detectable effect at 80% power: <span className="font-bold">{analysis.minimumDetectableEffect}</span>
+                Minimum detectable effect at 80% power:{" "}
+                <span className="font-bold">{analysis.minimumDetectableEffect}</span>
                 {analysis.powerAnalysis?.requiredSampleSize && (
                   <> (requires n = {analysis.powerAnalysis.requiredSampleSize} per group)</>
                 )}
@@ -76,7 +88,9 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
                   <td className="p-2 text-right">{anova.dfBetween}</td>
                   <td className="p-2 text-right">—</td>
                   <td className="p-2 text-right font-bold">{anova.F}</td>
-                  <td className={`p-2 text-right font-bold ${anova.pValue < 0.05 ? "text-emerald-600" : "text-gray-600"}`}>
+                  <td
+                    className={`p-2 text-right font-bold ${anova.pValue < 0.05 ? "text-emerald-600" : "text-gray-600"}`}
+                  >
                     {anova.pValue < 0.001 ? "< 0.001" : anova.pValue.toFixed(4)}
                   </td>
                   <td className="p-2 text-right">{anova.etaSquared}</td>
@@ -94,8 +108,16 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
             </table>
             {anova.pValue < 0.05 && (
               <p className="text-xs text-emerald-600 font-bold mt-2">
-                SIGNIFICANT: There are statistically significant differences between group means (p &lt; 0.05).
-                Effect size (η²): {anova.etaSquared < 0.01 ? "negligible" : anova.etaSquared < 0.06 ? "small" : anova.etaSquared < 0.14 ? "medium" : "large"}.
+                SIGNIFICANT: There are statistically significant differences between group means (p
+                &lt; 0.05). Effect size (η²):{" "}
+                {anova.etaSquared < 0.01
+                  ? "negligible"
+                  : anova.etaSquared < 0.06
+                    ? "small"
+                    : anova.etaSquared < 0.14
+                      ? "medium"
+                      : "large"}
+                .
               </p>
             )}
           </div>
@@ -127,40 +149,64 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
               </thead>
               <tbody>
                 {pairwiseComparisons.map((c: any, i: number) => (
-                  <tr key={i} className={`border-b border-gray-50 ${c.significant ? "bg-emerald-50/30" : ""}`}>
+                  <tr
+                    key={i}
+                    className={`border-b border-gray-50 ${c.significant ? "bg-emerald-50/30" : ""}`}
+                  >
                     <td className="p-3 font-medium text-sm">{c.comparison}</td>
                     <td className="p-3 text-right font-mono">{c.meanA?.toFixed(4)}</td>
                     <td className="p-3 text-right font-mono">{c.meanB?.toFixed(4)}</td>
                     <td className="p-3 text-right font-mono">{c.tStatistic?.toFixed(3)}</td>
                     <td className="p-3 text-right font-mono">{c.degreesOfFreedom}</td>
-                    <td className={`p-3 text-right font-bold ${
-                      c.pValue < 0.001 ? "text-emerald-700" :
-                      c.pValue < 0.01 ? "text-emerald-600" :
-                      c.pValue < 0.05 ? "text-amber-600" : "text-gray-500"
-                    }`}>
+                    <td
+                      className={`p-3 text-right font-bold ${
+                        c.pValue < 0.001
+                          ? "text-emerald-700"
+                          : c.pValue < 0.01
+                            ? "text-emerald-600"
+                            : c.pValue < 0.05
+                              ? "text-amber-600"
+                              : "text-gray-500"
+                      }`}
+                    >
                       {c.pValue < 0.001 ? "< 0.001" : c.pValue.toFixed(4)}
-                      {c.bonferroniCorrected && <span className="block text-xs text-gray-400 font-normal">(Bonf.)</span>}
+                      {c.bonferroniCorrected && (
+                        <span className="block text-xs text-gray-400 font-normal">(Bonf.)</span>
+                      )}
                     </td>
-                    <td className={`p-3 text-right font-mono ${
-                      c.cohensD < 0.2 ? "text-gray-400" :
-                      c.cohensD < 0.5 ? "text-amber-600" :
-                      c.cohensD < 0.8 ? "text-orange-600" : "text-red-600"
-                    }`}>
+                    <td
+                      className={`p-3 text-right font-mono ${
+                        c.cohensD < 0.2
+                          ? "text-gray-400"
+                          : c.cohensD < 0.5
+                            ? "text-amber-600"
+                            : c.cohensD < 0.8
+                              ? "text-orange-600"
+                              : "text-red-600"
+                      }`}
+                    >
                       {c.cohensD?.toFixed(3)}
                     </td>
                     <td className="p-3 text-right">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        c.effectSizeLabel === "large" ? "bg-red-100 text-red-700" :
-                        c.effectSizeLabel === "medium" ? "bg-orange-100 text-orange-700" :
-                        c.effectSizeLabel === "small" ? "bg-amber-100 text-amber-700" :
-                        "bg-gray-100 text-gray-600"
-                      }`}>
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          c.effectSizeLabel === "large"
+                            ? "bg-red-100 text-red-700"
+                            : c.effectSizeLabel === "medium"
+                              ? "bg-orange-100 text-orange-700"
+                              : c.effectSizeLabel === "small"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
                         {c.effectSizeLabel}
                       </span>
                     </td>
-                    <td className={`p-3 text-right ${
-                      (c.power || 0) >= 0.8 ? "text-emerald-600" : "text-amber-600"
-                    }`}>
+                    <td
+                      className={`p-3 text-right ${
+                        (c.power || 0) >= 0.8 ? "text-emerald-600" : "text-amber-600"
+                      }`}
+                    >
                       {(c.power || 0).toFixed(3)}
                     </td>
                     <td className="p-3 text-right font-mono text-xs">
@@ -183,7 +229,10 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
           {pairwiseComparisons.some((c: any) => !c.normalA || !c.normalB) && (
             <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
               <p className="font-bold mb-1">Warning: Normality Assumption</p>
-              <p>Some groups may not follow a normal distribution (Shapiro-Wilk p &lt; 0.05). Consider using Mann-Whitney U test as a non-parametric alternative.</p>
+              <p>
+                Some groups may not follow a normal distribution (Shapiro-Wilk p &lt; 0.05).
+                Consider using Mann-Whitney U test as a non-parametric alternative.
+              </p>
             </div>
           )}
         </div>
@@ -192,7 +241,9 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
       {/* Retention Rates with Wilson CI */}
       {retentionRate && retentionRate.length > 0 && (
         <div>
-          <h3 className="font-bold text-gray-800 mb-3">Retention Rates by Group (with 95% Wilson CI)</h3>
+          <h3 className="font-bold text-gray-800 mb-3">
+            Retention Rates by Group (with 95% Wilson CI)
+          </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -207,7 +258,7 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
                 {retentionRate.map((r: any, i: number) => {
                   const rate = r.rate || 0;
                   const n = r.sampleSize || 1;
-                  const se = Math.sqrt(rate * (1 - rate) / n);
+                  const se = Math.sqrt((rate * (1 - rate)) / n);
                   const ciLower = Math.max(0, rate - 1.96 * se);
                   const ciUpper = Math.min(1, rate + 1.96 * se);
                   return (
@@ -215,9 +266,15 @@ export function StatisticalPanel({ data, experimentName }: StatisticalPanelProps
                       <td className="p-3 font-medium capitalize">{r.group}</td>
                       <td className="p-3 text-right font-mono">{n}</td>
                       <td className="p-3 text-right">
-                        <span className={`font-bold ${
-                          rate >= 0.7 ? "text-emerald-600" : rate >= 0.4 ? "text-amber-600" : "text-red-500"
-                        }`}>
+                        <span
+                          className={`font-bold ${
+                            rate >= 0.7
+                              ? "text-emerald-600"
+                              : rate >= 0.4
+                                ? "text-amber-600"
+                                : "text-red-500"
+                          }`}
+                        >
                           {(rate * 100).toFixed(1)}%
                         </span>
                       </td>

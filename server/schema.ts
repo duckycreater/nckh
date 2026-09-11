@@ -275,7 +275,9 @@ export async function runSchema(): Promise<void> {
     console.warn("[Schema] No DB connection, skipping schema creation.");
     return;
   }
-  const statements = SCHEMA_SQL.split(";").map((s) => s.trim()).filter(Boolean);
+  const statements = SCHEMA_SQL.split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
   for (const stmt of statements) {
     try {
       await db.query(stmt + ";");

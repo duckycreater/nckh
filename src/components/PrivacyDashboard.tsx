@@ -1,12 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  getDpAccountant,
-  resetDpAccountant,
-  DEFAULT_ALPHA_GRID,
-  type DpState,
-  type RenyiDpAccountant,
-} from "../services/dpAccountant";
+import { DEFAULT_ALPHA_GRID, RenyiDpAccountant, type DpState } from "../services/dpAccountant";
+import { getAuthHeaders } from "../lib/auth";
 
 export interface PrivacyDashboardProps {
   endpoint?: string;
@@ -16,11 +11,13 @@ export interface PrivacyDashboardProps {
 interface PrivacyAudit {
   merkleRoot: string;
   rounds: number;
-  lastRoundAt: string;
+  lastRoundAt: string | null;
   withinBudget: boolean;
 }
 
 interface PrivacyFeed {
+  provenance?: "live" | "offline";
+  accountingScope?: "server_process";
   renyiCurve: { alpha: number; epsAlpha: number }[];
   epsilonAtDelta: number;
   deltaAtEpsilon: number;
@@ -31,20 +28,21 @@ interface PrivacyFeed {
 }
 
 const DEFAULT_FEED: PrivacyFeed = {
+  provenance: "offline",
   renyiCurve: [],
   epsilonAtDelta: 0,
   deltaAtEpsilon: 0,
   withinBudget: true,
   recommendedSigma: null,
   rounds: 0,
-  audit: { merkleRoot: "", rounds: 0, lastRoundAt: "—", withinBudget: true },
+  audit: { merkleRoot: "", rounds: 0, lastRoundAt: null, withinBudget: true },
 };
 
 const MAX_EPSILON = 1.0;
 const TARGET_DELTA = 1e-5;
 
 export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
-  endpoint = "/api/privacy/state",
+  endpoint = "/api/federated/privacy",
   refreshSeconds = 30,
 }) => {
   const [feed, setFeed] = useState<PrivacyFeed>(DEFAULT_FEED);
@@ -52,7 +50,7 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
   const [snapshot, setSnapshot] = useState<DpState | null>(null);
 
   // Local accountant for offline / browser-only demo.
-  const local = useMemo<RenyiDpAccountant>(() => getDpAccountant(), []);
+  const local = useMemo(() => new RenyiDpAccountant(), []);
 
   const recordLocal = (sigma = 0.6) => {
     local.setConfig({ clipNorm: 1.0, sigma });
@@ -61,6 +59,7 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
     setSnapshot(state);
     setFeed((prev) => ({
       ...prev,
+      provenance: "offline",
       rounds: state.rounds,
       renyiCurve: state.renyiCurve,
       epsilonAtDelta: state.epsilonAtDelta,
@@ -74,7 +73,7 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
     let cancelled = false;
     const fetchOnce = async () => {
       try {
-        const r = await fetch(endpoint);
+        const r = await fetch(endpoint, { headers: getAuthHeaders() });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const json = (await r.json()) as PrivacyFeed;
         if (!cancelled) setFeed(json);
@@ -84,6 +83,7 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
           setSnapshot(state);
           setFeed((prev) => ({
             ...prev,
+            provenance: "offline",
             rounds: state.rounds,
             renyiCurve: state.renyiCurve,
             epsilonAtDelta: state.epsilonAtDelta,
@@ -114,22 +114,48 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
             Privacy Dashboard — Rényi DP Budget Tracker
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Cumulative (ε, δ) across federated rounds. COPPA + GDPR-K compliant.
+            Cumulative (ε, δ) estimate across federated-learning rounds.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => recordLocal(0.6)}
-            className="rounded-full bg-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-700"
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              feed.provenance === "live"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-amber-100 text-amber-800"
+            }`}
           >
-            +1 round
-          </button>
-          <button
-            onClick={() => resetDpAccountant()}
-            className="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            reset
-          </button>
+            {feed.provenance === "live" ? "LIVE · SERVER SESSION" : "OFFLINE PREVIEW"}
+          </span>
+          {feed.provenance !== "live" && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => recordLocal(0.6)}
+                className="rounded-full bg-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-700"
+              >
+                +1 simulated round
+              </button>
+              <button
+                onClick={() => {
+                  local.reset();
+                  const state = local.computeState();
+                  setSnapshot(state);
+                  setFeed({
+                    ...DEFAULT_FEED,
+                    rounds: state.rounds,
+                    renyiCurve: state.renyiCurve,
+                    epsilonAtDelta: state.epsilonAtDelta,
+                    deltaAtEpsilon: state.deltaAtEpsilon,
+                    withinBudget: state.withinBudget,
+                    recommendedSigma: state.recommendedSigma,
+                  });
+                }}
+                className="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                reset preview
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -160,10 +186,25 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
 
       <AuditCard audit={feed.audit} />
 
+      {feed.accountingScope === "server_process" && (
+        <p className="text-[10px] text-slate-500">
+          The live total covers the current server process. Export persisted round records before
+          using these figures in a research report.
+        </p>
+      )}
+
       {loading && <p className="text-xs text-slate-400">Loading…</p>}
       {snapshot && (
         <pre className="overflow-x-auto rounded-2xl bg-slate-900 px-3 py-2 text-[10px] text-slate-100">
-          {JSON.stringify({ rounds: snapshot.rounds, withinBudget: snapshot.withinBudget, recommendedSigma: snapshot.recommendedSigma }, null, 2)}
+          {JSON.stringify(
+            {
+              rounds: snapshot.rounds,
+              withinBudget: snapshot.withinBudget,
+              recommendedSigma: snapshot.recommendedSigma,
+            },
+            null,
+            2,
+          )}
         </pre>
       )}
     </div>
@@ -196,7 +237,11 @@ const BudgetCard: React.FC<{ label: string; value: string; pct: number; accent: 
   );
 };
 
-const BudgetBar: React.FC<{ epsilon: number; max: number; rounds: number }> = ({ epsilon, max, rounds }) => {
+const BudgetBar: React.FC<{ epsilon: number; max: number; rounds: number }> = ({
+  epsilon,
+  max,
+  rounds,
+}) => {
   const pct = Math.min(100, (epsilon / max) * 100);
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
@@ -216,22 +261,25 @@ const BudgetBar: React.FC<{ epsilon: number; max: number; rounds: number }> = ({
           style={{ backgroundColor: pct > 90 ? "#dc2626" : pct > 60 ? "#d97706" : "#0ea5e9" }}
         />
       </div>
-      <p className="mt-1 text-[10px] text-slate-500">
-        α-grid: {DEFAULT_ALPHA_GRID.join(", ")}
-      </p>
+      <p className="mt-1 text-[10px] text-slate-500">α-grid: {DEFAULT_ALPHA_GRID.join(", ")}</p>
     </div>
   );
 };
 
 const RenyiCurvePlot: React.FC<{ curve: { alpha: number; epsAlpha: number }[] }> = ({ curve }) => {
   if (!curve.length) {
-    return <div className="text-xs text-slate-500">Rényi divergence curve will appear after the first round.</div>;
+    return (
+      <div className="text-xs text-slate-500">
+        Rényi divergence curve will appear after the first round.
+      </div>
+    );
   }
   const max = Math.max(1e-9, ...curve.map((c) => c.epsAlpha));
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-        Rényi divergence ε(α) over α ∈ [{curve[0].alpha.toFixed(2)}, {curve[curve.length - 1].alpha.toFixed(1)}]
+        Rényi divergence ε(α) over α ∈ [{curve[0].alpha.toFixed(2)},{" "}
+        {curve[curve.length - 1].alpha.toFixed(1)}]
       </p>
       <svg viewBox="0 0 320 120" className="mt-3 w-full">
         <line x1="0" y1="110" x2="320" y2="110" stroke="#94a3b8" />
@@ -249,12 +297,15 @@ const RenyiCurvePlot: React.FC<{ curve: { alpha: number; epsAlpha: number }[] }>
 const AuditCard: React.FC<{ audit: PrivacyAudit }> = ({ audit }) => {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Tamper-evident audit</p>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        Tamper-evident audit
+      </p>
       <p className="mt-1 font-mono text-xs text-slate-600 dark:text-slate-300 break-all">
         Merkle root: {audit.merkleRoot ? `${audit.merkleRoot.slice(0, 64)}` : "(empty)"}
       </p>
       <p className="mt-1 text-[10px] text-slate-500">
-        Last round: {audit.lastRoundAt} · {audit.rounds} rounds · {audit.withinBudget ? "within budget" : "OVER BUDGET"}
+        Last round: {audit.lastRoundAt ?? "none yet"} · {audit.rounds} rounds ·{" "}
+        {audit.withinBudget ? "within budget" : "OVER BUDGET"}
       </p>
     </div>
   );

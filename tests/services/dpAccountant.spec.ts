@@ -51,7 +51,10 @@ describe("composeHeterogeneous (Layer 2.4 regression)", () => {
     // Per-round epsilon is identical for all σ=1.1, clip=1.0 clients, so
     // the heterogeneous sum with N clients is exactly N × ε_round.
     const single = composeHeterogeneous([mk(1.1)], 10);
-    const ten = composeHeterogeneous(Array.from({ length: 10 }, () => mk(1.1)), 10);
+    const ten = composeHeterogeneous(
+      Array.from({ length: 10 }, () => mk(1.1)),
+      10,
+    );
     const ratio = ten / (single * 10);
     assert.ok(Math.abs(ratio - 1) < 1e-9, `ratio ${ratio} ≠ 1`);
   });
@@ -76,9 +79,7 @@ describe("composeHeterogeneous (Layer 2.4 regression)", () => {
 
 describe("composeHeterogeneousToEpsilon (RDP → (ε, δ))", () => {
   it("produces a finite ε for canonical σ=1.1 case", () => {
-    const rounds: HeterogeneousRound[] = Array.from({ length: 10 }, () =>
-      mk(1.1),
-    );
+    const rounds: HeterogeneousRound[] = Array.from({ length: 10 }, () => mk(1.1));
     const out = composeHeterogeneousToEpsilon(rounds, 1e-5);
     assert.ok(Number.isFinite(out.epsilon), `got ${out.epsilon}`);
     assert.ok(out.epsilon > 0);

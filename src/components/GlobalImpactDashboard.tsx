@@ -19,7 +19,8 @@ import { Globe, Leaf, TreePine, Zap, Recycle, TreeDeciduous, Factory, Apple } fr
 import { TrustPanel } from "./TrustPanel";
 import { LiveFeedBadge } from "./LiveFeedBadge";
 
-const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_BASE_URL) || "";
+const API_BASE =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_BASE_URL) || "";
 
 interface ImpactSummary {
   totalScans: number;
@@ -27,13 +28,16 @@ interface ImpactSummary {
   totalCo2KgSaved: number;
   totalTreesEquivalent: number;
   totalKwhSaved: number;
-  byCategory: Record<string, {
-    scans: number;
-    estimatedKg: number;
-    co2KgSaved: number;
-    treesEquivalent: number;
-    kwhSaved: number;
-  }>;
+  byCategory: Record<
+    string,
+    {
+      scans: number;
+      estimatedKg: number;
+      co2KgSaved: number;
+      treesEquivalent: number;
+      kwhSaved: number;
+    }
+  >;
   narrative: string;
   uniqueCountries?: number;
   uniqueContributors?: number;
@@ -100,8 +104,8 @@ export function GlobalImpactDashboard() {
             BMO đang giúp Trái Đất
           </h1>
           <p className="mx-auto max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-            Mỗi lượt quét rác qua BMO đều được đo lường bằng phương pháp EPA WARM + IPCC AR6.
-            Mọi con số đều có thể kiểm chứng (xem carbon ledger).
+            Mỗi lượt quét rác qua BMO đều được đo lường bằng phương pháp EPA WARM + IPCC AR6. Mọi
+            con số đều có thể kiểm chứng (xem carbon ledger).
           </p>
           <div className="mt-4 flex justify-center">
             <LiveFeedBadge />
@@ -190,7 +194,9 @@ export function GlobalImpactDashboard() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">CO₂ tránh được</span>
-                        <span className="font-bold text-emerald-600">{data.co2KgSaved.toFixed(2)} kg</span>
+                        <span className="font-bold text-emerald-600">
+                          {data.co2KgSaved.toFixed(2)} kg
+                        </span>
                       </div>
                     </div>
                   </motion.div>
@@ -215,15 +221,26 @@ export function GlobalImpactDashboard() {
               </summary>
               <div className="mt-3 space-y-2 text-xs text-slate-600 dark:text-slate-400">
                 <p>
-                  <strong>Hệ số CO₂:</strong> EPA WARM v15 (US EPA, 2023) + IPCC AR6 Working Group III.
-                  Plastic 2.5, Paper 1.7, Glass 0.6, Metal 4.0, Organic 0.5 kg CO₂eq / kg rác phân loại đúng.
+                  <strong>Hệ số CO₂:</strong> EPA WARM v15 (US EPA, 2023) + IPCC AR6 Working Group
+                  III. Plastic 2.5, Paper 1.7, Glass 0.6, Metal 4.0, Organic 0.5 kg CO₂eq / kg rác
+                  phân loại đúng.
                 </p>
                 <p>
-                  <strong>Trọng lượng trung bình mỗi món:</strong> nghiên cứu thực địa của BMO tại 12 trường học Việt Nam (2024).
+                  <strong>Trọng lượng trung bình mỗi món:</strong> nghiên cứu thực địa của BMO tại
+                  12 trường học Việt Nam (2024).
                 </p>
                 <p>
-                  <strong>Carbon Ledger:</strong> mỗi kg CO₂ được gắn SHA-256 hash để đảm bảo tính xác thực (xem{" "}
-                  <a className="text-emerald-600 underline" href="/api/impact/sdg-report" target="_blank" rel="noreferrer">API JSON report</a>).
+                  <strong>Carbon Ledger:</strong> mỗi kg CO₂ được gắn SHA-256 hash để đảm bảo tính
+                  xác thực (xem{" "}
+                  <a
+                    className="text-emerald-600 underline"
+                    href="/api/impact/sdg-report"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    API JSON report
+                  </a>
+                  ).
                 </p>
               </div>
             </details>
@@ -237,7 +254,12 @@ export function GlobalImpactDashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
   icon: React.ComponentType<{ size?: number }>;
   label: string;
   value: string;

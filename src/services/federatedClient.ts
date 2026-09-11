@@ -9,8 +9,13 @@
  * the web app; this client is for simulation + light contribution.
  */
 
-const FL_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_FL_URL)
-  || "http://localhost:8080";
+import { logger } from "../lib/logger";
+import { getAuthToken } from "../lib/auth";
+
+const FL_BASE =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { VITE_FL_URL?: string } }).env?.VITE_FL_URL) ||
+  "";
 
 export interface FLConfig {
   schoolId: string;
@@ -22,7 +27,7 @@ export interface FLConfig {
 
 export interface FLRoundUpdate {
   round: number;
-  weights: number[][];     // serialized weights
+  weights: number[][]; // serialized weights
   numSamples: number;
   metrics: {
     loss: number;
@@ -65,7 +70,13 @@ class FederatedClient {
   /** Check if FL server is reachable */
   async ping(): Promise<boolean> {
     try {
-      const r = await fetch(`${this.serverUrl}/health`, { method: "GET", mode: "cors" });
+      const path = this.serverUrl ? `${this.serverUrl}/health` : "/api/health";
+      const token = getAuthToken();
+      const r = await fetch(path, {
+        method: "GET",
+        mode: this.serverUrl ? "cors" : "same-origin",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       return r.ok;
     } catch {
       return false;
@@ -76,14 +87,23 @@ class FederatedClient {
    * Generate Gaussian noise calibrated to (ε, δ)-DP
    * Laplace/Gaussian mechanism
    */
+  private secureUniform(): number {
+    if (!globalThis.crypto?.getRandomValues) {
+      throw new Error("Web Crypto is required for federated privacy noise");
+    }
+    const word = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(word);
+    return Math.max(word[0]! / 4294967296, Number.EPSILON);
+  }
+
   private gaussianNoise(sensitivity: number, shape: number[]): number[] {
     const sigma = (sensitivity * Math.sqrt(2 * Math.log(1.25 / this.delta))) / this.epsilon;
     const size = shape.reduce((a, b) => a * b, 1);
     const noise = new Array(size);
     for (let i = 0; i < size; i++) {
       // Box-Muller
-      const u1 = Math.random();
-      const u2 = Math.random();
+      const u1 = this.secureUniform();
+      const u2 = this.secureUniform();
       const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       noise[i] = z * sigma;
     }
@@ -96,35 +116,43 @@ class FederatedClient {
    */
   async submitUpdate(update: Omit<FLRoundUpdate, "privacy">): Promise<boolean> {
     if (this.contributedSamples >= this.contributionBudget) {
-      console.warn("[FL] Contribution budget exhausted");
+      logger.warn("[FL] Contribution budget exhausted");
       return false;
     }
     if (!(await this.ping())) {
-      console.warn("[FL] Server unreachable, update queued locally");
+      logger.warn("[FL] Server unreachable, update queued locally");
       return false;
     }
 
-    // Apply DP noise to weights before sending
-    const noisyWeights = update.weights.map((w) => {
-      const flat = Array.isArray(w[0]) ? w.flat() : w;
-      const noise = this.gaussianNoise(0.01, [flat.length]);
-      return flat.map((v, i) => v + (noise[i] ?? 0));
-    });
-
-    const payload: FLRoundUpdate = {
-      ...update,
-      weights: noisyWeights,
-      privacy: {
-        epsilon: this.epsilon,
-        delta: this.delta,
-        noiseSigma: (0.01 * Math.sqrt(2 * Math.log(1.25 / this.delta))) / this.epsilon,
-      },
-    };
-
     try {
-      const r = await fetch(`${this.serverUrl}/submit/${this.schoolId}`, {
+      // Apply defense-in-depth client noise before sending. The server's
+      // clipping and aggregate mechanism remain the authoritative DP layer.
+      const noisyWeights = update.weights.map((w) => {
+        const flat = Array.isArray(w[0]) ? w.flat() : w;
+        const noise = this.gaussianNoise(0.01, [flat.length]);
+        return flat.map((v, i) => v + (noise[i] ?? 0));
+      });
+
+      const payload: FLRoundUpdate = {
+        ...update,
+        weights: noisyWeights,
+        privacy: {
+          epsilon: this.epsilon,
+          delta: this.delta,
+          noiseSigma: (0.01 * Math.sqrt(2 * Math.log(1.25 / this.delta))) / this.epsilon,
+        },
+      };
+
+      const endpoint = this.serverUrl
+        ? `${this.serverUrl}/submit/${encodeURIComponent(this.schoolId)}`
+        : "/api/federated/submit";
+      const token = getAuthToken();
+      const r = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
       if (r.ok) {
@@ -134,7 +162,7 @@ class FederatedClient {
         return true;
       }
     } catch (e) {
-      console.error("[FL] Submit failed:", e);
+      logger.error("[FL] Submit failed", e);
     }
     return false;
   }

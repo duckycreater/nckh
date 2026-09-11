@@ -86,7 +86,7 @@ export function validateStudySpec(spec: RctAssignmentSpec): { ok: boolean; error
   if (spec.cohorts.length === 0) errors.push("At least one cohort required");
   if (spec.schools.length !== spec.cohorts.length) {
     errors.push(
-      `Number of schools (${spec.schools.length}) must equal number of cohorts (${spec.cohorts.length}) for balanced cluster randomization.`
+      `Number of schools (${spec.schools.length}) must equal number of cohorts (${spec.cohorts.length}) for balanced cluster randomization.`,
     );
   }
   if (spec.schools.length > 0) {
@@ -185,7 +185,7 @@ export interface PrimaryTestResult {
 export function summarizeCohort(
   cohort: CohortId,
   records: OutcomeRecord[],
-  controlRecords: OutcomeRecord[] | null = null
+  controlRecords: OutcomeRecord[] | null = null,
 ): CohortSummary {
   const users = new Set<string>();
   const userWeeks = new Map<string, OutcomeRecord[]>();
@@ -288,7 +288,7 @@ export function summarizeCohort(
 export function runPrimaryTest(
   treatment: OutcomeRecord[],
   control: OutcomeRecord[],
-  options?: { target_d?: number; metric_name?: string }
+  options?: { target_d?: number; metric_name?: string },
 ): PrimaryTestResult {
   const tChange: number[] = [];
   const cChange: number[] = [];
@@ -351,13 +351,11 @@ export function runPrimaryTest(
 // Returns the indices that survive family-wise error control at alpha.
 export function holmBonferroni(
   pvalues: number[],
-  alpha = 0.05
+  alpha = 0.05,
 ): { rejectedIdx: number[]; adjustedP: number[] } {
   const m = pvalues.length;
   if (m === 0) return { rejectedIdx: [], adjustedP: [] };
-  const pairs = pvalues
-    .map((p, i) => ({ p, i }))
-    .sort((a, b) => a.p - b.p);
+  const pairs = pvalues.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
   const adjustedP = new Array<number>(m).fill(0);
   const rejected: number[] = [];
   let cummax = 0;
@@ -372,7 +370,10 @@ export function holmBonferroni(
 }
 
 // Bonferroni (uniformly conservative).
-export function bonferroni(pvalues: number[], alpha = 0.05): { rejectedIdx: number[]; adjustedP: number[] } {
+export function bonferroni(
+  pvalues: number[],
+  alpha = 0.05,
+): { rejectedIdx: number[]; adjustedP: number[] } {
   const m = Math.max(1, pvalues.length);
   const adjustedP = pvalues.map((p) => Math.min(1, p * m));
   const rejectedIdx: number[] = [];
@@ -395,7 +396,7 @@ export function zscoreTwoSidedP(z: number): number {
   const p = 0.3275911;
   const x = abs / Math.SQRT2;
   const t = 1 / (1 + p * x);
-  const erf = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  const erf = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
   // Two-sided p = erfc(|z|/√2) = 1 - erf(|z|/√2).
   return Math.min(1, 1 - erf);
 }
@@ -403,8 +404,12 @@ export function zscoreTwoSidedP(z: number): number {
 // Compute Welch's t-test p-value (two-sided) from summary statistics.
 // Useful when we cache mean/var already and don't want to re-tally.
 export function welchTTest(
-  ma: number, na: number, va: number,
-  mb: number, nb: number, vb: number
+  ma: number,
+  na: number,
+  va: number,
+  mb: number,
+  nb: number,
+  vb: number,
 ): { t: number; df: number; p: number } {
   if (na < 2 || nb < 2) return { t: 0, df: 1, p: 1 };
   const se = Math.sqrt(va / na + vb / nb);
@@ -440,7 +445,7 @@ export interface MediationResult {
 // for full bootstrap CI use the heavy `analysis_synthetic.py` (T37).
 export function regressionSlope(
   xs: number[],
-  ys: number[]
+  ys: number[],
 ): { slope: number; intercept: number; se: number; p: number; n: number } {
   const n = xs.length;
   if (n !== ys.length || n < 3) {
@@ -448,7 +453,9 @@ export function regressionSlope(
   }
   const xm = xs.reduce((a, b) => a + b, 0) / n;
   const ym = ys.reduce((a, b) => a + b, 0) / n;
-  let sxx = 0, syy = 0, sxy = 0;
+  let sxx = 0,
+    syy = 0,
+    sxy = 0;
   for (let i = 0; i < n; i++) {
     sxx += (xs[i] - xm) ** 2;
     syy += (ys[i] - ym) ** 2;
@@ -469,8 +476,11 @@ export function regressionSlope(
 
 /** Crude bootstrap CI for product-of-coefficients mediation (Baron & Kenny, 1986). */
 export function bootstrapIndirect(
-  tx: number[], mx: number[], yx: number[],
-  nBoot = 1000, seed = 42
+  tx: number[],
+  mx: number[],
+  yx: number[],
+  nBoot = 1000,
+  seed = 42,
 ): { coef: number; bootSE: number; bootCI: [number, number] } {
   const rng = mulberry32(seed);
   const n = tx.length;
@@ -513,7 +523,7 @@ export interface MixedEffectsEstimate {
 }
 
 export function simpleMixedEffects(
-  perSchoolEffects: { schoolId: string; effect: number; n: number }[]
+  perSchoolEffects: { schoolId: string; effect: number; n: number }[],
 ): MixedEffectsEstimate {
   const totalN = perSchoolEffects.reduce((a, b) => a + b.n, 0);
   if (totalN === 0 || perSchoolEffects.length === 0) {
@@ -529,7 +539,7 @@ export function simpleMixedEffects(
   // ICC ≈ σ²_school / (σ²_school + σ²_residual). We approximate σ²_residual
   // by the within-school variance of the pre-trend; for illustration we use 0.05.
   const approxResidual = 0.05;
-  const icc = (schoolVariance) / (schoolVariance + approxResidual);
+  const icc = schoolVariance / (schoolVariance + approxResidual);
   const se = randomSchoolSD / Math.sqrt(perSchoolEffects.length);
   const ci: [number, number] = [fixedEffect - 1.96 * se, fixedEffect + 1.96 * se];
   return { fixedEffect, randomSchoolSD, icc, ci };
@@ -555,7 +565,7 @@ export function powerAnalysis(
   alpha: number,
   nClustersPerArm: number,
   clusterSize: number,
-  icc: number
+  icc: number,
 ): RctPowerResult {
   const de = 1 + (clusterSize - 1) * icc;
   const effN = (nClustersPerArm * clusterSize) / de;
@@ -580,31 +590,42 @@ export function inverseNormalCDF(p: number): number {
     if (p <= 0) return -Infinity;
     return Infinity;
   }
-  const a = [-39.6968302866538, 220.946098424521, -275.928510446069,
-             138.357751867269, -30.6647980661472, 2.50662827745924];
-  const b = [-54.4760987982241, 161.585836858041, -155.698979859887,
-             66.8013118877197, -13.2806815528537];
-  const c = [-7.78489400243029e-3, -0.322396458041136, -2.40075827716184,
-             -2.54973253934373, 4.37466414146497, 2.93816398269878];
-  const d = [7.78469570904146e-3, 0.32246712907004, 2.445134137143,
-             3.75440866190741];
+  const a = [
+    -39.6968302866538, 220.946098424521, -275.928510446069, 138.357751867269, -30.6647980661472,
+    2.50662827745924,
+  ];
+  const b = [
+    -54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528537,
+  ];
+  const c = [
+    -7.78489400243029e-3, -0.322396458041136, -2.40075827716184, -2.54973253934373,
+    4.37466414146497, 2.93816398269878,
+  ];
+  const d = [7.78469570904146e-3, 0.32246712907004, 2.445134137143, 3.75440866190741];
   const plow = 0.02425;
   const phigh = 1 - plow;
-  let q = 0, r = 0;
+  let q = 0,
+    r = 0;
   if (p < plow) {
     q = Math.sqrt(-2 * Math.log(p));
-    return ((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5] /
-      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    return (
+      ((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q +
+      c[5] / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+    );
   }
   if (p <= phigh) {
     q = p - 0.5;
     r = q * q;
-    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
-      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+    return (
+      ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+    );
   }
   q = Math.sqrt(-2 * Math.log(1 - p));
-  return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-    ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  return (
+    -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+    ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+  );
 }
 
 // Standard normal CDF — A&S 7.1.26 Padé approximation of erf(|x|/√2).
@@ -620,7 +641,7 @@ export function normalCDF(z: number): number {
   const a5 = 1.061405429;
   const p = 0.3275911;
   const t = 1 / (1 + p * x);
-  const erf = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  const erf = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
   // Φ(z) = ½(1 + erf(z/√2)).
   return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
 }

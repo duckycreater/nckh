@@ -52,8 +52,8 @@ function massRule({ category, densityPrior, predictedMass }: PhysicsCheckInput) 
   const densityMap: Record<string, number> = {
     plastic: 0.04,
     paper: 0.03,
-    glass: 0.20,
-    metal: 0.10,
+    glass: 0.2,
+    metal: 0.1,
     organic: 0.15,
     hazard: 0.05,
   };
@@ -113,8 +113,7 @@ export function evaluatePhysics(input: PhysicsCheckInput): PhysicsResult {
     const { score, note } = r.check(input);
     rules.push({ id: r.id, score, note });
   }
-  const overallScore =
-    rules.reduce((a, b) => a + b.score, 0) / Math.max(1, rules.length);
+  const overallScore = rules.reduce((a, b) => a + b.score, 0) / Math.max(1, rules.length);
   return {
     overallScore,
     rules,
@@ -127,11 +126,7 @@ export function evaluatePhysics(input: PhysicsCheckInput): PhysicsResult {
  * (Sobel-like). The output is a 2-D heatmap that the explainer
  * overlay (`XaiOverlay.tsx`) renders as a translucent coloured layer.
  */
-export function saliencyHeatmap(
-  pixels: Float32Array,
-  width: number,
-  height: number
-): Float32Array {
+export function saliencyHeatmap(pixels: Float32Array, width: number, height: number): Float32Array {
   const out = new Float32Array(width * height);
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
@@ -151,7 +146,7 @@ export function saliencyHeatmap(
 export function physicsAwareSaliency(
   heatmap: Float32Array,
   physicsResult: PhysicsResult,
-  options?: { rulePenalty?: number }
+  options?: { rulePenalty?: number },
 ): Float32Array {
   const penalty = options?.rulePenalty ?? 0.5;
   const out = new Float32Array(heatmap.length);

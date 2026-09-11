@@ -33,7 +33,9 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
       {/* Latency Bar Chart with error bars */}
       <div>
         <h3 className="font-bold text-gray-800 mb-2">Inference Latency (ms)</h3>
-        <p className="text-xs text-gray-500 mb-4">Average inference time per model. Lower is better. Bubble size = number of inferences.</p>
+        <p className="text-xs text-gray-500 mb-4">
+          Average inference time per model. Lower is better. Bubble size = number of inferences.
+        </p>
         <div className="relative" style={{ height: 160 }}>
           {/* Y-axis */}
           <div className="absolute left-0 top-0 bottom-6 w-8 flex flex-col justify-between text-xs text-gray-400 text-right pr-2">
@@ -59,9 +61,14 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
                     title={`${b.displayName}: ${b.avgLatencyMs}ms`}
                   >
                     {/* Error bar (simulated as +/- 10%) */}
-                    <div className="absolute left-1/2 -top-3 w-0.5 bg-gray-400" style={{ height: 6 }} />
+                    <div
+                      className="absolute left-1/2 -top-3 w-0.5 bg-gray-400"
+                      style={{ height: 6 }}
+                    />
                   </div>
-                  <span className="text-xs font-bold text-gray-700 mt-1 text-center leading-tight">{b.displayName?.split(" ")[0]}</span>
+                  <span className="text-xs font-bold text-gray-700 mt-1 text-center leading-tight">
+                    {b.displayName?.split(" ")[0]}
+                  </span>
                   <span className="text-xs text-gray-500">{b.avgLatencyMs}ms</span>
                 </div>
               );
@@ -78,14 +85,21 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
       {/* Accuracy vs Speed Pareto */}
       <div>
         <h3 className="font-bold text-gray-800 mb-2">Accuracy vs Speed Pareto Frontier</h3>
-        <p className="text-xs text-gray-500 mb-4">X-axis = latency (ms), Y-axis = accuracy (%). Closer to top-left = better (fast + accurate).</p>
+        <p className="text-xs text-gray-500 mb-4">
+          X-axis = latency (ms), Y-axis = accuracy (%). Closer to top-left = better (fast +
+          accurate).
+        </p>
         <div className="relative bg-gray-50 rounded-xl p-4" style={{ height: 200 }}>
           {/* Axes */}
           <div className="absolute left-10 top-0 bottom-6 w-px bg-gray-200" />
           <div className="absolute left-10 right-0 bottom-6 h-px bg-gray-200" />
           {/* Axis labels */}
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-gray-400">Accuracy %</span>
-          <span className="absolute left-1/2 bottom-0 -translate-x-1/2 text-xs text-gray-400">Latency (ms)</span>
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-gray-400">
+            Accuracy %
+          </span>
+          <span className="absolute left-1/2 bottom-0 -translate-x-1/2 text-xs text-gray-400">
+            Latency (ms)
+          </span>
           {/* Points */}
           {benchmark.map((b: any, i: number) => {
             const x = (b.avgLatencyMs / maxLatency) * 85 + 10; // 10-95%
@@ -118,7 +132,8 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
           Confusion Matrix Heatmap
         </h3>
         <p className="text-xs text-gray-500 mb-4">
-          Rows = Ground Truth (actual), Columns = Model Prediction. Diagonal = correct predictions. Hover for counts.
+          Rows = Ground Truth (actual), Columns = Model Prediction. Diagonal = correct predictions.
+          Hover for counts.
         </p>
         {confusionMatrix?.labels && confusionMatrix.labels.length > 0 ? (
           <div className="overflow-x-auto">
@@ -129,7 +144,10 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
                     Actual →<br />↓ Predicted
                   </th>
                   {confusionMatrix.labels.map((l: string) => (
-                    <th key={l} className="p-2 text-center text-xs font-bold text-gray-600 bg-gray-50 min-w-16">
+                    <th
+                      key={l}
+                      className="p-2 text-center text-xs font-bold text-gray-600 bg-gray-50 min-w-16"
+                    >
                       {l}
                     </th>
                   ))}
@@ -137,8 +155,8 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
               </thead>
               <tbody>
                 {confusionMatrix.labels.map((actual: string) => {
-                  const rowVals = confusionMatrix.labels.map((pred: string) =>
-                    confusionMatrix.matrix?.[actual]?.[pred] || 0
+                  const rowVals = confusionMatrix.labels.map(
+                    (pred: string) => confusionMatrix.matrix?.[actual]?.[pred] || 0,
                   );
                   const maxVal = Math.max(...rowVals, 1);
                   return (
@@ -154,12 +172,15 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
                           <td
                             key={pred}
                             className={`p-2 text-center text-xs font-mono cursor-help transition-colors ${
-                              isCorrect ? "text-emerald-700 hover:bg-emerald-50" : "text-red-500 hover:bg-red-50"
+                              isCorrect
+                                ? "text-emerald-700 hover:bg-emerald-50"
+                                : "text-red-500 hover:bg-red-50"
                             }`}
                             style={{
-                              backgroundColor: val > 0
-                                ? `rgba(${isCorrect ? "16,185,129" : "239,68,68"},${Math.max(intensity * 0.8, 0.08)})`
-                                : "#ffffff",
+                              backgroundColor:
+                                val > 0
+                                  ? `rgba(${isCorrect ? "16,185,129" : "239,68,68"},${Math.max(intensity * 0.8, 0.08)})`
+                                  : "#ffffff",
                             }}
                             title={`Actual: ${actual} → Predicted: ${pred}\nCount: ${val} (${maxVal > 0 ? ((val / maxVal) * 100).toFixed(1) : 0}%)`}
                           >
@@ -184,7 +205,8 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <h3 className="font-bold text-blue-800 text-sm mb-2">Ground Truth Annotation</h3>
         <p className="text-xs text-blue-700 mb-3">
-          Label predictions to build the confusion matrix. Each labeled scan improves model evaluation accuracy.
+          Label predictions to build the confusion matrix. Each labeled scan improves model
+          evaluation accuracy.
         </p>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
           {WASTE_CATEGORIES.map((cat) => (
@@ -212,7 +234,9 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
           <div className="bg-gray-50 rounded-lg p-3 text-center">
             <p className="text-xs text-gray-500">Best F1 Score</p>
             <p className="text-2xl font-black text-emerald-600">
-              {benchmark.length > 0 ? `${Math.max(...benchmark.map((b: any) => b.accuracy || 0)).toFixed(1)}%` : "—"}
+              {benchmark.length > 0
+                ? `${Math.max(...benchmark.map((b: any) => b.accuracy || 0)).toFixed(1)}%`
+                : "—"}
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3 text-center">

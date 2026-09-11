@@ -2,10 +2,9 @@
  * dpAccountant.ts - Rényi Differential Privacy accountant
  *
  * Tracks cumulative privacy loss (ε, δ) across many rounds of federated
- * training using Rényi DP composition (Mironov 2017), which gives
- * 30–50% tighter bounds than advanced composition at the same (ε, δ)
- * target. This is the mechanism that lets BMO Robot run ≥ 50 FL rounds
- * across 5+ schools while remaining compliant with COPPA + GDPR-Kids.
+ * training using Rényi DP composition (Mironov 2017). This accountant is
+ * an engineering control and reporting aid; it is not, by itself, evidence
+ * of compliance with any privacy regulation.
  *
  * Per-round mechanism is the Gaussian mechanism with sensitivity = clip_norm * 2
  * (clipping of L2 norm to clip_norm, then Gaussian noise calibrated by
@@ -33,7 +32,11 @@ export const DP_ACCOUNTANT_VERSION = "1.0.0";
  *  We use the closed-form bound for the Gaussian mechanism from Mironov
  *  (2017) Thm. 8 (the "standard" bound), at α < σ²/Δ².
  */
-export function gaussianRenyiEpsilon(alpha: number, sigma: number, delta_clip_norm: number): number {
+export function gaussianRenyiEpsilon(
+  alpha: number,
+  sigma: number,
+  delta_clip_norm: number,
+): number {
   if (alpha < 1) {
     throw new Error("Rényi order alpha must be >= 1");
   }
@@ -62,7 +65,7 @@ export function composeRenyi(
   rounds: number,
   alpha: number,
   sigma: number,
-  clipNorm: number
+  clipNorm: number,
 ): number {
   const epsRound = gaussianRenyiEpsilon(alpha, sigma, clipNorm);
   return rounds * epsRound;
@@ -79,18 +82,37 @@ export function composeRenyi(
  */
 export function renyiToEpsilonDelta(
   renyiOrders: { alpha: number; epsAlpha: number }[],
-  targetEpsilon: number
+  targetEpsilon: number,
 ): number {
   let minDelta = 1;
   for (const { alpha, epsAlpha } of renyiOrders) {
-    if (alpha <= 1) continue;
-    if (epsAlpha > targetEpsilon) continue;
-    const a = alpha - 1;
-    const logDelta = a * (targetEpsilon - epsAlpha) - Math.log(alpha) / a * epsAlpha;
-    const delta = Math.exp(logDelta);
+    if (alpha <= 1 || !Number.isFinite(epsAlpha)) continue;
+    // Basic RDP conversion:
+    //   (alpha, epsAlpha)-RDP => (targetEpsilon, delta)-DP where
+    //   delta = exp((epsAlpha - targetEpsilon) * (alpha - 1)).
+    // The previous implementation had this sign reversed, which made
+    // delta grow as the requested epsilon became looser.
+    const logDelta = (epsAlpha - targetEpsilon) * (alpha - 1);
+    const delta = Math.min(1, Math.exp(logDelta));
     if (delta < minDelta) minDelta = delta;
   }
   return minDelta;
+}
+
+/** Convert an RDP curve to the smallest epsilon at a target delta. */
+export function renyiToEpsilonAtDelta(
+  renyiOrders: { alpha: number; epsAlpha: number }[],
+  targetDelta: number,
+): number {
+  if (!(targetDelta > 0 && targetDelta < 1)) {
+    throw new Error("targetDelta must be in (0, 1)");
+  }
+  let best = Infinity;
+  for (const { alpha, epsAlpha } of renyiOrders) {
+    if (alpha <= 1 || !Number.isFinite(epsAlpha)) continue;
+    best = Math.min(best, epsAlpha + Math.log(1 / targetDelta) / (alpha - 1));
+  }
+  return Number.isFinite(best) ? best : Infinity;
 }
 
 export interface FlRoundDpConfig {
@@ -118,9 +140,7 @@ export interface DpState {
   recommendedSigma: number | null;
 }
 
-const DEFAULT_ALPHA_GRID = [
-  1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 128, 256, 512, 1024,
-];
+const DEFAULT_ALPHA_GRID = [1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 128, 256, 512, 1024];
 export { DEFAULT_ALPHA_GRID };
 
 export class RenyiDpAccountant {
@@ -128,8 +148,10 @@ export class RenyiDpAccountant {
   static readonly BUDGET_EPSILON = 1.0;
   static readonly BUDGET_DELTA = 1e-5;
 
-  private rounds = 0;
   private config: { clipNorm: number; sigma: number };
+  /** Keep the mechanism used by every round so later config changes do not
+   * retroactively rewrite the historical privacy loss. */
+  private roundConfigs: Array<{ clipNorm: number; sigma: number }> = [];
 
   constructor(config?: { clipNorm: number; sigma: number }) {
     this.config = { clipNorm: 1.0, sigma: 1.0, ...config };
@@ -148,11 +170,11 @@ export class RenyiDpAccountant {
   }
 
   reset(): void {
-    this.rounds = 0;
+    this.roundConfigs = [];
   }
 
   getNumRounds(): number {
-    return this.rounds;
+    return this.roundConfigs.length;
   }
 
   /**
@@ -165,7 +187,7 @@ export class RenyiDpAccountant {
     if (sigmaOverride !== undefined) {
       this.setConfig({ sigma: sigmaOverride });
     }
-    this.rounds += 1;
+    this.roundConfigs.push({ ...this.config });
     return this.computeState();
   }
 
@@ -173,41 +195,27 @@ export class RenyiDpAccountant {
    * Compute state without mutating rounds counter.
    */
   computeState(alphaGrid: number[] = DEFAULT_ALPHA_GRID): DpState {
-    const { clipNorm, sigma } = this.config;
     const renyiCurve = alphaGrid.map((alpha) => ({
       alpha,
-      epsAlpha: composeRenyi(this.rounds, alpha, sigma, clipNorm),
+      epsAlpha: this.roundConfigs.reduce(
+        (sum, round) => sum + gaussianRenyiEpsilon(alpha, round.sigma, round.clipNorm),
+        0,
+      ),
     }));
-    const epsilonAtDelta = renyiToEpsilonDelta(renyiCurve, RenyiDpAccountant.BUDGET_EPSILON);
+    const epsilonAtDelta = this.roundConfigs.length
+      ? renyiToEpsilonAtDelta(renyiCurve, RenyiDpAccountant.BUDGET_DELTA)
+      : 0;
     const deltaAtEpsilon = renyiToEpsilonDelta(renyiCurve, RenyiDpAccountant.BUDGET_EPSILON);
 
     const withinBudget =
       epsilonAtDelta <= RenyiDpAccountant.BUDGET_EPSILON &&
       deltaAtEpsilon <= RenyiDpAccountant.BUDGET_DELTA;
 
-    let recommendedSigma: number | null = null;
-    if (!withinBudget) {
-      // Binary search for the σ that would land us back within budget at α→∞ limit.
-      const targetEpsAtAlpha1 = RenyiDpAccountant.BUDGET_EPSILON / Math.max(1, this.rounds);
-      // σ_min such that α·clipNorm² / (2σ²) ≤ targetEpsAtAlpha1 for some α ∈ grid
-      let bestSigma = sigma;
-      let bestEps = Infinity;
-      for (const { alpha, epsAlpha } of renyiCurve) {
-        // epsAlpha = rounds * alpha * clipNorm² / (2 σ²)
-        // Solve for σ: σ² = rounds * alpha * clipNorm² / (2 * target)
-        // Find a σ that makes ANY α's epsAlpha ≤ BUDGET_EPSILON.
-        // We pick α that minimises required σ.
-        const required = Math.sqrt(this.rounds * alpha * clipNorm * clipNorm / (2 * RenyiDpAccountant.BUDGET_EPSILON));
-        if (required < bestSigma) {
-          bestSigma = required;
-          bestEps = 0;
-        }
-      }
-      recommendedSigma = bestEps === 0 ? bestSigma : null;
-    }
+    const candidate = this.minimumSigmaForNextRound(renyiCurve);
+    const recommendedSigma = Number.isFinite(candidate) ? candidate : null;
 
     return {
-      rounds: this.rounds,
+      rounds: this.roundConfigs.length,
       renyiCurve,
       epsilonAtDelta,
       deltaAtEpsilon,
@@ -220,32 +228,67 @@ export class RenyiDpAccountant {
    * Recommend σ for the NEXT round such that, after adding 1 round to the
    * current count, we remain within budget.
    *
-   *   Constraint: T+1 · α · clipNorm² / (2 σ²) ≤ BUDGET_EPSILON
-   *   Pick α that minimises σ subject to no DP-loss at α=∞.
-   *   For α→∞ the bound is useless; instead, evaluate over the grid.
+   * Uses a monotone binary search over σ and the same RDP→(ε,δ)
+   * conversion used by the dashboard.
    */
   recommendSigmaForNextRound(alphaGrid: number[] = DEFAULT_ALPHA_GRID): number {
-    const { clipNorm } = this.config;
-    const nextRounds = this.rounds + 1;
-    let bestSigma = Infinity;
-    for (const alpha of alphaGrid) {
-      const required = Math.sqrt(
-        (nextRounds * alpha * clipNorm * clipNorm) /
-          (2 * RenyiDpAccountant.BUDGET_EPSILON)
-      );
-      if (required < bestSigma) bestSigma = required;
-    }
-    return bestSigma;
+    const currentCurve = alphaGrid.map((alpha) => ({
+      alpha,
+      epsAlpha: this.roundConfigs.reduce(
+        (sum, round) => sum + gaussianRenyiEpsilon(alpha, round.sigma, round.clipNorm),
+        0,
+      ),
+    }));
+    return this.minimumSigmaForNextRound(currentCurve);
   }
 
   /** Quick predicate: would one more round at current σ remain within budget? */
   canAffordNextRound(): boolean {
-    return this.computeState().withinBudget;
+    const curve = DEFAULT_ALPHA_GRID.map((alpha) => ({
+      alpha,
+      epsAlpha:
+        this.roundConfigs.reduce(
+          (sum, round) => sum + gaussianRenyiEpsilon(alpha, round.sigma, round.clipNorm),
+          0,
+        ) + gaussianRenyiEpsilon(alpha, this.config.sigma, this.config.clipNorm),
+    }));
+    return (
+      renyiToEpsilonAtDelta(curve, RenyiDpAccountant.BUDGET_DELTA) <=
+      RenyiDpAccountant.BUDGET_EPSILON
+    );
+  }
+
+  private minimumSigmaForNextRound(currentCurve: { alpha: number; epsAlpha: number }[]): number {
+    const currentEpsilon = this.roundConfigs.length
+      ? renyiToEpsilonAtDelta(currentCurve, RenyiDpAccountant.BUDGET_DELTA)
+      : 0;
+    if (currentEpsilon >= RenyiDpAccountant.BUDGET_EPSILON) return Infinity;
+
+    const epsilonWith = (sigma: number) =>
+      renyiToEpsilonAtDelta(
+        currentCurve.map(({ alpha, epsAlpha }) => ({
+          alpha,
+          epsAlpha: epsAlpha + gaussianRenyiEpsilon(alpha, sigma, this.config.clipNorm),
+        })),
+        RenyiDpAccountant.BUDGET_DELTA,
+      );
+
+    let high = Math.max(1, this.config.sigma);
+    while (epsilonWith(high) > RenyiDpAccountant.BUDGET_EPSILON && high < 1e9) high *= 2;
+    if (high >= 1e9 && epsilonWith(high) > RenyiDpAccountant.BUDGET_EPSILON) return Infinity;
+
+    let low = 0;
+    for (let i = 0; i < 80; i++) {
+      const mid = (low + high) / 2;
+      if (epsilonWith(mid) <= RenyiDpAccountant.BUDGET_EPSILON) high = mid;
+      else low = mid;
+    }
+    return high;
   }
 
   toJSON(): { rounds: number; config: { clipNorm: number; sigma: number }; state: DpState } {
     return {
-      rounds: this.rounds,
+      rounds: this.roundConfigs.length,
       config: this.config,
       state: this.computeState(),
     };

@@ -126,18 +126,33 @@ export function welchTTest(a: number[], b: number[]): TTestResult {
   // 95% CI for difference in means (Welch)
   const tCrit = jstat.studentt.inv(0.975, dfClamped);
   const ciMargin = tCrit * se;
-  const ciLower = (meanA - meanB) - ciMargin;
-  const ciUpper = (meanA - meanB) + ciMargin;
+  const ciLower = meanA - meanB - ciMargin;
+  const ciUpper = meanA - meanB + ciMargin;
 
   // Power calculation (approximate)
-  const ncp = Math.abs(d) * Math.sqrt(nA * nB / (nA + nB));
+  const ncp = Math.abs(d) * Math.sqrt((nA * nB) / (nA + nB));
   const power = jstat.normal.cdf(ncp - 1.96, 0, 1) + jstat.normal.cdf(-ncp - 1.96, 0, 1);
 
   // Normality tests
   const normA = nA < 4 || shapiroFrancia(a).pValue > 0.05;
   const normB = nB < 4 || shapiroFrancia(b).pValue > 0.05;
 
-  return makeResult(t, pValue, dfClamped, d, power, nA, nB, meanA, meanB, se, normA, normB, ciLower, ciUpper);
+  return makeResult(
+    t,
+    pValue,
+    dfClamped,
+    d,
+    power,
+    nA,
+    nB,
+    meanA,
+    meanB,
+    se,
+    normA,
+    normB,
+    ciLower,
+    ciUpper,
+  );
 }
 
 function makeResult(
@@ -155,7 +170,7 @@ function makeResult(
   normalB: boolean,
   ciLower: number,
   ciUpper: number,
-  bonferroni = false
+  bonferroni = false,
 ): TTestResult {
   return {
     tStatistic: Math.round(t * 1000) / 1000,
@@ -190,13 +205,13 @@ export function oneWayANOVA(groups: number[][]): ANOVAResult {
   // Between-group sum of squares
   const ssBetween = groups.reduce(
     (sum, g) => sum + g.length * Math.pow(jstat.mean(g) - grandMean, 2),
-    0
+    0,
   );
 
   // Within-group sum of squares
   const ssWithin = groups.reduce(
     (sum, g) => sum + g.reduce((s, x) => s + Math.pow(x - jstat.mean(g), 2), 0),
-    0
+    0,
   );
 
   const dfBetween = k - 1;
@@ -229,7 +244,7 @@ export function analyzeExperiment(
   experimentId: string,
   experimentName: string,
   retentionByGroup: Record<string, number[]>,
-  nComparisons: number
+  nComparisons: number,
 ): ExperimentResults {
   const groupNames = Object.keys(retentionByGroup);
   const comparisons: ExperimentComparison[] = [];
@@ -273,9 +288,14 @@ export function analyzeExperiment(
   const minN = Math.min(...groupNames.map((g) => retentionByGroup[g].length));
   const mde = minimumDetectableEffect(minN);
   const currentPower = jstat.normal.cdf(
-    Math.abs(jstat.mean(Object.values(retentionByGroup)[0]) - jstat.mean(Object.values(retentionByGroup)[1])) / mde - 1.96,
+    Math.abs(
+      jstat.mean(Object.values(retentionByGroup)[0]) -
+        jstat.mean(Object.values(retentionByGroup)[1]),
+    ) /
+      mde -
+      1.96,
     0,
-    1
+    1,
   );
 
   return {
@@ -300,7 +320,7 @@ export function bootstrapCI(
   data: number[],
   statistic: (arr: number[]) => number,
   nBoot = 2000,
-  alpha = 0.05
+  alpha = 0.05,
 ): { lower: number; upper: number } {
   const n = data.length;
   if (n < 2) return { lower: data[0] ?? 0, upper: data[0] ?? 0 };
@@ -342,31 +362,31 @@ export function bootstrapCI(
  */
 export interface MixedEffectObservation {
   userId: string;
-  groupId: string;          // 0 = Control, 1 = Exp-A, 2 = Exp-B, 3 = Exp-C
-  week: number;              // Time point (1-24)
-  outcome: number;           // Binary: 1 = retained, 0 = churned
-  profileType: number;       // Covariate: 0-4 (behavioral profile)
-  baselineKAP: number;       // Covariate: baseline KAP score (0-1)
-  grade: number;             // Covariate: grade (6-9)
+  groupId: number; // 0 = Control, 1 = Exp-A, 2 = Exp-B, 3 = Exp-C
+  week: number; // Time point (1-24)
+  outcome: number; // Binary: 1 = retained, 0 = churned
+  profileType: number; // Covariate: 0-4 (behavioral profile)
+  baselineKAP: number; // Covariate: baseline KAP score (0-1)
+  grade: number; // Covariate: grade (6-9)
 }
 
 export interface MixedLogisticResult {
   fixedEffects: {
     intercept: number;
-    groupEffect: number;      // Main treatment effect
-    weekEffect: number;       // Time trend
-    kapEffect: number;        // Baseline KAP effect
+    groupEffect: number; // Main treatment effect
+    weekEffect: number; // Time trend
+    kapEffect: number; // Baseline KAP effect
   };
   oddsRatios: {
-    groupOR: number;           // OR for treatment vs control
+    groupOR: number; // OR for treatment vs control
     groupCI: { lower: number; upper: number };
-    weekOR: number;           // OR per week
-    kapOR: number;            // OR per 0.1 KAP improvement
+    weekOR: number; // OR per week
+    kapOR: number; // OR per 0.1 KAP improvement
   };
   modelFit: {
     AIC: number;
     BIC: number;
-    pseudoR2: number;          // McFadden's pseudo-R²
+    pseudoR2: number; // McFadden's pseudo-R²
   };
   anovaTable: {
     effect: string;
@@ -378,8 +398,8 @@ export interface MixedLogisticResult {
   confidenceLevel: "high" | "moderate" | "low";
   handlingMissingData: string;
   assumptionsMet: {
-    linearity: string;        // Deviance residual inspection
-    outliers: number;          // Number of influential observations
+    linearity: string; // Deviance residual inspection
+    outliers: number; // Number of influential observations
     multicollinearity: string;
   };
 }
@@ -388,9 +408,7 @@ export interface MixedLogisticResult {
  * Generalized Linear Mixed Model (GLMM) via Laplace approximation for binary outcomes.
  * Estimates fixed effects using IRLS with random intercepts per subject.
  */
-export function mixedLogisticRegression(
-  data: MixedEffectObservation[]
-): MixedLogisticResult {
+export function mixedLogisticRegression(data: MixedEffectObservation[]): MixedLogisticResult {
   if (data.length < 10) {
     return createFallbackResult("Insufficient data for mixed-effects model");
   }
@@ -409,7 +427,7 @@ export function mixedLogisticRegression(
     userMeans[d.userId].push(d.y);
   }
   const userIntercepts = Object.fromEntries(
-    Object.entries(userMeans).map(([k, vals]) => [k, jstat.mean(vals) - 0.5])
+    Object.entries(userMeans).map(([k, vals]) => [k, jstat.mean(vals) - 0.5]),
   );
 
   // Initialize fixed effects: [intercept, group, week, kap]
@@ -456,7 +474,7 @@ export function mixedLogisticRegression(
     if (!hessInv) break;
 
     const delta = hessInv.map((row, i) =>
-      row.reduce((sum, h_ij, j) => sum + h_ij * gradient[j], 0)
+      row.reduce((sum, h_ij, j) => sum + h_ij * gradient[j], 0),
     );
 
     const maxDelta = Math.max(...delta.map(Math.abs));
@@ -542,11 +560,16 @@ export function mixedLogisticRegression(
     anovaTable,
     significant,
     confidenceLevel,
-    handlingMissingData: "Missing at Random (MAR) assumption — mixed-effects models provide unbiased estimates under MAR. LOCF is inappropriate for binary outcomes as it artificially reduces variance.",
+    handlingMissingData:
+      "Missing at Random (MAR) assumption — mixed-effects models provide unbiased estimates under MAR. LOCF is inappropriate for binary outcomes as it artificially reduces variance.",
     assumptionsMet: {
-      linearity: "Deviance residuals should be inspected; logit link assumes linear relationship between predictors and log-odds. Binned residual plots recommended.",
+      linearity:
+        "Deviance residuals should be inspected; logit link assumes linear relationship between predictors and log-odds. Binned residual plots recommended.",
       outliers: 0,
-      multicollinearity: se[1] < 2 && se[2] < 2 && se[3] < 2 ? "No evidence of multicollinearity (all VIF < 5)" : "Potential multicollinearity — review predictor correlations",
+      multicollinearity:
+        se[1] < 2 && se[2] < 2 && se[3] < 2
+          ? "No evidence of multicollinearity (all VIF < 5)"
+          : "Potential multicollinearity — review predictor correlations",
     },
   };
 }
@@ -560,22 +583,31 @@ function createFallbackResult(reason: string): MixedLogisticResult {
   return {
     fixedEffects: { intercept: 0, groupEffect: 0, weekEffect: 0, kapEffect: 0 },
     oddsRatios: {
-      groupOR: 1, groupCI: { lower: 0.5, upper: 2 },
-      weekOR: 1, kapOR: 1,
+      groupOR: 1,
+      groupCI: { lower: 0.5, upper: 2 },
+      weekOR: 1,
+      kapOR: 1,
     },
     modelFit: { AIC: 0, BIC: 0, pseudoR2: 0 },
     anovaTable: [],
     significant: false,
     confidenceLevel: "low",
     handlingMissingData: reason,
-    assumptionsMet: { linearity: "Unable to assess", outliers: 0, multicollinearity: "Unable to assess" },
+    assumptionsMet: {
+      linearity: "Unable to assess",
+      outliers: 0,
+      multicollinearity: "Unable to assess",
+    },
   };
 }
 
 export function mannWhitneyU(a: number[], b: number[]): { U: number; pValue: number; z: number } {
   const nA = a.length;
   const nB = b.length;
-  const all = [...a.map((x, i) => ({ val: x, grp: "A", i })), ...b.map((x, i) => ({ val: x, grp: "B", i }))];
+  const all = [
+    ...a.map((x, i) => ({ val: x, grp: "A", i })),
+    ...b.map((x, i) => ({ val: x, grp: "B", i })),
+  ];
   all.sort((x, y) => x.val - y.val);
   const ranks = all.map((e) => {
     const eq = all.filter((f) => f.val === e.val);
@@ -600,13 +632,17 @@ export function mannWhitneyU(a: number[], b: number[]): { U: number; pValue: num
 }
 
 /** Invert a square matrix using Gaussian elimination. Returns null if singular. */
-function invertMatrix(m: number[][]): (number[] | null)[] | null {
+function invertMatrix(m: number[][]): number[][] | null {
   const n = m.length;
-  if (n === 0 || m.some(r => r.length !== n)) return null;
-  const aug: number[][] = m.map((row, i) => [...row, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))]);
+  if (n === 0 || m.some((r) => r.length !== n)) return null;
+  const aug: number[][] = m.map((row, i) => [
+    ...row,
+    ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)),
+  ]);
   for (let col = 0; col < n; col++) {
     let maxRow = col;
-    for (let r = col + 1; r < n; r++) if (Math.abs(aug[r][col]) > Math.abs(aug[maxRow][col])) maxRow = r;
+    for (let r = col + 1; r < n; r++)
+      if (Math.abs(aug[r][col]) > Math.abs(aug[maxRow][col])) maxRow = r;
     [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
     if (Math.abs(aug[col][col]) < 1e-12) return null;
     const piv = aug[col][col];
@@ -617,5 +653,5 @@ function invertMatrix(m: number[][]): (number[] | null)[] | null {
       for (let c = 0; c < 2 * n; c++) aug[r][c] -= factor * aug[col][c];
     }
   }
-  return aug.map(row => row.slice(n));
+  return aug.map((row) => row.slice(n));
 }

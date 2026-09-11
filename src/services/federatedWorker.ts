@@ -62,7 +62,10 @@ function noiseSigmaFor(epsilon: number, delta: number): number {
   return Math.sqrt(2 * Math.log(1.25 / Math.max(delta, 1e-9))) / Math.max(epsilon, 1e-3);
 }
 
-function elasticsWeightConsolidation(scores: Record<string, number>, fisher: Record<string, number>): number {
+function elasticsWeightConsolidation(
+  scores: Record<string, number>,
+  fisher: Record<string, number>,
+): number {
   let penalty = 0;
   for (const k of Object.keys(scores)) {
     const w = Math.abs(scores[k]);

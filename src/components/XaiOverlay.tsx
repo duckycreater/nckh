@@ -79,8 +79,14 @@ export function XaiOverlay({ prediction, imageElement, onClose }: Props) {
     for (let y = 4; y < 220; y++) {
       for (let x = 4; x < 220; x++) {
         const i = (y * 224 + x) * 4;
-        const dx = Math.abs(d[i + 4] - d[i - 4]) + Math.abs(d[i + 1 + 4] - d[i + 1 - 4]) + Math.abs(d[i + 2 + 4] - d[i + 2 - 4]);
-        const dy = Math.abs(d[i + 4 * 224] - d[i - 4 * 224]) + Math.abs(d[i + 1 + 4 * 224] - d[i + 1 - 4 * 224]) + Math.abs(d[i + 2 + 4 * 224] - d[i + 2 - 4 * 224]);
+        const dx =
+          Math.abs(d[i + 4] - d[i - 4]) +
+          Math.abs(d[i + 1 + 4] - d[i + 1 - 4]) +
+          Math.abs(d[i + 2 + 4] - d[i + 2 - 4]);
+        const dy =
+          Math.abs(d[i + 4 * 224] - d[i - 4 * 224]) +
+          Math.abs(d[i + 1 + 4 * 224] - d[i + 1 - 4 * 224]) +
+          Math.abs(d[i + 2 + 4 * 224] - d[i + 2 - 4 * 224]);
         const edge = Math.min(255, (dx + dy) * 2);
         // Red channel = high importance
         out.data[i] = edge;
@@ -159,7 +165,9 @@ export function XaiOverlay({ prediction, imageElement, onClose }: Props) {
               const isTop = category === prediction.category;
               return (
                 <div key={category} className="flex items-center gap-2">
-                  <span className={`min-w-[60px] text-[10px] ${isTop ? "font-bold text-slate-900 dark:text-slate-50" : "text-slate-500"}`}>
+                  <span
+                    className={`min-w-[60px] text-[10px] ${isTop ? "font-bold text-slate-900 dark:text-slate-50" : "text-slate-500"}`}
+                  >
                     {label}
                   </span>
                   <div className="flex-1 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -170,7 +178,9 @@ export function XaiOverlay({ prediction, imageElement, onClose }: Props) {
                       className={`h-full rounded-full ${isTop ? "bg-gradient-to-r from-violet-500 to-indigo-500" : "bg-slate-300 dark:bg-slate-600"}`}
                     />
                   </div>
-                  <span className={`w-10 text-right text-[10px] tabular-nums ${isTop ? "font-bold text-slate-900 dark:text-slate-50" : "text-slate-500"}`}>
+                  <span
+                    className={`w-10 text-right text-[10px] tabular-nums ${isTop ? "font-bold text-slate-900 dark:text-slate-50" : "text-slate-500"}`}
+                  >
                     {(probability * 100).toFixed(1)}%
                   </span>
                 </div>
@@ -206,7 +216,10 @@ export function XaiOverlay({ prediction, imageElement, onClose }: Props) {
               >
                 <div className="space-y-1 px-3 pb-3">
                   {counterfactuals.map((c, i) => (
-                    <p key={i} className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    <p
+                      key={i}
+                      className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-300"
+                    >
                       • {c}
                     </p>
                   ))}
@@ -219,8 +232,16 @@ export function XaiOverlay({ prediction, imageElement, onClose }: Props) {
         {/* Footer: latency & provider */}
         <div className="border-t border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
           <div className="flex items-center justify-between text-[9px] text-slate-500">
-            <span>Inference: <strong className="text-slate-700 dark:text-slate-200">{prediction.latencyMs.toFixed(0)}ms</strong></span>
-            <span>Backend: <strong className="text-slate-700 dark:text-slate-200">{prediction.provider}</strong></span>
+            <span>
+              Inference:{" "}
+              <strong className="text-slate-700 dark:text-slate-200">
+                {prediction.latencyMs.toFixed(0)}ms
+              </strong>
+            </span>
+            <span>
+              Backend:{" "}
+              <strong className="text-slate-700 dark:text-slate-200">{prediction.provider}</strong>
+            </span>
           </div>
         </div>
       </motion.div>

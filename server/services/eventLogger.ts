@@ -40,6 +40,8 @@ export type EventType =
   | "profile_update"
   | "feature_used"
   | "register"
+  | "user_disabled"
+  | "user_enabled"
   | "page_view"
   // Social interaction events
   | "profile_view"
@@ -77,7 +79,7 @@ class EventLogger {
     userId: string,
     eventType: EventType,
     metadata: EventMetadata = {},
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     if (!this.db) return;
 
@@ -85,7 +87,7 @@ class EventLogger {
       await this.db.query(
         `INSERT INTO behavioral_events (user_id, event_type, session_id, metadata)
          VALUES ($1, $2, $3, $4)`,
-        [userId, eventType, sessionId || null, JSON.stringify(metadata)]
+        [userId, eventType, sessionId || null, JSON.stringify(metadata)],
       );
     } catch (e) {
       console.warn("[EventLogger] Failed to log:", eventType, (e as Error).message);
@@ -96,8 +98,17 @@ class EventLogger {
     await this.log(userId, "login", {}, sessionId);
   }
 
-  async logLogout(userId: string, sessionDurationSeconds?: number, sessionId?: number): Promise<void> {
-    await this.log(userId, "session_end", { session_duration_seconds: sessionDurationSeconds }, sessionId);
+  async logLogout(
+    userId: string,
+    sessionDurationSeconds?: number,
+    sessionId?: number,
+  ): Promise<void> {
+    await this.log(
+      userId,
+      "session_end",
+      { session_duration_seconds: sessionDurationSeconds },
+      sessionId,
+    );
   }
 
   async logQuiz(
@@ -106,13 +117,13 @@ class EventLogger {
     score: number,
     correctCount: number,
     totalQuestions: number,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     await this.log(
       userId,
       completed ? "quiz_complete" : "quiz_start",
       { score, correct_count: correctCount, total_questions: totalQuestions },
-      sessionId
+      sessionId,
     );
   }
 
@@ -120,13 +131,13 @@ class EventLogger {
     userId: string,
     success: boolean,
     ecoType: string,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     await this.log(
       userId,
       success ? "scan_success" : "scan_garbage",
       { eco_type: ecoType },
-      sessionId
+      sessionId,
     );
   }
 
@@ -135,13 +146,13 @@ class EventLogger {
     cardId: number,
     isNew: boolean,
     rarity: string,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     await this.log(
       userId,
       isNew ? "gacha_new_card" : "gacha_duplicate",
       { card_id: cardId, card_rarity: rarity },
-      sessionId
+      sessionId,
     );
   }
 
@@ -149,27 +160,22 @@ class EventLogger {
     userId: string,
     won: boolean,
     score: number,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
-    await this.log(
-      userId,
-      won ? "card_battle_win" : "card_battle_lose",
-      { score },
-      sessionId
-    );
+    await this.log(userId, won ? "card_battle_win" : "card_battle_lose", { score }, sessionId);
   }
 
   async logStreak(
     userId: string,
     days: number,
     broken: boolean,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     await this.log(
       userId,
       broken ? "streak_break" : "streak_update",
       { streak_days: days },
-      sessionId
+      sessionId,
     );
   }
 
@@ -178,7 +184,7 @@ class EventLogger {
     earned: number,
     spent: number,
     reason: string,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     if (earned > 0) {
       await this.log(userId, "reward_claim", { points_earned: earned, reason }, sessionId);
@@ -192,36 +198,39 @@ class EventLogger {
     userId: string,
     challengeId: number,
     completed: boolean,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     await this.log(
       userId,
       completed ? "daily_challenge_complete" : "daily_challenge_start",
       { challenge_id: challengeId },
-      sessionId
+      sessionId,
     );
   }
 
   async logIntervention(
     userId: string,
     interventionType: string,
-    metadata: EventMetadata = {}
+    metadata: EventMetadata = {},
   ): Promise<void> {
-    await this.log(userId, "intervention_shown", { intervention_type: interventionType, ...metadata });
+    await this.log(userId, "intervention_shown", {
+      intervention_type: interventionType,
+      ...metadata,
+    });
   }
 
-  async logPersonalityChange(
-    userId: string,
-    previous: string,
-    current: string
-  ): Promise<void> {
+  async logPersonalityChange(userId: string, previous: string, current: string): Promise<void> {
     await this.log(userId, "personality_mode_change", {
       personality_mode: current,
       previous_personality: previous,
     });
   }
 
-  async logFeatureUse(userId: string, featureName: string, metadata: EventMetadata = {}): Promise<void> {
+  async logFeatureUse(
+    userId: string,
+    featureName: string,
+    metadata: EventMetadata = {},
+  ): Promise<void> {
     await this.log(userId, "feature_used", { feature_name: featureName, ...metadata });
   }
 
@@ -231,13 +240,13 @@ class EventLogger {
       if (eventType) {
         const { rows } = await this.db.query(
           `SELECT COUNT(*) FROM behavioral_events WHERE user_id = $1 AND event_type = $2`,
-          [userId, eventType]
+          [userId, eventType],
         );
         return parseInt(rows[0]?.count || "0");
       } else {
         const { rows } = await this.db.query(
           `SELECT COUNT(*) FROM behavioral_events WHERE user_id = $1`,
-          [userId]
+          [userId],
         );
         return parseInt(rows[0]?.count || "0");
       }
@@ -252,7 +261,7 @@ class EventLogger {
       const { rows } = await this.db.query(
         `SELECT event_type, timestamp, metadata FROM behavioral_events
          WHERE user_id = $1 ORDER BY timestamp DESC LIMIT $2`,
-        [userId, limit]
+        [userId, limit],
       );
       return rows;
     } catch {

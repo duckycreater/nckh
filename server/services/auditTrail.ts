@@ -148,7 +148,11 @@ class AuditTrail {
     return this.events.length;
   }
 
-  append(kind: AuditEventKind, payload: Record<string, unknown>, opts: AppendOptions = {}): AuditEvent {
+  append(
+    kind: AuditEventKind,
+    payload: Record<string, unknown>,
+    opts: AppendOptions = {},
+  ): AuditEvent {
     if (this.verifying) {
       throw new Error("Audit trail is being verified; reject new appends.");
     }

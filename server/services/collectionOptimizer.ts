@@ -70,21 +70,33 @@ export interface VrpOptions {
 }
 
 /** Haversine distance in km between two lat/lon. */
-function haversineKm(a: { latitude?: number; longitude?: number }, b: { latitude?: number; longitude?: number }): number {
+function haversineKm(
+  a: { latitude?: number; longitude?: number },
+  b: { latitude?: number; longitude?: number },
+): number {
   const R = 6371.0;
   const toRad = (x: number) => (x * Math.PI) / 180;
-  const dLat = toRad(b.latitude - a.latitude);
-  const dLon = toRad(b.longitude - a.longitude);
-  const lat1 = toRad(a.latitude);
-  const lat2 = toRad(b.latitude);
+  const aLatitude = a.latitude ?? 0;
+  const aLongitude = a.longitude ?? 0;
+  const bLatitude = b.latitude ?? 0;
+  const bLongitude = b.longitude ?? 0;
+  const dLat = toRad(bLatitude - aLatitude);
+  const dLon = toRad(bLongitude - aLongitude);
+  const lat1 = toRad(aLatitude);
+  const lat2 = toRad(bLatitude);
   const x = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
 /** Pseudo-coordinate for a bin within a school: deterministic from id. */
-function binCoordinate(profile: EmulatedBinProfile, index: number): { latitude: number; longitude: number } {
+function binCoordinate(
+  profile: EmulatedBinProfile,
+  index: number,
+): { latitude: number; longitude: number } {
   // School "centroid" hash to a 0.05° (~5 km) cell.
-  const seed = (profile.schoolId ?? "school").split("").reduce((acc, c) => acc + c.charCodeAt(0), index);
+  const seed = (profile.schoolId ?? "school")
+    .split("")
+    .reduce((acc, c) => acc + c.charCodeAt(0), index);
   const lat = 10.75 + ((seed * 13) % 100) / 1000; // ~Hanoi area for simplicity.
   const lon = 106.7 + ((seed * 7) % 100) / 1000;
   return { latitude: lat, longitude: lon };
@@ -92,7 +104,7 @@ function binCoordinate(profile: EmulatedBinProfile, index: number): { latitude: 
 
 function buildLocations(
   profiles: EmulatedBinProfile[],
-  forecasts: Map<string, HourForecast[]>
+  forecasts: Map<string, HourForecast[]>,
 ): BinLocation[] {
   return profiles.map((p, idx) => {
     const fcast = forecasts.get(p.deviceId);
@@ -126,7 +138,7 @@ function lptPartition(locs: BinLocation[], k: number): BinLocation[][] {
 /** 2-opt pass on a single route to reduce drive minutes. */
 function twoOpt(
   bins: BinLocation[],
-  speedKmh: number
+  speedKmh: number,
 ): { bins: BinLocation[]; driveMinutes: number; iterations: number } {
   if (bins.length <= 2) {
     return { bins, driveMinutes: 0, iterations: 0 };
@@ -141,7 +153,9 @@ function twoOpt(
     iterations++;
     for (let i = 1; i < best.length - 2; i++) {
       for (let j = i + 1; j < best.length - 1; j++) {
-        const candidate = best.slice(0, i).concat(best.slice(i, j + 1).reverse(), best.slice(j + 1));
+        const candidate = best
+          .slice(0, i)
+          .concat(best.slice(i, j + 1).reverse(), best.slice(j + 1));
         const d = computeRouteDistanceKm(candidate);
         if (d + 1e-9 < bestDist) {
           best = candidate;
@@ -170,10 +184,7 @@ function computeRouteDistanceKm(bins: BinLocation[]): number {
  * Solve the VRP greedily, then 2-opt each route.
  * Returns routes + summary metrics.
  */
-export function solveVrp(
-  profiles: EmulatedBinProfile[],
-  options: VrpOptions = {}
-): VrpResult {
+export function solveVrp(profiles: EmulatedBinProfile[], options: VrpOptions = {}): VrpResult {
   const nVehicles = options.nVehicles ?? 3;
   const horizonHours = options.horizonHours ?? 24;
   const speedKmh = options.speedKmh ?? 30;
@@ -231,7 +242,7 @@ export function solveVrp(
 /** Convenience used by the dashboard route. Returns sorted by load (descending). */
 export function suggestCollectionRoute(
   profiles: EmulatedBinProfile[],
-  options?: VrpOptions
+  options?: VrpOptions,
 ): RouteResult[] {
   return solveVrp(profiles, options).routes;
 }
@@ -239,8 +250,13 @@ export function suggestCollectionRoute(
 /** Compare optimised route vs. fixed route (alpha: drive minutes saved). */
 export function compareAgainstFixedRoute(
   profiles: EmulatedBinProfile[],
-  options?: VrpOptions
-): { optimised: VrpResult; fixedPerDriveMinutes: number; savedMinutes: number; savedPercent: number } {
+  options?: VrpOptions,
+): {
+  optimised: VrpResult;
+  fixedPerDriveMinutes: number;
+  savedMinutes: number;
+  savedPercent: number;
+} {
   // Fixed-route baseline: visit all bins in id-sort order, single truck, 30 km/h.
   const sorted = [...profiles].sort((a, b) => a.deviceId.localeCompare(b.deviceId));
   const fixedGroups: EmulatedBinProfile[][] = [sorted];

@@ -5,7 +5,6 @@ import { User } from "../types";
 import { formatNumber } from "../lib/format";
 import { Minigame } from "./Minigame";
 import { Leaderboard } from "./Leaderboard";
-import { AIScanner } from "./AIScanner";
 import { VirtualGarden } from "./VirtualGarden";
 import { DailyChallenges } from "./DailyChallenges";
 import { RewardStore } from "./RewardStore";
@@ -20,12 +19,15 @@ import { LevelUpCelebration } from "./LevelUpCelebration";
 import { calculateLevel, TIER_NAMES, levelToTier } from "../lib/useLevel";
 import { AchievementPopup } from "./AchievementPopup";
 import { SurpriseGift, STREAK_GIFT_TIERS } from "./SurpriseGift";
-import { DailyWheel } from "./DailyWheel";
+import { DailyWheel, type WheelSpinResult } from "./DailyWheel";
 import { PvPArena } from "./PvPArena";
 import { TournamentBracket } from "./TournamentBracket";
 import { ClanLobby } from "./ClanLobby";
 import { saveStreakToCache } from "../lib/streakPersistence";
 import { showPointsToast, PointsToastContainer } from "../lib/toast";
+import { getAuthHeaders } from "../lib/auth";
+import { getVietnamDayKey } from "../lib/dayKey";
+import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 import {
   Home,
   Compass,
@@ -44,9 +46,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const LazyFlashcards = lazy(() =>
-  import("./Flashcards").then((m) => ({ default: m.Flashcards }))
-);
+const LazyFlashcards = lazy(() => import("./Flashcards").then((m) => ({ default: m.Flashcards })));
+const LazyAIScanner = lazy(() => import("./AIScanner").then((m) => ({ default: m.AIScanner })));
 
 function LoadingFallback({ message = "Đang tải..." }: { message?: string }) {
   return (
@@ -73,17 +74,26 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const navigate = useNavigate();
 
   const validTabs = ["home", "cards", "craft", "leaderboard"];
-  const activeTab = validTabs.includes(tab || "") ? (tab as "home" | "cards" | "craft" | "leaderboard") : "home";
+  const activeTab = validTabs.includes(tab || "")
+    ? (tab as "home" | "cards" | "craft" | "leaderboard")
+    : "home";
 
   const [showScanner, setShowScanner] = useState(false);
   const [viewingProfile, setViewingProfile] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const [pendingMilestone, setPendingMilestone] = useState<import("./MilestoneBurst").MilestoneDef | null>(null);
-  const [pendingLevelUp, setPendingLevelUp] = useState<{ oldLevel: number; newLevel: number } | null>(null);
+  const [pendingMilestone, setPendingMilestone] = useState<
+    import("./MilestoneBurst").MilestoneDef | null
+  >(null);
+  const [pendingLevelUp, setPendingLevelUp] = useState<{
+    oldLevel: number;
+    newLevel: number;
+  } | null>(null);
   const [showDailyWheel, setShowDailyWheel] = useState(false);
-  const [showSurpriseGift, setShowSurpriseGift] = useState<import("./SurpriseGift").SurpriseGiftDef | null>(null);
+  const [showSurpriseGift, setShowSurpriseGift] = useState<
+    import("./SurpriseGift").SurpriseGiftDef | null
+  >(null);
   const [showPvPArena, setShowPvPArena] = useState(false);
   const [showTournament, setShowTournament] = useState(false);
   const [showClanLobby, setShowClanLobby] = useState(false);
@@ -100,16 +110,28 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(`/api/user/${user.account_id}`);
+        const res = await fetch(`/api/user/${user.account_id}`, { headers: getAuthHeaders() });
         if (res.ok) {
           const data = await res.json();
-          onUpdateUser({ points: data.points, name: data.name, progress: data.progress, hasPlayed: data.hasPlayed, selectedAvatar: data.selectedAvatar, selectedFrame: data.selectedFrame, customAvatarUrl: data.customAvatarUrl });
+          onUpdateUser({
+            points: data.points,
+            name: data.name,
+            progress: data.progress,
+            hasPlayed: data.hasPlayed,
+            selectedAvatar: data.selectedAvatar,
+            selectedFrame: data.selectedFrame,
+            customAvatarUrl: data.customAvatarUrl,
+          });
           if (data.progress?.streakDays && data.progress?.lastUpdateDate) {
-            saveStreakToCache(user.account_id, data.progress.streakDays, data.progress.lastUpdateDate);
+            saveStreakToCache(
+              user.account_id,
+              data.progress.streakDays,
+              data.progress.lastUpdateDate,
+            );
           }
         }
       } catch (e) {
-        console.warn('[Dashboard] Failed to fetch user progress:', e);
+        console.warn("[Dashboard] Failed to fetch user progress:", e);
       }
     };
     fetchUser();
@@ -129,21 +151,32 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   }, [totalExpEarned, user.points]);
 
   useEffect(() => {
-    const today = new Date().toDateString();
-    const lastSpin = localStorage.getItem("bmo:wheel:lastSpin");
-    if (lastSpin !== today) setShowDailyWheel(true);
+    const today = getVietnamDayKey();
+    const lastSpin = user.lastWheelClaimDate || localStorage.getItem("bmo:wheel:lastSpin");
+    setShowDailyWheel(lastSpin !== today);
     setLastWheelDate(lastSpin || "");
-    const lastGift = parseInt(localStorage.getItem("bmo:gift:lastMilestone") || "0", 10);
+    const localGift = parseInt(localStorage.getItem("bmo:gift:lastMilestone") || "0", 10);
+    const serverGift = Math.max(0, ...(user.claimedStreakGifts ?? []));
+    const lastGift = Math.max(localGift, serverGift);
     setLastGiftMilestone(lastGift);
-  }, []);
+  }, [user.claimedStreakGifts, user.lastWheelClaimDate]);
 
-  const handleEarnPoints = (newPointsOffset: number) => {
-    onUpdateUser({ points: user.points + newPointsOffset });
-    fetch("/api/reward", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: user.account_id, points: newPointsOffset, reason: t("dashboard.completeGreen") }),
-    }).then(() => setRefreshTrigger((prev) => prev + 1)).catch(console.error);
+  const handleEarnPoints = async (claim: GameplayRewardClaim) => {
+    try {
+      const response = await fetch("/api/reward", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(claim),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success || !Number.isFinite(data.points)) {
+        throw new Error(data.message || "Reward request failed");
+      }
+      onUpdateUser({ points: data.points });
+      setRefreshTrigger((prev) => prev + 1);
+    } catch (error) {
+      console.error("[Dashboard] Failed to claim reward:", error);
+    }
   };
 
   const triggerRefresh = (updatedProgress?: any) => {
@@ -151,77 +184,109 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     setRefreshTrigger((prev) => prev + 1);
   };
 
-  const handleBuyOrCraft = (cost: number, reason?: string) => {
-    onUpdateUser({ points: user.points - cost });
-    fetch("/api/reward", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: user.account_id, points: -cost, reason: reason || t("dashboard.craftFocus") }),
-    }).then(() => setRefreshTrigger((prev) => prev + 1)).catch(console.error);
-  };
-
   const handleMinigameComplete = (newPoints: number) => {
     onUpdateUser({ points: newPoints });
     setRefreshTrigger((prev) => prev + 1);
   };
 
-  const { level, currentExpInLevel, expToNextLevel, progress, tier, tierData, isMaxLevel } = calculateLevel(highWaterRef.current);
+  const { level, currentExpInLevel, expToNextLevel, progress, tier, tierData, isMaxLevel } =
+    calculateLevel(highWaterRef.current);
   const streakDays = user.progress?.streakDays || 1;
 
-  const handleWheelSpin = (segment: import("./DailyWheel").WheelSegment) => {
-    const today = new Date().toDateString();
-    localStorage.setItem("bmo:wheel:lastSpin", today);
-    setShowDailyWheel(false);
-    if (segment.reward > 0) {
-      onUpdateUser({ points: user.points + segment.reward });
-      fetch("/api/reward", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: user.account_id, points: segment.reward, reason: t("dashboard.wheelResult", { label: segment.label }) }),
-      }).catch(console.error);
+  const handleWheelSpin = async (): Promise<WheelSpinResult> => {
+    const response = await fetch("/api/daily-wheel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success || !Number.isFinite(data.points)) {
+      throw new Error(data.message || "Không thể quay thưởng lúc này.");
     }
-    showPointsToast(segment.reward, 1, t("dashboard.wheelResult", { label: segment.label }));
+    localStorage.setItem("bmo:wheel:lastSpin", data.claimDate);
+    setLastWheelDate(data.claimDate);
+    onUpdateUser({ points: data.points, lastWheelClaimDate: data.claimDate });
+    showPointsToast(data.earnedPoints, 1, t("dashboard.wheelResult", { label: "Daily Wheel" }));
+    return data as WheelSpinResult;
   };
 
-  const handleSurpriseClaim = (gift: import("./SurpriseGift").SurpriseGiftDef) => {
-    localStorage.setItem("bmo:gift:lastMilestone", String(gift.streakDays));
-    setLastGiftMilestone(gift.streakDays);
-    setShowSurpriseGift(null);
-    onUpdateUser({ points: user.points + gift.reward });
-    fetch("/api/reward", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: user.account_id, points: gift.reward, reason: t("dashboard.streakGift", { days: gift.streakDays }) }),
-    }).catch(console.error);
+  const handleSurpriseClaim = async (gift: import("./SurpriseGift").SurpriseGiftDef) => {
+    try {
+      const response = await fetch("/api/streak-gift", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ milestone: gift.streakDays }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success || !Number.isFinite(data.points)) {
+        throw new Error(data.message || "Không thể nhận quà streak lúc này.");
+      }
+      localStorage.setItem("bmo:gift:lastMilestone", String(gift.streakDays));
+      setLastGiftMilestone(gift.streakDays);
+      setShowSurpriseGift(null);
+      onUpdateUser({
+        points: data.points,
+        claimedStreakGifts: [...(user.claimedStreakGifts ?? []), gift.streakDays],
+      });
+    } catch (error) {
+      console.error("[Dashboard] Failed to claim streak gift:", error);
+    }
   };
 
   useEffect(() => {
-    const nextGift = STREAK_GIFT_TIERS.find((g) => g.streakDays > lastGiftMilestone && streakDays >= g.streakDays);
+    const nextGift = STREAK_GIFT_TIERS.find(
+      (g) => g.streakDays > lastGiftMilestone && streakDays >= g.streakDays,
+    );
     if (nextGift) setShowSurpriseGift(nextGift);
   }, [streakDays, lastGiftMilestone]);
 
-  function StatCard({ label, value, icon, accent }: { label: string; value: string; icon: React.ReactNode; accent?: string }) {
+  function StatCard({
+    label,
+    value,
+    icon,
+    accent,
+  }: {
+    label: string;
+    value: string;
+    icon: React.ReactNode;
+    accent?: string;
+  }) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 shadow-sm">
-        <div className={`flex h-9 w-9 items-center justify-center rounded-xl shrink-0 ${accent || "bg-[var(--primary-soft)] text-[var(--primary)]"}`}>
+        <div
+          className={`flex h-9 w-9 items-center justify-center rounded-xl shrink-0 ${accent || "bg-[var(--primary-soft)] text-[var(--primary)]"}`}
+        >
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">{label}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+            {label}
+          </p>
           <p className="font-black text-[var(--text-primary)] truncate">{value}</p>
         </div>
       </div>
     );
   }
 
-  function ActionBtn({ icon, label, color, onClick }: { icon: React.ReactNode; label: string; color: string; onClick: () => void }) {
+  function ActionBtn({
+    icon,
+    label,
+    color,
+    onClick,
+  }: {
+    icon: React.ReactNode;
+    label: string;
+    color: string;
+    onClick: () => void;
+  }) {
     return (
       <button
         onClick={onClick}
         className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all active:scale-95 hover:scale-105 ${color}`}
       >
         <div>{icon}</div>
-        <span className="text-[10px] font-bold leading-tight text-[var(--text-muted)] text-center">{label}</span>
+        <span className="text-[10px] font-bold leading-tight text-[var(--text-muted)] text-center">
+          {label}
+        </span>
       </button>
     );
   }
@@ -229,11 +294,13 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   return (
     <div className="flex h-screen bg-[var(--background)] items-center justify-center sm:p-3">
       <div className="w-full h-full sm:h-[92vh] sm:max-w-md bg-[var(--surface)] sm:rounded-3xl border border-[var(--border-subtle)] shadow-[var(--shadow-medium)] flex flex-col relative overflow-hidden">
-
         {/* ── TOP BAR ── */}
         <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="flex items-center justify-between gap-3">
-            <button onClick={() => setViewingProfile(user.account_id)} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
+            <button
+              onClick={() => setViewingProfile(user.account_id)}
+              className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity"
+            >
               <div className="w-11 h-11 rounded-2xl bg-[var(--primary-soft)] border border-[var(--primary-soft-strong)] flex items-center justify-center text-lg font-black text-[var(--primary)] shrink-0">
                 {user.name[0]}
               </div>
@@ -247,7 +314,9 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-[var(--text-muted)] truncate">Lv.{level} · {tierData.short}</p>
+                <p className="text-[11px] text-[var(--text-muted)] truncate">
+                  Lv.{level} · {tierData.short}
+                </p>
               </div>
             </button>
 
@@ -267,10 +336,16 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              <button onClick={() => setShowSettings(true)} className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-soft)] transition-colors">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-soft)] transition-colors"
+              >
                 <SettingsIcon size={18} />
               </button>
-              <button onClick={onLogout} className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-red-50 hover:text-red-500 transition-colors">
+              <button
+                onClick={onLogout}
+                className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-red-50 hover:text-red-500 transition-colors"
+              >
                 <LogOut size={18} />
               </button>
             </div>
@@ -280,11 +355,9 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         {/* ── SCROLLABLE CONTENT ── */}
         <div className="flex-1 overflow-y-auto thin-scrollbar">
           <div className="p-4 space-y-4">
-
             {/* HOME */}
             {activeTab === "home" && (
               <div className="space-y-4">
-
                 {/* AI Scanner hero */}
                 <button
                   onClick={() => setShowScanner(true)}
@@ -302,27 +375,66 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-2">
-                  <StatCard label={t("dashboard.levelLabel")} value={`Lv.${level}`} icon={<Star size={16} />} accent="bg-violet-50 text-violet-600" />
-                  <StatCard label={t("dashboard.pointsLabel")} value={fmt(user.points)} icon={<Zap size={16} />} />
-                  <StatCard label={t("dashboard.daysLabel")} value={`${streakDays}d`} icon={<Flame size={16} className="text-amber-500" />} accent="bg-amber-50 text-amber-600" />
+                  <StatCard
+                    label={t("dashboard.levelLabel")}
+                    value={`Lv.${level}`}
+                    icon={<Star size={16} />}
+                    accent="bg-violet-50 text-violet-600"
+                  />
+                  <StatCard
+                    label={t("dashboard.pointsLabel")}
+                    value={fmt(user.points)}
+                    icon={<Zap size={16} />}
+                  />
+                  <StatCard
+                    label={t("dashboard.daysLabel")}
+                    value={`${streakDays}d`}
+                    icon={<Flame size={16} className="text-amber-500" />}
+                    accent="bg-amber-50 text-amber-600"
+                  />
                 </div>
 
                 {/* Quick actions */}
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">{t("dashboard.toolsLabel")}</p>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">
+                    {t("dashboard.toolsLabel")}
+                  </p>
                   <div className="grid grid-cols-4 gap-2">
-                    <ActionBtn icon={<Trophy size={20} className="text-orange-500" />} label={t("dashboard.leaderboard")} color="bg-orange-50 border-orange-100" onClick={() => navigate("/leaderboard")} />
-                    <ActionBtn icon={<Swords size={20} className="text-red-500" />} label={t("dashboard.pvpLabel")} color="bg-red-50 border-red-100" onClick={() => setShowPvPArena(true)} />
-                    <ActionBtn icon={<Crown size={20} className="text-violet-500" />} label={t("dashboard.tournament")} color="bg-violet-50 border-violet-100" onClick={() => setShowTournament(true)} />
-                    <ActionBtn icon={<Users size={20} className="text-emerald-500" />} label={t("dashboard.clanTitle")} color="bg-emerald-50 border-emerald-100" onClick={() => setShowClanLobby(true)} />
+                    <ActionBtn
+                      icon={<Trophy size={20} className="text-orange-500" />}
+                      label={t("dashboard.leaderboard")}
+                      color="bg-orange-50 border-orange-100"
+                      onClick={() => navigate("/leaderboard")}
+                    />
+                    <ActionBtn
+                      icon={<Swords size={20} className="text-red-500" />}
+                      label={t("dashboard.pvpLabel")}
+                      color="bg-red-50 border-red-100"
+                      onClick={() => setShowPvPArena(true)}
+                    />
+                    <ActionBtn
+                      icon={<Crown size={20} className="text-violet-500" />}
+                      label={t("dashboard.tournament")}
+                      color="bg-violet-50 border-violet-100"
+                      onClick={() => setShowTournament(true)}
+                    />
+                    <ActionBtn
+                      icon={<Users size={20} className="text-emerald-500" />}
+                      label={t("dashboard.clanTitle")}
+                      color="bg-emerald-50 border-emerald-100"
+                      onClick={() => setShowClanLobby(true)}
+                    />
                   </div>
                 </div>
 
-                <DailyChallenges onReward={handleEarnPoints} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
+                <DailyChallenges
+                  userId={user.account_id}
+                  progress={user.progress}
+                  onRefresh={triggerRefresh}
+                />
                 <Minigame user={user} onComplete={handleMinigameComplete} />
                 <AdaptiveRewardBanner userId={user.account_id} />
-                <VirtualGarden points={user.points} onReward={(bonus) => handleEarnPoints(bonus)} />
-
+                <VirtualGarden points={user.points} onReward={handleEarnPoints} />
               </div>
             )}
 
@@ -332,7 +444,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 <LazyFlashcards
                   onReward={handleEarnPoints}
                   points={user.points}
-                  onSpend={handleBuyOrCraft}
                   userId={user.account_id}
                   progress={user.progress}
                   onRefresh={triggerRefresh}
@@ -343,8 +454,16 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             {/* CRAFT */}
             {activeTab === "craft" && (
               <div className="space-y-4">
-                <CraftingStation points={user.points} onCraft={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
-                <RewardStore points={user.points} onPurchase={handleBuyOrCraft} userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
+                <CraftingStation
+                  points={user.points}
+                  progress={user.progress}
+                  onRefresh={triggerRefresh}
+                />
+                <RewardStore
+                  points={user.points}
+                  progress={user.progress}
+                  onRefresh={triggerRefresh}
+                />
                 <RewardHistory userId={user.account_id} currentBalance={user.points} />
               </div>
             )}
@@ -352,37 +471,69 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             {/* LEADERBOARD */}
             {activeTab === "leaderboard" && (
               <div>
-                <button onClick={() => navigate("/home")} className="mb-3 flex items-center gap-1 text-[var(--primary)] text-sm font-bold hover:underline">← Trang chủ</button>
-                <Leaderboard refreshTrigger={refreshTrigger} currentUser={user.account_id} onUserClick={(nickname) => setViewingProfile(nickname)} />
+                <button
+                  onClick={() => navigate("/home")}
+                  className="mb-3 flex items-center gap-1 text-[var(--primary)] text-sm font-bold hover:underline"
+                >
+                  ← Trang chủ
+                </button>
+                <Leaderboard
+                  refreshTrigger={refreshTrigger}
+                  currentUser={user.account_id}
+                  onUserClick={(nickname) => setViewingProfile(nickname)}
+                />
               </div>
             )}
-
           </div>
         </div>
 
         {/* ── BOTTOM NAV ── */}
         <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface)]">
           <div className="flex">
-            <button onClick={() => navigate("/home")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "home" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
-              <motion.div animate={activeTab === "home" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}>
+            <button
+              onClick={() => navigate("/home")}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "home" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
+            >
+              <motion.div
+                animate={activeTab === "home" ? { y: [-1, -3, -1] } : {}}
+                transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}
+              >
                 <Home size={20} />
               </motion.div>
               <span className="text-[10px] font-bold">{t("nav.home")}</span>
             </button>
-            <button onClick={() => navigate("/cards")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "cards" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
-              <motion.div animate={activeTab === "cards" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}>
+            <button
+              onClick={() => navigate("/cards")}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "cards" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
+            >
+              <motion.div
+                animate={activeTab === "cards" ? { y: [-1, -3, -1] } : {}}
+                transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}
+              >
                 <Compass size={20} />
               </motion.div>
               <span className="text-[10px] font-bold">{t("nav.cards")}</span>
             </button>
-            <button onClick={() => navigate("/craft")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "craft" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
-              <motion.div animate={activeTab === "craft" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}>
+            <button
+              onClick={() => navigate("/craft")}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "craft" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
+            >
+              <motion.div
+                animate={activeTab === "craft" ? { y: [-1, -3, -1] } : {}}
+                transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}
+              >
                 <Hammer size={20} />
               </motion.div>
               <span className="text-[10px] font-bold">{t("nav.craft")}</span>
             </button>
-            <button onClick={() => navigate("/leaderboard")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "leaderboard" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}>
-              <motion.div animate={activeTab === "leaderboard" ? { y: [-1, -3, -1] } : {}} transition={{ duration: 0.6, repeat: activeTab === "leaderboard" ? Infinity : 0 }}>
+            <button
+              onClick={() => navigate("/leaderboard")}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "leaderboard" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
+            >
+              <motion.div
+                animate={activeTab === "leaderboard" ? { y: [-1, -3, -1] } : {}}
+                transition={{ duration: 0.6, repeat: activeTab === "leaderboard" ? Infinity : 0 }}
+              >
                 <Trophy size={20} />
               </motion.div>
               <span className="text-[10px] font-bold">{t("nav.leaderboard")}</span>
@@ -393,52 +544,97 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         <PointsToastContainer />
 
         {showScanner && (
-          <AIScanner user={user} onClose={() => setShowScanner(false)} onUpdatePoints={(pts) => { onUpdateUser({ points: pts }); setRefreshTrigger((prev) => prev + 1); }} />
+          <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
+            <LazyAIScanner
+              user={user}
+              onClose={() => setShowScanner(false)}
+              onUpdatePoints={(pts) => {
+                onUpdateUser({ points: pts });
+                setRefreshTrigger((prev) => prev + 1);
+              }}
+            />
+          </Suspense>
         )}
 
         {viewingProfile && (
-          <ProfileView nickname={viewingProfile} onClose={() => setViewingProfile(null)} />
+          <ProfileView
+            nickname={viewingProfile}
+            currentUserNick={user.account_id}
+            onClose={() => setViewingProfile(null)}
+          />
         )}
 
         {showSettings && (
           <motion.div
-            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
             transition={{ duration: 0.3, ease: "easeOut" }}
             className="absolute inset-0 z-50 bg-[var(--background)] overflow-y-auto"
           >
             <div className="p-4">
-              <button onClick={() => setShowSettings(false)} className="mb-6 flex items-center gap-1 text-sm font-bold text-[var(--primary)] hover:underline">← Đóng</button>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="mb-6 flex items-center gap-1 text-sm font-bold text-[var(--primary)] hover:underline"
+              >
+                ← Đóng
+              </button>
               <Settings user={user} onUpdate={onUpdateUser} />
             </div>
           </motion.div>
         )}
 
         {showDailyWheel && (
-          <DailyWheel userId={user.account_id} lastSpinDate={lastWheelDate} onSpin={handleWheelSpin} onClose={() => setShowDailyWheel(false)} />
+          <DailyWheel
+            lastSpinDate={lastWheelDate}
+            onSpin={handleWheelSpin}
+            onClose={() => setShowDailyWheel(false)}
+          />
         )}
 
         {showSurpriseGift && (
-          <SurpriseGift streakDays={streakDays} onClaim={handleSurpriseClaim} onClose={() => setShowSurpriseGift(null)} />
+          <SurpriseGift
+            streakDays={streakDays}
+            onClaim={handleSurpriseClaim}
+            onClose={() => setShowSurpriseGift(null)}
+          />
         )}
 
         {showPvPArena && (
-          <PvPArena currentUserNick={user.name} onClose={() => setShowPvPArena(false)} onBattle={() => setShowPvPArena(false)} />
+          <PvPArena
+            currentUserNick={user.name}
+            onClose={() => setShowPvPArena(false)}
+            onBattle={() => setShowPvPArena(false)}
+          />
         )}
 
         {showTournament && (
-          <TournamentBracket currentUserNick={user.name} onClose={() => setShowTournament(false)} />
+          <TournamentBracket
+            currentUserNick={user.account_id}
+            onClose={() => setShowTournament(false)}
+          />
         )}
 
         {showClanLobby && (
-          <ClanLobby userNick={user.name} onClose={() => setShowClanLobby(false)} />
+          <ClanLobby userNick={user.account_id} onClose={() => setShowClanLobby(false)} />
         )}
 
         {pendingMilestone && (
-          <MilestoneBurst milestone={pendingMilestone} totalExpEarned={highWaterRef.current} onComplete={() => setPendingMilestone(null)} />
+          <MilestoneBurst
+            milestone={pendingMilestone}
+            totalExpEarned={highWaterRef.current}
+            onComplete={() => setPendingMilestone(null)}
+          />
         )}
 
         {pendingLevelUp && (
-          <LevelUpCelebration oldLevel={pendingLevelUp.oldLevel} newLevel={pendingLevelUp.newLevel} totalExpEarned={highWaterRef.current} streakDays={user.progress?.streakDays} onClose={() => setPendingLevelUp(null)} />
+          <LevelUpCelebration
+            oldLevel={pendingLevelUp.oldLevel}
+            newLevel={pendingLevelUp.newLevel}
+            totalExpEarned={highWaterRef.current}
+            streakDays={user.progress?.streakDays}
+            onClose={() => setPendingLevelUp(null)}
+          />
         )}
 
         <AchievementPopup />

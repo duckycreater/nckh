@@ -12,9 +12,22 @@ import { getDb } from "../db.js";
 
 export type PersonalityMode = "friendly" | "competitive" | "mentor" | "playful";
 
-export const PERSONALITY_MODES: PersonalityMode[] = ["friendly", "competitive", "mentor", "playful"];
+export const PERSONALITY_MODES: PersonalityMode[] = [
+  "friendly",
+  "competitive",
+  "mentor",
+  "playful",
+];
 
-export const PERSONALITY_PROMPTS: Record<PersonalityMode, { systemPrompt: string; dashboardTone: string; leaderboardEmphasis: string; notificationStyle: string }> = {
+export const PERSONALITY_PROMPTS: Record<
+  PersonalityMode,
+  {
+    systemPrompt: string;
+    dashboardTone: string;
+    leaderboardEmphasis: string;
+    notificationStyle: string;
+  }
+> = {
   friendly: {
     systemPrompt: `Bạn là Robot Siêu Cấp Xanh, một chuyên gia thân thiện về bảo vệ môi trường. Bạn luôn vui vẻ, ấm áp và hay khen ngợi. Giao tiếp như một người bạn tốt, dùng emoji thân thiện, động viên mọi người bằng lời lẽ nhẹ nhàng. Luôn nhấn mạnh rằng mỗi nỗ lực nhỏ đều có ý nghĩa. Nếu được hỏi ngoài lề, hãy khéo léo lái câu chuyện về bảo vệ môi trường.`,
     dashboardTone: "warm",
@@ -128,7 +141,7 @@ class PersonalityEngine {
         `INSERT INTO personality_assignments (user_id, personality_mode, round_id, current_round)
          VALUES ($1, $2, $3, $3)
          ON CONFLICT (user_id) DO UPDATE SET personality_mode = $2, round_id = $3, current_round = $3`,
-        [userId, mode, roundId]
+        [userId, mode, roundId],
       );
     } catch (e) {
       console.warn("[PersonalityEngine] Failed to assign:", (e as Error).message);
@@ -141,7 +154,7 @@ class PersonalityEngine {
     try {
       const { rows } = await this.db.query(
         `SELECT personality_mode FROM personality_assignments WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       return (rows[0]?.personality_mode as PersonalityMode) || "friendly";
     } catch {
@@ -149,12 +162,16 @@ class PersonalityEngine {
     }
   }
 
-  async reassignPersonality(userId: string, newMode: PersonalityMode, newRoundId: number): Promise<void> {
+  async reassignPersonality(
+    userId: string,
+    newMode: PersonalityMode,
+    newRoundId: number,
+  ): Promise<void> {
     if (!this.db) return;
     try {
       await this.db.query(
         `UPDATE personality_assignments SET personality_mode = $1, round_id = $2, current_round = $2 WHERE user_id = $3`,
-        [newMode, newRoundId, userId]
+        [newMode, newRoundId, userId],
       );
     } catch (e) {
       console.warn("[PersonalityEngine] Failed to reassign:", (e as Error).message);
@@ -177,8 +194,13 @@ class PersonalityEngine {
     return PERSONALITY_PROMPTS[mode]?.notificationStyle || "gentle";
   }
 
-  getMessage(mode: PersonalityMode, key: string, params: Record<string, string | number> = {}): string {
-    const messages = PERSONALITY_MESSAGES[mode]?.[key] || PERSONALITY_MESSAGES.friendly[key] || [""];
+  getMessage(
+    mode: PersonalityMode,
+    key: string,
+    params: Record<string, string | number> = {},
+  ): string {
+    const messages = PERSONALITY_MESSAGES[mode]?.[key] ||
+      PERSONALITY_MESSAGES.friendly[key] || [""];
     let msg = messages[Math.floor(Math.random() * messages.length)];
     for (const [k, v] of Object.entries(params)) {
       msg = msg.replace(`{${k}}`, String(v));
@@ -190,9 +212,14 @@ class PersonalityEngine {
     if (!this.db) return { friendly: 0, competitive: 0, mentor: 0, playful: 0 };
     try {
       const { rows } = await this.db.query(
-        `SELECT personality_mode, COUNT(*) as count FROM personality_assignments GROUP BY personality_mode`
+        `SELECT personality_mode, COUNT(*) as count FROM personality_assignments GROUP BY personality_mode`,
       );
-      const dist: Record<PersonalityMode, number> = { friendly: 0, competitive: 0, mentor: 0, playful: 0 };
+      const dist: Record<PersonalityMode, number> = {
+        friendly: 0,
+        competitive: 0,
+        mentor: 0,
+        playful: 0,
+      };
       for (const r of rows) {
         dist[r.personality_mode as PersonalityMode] = parseInt(r.count);
       }

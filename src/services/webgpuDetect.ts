@@ -15,7 +15,7 @@ export type ComputeBackend = "webgpu" | "webgl2" | "wasm-simd" | "wasm";
 export interface BackendCapability {
   backend: ComputeBackend;
   /** Available when backend === "webgpu". */
-  adapter?: {vendor?: string; architecture?: string};
+  adapter?: { vendor?: string; architecture?: string };
   /** Approximate mW per inference (1 image @ 224²). Source: industry reports. */
   energyMilliwatts: number;
   /** True when the device exposes the capability — checked once, cached. */
@@ -27,19 +27,19 @@ const CACHE_KEY = "bmo.backend.capability.v1";
 /* Estimated mW per inference by backend. Conservative upper bound
  * so the UI does not over-promise savings. */
 const ENERGY_BY_BACKEND: Record<ComputeBackend, number> = {
-  webgpu: 80,      // NPU/GPU path
-  webgl2: 250,     // GPU shader path
+  webgpu: 80, // NPU/GPU path
+  webgl2: 250, // GPU shader path
   "wasm-simd": 600, // SIMD CPU
-  wasm: 1500,      // generic CPU
+  wasm: 1500, // generic CPU
 };
 
 async function probeWebGPU(): Promise<BackendCapability | null> {
   try {
-    const nav = navigator as unknown as {gpu?: {requestAdapter(): Promise<unknown>}};
+    const nav = navigator as unknown as { gpu?: { requestAdapter(): Promise<unknown> } };
     if (!nav.gpu || typeof nav.gpu.requestAdapter !== "function") return null;
     const adapter = await nav.gpu.requestAdapter();
     if (!adapter) return null;
-    const a = adapter as {info?: {vendor?: string; architecture?: string}};
+    const a = adapter as { info?: { vendor?: string; architecture?: string } };
     return {
       backend: "webgpu",
       adapter: {

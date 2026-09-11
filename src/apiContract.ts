@@ -95,8 +95,8 @@ export interface FederatedStatsResponse {
   ok: true;
   bufferSize: number;
   minClients: number;
-  latestVersion: {version: string; trainedOn: number; createdAt: number} | null;
-  dp: {epsilon: number; delta: number; clipNorm: number};
+  latestVersion: { version: string; trainedOn: number; createdAt: number } | null;
+  dp: { epsilon: number; delta: number; clipNorm: number };
 }
 
 /* ───── Vision ───── */
@@ -110,10 +110,10 @@ export interface ClassifyImageResponse {
   ok: true;
   category: Category;
   confidence: number;
-  alternatives: {category: Category; confidence: number}[];
+  alternatives: { category: Category; confidence: number }[];
   latencyMs: number;
   backend: string;
-  xai?: {overallScore: number; explanationReliable: boolean};
+  xai?: { overallScore: number; explanationReliable: boolean };
 }
 
 /* ───── Audit ───── */

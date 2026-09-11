@@ -66,10 +66,7 @@ export interface HeterogeneousRound {
  * (ε, δ) via `renyiToEpsilonDelta(α, sum, δ)` or accumulate it with
  * `composeRenyi` across rounds.
  */
-export function composeHeterogeneous(
-  rounds: HeterogeneousRound[],
-  alpha: number
-): number {
+export function composeHeterogeneous(rounds: HeterogeneousRound[], alpha: number): number {
   let total = 0;
   for (const r of rounds) {
     total += gaussianRenyiEpsilon(alpha, r.sigma, r.clipNorm);
@@ -92,7 +89,7 @@ export function composeHeterogeneous(
  */
 export function composeHeterogeneousToEpsilon(
   rounds: HeterogeneousRound[],
-  delta = 1e-5
+  delta = 1e-5,
 ): { epsilon: number; delta: number; alpha: number } {
   // RDP→(ε,δ): for a given α, the minimum ε that satisfies
   //     δ ≥ exp((α-1)(ε - ε_α)) / α
@@ -122,7 +119,7 @@ export function composeHeterogeneousToEpsilon(
 export interface RoundLogEntry {
   round: number;
   clockTs: number;
-  config: { clipNorm: number; sigma: number };
+  config: { sensitivity: number; noiseStdDev: number };
   /** Per-client contributions (for OSF audit log). */
   clients: Array<{ clientId: string; n: number }>;
   state: {
@@ -144,18 +141,18 @@ export function resetAuditLog(): void {
  * round log entry. Used by `routes/federated.ts`.
  */
 export function logRound(opts: {
-  clipNorm: number;
-  sigma: number;
+  sensitivity: number;
+  noiseStdDev: number;
   clients: Array<{ clientId: string; n: number }>;
 }): RoundLogEntry {
   const acc = getDpAccountant();
-  acc.setConfig({ clipNorm: opts.clipNorm, sigma: opts.sigma });
+  acc.setConfig({ clipNorm: opts.sensitivity, sigma: opts.noiseStdDev });
   acc.recordRound();
   const state = acc.computeState();
   const entry: RoundLogEntry = {
     round: state.rounds,
     clockTs: Date.now(),
-    config: { clipNorm: opts.clipNorm, sigma: opts.sigma },
+    config: { sensitivity: opts.sensitivity, noiseStdDev: opts.noiseStdDev },
     clients: opts.clients,
     state: {
       rounds: state.rounds,

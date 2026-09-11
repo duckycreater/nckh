@@ -21,11 +21,7 @@
 
 import type { User } from "../types";
 
-export type Archetype =
-  | "identity_driven"
-  | "peer_driven"
-  | "achievement_seeker"
-  | "indifferent";
+export type Archetype = "identity_driven" | "peer_driven" | "achievement_seeker" | "indifferent";
 
 export interface SyntheticArchetypeProfile {
   /** 0..1 — Whitmarsh-O'Neill EID-4 baseline (proxy: environmentalIdentityScore). */
@@ -56,7 +52,7 @@ export const ARCHETYPES: Record<Archetype, SyntheticArchetypeProfile> = {
   },
   peer_driven: {
     identityBaseline: 0.35,
-    accuracyBaseline: 0.50,
+    accuracyBaseline: 0.5,
     engagementBaseline: 0.55,
     friendBaseline: 9,
     streakBaseline: 3,
@@ -66,7 +62,7 @@ export const ARCHETYPES: Record<Archetype, SyntheticArchetypeProfile> = {
   achievement_seeker: {
     identityBaseline: 0.45,
     accuracyBaseline: 0.65,
-    engagementBaseline: 0.80,
+    engagementBaseline: 0.8,
     friendBaseline: 3,
     streakBaseline: 12,
     quizBaseline: 9,
@@ -74,8 +70,8 @@ export const ARCHETYPES: Record<Archetype, SyntheticArchetypeProfile> = {
   },
   indifferent: {
     identityBaseline: 0.25,
-    accuracyBaseline: 0.40,
-    engagementBaseline: 0.30,
+    accuracyBaseline: 0.4,
+    engagementBaseline: 0.3,
     friendBaseline: 1,
     streakBaseline: 0,
     quizBaseline: 1,
@@ -84,10 +80,10 @@ export const ARCHETYPES: Record<Archetype, SyntheticArchetypeProfile> = {
 };
 
 export const ARCHETYPE_MIX: Record<Archetype, number> = {
-  identity_driven: 0.30,
-  peer_driven: 0.30,
-  achievement_seeker: 0.20,
-  indifferent: 0.20,
+  identity_driven: 0.3,
+  peer_driven: 0.3,
+  achievement_seeker: 0.2,
+  indifferent: 0.2,
 };
 
 export type CohortId = "C" | "E1" | "E2" | "E3" | "E4";
@@ -146,9 +142,7 @@ function pickArchetype(rng: () => number): Archetype {
 }
 
 /** Generate N synthetic users, deterministically if seed is provided. */
-export function generateSyntheticPopulation(
-  opts: SyntheticPopulationOptions
-): SyntheticUserSpec[] {
+export function generateSyntheticPopulation(opts: SyntheticPopulationOptions): SyntheticUserSpec[] {
   const nUsers = opts.nUsers;
   if (nUsers < 1) return [];
   const schools = opts.schools ?? DEFAULT_SCHOOLS;
@@ -170,7 +164,7 @@ export function generateSyntheticPopulation(
       const archetype = pickArchetype(rng);
       const proto = ARCHETYPES[archetype];
 
-      const noise = () => (rng() - 0.5) * 0.10;
+      const noise = () => (rng() - 0.5) * 0.1;
       const baseline = {
         identity: clip01(proto.identityBaseline + noise()),
         accuracy: clip01(proto.accuracyBaseline + noise()),
@@ -185,7 +179,7 @@ export function generateSyntheticPopulation(
         cohort,
         schoolId,
         archetype,
-        noise,
+        noise: noise(),
         baseline,
       });
     }
@@ -199,7 +193,7 @@ export function generateSyntheticPopulation(
     const cohort = cohorts[idx % cohorts.length];
     const archetype = pickArchetype(rng);
     const proto = ARCHETYPES[archetype];
-    const noise = () => (rng() - 0.5) * 0.10;
+    const noise = () => (rng() - 0.5) * 0.1;
     const baseline = {
       identity: clip01(proto.identityBaseline + noise()),
       accuracy: clip01(proto.accuracyBaseline + noise()),
@@ -209,7 +203,7 @@ export function generateSyntheticPopulation(
       quizzes: Math.max(0, Math.round(proto.quizBaseline + (rng() - 0.5) * 4)),
       chat: Math.max(0, Math.round(proto.chatBaseline + (rng() - 0.5) * 4)),
     };
-    users.push({ userId, cohort, schoolId, archetype, noise, baseline });
+    users.push({ userId, cohort, schoolId, archetype, noise: noise(), baseline });
     idx++;
   }
   return users;
@@ -220,7 +214,8 @@ export function specToPartialUser(spec: SyntheticUserSpec): Partial<User> {
   return {
     points: Math.round(spec.baseline.engagement * 1000),
     level: Math.max(1, Math.round(spec.baseline.streak / 4) + 1),
-    unlockedRegions: spec.baseline.friends > 4 ? ["region_01", "region_02", "region_03"] : ["region_01"],
+    unlockedRegions:
+      spec.baseline.friends > 4 ? ["region_01", "region_02", "region_03"] : ["region_01"],
     currentRegion: "region_01",
     dominantProfile: spec.archetype,
     personalityMode: spec.archetype === "peer_driven" ? "social" : "solo",
@@ -248,7 +243,9 @@ export function summarisePopulation(specs: SyntheticUserSpec[]): PopulationStats
     achievement_seeker: 0,
     indifferent: 0,
   };
-  let idSum = 0, accSum = 0, engSum = 0;
+  let idSum = 0,
+    accSum = 0,
+    engSum = 0;
   for (const u of specs) {
     perCohort[u.cohort]++;
     perArchetype[u.archetype]++;
@@ -271,7 +268,10 @@ export function summarisePopulation(specs: SyntheticUserSpec[]): PopulationStats
 let _singleton: SyntheticUserSpec[] | null = null;
 let _singletonSeed: number | null = null;
 
-export function getSyntheticPopulation(opts?: { seed?: number; nUsers?: number }): SyntheticUserSpec[] {
+export function getSyntheticPopulation(opts?: {
+  seed?: number;
+  nUsers?: number;
+}): SyntheticUserSpec[] {
   if (_singleton && (opts?.seed ?? _singletonSeed) === _singletonSeed) return _singleton;
   _singleton = generateSyntheticPopulation({
     nUsers: opts?.nUsers ?? 1000,

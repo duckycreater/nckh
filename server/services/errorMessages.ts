@@ -22,11 +22,19 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export type LocaleCode =
-  | "vi" | "en" | "zh" | "es" | "fr" | "ja" | "ko" | "id" | "ar" | "pt";
+export type LocaleCode = "vi" | "en" | "zh" | "es" | "fr" | "ja" | "ko" | "id" | "ar" | "pt";
 
 export const SERVER_SUPPORTED_LOCALES: readonly LocaleCode[] = [
-  "vi", "en", "zh", "es", "fr", "ja", "ko", "id", "ar", "pt",
+  "vi",
+  "en",
+  "zh",
+  "es",
+  "fr",
+  "ja",
+  "ko",
+  "id",
+  "ar",
+  "pt",
 ];
 
 /**
@@ -40,18 +48,11 @@ export const SERVER_SUPPORTED_LOCALES: readonly LocaleCode[] = [
  * any `import.meta` magic.
  */
 function moduleDir(): string {
-  // We probe `../locales/en.json` relative to *this file*, not the
-  // working directory. require.resolve walks up `node_modules` until it
-  // finds the file, and the path is resolvable in both ESM + CJS as
-  // long as we're inside a CommonJS-resolvable module graph.
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-    const probe = require.resolve("../locales/en.json");
-    return path.dirname(probe);
-  } catch {
-    /* fall through to cwd-relative */
-  }
-  return path.join(process.cwd(), "server", "locales");
+  // `require.resolve` is unavailable in the native ESM dev server.  Both the
+  // tsx entrypoint and the bundled production entrypoint run from the project
+  // root, so an explicit environment override plus cwd-relative fallback is
+  // deterministic in both modes.
+  return process.env.BMO_LOCALES_DIR || path.join(process.cwd(), "server", "locales");
 }
 
 const LOCALES_DIR = moduleDir();

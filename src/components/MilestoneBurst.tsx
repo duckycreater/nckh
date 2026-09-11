@@ -52,7 +52,9 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
         {/* Tier badge */}
         <div className="mb-3 flex items-center justify-center gap-2">
           <Star size={14} className="text-amber-500 fill-amber-400" />
-          <span className="text-sm font-semibold text-amber-600">{t("dashboard.milestone.newTitle")}</span>
+          <span className="text-sm font-semibold text-amber-600">
+            {t("dashboard.milestone.newTitle")}
+          </span>
         </div>
 
         {/* Milestone name */}
@@ -67,8 +69,15 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
         {/* Level + EXP bar */}
         <div className="mb-3">
           <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span className="font-semibold">{t("dashboard.milestone.currentLevel", { level })}</span>
-            <span>{t("dashboard.milestone.expProgress", { current: currentExpInLevel.toLocaleString(), total: expToNextLevel.toLocaleString() })}</span>
+            <span className="font-semibold">
+              {t("dashboard.milestone.currentLevel", { level })}
+            </span>
+            <span>
+              {t("dashboard.milestone.expProgress", {
+                current: currentExpInLevel.toLocaleString(),
+                total: expToNextLevel.toLocaleString(),
+              })}
+            </span>
           </div>
           <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
             <motion.div
@@ -83,7 +92,9 @@ export function MilestoneBurst({ milestone, totalExpEarned, onComplete }: Milest
         {/* Bonus EXP */}
         <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2">
           <Zap size={14} className="text-emerald-500 fill-emerald-400" />
-          <span className="text-sm font-semibold text-emerald-700">{t("dashboard.milestone.bonusExp", { bonus: milestone.bonus })}</span>
+          <span className="text-sm font-semibold text-emerald-700">
+            {t("dashboard.milestone.bonusExp", { bonus: milestone.bonus })}
+          </span>
         </div>
 
         {/* Next milestone hint */}

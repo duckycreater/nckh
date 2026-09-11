@@ -12,19 +12,22 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { FederatedAggregator } from "../../server/services/federatedAggregator.ts";
+import {
+  getAuditLog,
+  getDpAccountant,
+  resetAuditLog,
+  resetDpAccountant,
+} from "../../server/services/dpAccountant.ts";
+import { getAuditTrail, resetAuditTrail } from "../../server/services/auditTrail.ts";
 
 const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`,
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toBeType: (t: string) => assert.strictEqual(typeof v, t),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
@@ -55,7 +58,7 @@ describe("FederatedAggregator.configure + getStats", () => {
   });
   it("configure overrides individual fields", () => {
     const agg = new FederatedAggregator();
-    agg.configure({minClients: 3, dpEpsilon: 5.0});
+    agg.configure({ minClients: 3, dpEpsilon: 5.0 });
     expect(agg.getConfig().minClients).toBe(3);
     expect(agg.getConfig().dpEpsilon).toBe(5.0);
     expect(agg.getConfig().dpDelta).toBeGreaterThan(0); // unchanged
@@ -75,16 +78,19 @@ describe("FederatedAggregator.configure + getStats", () => {
 describe("FederatedAggregator.submit", () => {
   let agg: FederatedAggregator;
   beforeEach(() => {
+    resetDpAccountant();
+    resetAuditLog();
+    resetAuditTrail();
     agg = new FederatedAggregator();
-    agg.configure({minClients: 2, bufferLimit: 50, clipNorm: 1.0});
+    agg.configure({ minClients: 2, bufferLimit: 50, clipNorm: 1.0 });
   });
   it("accepts well-formed updates and returns a 64-hex hash", async () => {
     const r = await agg.submit("user1", {
       round: 1,
       weights: makeRow([0.2, 0.1, 0.1, 0.1, 0.3, 0.2]),
       numSamples: 10,
-      metrics: {loss: 0.5, accuracy: 0.8, durationMs: 100},
-      privacy: {epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5},
+      metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+      privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
     });
     expect(r.accepted).toBe(true);
     expect(r.weightHash).toMatch(/^[0-9a-f]{64}$/);
@@ -97,29 +103,29 @@ describe("FederatedAggregator.submit", () => {
       round: 1,
       weights: huge,
       numSamples: 10,
-      metrics: {loss: 0.5, accuracy: 0.8, durationMs: 100},
-      privacy: {epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5},
+      metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+      privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
     });
     expect(r.accepted).toBe(false);
     expect(r.reason).toBe("norm_exceeded");
   });
   it("rejects when buffer is full", async () => {
-    agg.configure({bufferLimit: 2});
+    agg.configure({ bufferLimit: 2 });
     for (let i = 0; i < 2; i++) {
       await agg.submit(`u${i}`, {
         round: 1,
         weights: makeRow([0.1, 0.1, 0.1, 0.1, 0.3, 0.3]),
         numSamples: 5,
-        metrics: {loss: 0.5, accuracy: 0.8, durationMs: 100},
-        privacy: {epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5},
+        metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+        privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
       });
     }
     const r = await agg.submit("overflow", {
       round: 1,
       weights: makeRow([0.1, 0.1, 0.1, 0.1, 0.3, 0.3]),
       numSamples: 5,
-      metrics: {loss: 0.5, accuracy: 0.8, durationMs: 100},
-      privacy: {epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5},
+      metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+      privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
     });
     expect(r.accepted).toBe(false);
     expect(r.reason).toBe("buffer_full");
@@ -130,15 +136,17 @@ describe("FederatedAggregator.runRoundIfReady", () => {
   let agg: FederatedAggregator;
   beforeEach(() => {
     agg = new FederatedAggregator();
-    agg.configure({minClients: 2, dpEpsilon: 100.0}); // high ε ≈ little noise
+    // Use an effectively noise-free epsilon for tests that assert the exact
+    // FedAvg arithmetic. Privacy-noise behavior is tested separately.
+    agg.configure({ minClients: 2, dpEpsilon: 1e9 });
   });
   it("returns not_enough_clients when buffer too small", async () => {
     await agg.submit("u1", {
       round: 1,
       weights: makeRow([0.2, 0.1, 0.1, 0.1, 0.3, 0.2]),
       numSamples: 10,
-      metrics: {loss: 0.5, accuracy: 0.8, durationMs: 100},
-      privacy: {epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5},
+      metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+      privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
     });
     const r = await agg.runRoundIfReady();
     expect(r.ok).toBe(false);
@@ -152,8 +160,8 @@ describe("FederatedAggregator.runRoundIfReady", () => {
         round: 1,
         weights: makeRow(probs),
         numSamples: 10,
-        metrics: {loss: 0.5, accuracy: 0.8, durationMs: 100},
-        privacy: {epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5},
+        metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+        privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
       });
     }
     const r = await agg.runRoundIfReady();
@@ -165,12 +173,14 @@ describe("FederatedAggregator.runRoundIfReady", () => {
     for (const c of CATS) {
       expect(typeof r.aggregated![c]).toBe("number");
     }
-    // With ε=100 noise should be near zero; aggregated ≈ input (L2-normalised).
+    // With the test-only epsilon, aggregated ≈ input (L2-normalised).
     for (const c of CATS) {
       expect(Math.abs(r.aggregated![c] - probs[CATS.indexOf(c)])).toBeLessThan(0.5);
     }
     expect(agg.getBufferSize()).toBe(0);
     expect(agg.getLatestVersion()?.trainedOn).toBe(30);
+    expect(getDpAccountant().getNumRounds()).toBe(1);
+    expect(getAuditTrail().exportSnapshot().total).toBe(2); // genesis + FL round
   });
   it("weights by numSamples (FedAvg)", async () => {
     // Two clients: u1 with 10 samples and score 1.0; u2 with 90 samples and score 0.0
@@ -180,16 +190,38 @@ describe("FederatedAggregator.runRoundIfReady", () => {
         round: 1,
         weights: i === 0 ? makeRow([1, 0, 0, 0, 0, 0]) : makeRow([0, 1, 0, 0, 0, 0]),
         numSamples: i === 0 ? 10 : 90,
-        metrics: {loss: 0.5, accuracy: 0.8, durationMs: 100},
-        privacy: {epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5},
+        metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+        privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
       });
     }
-    agg.configure({dpEpsilon: 100.0}); // high epsilon → small noise
+    agg.configure({ dpEpsilon: 1e9 });
     const r = await agg.runRoundIfReady();
     expect(r.ok).toBe(true);
     // plastic = (1.0 · 10 + 0.0 · 90) / 100 = 0.10 (give 1 digit tolerance)
-    expect(r.aggregated!.plastic).toBeCloseTo(0.10, 1);
-    expect(r.aggregated!.paper).toBeCloseTo(0.90, 1);
+    expect(r.aggregated!.plastic).toBeCloseTo(0.1, 1);
+    expect(r.aggregated!.paper).toBeCloseTo(0.9, 1);
+    // Sample-weighted replacement sensitivity = 2C * max(10/100, 90/100).
+    expect(getAuditLog().at(-1)!.config.sensitivity).toBeCloseTo(1.8, 10);
+  });
+  it("clips accepted updates to the configured L2 bound before averaging", async () => {
+    await agg.submit("u1", {
+      round: 1,
+      weights: [[2, 0, 0, 0, 0, 0]],
+      numSamples: 10,
+      metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+      privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
+    });
+    await agg.submit("u2", {
+      round: 1,
+      weights: [[0, 0, 0, 0, 0, 0]],
+      numSamples: 10,
+      metrics: { loss: 0.5, accuracy: 0.8, durationMs: 100 },
+      privacy: { epsilon: 1.0, delta: 1e-5, noiseSigma: 0.5 },
+    });
+    const r = await agg.runRoundIfReady();
+    expect(r.ok).toBe(true);
+    // u1 is clipped from norm 2 to 1, then equally averaged with u2.
+    expect(r.aggregated!.plastic).toBeCloseTo(0.5, 6);
   });
 });
 

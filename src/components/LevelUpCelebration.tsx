@@ -91,8 +91,12 @@ export function LevelUpCelebration({
           {tierChanged && (
             <div className="flex items-center justify-center gap-2 mb-4">
               <div className="flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 px-3 py-1.5">
-                <span className="text-xl" aria-hidden="true">{newTierData.emoji}</span>
-                <span className={`text-sm font-bold ${newTierData.color}`}>{newTierData.short}</span>
+                <span className="text-xl" aria-hidden="true">
+                  {newTierData.emoji}
+                </span>
+                <span className={`text-sm font-bold ${newTierData.color}`}>
+                  {newTierData.short}
+                </span>
               </div>
             </div>
           )}

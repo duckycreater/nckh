@@ -43,37 +43,41 @@ export class CarbonLedger {
   async record(input: Omit<LedgerEntry, "provenanceHash">): Promise<LedgerEntry> {
     const provenanceHash = crypto
       .createHash("sha256")
-      .update(JSON.stringify({
-        user_id: input.userId || null,
-        category: input.category,
-        weight_kg: input.weightKg,
-        co2_kg_avoided: input.co2KgAvoided,
-        source: input.source,
-        timestamp: input.timestamp,
-      }))
+      .update(
+        JSON.stringify({
+          user_id: input.userId || null,
+          category: input.category,
+          weight_kg: input.weightKg,
+          co2_kg_avoided: input.co2KgAvoided,
+          source: input.source,
+          timestamp: input.timestamp,
+        }),
+      )
       .digest("hex");
 
     const entry: LedgerEntry = { ...input, provenanceHash };
 
     const db = getDb();
     if (db) {
-      await db.query(
-        `INSERT INTO carbon_ledger_entries
+      await db
+        .query(
+          `INSERT INTO carbon_ledger_entries
            (user_id, cohort, category, weight_kg, co2_kg_avoided,
             source, provenance_hash, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT DO NOTHING`,
-        [
-          entry.userId || null,
-          entry.cohort || null,
-          entry.category,
-          entry.weightKg,
-          entry.co2KgAvoided,
-          entry.source,
-          entry.provenanceHash,
-          new Date(entry.timestamp).toISOString(),
-        ]
-      ).catch((e) => console.warn("[carbonLedger] persist failed:", (e as Error).message));
+          [
+            entry.userId || null,
+            entry.cohort || null,
+            entry.category,
+            entry.weightKg,
+            entry.co2KgAvoided,
+            entry.source,
+            entry.provenanceHash,
+            new Date(entry.timestamp).toISOString(),
+          ],
+        )
+        .catch((e) => console.warn("[carbonLedger] persist failed:", (e as Error).message));
     }
 
     return entry;
@@ -84,22 +88,24 @@ export class CarbonLedger {
    */
   async recordFromScans(
     scansByCategory: Partial<Record<ImpactCategory, number>>,
-    opts: { userId?: string; cohort?: string; source?: LedgerSource } = {}
+    opts: { userId?: string; cohort?: string; source?: LedgerSource } = {},
   ): Promise<LedgerEntry[]> {
     const summary = computeImpact(scansByCategory);
     const entries: LedgerEntry[] = [];
     for (const cat of Object.keys(summary.byCategory) as ImpactCategory[]) {
       const b = summary.byCategory[cat];
       if (b.estimatedKg > 0 && b.co2KgSaved > 0) {
-        entries.push(await this.record({
-          userId: opts.userId,
-          cohort: opts.cohort,
-          category: cat,
-          weightKg: b.estimatedKg,
-          co2KgAvoided: b.co2KgSaved,
-          source: opts.source || "scan_count_estimate",
-          timestamp: Date.now(),
-        }));
+        entries.push(
+          await this.record({
+            userId: opts.userId,
+            cohort: opts.cohort,
+            category: cat,
+            weightKg: b.estimatedKg,
+            co2KgAvoided: b.co2KgSaved,
+            source: opts.source || "scan_count_estimate",
+            timestamp: Date.now(),
+          }),
+        );
       }
     }
     return entries;
@@ -111,14 +117,16 @@ export class CarbonLedger {
   verify(entry: LedgerEntry): boolean {
     const expected = crypto
       .createHash("sha256")
-      .update(JSON.stringify({
-        user_id: entry.userId || null,
-        category: entry.category,
-        weight_kg: entry.weightKg,
-        co2_kg_avoided: entry.co2KgAvoided,
-        source: entry.source,
-        timestamp: entry.timestamp,
-      }))
+      .update(
+        JSON.stringify({
+          user_id: entry.userId || null,
+          category: entry.category,
+          weight_kg: entry.weightKg,
+          co2_kg_avoided: entry.co2KgAvoided,
+          source: entry.source,
+          timestamp: entry.timestamp,
+        }),
+      )
       .digest("hex");
     return expected === entry.provenanceHash;
   }
@@ -145,7 +153,7 @@ export class CarbonLedger {
        FROM carbon_ledger_entries
        WHERE timestamp > NOW() - ($1::int * INTERVAL '1 day')
          ${cohortFilter}`,
-      params
+      params,
     );
     const r = rows[0] || {};
     return {

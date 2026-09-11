@@ -68,6 +68,18 @@ export default defineConfig(() => {
               },
             },
             {
+              // Self-hosted Roboto woff2 subsets — large files, cache
+              // aggressively so the offline cold-start still renders text
+              // correctly on first paint.
+              urlPattern: /\/fonts\/.*\.woff2$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'bmo-fonts',
+                expiration: {maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 365},
+                cacheableResponse: {statuses: [0, 200]},
+              },
+            },
+            {
               // ML model weights — large files, cache aggressively.
               // Path matches /models/* which is where ONNX/TF.js weights live.
               urlPattern: /\/models\//,
@@ -92,6 +104,9 @@ export default defineConfig(() => {
               urlPattern: ({url, request}) =>
                 request.method === 'GET' &&
                 url.pathname.startsWith('/api/') &&
+                // Never cache authenticated responses in a shared browser
+                // cache; bearer tokens identify a different participant.
+                !request.headers.has('authorization') &&
                 !url.pathname.startsWith('/api/chat') &&
                 !url.pathname.startsWith('/api/federated/submit'),
               handler: 'StaleWhileRevalidate',

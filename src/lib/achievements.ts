@@ -3,19 +3,20 @@
 // when the achievement should be unlocked for a given user.
 
 export type AchievementRarity = "common" | "rare" | "epic" | "legendary";
-export type AchievementCategory = "daily" | "battle" | "collection" | "social" | "streak" | "special";
+export type AchievementCategory =
+  "daily" | "battle" | "collection" | "social" | "streak" | "special";
 
 export interface Achievement {
   id: string;
-  title: string;           // English name
-  titleVi: string;         // Vietnamese name
-  desc: string;            // English description
-  descVi: string;          // Vietnamese description
-  icon: string;            // Emoji or icon
+  title: string; // English name
+  titleVi: string; // Vietnamese name
+  desc: string; // English description
+  descVi: string; // Vietnamese description
+  icon: string; // Emoji or icon
   expReward: number;
   rarity: AchievementRarity;
   category: AchievementCategory;
-  secret?: boolean;         // If true, only title shows until unlocked
+  secret?: boolean; // If true, only title shows until unlocked
   condition: (ctx: AchievementContext) => boolean;
 }
 
@@ -41,20 +42,35 @@ export interface AchievementContext {
 }
 
 // ─── Rarity colors & borders ────────────────────────────────────────────────────
-export const RARITY_CONFIG: Record<AchievementRarity, { glow: string; border: string; labelColor: string }> = {
-  common:    { glow: "rgba(148,163,184,0.3)",   border: "border-slate-400/40",   labelColor: "text-slate-400" },
-  rare:      { glow: "rgba(59,130,246,0.4)",   border: "border-blue-400/50",   labelColor: "text-blue-400" },
-  epic:      { glow: "rgba(139,92,246,0.5)",   border: "border-purple-400/60", labelColor: "text-purple-400" },
-  legendary: { glow: "rgba(245,158,11,0.6)",   border: "border-amber-400/70",  labelColor: "text-amber-400" },
+export const RARITY_CONFIG: Record<
+  AchievementRarity,
+  { glow: string; border: string; labelColor: string }
+> = {
+  common: {
+    glow: "rgba(148,163,184,0.3)",
+    border: "border-slate-400/40",
+    labelColor: "text-slate-400",
+  },
+  rare: { glow: "rgba(59,130,246,0.4)", border: "border-blue-400/50", labelColor: "text-blue-400" },
+  epic: {
+    glow: "rgba(139,92,246,0.5)",
+    border: "border-purple-400/60",
+    labelColor: "text-purple-400",
+  },
+  legendary: {
+    glow: "rgba(245,158,11,0.6)",
+    border: "border-amber-400/70",
+    labelColor: "text-amber-400",
+  },
 };
 
 // ─── Dynamic combo label ──────────────────────────────────────────────────────────
 export function getComboLabel(combo: number): string {
   if (combo >= 15) return "GODLIKE!";
   if (combo >= 10) return "INCREDIBLE!";
-  if (combo >= 7)  return "AMAZING!";
-  if (combo >= 5)  return "GREAT!";
-  if (combo >= 3)  return "NICE!";
+  if (combo >= 7) return "AMAZING!";
+  if (combo >= 5) return "GREAT!";
+  if (combo >= 3) return "NICE!";
   return "";
 }
 
@@ -367,12 +383,12 @@ export function buildAchievementContext(user: {
   return {
     points: user.points,
     streakDays: user.progress?.streakDays ?? 0,
-    cardsOwned: 0,           // Filled by Flashcards component
-    totalCards: 0,           // Filled by Flashcards component
-    battlesWon: 0,           // Filled by CardBattle component
-    quizzesCompleted: 0,      // Filled by Minigame component
+    cardsOwned: 0, // Filled by Flashcards component
+    totalCards: 0, // Filled by Flashcards component
+    battlesWon: 0, // Filled by CardBattle component
+    quizzesCompleted: 0, // Filled by Minigame component
     challengesCompleted: user.progress?.challengesCompleted?.length ?? 0,
-    aisScansDone: 0,         // Filled by AIScanner component
+    aisScansDone: 0, // Filled by AIScanner component
     craftingDone: user.progress?.crafted?.length ?? 0,
     pvpMatchesWon: 0,
     pvpMatchesPlayed: 0,

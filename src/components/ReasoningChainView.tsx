@@ -32,7 +32,7 @@ interface Props {
   startCollapsed?: boolean;
 }
 
-export function ReasoningChainView({steps, summary, startCollapsed = false}: Props) {
+export function ReasoningChainView({ steps, summary, startCollapsed = false }: Props) {
   const [collapsed, setCollapsed] = useState(startCollapsed);
 
   if (!steps?.length) {
@@ -65,9 +65,7 @@ export function ReasoningChainView({steps, summary, startCollapsed = false}: Pro
                 {s.step}
               </span>
               <div className="flex-1">
-                <div className="font-semibold text-slate-800 dark:text-slate-100">
-                  {s.claim}
-                </div>
+                <div className="font-semibold text-slate-800 dark:text-slate-100">{s.claim}</div>
                 <div className="text-slate-600 dark:text-slate-400">
                   <FlaskConical size={10} className="mr-1 inline" />
                   {s.evidence}

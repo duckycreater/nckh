@@ -59,7 +59,9 @@ function normalizeQuestion(row: any): QuizQuestion {
     question_id: Number(row.question_id ?? row.id ?? 0),
     content: String(row.content || ""),
     options,
-    correct_key: (String(row.correct_key || "A").trim().toUpperCase() as "A" | "B" | "C" | "D"),
+    correct_key: String(row.correct_key || "A")
+      .trim()
+      .toUpperCase() as "A" | "B" | "C" | "D",
     points: Number(row.points ?? 10),
     category: row.category || undefined,
     difficulty: (row.difficulty as "easy" | "medium" | "hard") || undefined,
@@ -103,7 +105,7 @@ export async function listQuizQuestions(): Promise<QuizQuestion[]> {
 export async function getNextQuestionId(): Promise<number> {
   const res = await fetch(
     `${supabaseUrl}/rest/v1/quiz_questions?select=question_id&order=question_id.desc&limit=1`,
-    { method: "GET", headers: getHeaders() }
+    { method: "GET", headers: getHeaders() },
   );
   if (!res.ok) return 1;
   const rows = await res.json();
@@ -161,17 +163,14 @@ export async function updateQuizQuestion(
   delete payload.created_at;
   delete payload.updated_at;
 
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/quiz_questions?question_id=eq.${questionId}`,
-    {
-      method: "PATCH",
-      headers: {
-        ...getHeaders(),
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
+  const res = await fetch(`${supabaseUrl}/rest/v1/quiz_questions?question_id=eq.${questionId}`, {
+    method: "PATCH",
+    headers: {
+      ...getHeaders(),
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
 
   if (!res.ok) {
     throw new Error(`Failed to update quiz question: ${res.status} ${await res.text()}`);
@@ -187,10 +186,10 @@ export async function deleteQuizQuestion(questionId: number): Promise<boolean> {
     throw new Error("Quiz database is not configured");
   }
 
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/quiz_questions?question_id=eq.${questionId}`,
-    { method: "DELETE", headers: getHeaders() }
-  );
+  const res = await fetch(`${supabaseUrl}/rest/v1/quiz_questions?question_id=eq.${questionId}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
 
   if (!res.ok) {
     throw new Error(`Failed to delete quiz question: ${res.status} ${await res.text()}`);
@@ -199,23 +198,18 @@ export async function deleteQuizQuestion(questionId: number): Promise<boolean> {
   return true;
 }
 
-export async function reorderQuizQuestions(
-  orderedIds: number[],
-): Promise<boolean> {
+export async function reorderQuizQuestions(orderedIds: number[]): Promise<boolean> {
   if (!isQuizDbConfigured()) {
     throw new Error("Quiz database is not configured");
   }
 
   // Update order for each in a single transaction-like pattern
   const updates = orderedIds.map((id, index) =>
-    fetch(
-      `${supabaseUrl}/rest/v1/quiz_questions?question_id=eq.${id}`,
-      {
-        method: "PATCH",
-        headers: { ...getHeaders(), Prefer: "return=minimal" },
-        body: JSON.stringify({ order: index + 1 }),
-      }
-    )
+    fetch(`${supabaseUrl}/rest/v1/quiz_questions?question_id=eq.${id}`, {
+      method: "PATCH",
+      headers: { ...getHeaders(), Prefer: "return=minimal" },
+      body: JSON.stringify({ order: index + 1 }),
+    }),
   );
 
   const results = await Promise.all(updates);
@@ -307,11 +301,7 @@ export async function getQuizConfig(): Promise<Record<string, any>> {
   return out;
 }
 
-export async function setQuizConfig(
-  key: string,
-  value: any,
-  updatedBy: string,
-): Promise<boolean> {
+export async function setQuizConfig(key: string, value: any, updatedBy: string): Promise<boolean> {
   if (!isQuizDbConfigured()) {
     throw new Error("Quiz database is not configured");
   }

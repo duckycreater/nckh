@@ -17,11 +17,7 @@
  */
 import { getErrorMessage } from "./errorMessages.ts";
 
-export type EmailTemplateName =
-  | "welcome"
-  | "password_reset"
-  | "achievement"
-  | "weekly_summary";
+export type EmailTemplateName = "welcome" | "password_reset" | "achievement" | "weekly_summary";
 
 interface EmailPayload {
   subject: string;

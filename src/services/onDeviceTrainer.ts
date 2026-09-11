@@ -19,6 +19,7 @@
  *   raw image — only the resulting weight deltas leave the device.
  */
 
+import { logger } from "../lib/logger";
 import { continualLearner, type TaskSnapshot } from "./continualLearner";
 import { federatedClient, type FLRoundUpdate } from "./federatedClient";
 
@@ -78,10 +79,20 @@ class OnDeviceTrainerImpl {
 
   /** 6-dim per-category score vector (the "weights" we are training). */
   private categoryScores: Record<string, number> = {
-    plastic: 0, paper: 0, glass: 0, metal: 0, organic: 0, hazard: 0,
+    plastic: 0,
+    paper: 0,
+    glass: 0,
+    metal: 0,
+    organic: 0,
+    hazard: 0,
   };
   private categoryCounts: Record<string, number> = {
-    plastic: 0, paper: 0, glass: 0, metal: 0, organic: 0, hazard: 0,
+    plastic: 0,
+    paper: 0,
+    glass: 0,
+    metal: 0,
+    organic: 0,
+    hazard: 0,
   };
 
   private storageKey = "bmo_ondevice_trainer";
@@ -101,9 +112,8 @@ class OnDeviceTrainerImpl {
 
   loadFromStorage(): void {
     try {
-      const raw = typeof localStorage !== "undefined"
-        ? localStorage.getItem(this.storageKey)
-        : null;
+      const raw =
+        typeof localStorage !== "undefined" ? localStorage.getItem(this.storageKey) : null;
       if (raw) {
         const data = JSON.parse(raw);
         if (data.categoryScores) this.categoryScores = data.categoryScores;
@@ -115,21 +125,24 @@ class OnDeviceTrainerImpl {
       }
       if (this.config.persistSnapshots) continualLearner.loadFromStorage();
     } catch (e) {
-      console.warn("[OnDeviceTrainer] load failed:", e);
+      logger.warn("[OnDeviceTrainer] load failed:", e);
     }
   }
 
   saveToStorage(): void {
     try {
       if (typeof localStorage === "undefined") return;
-      localStorage.setItem(this.storageKey, JSON.stringify({
-        categoryScores: this.categoryScores,
-        categoryCounts: this.categoryCounts,
-        scansSinceLastRound: this.scansSinceLastRound,
-        currentRound: this.currentRound,
-      }));
+      localStorage.setItem(
+        this.storageKey,
+        JSON.stringify({
+          categoryScores: this.categoryScores,
+          categoryCounts: this.categoryCounts,
+          scansSinceLastRound: this.scansSinceLastRound,
+          currentRound: this.currentRound,
+        }),
+      );
     } catch (e) {
-      console.warn("[OnDeviceTrainer] save failed:", e);
+      logger.warn("[OnDeviceTrainer] save failed:", e);
     }
   }
 
@@ -175,13 +188,11 @@ class OnDeviceTrainerImpl {
     }
 
     // 1) Build pseudo-gradients from per-category scores.
-    const grads: PseudoGradient[] = Object.entries(this.categoryCounts).map(
-      ([cat, count]) => {
-        const score = this.categoryScores[cat] ?? 0;
-        const avg = count > 0 ? score / count : 0;
-        return { category: cat, delta: avg - 0.5 }; // toward 0.5 baseline
-      }
-    );
+    const grads: PseudoGradient[] = Object.entries(this.categoryCounts).map(([cat, count]) => {
+      const score = this.categoryScores[cat] ?? 0;
+      const avg = count > 0 ? score / count : 0;
+      return { category: cat, delta: avg - 0.5 }; // toward 0.5 baseline
+    });
 
     // 2) L2-clip the gradient vector (sensitivity bound).
     const flat = grads.map((g) => g.delta);
@@ -206,7 +217,13 @@ class OnDeviceTrainerImpl {
       numSamples: samples,
       metrics: {
         loss: ewcPenalty,
-        accuracy: Math.max(0, Math.min(1, ewcAdjusted.reduce((a, b) => a + Math.max(0, b), 0) / ewcAdjusted.length + 0.5)),
+        accuracy: Math.max(
+          0,
+          Math.min(
+            1,
+            ewcAdjusted.reduce((a, b) => a + Math.max(0, b), 0) / ewcAdjusted.length + 0.5,
+          ),
+        ),
         durationMs: Date.now() - t0,
       },
     };
@@ -226,12 +243,8 @@ class OnDeviceTrainerImpl {
    * Useful before installing a federated update so we can roll back.
    */
   checkpoint(taskId: string = `checkpoint_${Date.now()}`): TaskSnapshot[] {
-    const params: number[][] = [
-      Object.values(this.categoryScores),
-    ];
-    const fisher: number[][] = [
-      Object.values(this.categoryCounts).map((c) => c + 1e-3),
-    ];
+    const params: number[][] = [Object.values(this.categoryScores)];
+    const fisher: number[][] = [Object.values(this.categoryCounts).map((c) => c + 1e-3)];
     continualLearner.saveSnapshot(taskId, params, fisher, 0, 0);
     return continualLearner.getSnapshots();
   }
@@ -267,10 +280,20 @@ class OnDeviceTrainerImpl {
     this.scansSinceLastRound = 0;
     this.currentRound = 0;
     this.categoryScores = {
-      plastic: 0, paper: 0, glass: 0, metal: 0, organic: 0, hazard: 0,
+      plastic: 0,
+      paper: 0,
+      glass: 0,
+      metal: 0,
+      organic: 0,
+      hazard: 0,
     };
     this.categoryCounts = {
-      plastic: 0, paper: 0, glass: 0, metal: 0, organic: 0, hazard: 0,
+      plastic: 0,
+      paper: 0,
+      glass: 0,
+      metal: 0,
+      organic: 0,
+      hazard: 0,
     };
     this.saveToStorage();
   }

@@ -27,13 +27,13 @@ export interface FusionableCard {
   odCardName: string;
   odElement: string;
   odRarity: CardRarity;
-  odCount: number;  // how many copies user owns
-  odDuplicates: number;  // how many are "extra" (beyond 1)
+  odCount: number; // how many copies user owns
+  odDuplicates: number; // how many are "extra" (beyond 1)
 }
 
 export interface FusionAttempt {
   odUserId: string;
-  odMaterialCards: string[];  // card IDs used
+  odMaterialCards: string[]; // card IDs used
   odTargetRarity: CardRarity;
   odSuccess: boolean;
   odResultCardId: string | null;
@@ -58,16 +58,16 @@ export interface FusionEvent {
   odStartDate: Date;
   odEndDate: Date;
   odActive: boolean;
-  odBonus: number;  // extra success rate bonus (e.g., 0.1 = +10%)
-  odTheme: string;   // e.g., "earth_day", "ocean_week"
+  odBonus: number; // extra success rate bonus (e.g., 0.1 = +10%)
+  odTheme: string; // e.g., "earth_day", "ocean_week"
 }
 
 // Success rates (can be boosted by fusion events)
 const BASE_SUCCESS_RATES: Record<CardRarity, number> = {
-  common: 0.30,    // 2 commons → 1 rare
-  rare: 0.20,      // 2 rares → 1 epic
-  epic: 0.15,     // 3 epics → 1 legendary
-  legendary: 0,   // cannot fuse legendary
+  common: 0.3, // 2 commons → 1 rare
+  rare: 0.2, // 2 rares → 1 epic
+  epic: 0.15, // 3 epics → 1 legendary
+  legendary: 0, // cannot fuse legendary
   uncommon: 0.25,
 };
 
@@ -97,34 +97,55 @@ const CONSOLATION_POINTS: Record<CardRarity, number> = {
 
 const CARD_LORE: Record<string, string> = {
   // PLASTIC LORE
-  "card_001": "Một chai nhựa PET mất 450 năm để phân hủy. Tuy nhiên, PET có thể tái chế thành sợi vải áo phông!",
-  "card_002": "Túi nilon dùng trung bình 12 phút nhưng tồn tại 400 năm. Một chiếc túi tái sử dụng có thể thay thế hàng nghìn túi nilon.",
-  "card_003": "Ống hút nhựa là vật dụng dùng ngắn nhất — chỉ 20 phút — nhưng phân hủy mất 200 năm.",
-  "card_004": "Nắp chai nhựa thường bị lãng phí nhưng có thể tái chế thành pallet gỗ nhựa (plastic lumber).",
-  "card_005": "Hộp cơm nhựa dùng một lần chiếm 30% rác thải nhựa tại trường học. Dùng hộp cơm inox giúp giảm 90% rác.",
+  card_001:
+    "Một chai nhựa PET mất 450 năm để phân hủy. Tuy nhiên, PET có thể tái chế thành sợi vải áo phông!",
+  card_002:
+    "Túi nilon dùng trung bình 12 phút nhưng tồn tại 400 năm. Một chiếc túi tái sử dụng có thể thay thế hàng nghìn túi nilon.",
+  card_003: "Ống hút nhựa là vật dụng dùng ngắn nhất — chỉ 20 phút — nhưng phân hủy mất 200 năm.",
+  card_004:
+    "Nắp chai nhựa thường bị lãng phí nhưng có thể tái chế thành pallet gỗ nhựa (plastic lumber).",
+  card_005:
+    "Hộp cơm nhựa dùng một lần chiếm 30% rác thải nhựa tại trường học. Dùng hộp cơm inox giúp giảm 90% rác.",
   // PAPER LORE
-  "card_031": "Một cây gỗ cho ra ~17 ream giấy A4. Tái chế 1 tấn giấy tiết kiệm 17 cây gỗ và 26,000 lít nước.",
-  "card_033": "Sách giáo khoa cũ có thể được tặng lại hoặc bán cho các bạn khóa dưới, giảm 40% chi phí sách mới.",
-  "card_036": "Giấy ghi chú màu thường chứa hóa chất tẩy trắng. Giấy tái chế màu an toàn hơn cho sức khỏe.",
-  "card_040": "Truyện tranh cũ có thể trao đổi với bạn bè hoặc quyên góp thư viện — giúp sách sống lâu hơn.",
+  card_031:
+    "Một cây gỗ cho ra ~17 ream giấy A4. Tái chế 1 tấn giấy tiết kiệm 17 cây gỗ và 26,000 lít nước.",
+  card_033:
+    "Sách giáo khoa cũ có thể được tặng lại hoặc bán cho các bạn khóa dưới, giảm 40% chi phí sách mới.",
+  card_036:
+    "Giấy ghi chú màu thường chứa hóa chất tẩy trắng. Giấy tái chế màu an toàn hơn cho sức khỏe.",
+  card_040:
+    "Truyện tranh cũ có thể trao đổi với bạn bè hoặc quyên góp thư viện — giúp sách sống lâu hơn.",
   // GLASS LORE
-  "card_061": "Thủy tinh có thể tái chế 100% vô hạn lần mà không mất chất lượng. Một chai tái chế tiết kiệm đủ năng lượng để thắp sáng bóng đèn LED trong 4 giờ.",
-  "card_065": "Chai nước ngọt thủy tinh có tuổi thọ vô hạn. Nếu dùng chai thủy tinh tái sử dụng, bạn giảm 67% carbon footprint so với chai nhựa.",
-  "card_066": "Lọ thí nghiệm trường học chứa hóa chất — không bỏ vào thùng tái chế. Cần xử lý đặc biệt tại điểm thu gom rác nguy hại.",
+  card_061:
+    "Thủy tinh có thể tái chế 100% vô hạn lần mà không mất chất lượng. Một chai tái chế tiết kiệm đủ năng lượng để thắp sáng bóng đèn LED trong 4 giờ.",
+  card_065:
+    "Chai nước ngọt thủy tinh có tuổi thọ vô hạn. Nếu dùng chai thủy tinh tái sử dụng, bạn giảm 67% carbon footprint so với chai nhựa.",
+  card_066:
+    "Lọ thí nghiệm trường học chứa hóa chất — không bỏ vào thùng tái chế. Cần xử lý đặc biệt tại điểm thu gom rác nguy hại.",
   // METAL LORE
-  "card_091": "Lon nhôm có thể tái chế chỉ trong 60 ngày! Tái chế 1 lon nhôm tiết kiệm đủ năng lượng để chạy TV trong 3 giờ.",
-  "card_093": "Nắp chai sắt cần xử lý riêng vì kích thước nhỏ dễ lọt qua máy tái chế. Gom nắp rồi bỏ vào lọ đựng riêng.",
-  "card_097": "Kem tiêm là rác y tế — không được bỏ vào thùng thường. Trường học cần có thùng rác y tế riêng.",
+  card_091:
+    "Lon nhôm có thể tái chế chỉ trong 60 ngày! Tái chế 1 lon nhôm tiết kiệm đủ năng lượng để chạy TV trong 3 giờ.",
+  card_093:
+    "Nắp chai sắt cần xử lý riêng vì kích thước nhỏ dễ lọt qua máy tái chế. Gom nắp rồi bỏ vào lọ đựng riêng.",
+  card_097:
+    "Kem tiêm là rác y tế — không được bỏ vào thùng thường. Trường học cần có thùng rác y tế riêng.",
   // ORGANIC LORE
-  "card_121": "Vỏ rau củ quả có thể ủ thành phân compost trong 2-3 tuần. Phân compost tự làm giàu đất và giảm 30% rác thải hữu cơ.",
-  "card_124": "Thức ăn thừa chiếm 40% rác thải tại trường học. Ăn hết phần ăn giúp giảm carbon footprint đáng kể.",
-  "card_127": "Trái cây thừa có thể ủ thành nước giải khát lên men (kombucha) hoặc làm mứt — biến rác thành vàng!",
+  card_121:
+    "Vỏ rau củ quả có thể ủ thành phân compost trong 2-3 tuần. Phân compost tự làm giàu đất và giảm 30% rác thải hữu cơ.",
+  card_124:
+    "Thức ăn thừa chiếm 40% rác thải tại trường học. Ăn hết phần ăn giúp giảm carbon footprint đáng kể.",
+  card_127:
+    "Trái cây thừa có thể ủ thành nước giải khát lên men (kombucha) hoặc làm mứt — biến rác thành vàng!",
   // HAZARD LORE
-  "card_151": "Một viên pin AAA chứa đủ kim loại nặng để ô nhiễm 167,000 lít nước. Pin luôn cần xử lý tại điểm thu rác nguy hại.",
-  "card_155": "Bóng đèn huỳnh quang chứa thủy ngân — nếu vỡ cần rời khỏi phòng ngay và không quét, dùng chổi lông.",
-  "card_159": "Thuốc hết hạn cần mang đến nhà thuốc có chương trình thu hồi, không bỏ vào rác thường để tránh ô nhiễm nguồn nước.",
+  card_151:
+    "Một viên pin AAA chứa đủ kim loại nặng để ô nhiễm 167,000 lít nước. Pin luôn cần xử lý tại điểm thu rác nguy hại.",
+  card_155:
+    "Bóng đèn huỳnh quang chứa thủy ngân — nếu vỡ cần rời khỏi phòng ngay và không quét, dùng chổi lông.",
+  card_159:
+    "Thuốc hết hạn cần mang đến nhà thuốc có chương trình thu hồi, không bỏ vào rác thường để tránh ô nhiễm nguồn nước.",
   // DEFAULT LORE
-  "default": "Mỗi vật dụng đều có câu chuyện vòng đời. Hãy suy nghĩ trước khi vứt — có thể tái sử dụng, sửa chữa, hoặc trao đổi không?",
+  default:
+    "Mỗi vật dụng đều có câu chuyện vòng đời. Hãy suy nghĩ trước khi vứt — có thể tái sử dụng, sửa chữa, hoặc trao đổi không?",
 };
 
 const RARITY_EMOJI: Record<CardRarity, string> = {
@@ -161,7 +182,7 @@ class CardFusion {
          GROUP BY card_id, card_name, element, rarity
          HAVING COUNT(*) >= 2
          ORDER BY rarity DESC, card_name ASC`,
-        [userId]
+        [userId],
       );
       return rows.map((r) => ({
         odCardId: r.card_id,
@@ -185,7 +206,7 @@ class CardFusion {
   async attemptFusion(
     userId: string,
     cardId: string,
-    fusionEventId?: string
+    fusionEventId?: string,
   ): Promise<FusionResult> {
     // Get card info
     const card = await this.getCardInfo(cardId);
@@ -200,7 +221,7 @@ class CardFusion {
     if (card.odDuplicates < FUSION_CARDS_REQUIRED[card.odRarity]) {
       return this.failureResult(
         `Need ${FUSION_CARDS_REQUIRED[card.odRarity]} copies to fuse`,
-        card.odRarity
+        card.odRarity,
       );
     }
 
@@ -288,7 +309,7 @@ class CardFusion {
         odStartDate: startDate,
         odEndDate: endDate,
         odActive: true,
-        odBonus: 0.10, // +10% success rate on weekends
+        odBonus: 0.1, // +10% success rate on weekends
         odTheme: theme,
       };
     }
@@ -296,10 +317,10 @@ class CardFusion {
     // Check for special events (e.g., Earth Day, World Environment Day)
     const monthDay = `${now.getMonth() + 1}-${now.getDate()}`;
     const specialEvents: Record<string, { bonus: number; theme: string }> = {
-      "4-22": { bonus: 0.25, theme: "Earth Day Special" },    // April 22
+      "4-22": { bonus: 0.25, theme: "Earth Day Special" }, // April 22
       "6-5": { bonus: 0.25, theme: "World Environment Day" }, // June 5
-      "6-8": { bonus: 0.20, theme: "Ocean Day" },             // June 8
-      "11-15": { bonus: 0.20, theme: "Recycling Day" },       // Nov 15
+      "6-8": { bonus: 0.2, theme: "Ocean Day" }, // June 8
+      "11-15": { bonus: 0.2, theme: "Recycling Day" }, // Nov 15
     };
 
     const special = specialEvents[monthDay];
@@ -317,13 +338,22 @@ class CardFusion {
     return null;
   }
 
-  private async getCardInfo(cardId: string): Promise<{ odCardName: string; odElement: string; odRarity: CardRarity; odDuplicates: number } | null> {
+  private async getCardInfo(cardId: string): Promise<{
+    odCardName: string;
+    odElement: string;
+    odRarity: CardRarity;
+    odDuplicates: number;
+  } | null> {
     // This would normally query user_cards table
     // For now, return a placeholder that the integration layer can fill
     return null;
   }
 
-  private async consumeFusionMaterials(userId: string, cardId: string, rarity: CardRarity): Promise<void> {
+  private async consumeFusionMaterials(
+    userId: string,
+    cardId: string,
+    rarity: CardRarity,
+  ): Promise<void> {
     const count = FUSION_CARDS_REQUIRED[rarity];
     if (!this.db) return;
     try {
@@ -332,7 +362,7 @@ class CardFusion {
          WHERE user_id = $1 AND card_id = $2
          ORDER BY created_at DESC
          LIMIT $3`,
-        [userId, cardId, count]
+        [userId, cardId, count],
       );
     } catch (e) {
       console.warn("[CardFusion] Failed to consume materials:", (e as Error).message);
@@ -342,7 +372,7 @@ class CardFusion {
   private async createResultCard(
     userId: string,
     baseCard: { odCardName: string; odElement: string },
-    resultRarity: CardRarity
+    resultRarity: CardRarity,
   ): Promise<string> {
     if (!this.db) return `result_${Date.now()}`;
     try {
@@ -351,7 +381,7 @@ class CardFusion {
       await this.db.query(
         `INSERT INTO user_cards (user_id, card_id, card_name, element, rarity, source, created_at)
          VALUES ($1, $2, $3, $4, $5, 'fusion', NOW())`,
-        [userId, resultCardId, baseCard.odCardName, baseCard.odElement, resultRarity]
+        [userId, resultCardId, baseCard.odCardName, baseCard.odElement, resultRarity],
       );
       return resultCardId;
     } catch (e) {
@@ -366,7 +396,7 @@ class CardFusion {
     rarity: CardRarity,
     success: boolean,
     resultCardId: string | null,
-    eventId: string | undefined
+    eventId: string | undefined,
   ): Promise<void> {
     if (!this.db) return;
     try {
@@ -402,14 +432,14 @@ class CardFusion {
     try {
       const { rows } = await this.db.query(
         `SELECT 1 FROM user_achievements WHERE user_id = $1 AND achievement_id = $2`,
-        [userId, achievement]
+        [userId, achievement],
       );
       if (rows.length === 0) {
         await this.db.query(
           `INSERT INTO user_achievements (user_id, achievement_id, earned_at)
            VALUES ($1, $2, NOW())
            ON CONFLICT DO NOTHING`,
-          [userId, achievement]
+          [userId, achievement],
         );
         return achievement;
       }

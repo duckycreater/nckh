@@ -34,14 +34,10 @@ const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`,
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
 });
@@ -113,7 +109,12 @@ describe("paillier.encrypt/decrypt round-trip", () => {
 describe("paillierAdd (homomorphic +)", () => {
   const key = generatePaillierKeyPair(1024);
   it("E(a) · E(b) = E(a + b)", () => {
-    for (const [a, b] of [[1, 2], [10, 20], [100, 250], [0, 5]] as [number, number][]) {
+    for (const [a, b] of [
+      [1, 2],
+      [10, 20],
+      [100, 250],
+      [0, 5],
+    ] as [number, number][]) {
       const ca = paillierEncrypt(a, key.publicKey);
       const cb = paillierEncrypt(b, key.publicKey);
       const csum = paillierAdd(ca, cb, key.publicKey.n);

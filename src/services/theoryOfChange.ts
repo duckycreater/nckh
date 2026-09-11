@@ -91,11 +91,12 @@ export function computeComSubscores(user: Partial<User>): ComSubscores {
   // Physical capability — proxy: total scans, accuracy, on-device model confidence
   const scans = user.totalScans ?? 0;
   const accuracy = user.accuracy ?? 0.5;
-  const physicalCapability = squish((scans / 60) - 1.0) * 0.6 + accuracy * 0.4;
+  const physicalCapability = squish(scans / 60 - 1.0) * 0.6 + accuracy * 0.4;
 
   // Psychological capability — proxy: quizzes completed, badges in knowledge category
   const quizzes = user.quizzesCompleted ?? 0;
-  const psychologicalCapability = squish((quizzes - 3) / 12) * 0.5 + Math.min(1, (user.chatMessagesCount ?? 0) / 30) * 0.5;
+  const psychologicalCapability =
+    squish((quizzes - 3) / 12) * 0.5 + Math.min(1, (user.chatMessagesCount ?? 0) / 30) * 0.5;
 
   // Physical opportunity — proxy: smart-bin coverage (we assume OK for schools)
   const physicalOpportunity = user.binAccessScore ?? 0.7;
@@ -131,15 +132,15 @@ export function computeComSubscores(user: Partial<User>): ComSubscores {
 export function aggregateCom(sub: ComSubscores): ComScores {
   const capability = boundedWeightedSum(
     [sub.physicalCapability, sub.psychologicalCapability],
-    [0.55, 0.45]
+    [0.55, 0.45],
   );
   const opportunity = boundedWeightedSum(
     [sub.physicalOpportunity, sub.socialOpportunity],
-    [0.4, 0.6]
+    [0.4, 0.6],
   );
   const motivation = boundedWeightedSum(
     [sub.reflectiveMotivation, sub.automaticMotivation],
-    [0.65, 0.35]
+    [0.65, 0.35],
   );
   // Behaviour = C × O × M (Michie's product form). Squish to [0,1].
   const rawBehaviour = capability * opportunity * motivation;
@@ -237,7 +238,10 @@ export function aggregateCohort(breakdowns: ComBreakdown[]): {
       weakestComponent: "motivation",
     };
   }
-  let cap = 0, opp = 0, mot = 0, beh = 0;
+  let cap = 0,
+    opp = 0,
+    mot = 0,
+    beh = 0;
   for (const b of breakdowns) {
     cap += b.scores.capability;
     opp += b.scores.opportunity;
@@ -251,10 +255,10 @@ export function aggregateCohort(breakdowns: ComBreakdown[]): {
   const meanBehaviour = beh / n;
 
   const weakest = (["capability", "opportunity", "motivation"] as const).reduce((a, b) =>
-    ({ capability: meanCapability, opportunity: meanOpportunity, motivation: meanMotivation }[a]) <
-    ({ capability: meanCapability, opportunity: meanOpportunity, motivation: meanMotivation }[b])
+    ({ capability: meanCapability, opportunity: meanOpportunity, motivation: meanMotivation })[a] <
+    { capability: meanCapability, opportunity: meanOpportunity, motivation: meanMotivation }[b]
       ? a
-      : b
+      : b,
   );
 
   return {

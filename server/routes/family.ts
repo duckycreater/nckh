@@ -18,7 +18,10 @@ import { validateToken } from "../auth.js";
 
 function requireAuth(req: any, res: any, next: () => void) {
   const result = validateToken(req.headers.authorization);
-  if (!result) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!result) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   (req as any).userNick = result.nick;
   next();
 }
@@ -153,7 +156,9 @@ export function familyRouter(): Router {
   router.post("/join", requireAuth, async (req, res) => {
     try {
       const userNick = (req as any).userNick;
-      const code = String(req.body.inviteCode || "").trim().toUpperCase();
+      const code = String(req.body.inviteCode || "")
+        .trim()
+        .toUpperCase();
       if (!code || code.length !== 6) {
         return res.status(400).json({ error: "Mã mời không hợp lệ" });
       }
@@ -366,11 +371,7 @@ export function familyRouter(): Router {
       );
       const prevScans = prevRows[0]?.n || 0;
       const comparedToLastWeek =
-        prevScans > 0
-          ? ((totalScans - prevScans) / prevScans) * 100
-          : totalScans > 0
-          ? 100
-          : 0;
+        prevScans > 0 ? ((totalScans - prevScans) / prevScans) * 100 : totalScans > 0 ? 100 : 0;
 
       // Trees equivalent: 1 tree absorbs ~21 kg CO2/year
       const treesEquivalent = totalCo2Kg / 21;
@@ -381,12 +382,14 @@ export function familyRouter(): Router {
         totalCo2Kg: Math.round(totalCo2Kg * 100) / 100,
         totalWasteKg: Math.round(totalWasteKg * 100) / 100,
         perCategory: {
-          plastic: Math.round((perCategory.plastic * AVG_ITEM_WEIGHT_G.plastic) / 1000 * 100) / 100,
-          paper: Math.round((perCategory.paper * AVG_ITEM_WEIGHT_G.paper) / 1000 * 100) / 100,
-          glass: Math.round((perCategory.glass * AVG_ITEM_WEIGHT_G.glass) / 1000 * 100) / 100,
-          metal: Math.round((perCategory.metal * AVG_ITEM_WEIGHT_G.metal) / 1000 * 100) / 100,
-          organic: Math.round((perCategory.organic * AVG_ITEM_WEIGHT_G.organic) / 1000 * 100) / 100,
-          hazard: Math.round((perCategory.hazard * AVG_ITEM_WEIGHT_G.hazard) / 1000 * 100) / 100,
+          plastic:
+            Math.round(((perCategory.plastic * AVG_ITEM_WEIGHT_G.plastic) / 1000) * 100) / 100,
+          paper: Math.round(((perCategory.paper * AVG_ITEM_WEIGHT_G.paper) / 1000) * 100) / 100,
+          glass: Math.round(((perCategory.glass * AVG_ITEM_WEIGHT_G.glass) / 1000) * 100) / 100,
+          metal: Math.round(((perCategory.metal * AVG_ITEM_WEIGHT_G.metal) / 1000) * 100) / 100,
+          organic:
+            Math.round(((perCategory.organic * AVG_ITEM_WEIGHT_G.organic) / 1000) * 100) / 100,
+          hazard: Math.round(((perCategory.hazard * AVG_ITEM_WEIGHT_G.hazard) / 1000) * 100) / 100,
         },
         perMember: perMember.sort((a, b) => b.co2Kg - a.co2Kg),
         treesEquivalent: Math.round(treesEquivalent * 100) / 100,
@@ -456,9 +459,8 @@ export function familyRouter(): Router {
       const totalFamilies = rankRes.rows[0]?.total || 0;
       const familiesAhead = rankRes.rows[0]?.families_ahead || 0;
       const rank = familiesAhead + 1;
-      const percentile = totalFamilies > 0
-        ? Math.round(((totalFamilies - rank) / totalFamilies) * 100)
-        : 0;
+      const percentile =
+        totalFamilies > 0 ? Math.round(((totalFamilies - rank) / totalFamilies) * 100) : 0;
 
       res.json({
         familyId,

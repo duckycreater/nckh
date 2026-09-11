@@ -1,23 +1,31 @@
 import "dotenv/config";
 import express from "express";
+import type { Server } from "node:http";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
-import admin from "firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
+import { cert, initializeApp } from "firebase-admin/app";
+import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { google } from "googleapis";
-import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { resolveGacha, generateServerCard, CARD_TOTAL } from "../server/lib/cards.js";
 import { GoogleGenAI } from "@google/genai";
-import { datasetCurator, DatasetCurator as DatasetCuratorClass } from "../server/services/datasetCurator";
+import {
+  datasetCurator,
+  DatasetCurator as DatasetCuratorClass,
+} from "../server/services/datasetCurator";
 import { uploadToDataset } from "../server/services/cloudinaryDataset";
 import { getDb as getResearchDb } from "../server/db";
 import { initDb, isDbConnected, getDb, setFirestore } from "../server/db.js";
-import { listRewards, upsertReward, deleteRewardById, isRewardsDbConfigured } from "../server/rewardsDb.js";
+import {
+  listRewards,
+  upsertReward,
+  deleteRewardById,
+  isRewardsDbConfigured,
+} from "../server/rewardsDb.js";
 import { decideScanReward, getScanRewardConfig } from "../server/services/scanRewards";
 import {
   buildCors,
@@ -44,6 +52,7 @@ import {
 } from "../server/quizDb.js";
 import { runSchema } from "../server/schema.js";
 import { researchRouter } from "../server/routes/research.js";
+import { adminRouter } from "../server/routes/admin.js";
 import { eventLogger } from "../server/services/eventLogger.js";
 import { personalityEngine } from "../server/services/personalityEngine.js";
 import { behavioralProfiler } from "../server/services/behavioralProfiler.js";
@@ -63,7 +72,6 @@ import { familyRouter } from "../server/routes/family.js";
 import { experimentsRouter } from "../server/routes/experiments.js";
 import { socialRouter } from "../server/routes/social.js";
 import { longitudinalRouter } from "../server/routes/longitudinal.js";
-import { userPreferencesRouter } from "../server/routes/userPreferences.js";
 import { localeMiddleware } from "../server/services/localeRouter.js";
 import { getErrorMessage, err } from "../server/services/errorMessages.js";
 import {
@@ -72,12 +80,24 @@ import {
   hashPassword,
   verifyPassword,
   isLikelyHash,
-  requireAuth,
   disableUser,
   enableUser,
   isUserDisabled,
+  revokeSessionToken,
+  revokeUserSessions,
 } from "../server/auth.js";
 import { initSessionStore } from "../server/services/sessionStore.js";
+import {
+  acquireRewardLock,
+  commitReward,
+  reserveReward,
+  rollbackReward,
+  type RewardReservation,
+} from "../server/services/rewardGuard.js";
+import { getVietnamDayKey } from "../src/lib/dayKey.js";
+import { getDailyChallengeIds, getDailyChallengeReward } from "../src/lib/dailyChallenges.js";
+import { resolveGameplayRewardClaim } from "../src/lib/gameplayRewards.js";
+import { parseRedeemInfo, type RedeemInfo } from "../src/lib/redemption.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -85,10 +105,26 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    // Limit file size to 10MB to prevent memory exhaustion attacks
+    // Individual routes can add more specific validation if needed
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+});
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+function getRouteParam(value: unknown): string {
+  if (Array.isArray(value)) return String(value[0] ?? "");
+  return typeof value === "string" ? value : "";
+}
+
+// Trust proxy for correct IP detection behind reverse proxies (nginx, load balancers)
+// This is critical for rate limiting to work correctly
+app.set("trust proxy", Number(process.env.TRUST_PROXY) || 1);
 
 // ─── Locale middleware (Phase 5 of i18n plan) ──────────────────────────────
 // Resolves the requester's preferred locale from explicit header, then
@@ -101,14 +137,34 @@ app.use(localeMiddleware);
 // ─── Auth Middleware ─────────────────────────────────────────────────────────
 function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const result = validateToken(req.headers.authorization);
-  if (!result) return res.status(401).json({ error: getErrorMessage("error.unauthorized", (req as any).locale?.locale) });
+  if (!result)
+    return res
+      .status(401)
+      .json({ error: getErrorMessage("error.unauthorized", (req as any).locale?.locale) });
   (req as any).userNick = result.nick;
   (req as any).isAdmin = result.isAdmin;
+  (req as any).userId = result.accountId ?? result.nick;
   next();
 }
 
+function canAccessUserScope(req: express.Request, requestedId: string): boolean {
+  if ((req as any).isAdmin) return true;
+  const normalized = requestedId.trim().toLowerCase();
+  const authNick = String((req as any).userNick || "")
+    .trim()
+    .toLowerCase();
+  const authUserId = String((req as any).userId || "")
+    .trim()
+    .toLowerCase();
+  return normalized.length > 0 && (normalized === authNick || normalized === authUserId);
+}
+
 // ─── Admin Auth Middleware ───────────────────────────────────────────────────
-async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function requireAdmin(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
   const apiKey = req.headers["x-admin-key"] as string | undefined;
   const apiKeyHeader = process.env.ADMIN_API_KEY;
 
@@ -120,6 +176,7 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
   if (!result) return res.status(401).json({ error: "Unauthorized" });
   (req as any).userNick = result.nick;
   (req as any).isAdmin = result.isAdmin;
+  (req as any).userId = result.accountId ?? result.nick;
   try {
     const user = await getUser(result.nick);
     if (!user || user.role !== "admin") {
@@ -145,14 +202,21 @@ interface AdminStats {
 async function getAdminStats(): Promise<AdminStats> {
   const allUsers = await getAllUsers();
   const total = allUsers.length;
-  const admins = allUsers.filter(u => u.role === "admin").length;
-  const activeUsers = allUsers.filter(u => {
+  const admins = allUsers.filter((u) => u.role === "admin").length;
+  const activeUsers = allUsers.filter((u) => {
     if (!u.progress?.lastUpdateDate) return false;
     const last = new Date(u.progress.lastUpdateDate);
     const diff = Date.now() - last.getTime();
     return diff < 7 * 24 * 60 * 60 * 1000;
   }).length;
-  return { total, admins, activeUsers, researchActive7d: undefined, researchActive1d: undefined, experimentCount: undefined };
+  return {
+    total,
+    admins,
+    activeUsers,
+    researchActive7d: undefined,
+    researchActive1d: undefined,
+    experimentCount: undefined,
+  };
 }
 
 // Security middleware — installed before any routes so even error handlers
@@ -164,12 +228,31 @@ app.use(buildSecureCookies());
 
 // Auth-only endpoints get the tightest limit. Wire BEFORE the default
 // limiter so the default doesn't claim the request first.
-app.use("/api/auth", buildAuthRateLimiter());
-app.use("/auth", buildAuthRateLimiter());
+// Auth endpoints are mounted at /api/login and /api/register.  Keep the
+// legacy /api/auth and /auth prefixes as aliases for older clients, but do
+// not rely on them for brute-force protection.
+app.use(
+  [
+    "/api/login",
+    "/api/register",
+    "/api/change-password",
+    "/api/forgot-password",
+    "/api/reset-password",
+    "/api/auth",
+    "/auth",
+  ],
+  buildAuthRateLimiter(),
+);
 
 // Body parsing — placed AFTER the CORS preflight handlers so OPTIONS
 // short-circuits don't try to parse a body.
-app.use(express.json({ limit: "50mb" }));
+// A 10 MB image becomes roughly 13.4 MB when base64 encoded.  The bounded
+// parser leaves headroom for JSON metadata without allowing an untrusted
+// client to allocate tens of megabytes per request.
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "16mb" }));
+// Provider webhooks (Twilio/Africa's Talking) post form-encoded payloads.
+// Keep their parser limit much smaller than the image JSON limit above.
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 // Write-heavy endpoints get the scan limiter, mounted before their route
 // declaration. Each route file is responsible for re-mounting if it needs a
@@ -181,6 +264,34 @@ app.use("/api/scan-garbage", buildScanRateLimiter());
 app.use(buildDefaultRateLimiter());
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const notificationEmail = process.env.PURCHASE_NOTIFICATION_EMAIL?.trim();
+const notificationFrom =
+  process.env.NOTIFICATION_FROM_EMAIL?.trim() || "EcoQuest <onboarding@resend.dev>";
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function emailSubjectText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .slice(0, 150);
+}
+
+interface PasswordResetRecord {
+  nick: string;
+  nonce: string;
+  expiresAt: number;
+}
+
+const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+const passwordResetTokens = new Map<string, PasswordResetRecord>();
 
 async function sendPurchaseEmail(user: any, itemId: string) {
   try {
@@ -193,26 +304,31 @@ async function sendPurchaseEmail(user: any, itemId: string) {
       fr3: "Hào Quang Đất",
     };
     const itemName = itemNameMap[String(itemId)] || `Vật phẩm ID ${itemId}`;
+    const safeUserName = escapeHtml(user.name);
+    const safeAccountId = escapeHtml(user.account_id);
+    const safeItemName = escapeHtml(itemName);
 
     const textBody = `Người chơi: ${user.name} (Tài khoản: ${user.account_id})\nĐã mua: ${itemName}\nSố điểm (Lõi Năng Lượng) hiện tại: ${user.points}`;
     const htmlBody = `
        <div style="font-family: sans-serif;">
            <h2 style="color: #7c3aed;">Yêu cầu mua vật phẩm mới!</h2>
-           <p><strong>Người chơi:</strong> ${user.name} (Tài khoản: ${user.account_id})</p>
-           <p><strong>Vật phẩm:</strong> <span style="color: #7c3aed; font-weight: bold;">${itemName}</span></p>
+           <p><strong>Người chơi:</strong> ${safeUserName} (Tài khoản: ${safeAccountId})</p>
+           <p><strong>Vật phẩm:</strong> <span style="color: #7c3aed; font-weight: bold;">${safeItemName}</span></p>
            <p><strong>Số điểm còn lại:</strong> <span style="color: #10b981;">${user.points} Lõi Năng Lượng</span></p>
        </div>
     `;
 
-    if (!process.env.RESEND_API_KEY) {
-       console.warn("[Email] Bỏ qua vì chưa có RESEND_API_KEY.");
-       return;
+    if (!resend || !notificationEmail) {
+      console.warn(
+        "[Email] Skipped: RESEND_API_KEY or PURCHASE_NOTIFICATION_EMAIL is not configured.",
+      );
+      return;
     }
 
     const { data, error } = await resend.emails.send({
-      from: "EcoQuest <onboarding@resend.dev>",
-      to: "leoxkas280@gmail.com",
-      subject: `EcoQuest: ${user.name} vừa mua ${itemName}!`,
+      from: notificationFrom,
+      to: notificationEmail,
+      subject: emailSubjectText(`EcoQuest: ${user.name} vừa mua ${itemName}!`),
       text: textBody,
       html: htmlBody,
     });
@@ -226,55 +342,58 @@ async function sendPurchaseEmail(user: any, itemId: string) {
   }
 }
 
-async function sendCraftEmail(user: any, craftedItemId: any, redeemInfo?: { fullName: string, class: string }) {
+async function sendCraftEmail(
+  user: any,
+  craftedItemId: string,
+  itemName: string,
+  redeemInfo: RedeemInfo,
+) {
   try {
-     const itemNameMap: Record<number, string> = {
-       1: "Voucher Fahasa 50.000đ",
-       2: "Bình nước Eco-friendly 500ml",
-       3: "Bình Giữ Nhiệt Lock&Lock",
-       4: "Voucher Fahasa 100.000đ"
-     };
-     const itemName = itemNameMap[Number(craftedItemId)] || `Quà ID ${craftedItemId}`;
-     
-     let textBody = `Người chơi: ${user.name} (Tài khoản: ${user.account_id})\nĐã đổi quà tặng: ${itemName} (Mã Quà: ${craftedItemId})\nSố điểm (Lõi Năng Lượng) hiện tại: ${user.points}`;
-     let htmlBody = `
+    let textBody = `Người chơi: ${user.name} (Tài khoản: ${user.account_id})\nĐã đổi quà tặng: ${itemName} (Mã Quà: ${craftedItemId})\nSố điểm (Lõi Năng Lượng) hiện tại: ${user.points}`;
+    const safeUserName = escapeHtml(user.name);
+    const safeAccountId = escapeHtml(user.account_id);
+    const safeItemName = escapeHtml(itemName);
+    const safeItemId = escapeHtml(craftedItemId);
+    const safeFullName = escapeHtml(redeemInfo.fullName);
+    const safeAddress = escapeHtml(redeemInfo.address);
+    let htmlBody = `
         <div style="font-family: sans-serif; p { margin: 5px 0 }">
             <h2 style="color: #059669">Yêu cầu đổi quà mới!</h2>
-            <p><strong>Người chơi:</strong> ${user.name} (Tài khoản: ${user.account_id})</p>
-            <p><strong>Quà tặng:</strong> <span style="color: #ea580c; font-weight: bold;">${itemName}</span> (Mã Quà: ${craftedItemId})</p>
+            <p><strong>Người chơi:</strong> ${safeUserName} (Tài khoản: ${safeAccountId})</p>
+            <p><strong>Quà tặng:</strong> <span style="color: #ea580c; font-weight: bold;">${safeItemName}</span> (Mã Quà: ${safeItemId})</p>
             <p><strong>Số điểm còn lại:</strong> <span style="color: #10b981;">${user.points} Lõi Năng Lượng</span></p>
      `;
 
-     if (redeemInfo && redeemInfo.fullName) {
-       textBody += `\n\n--- Thông tin người nhận ---\nHọ và tên: ${redeemInfo.fullName}\nLớp: ${redeemInfo.class || 'Không có'}`;
-       htmlBody += `
+    textBody += `\n\n--- Thông tin người nhận ---\nHọ và tên: ${redeemInfo.fullName}\nĐịa chỉ nhận quà: ${redeemInfo.address}`;
+    htmlBody += `
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0"/>
           <h3 style="color: #4b5563">Thông tin người nhận</h3>
-          <p><strong>Họ và tên:</strong> ${redeemInfo.fullName}</p>
-          <p><strong>Lớp/Đơn vị:</strong> ${redeemInfo.class || 'Không có'}</p>
+          <p><strong>Họ và tên:</strong> ${safeFullName}</p>
+          <p><strong>Địa chỉ nhận quà:</strong> ${safeAddress}</p>
        `;
-     }
-     htmlBody += "</div>";
-     
-     if (!process.env.RESEND_API_KEY) {
-        console.warn("[Email] Bỏ qua vì chưa có RESEND_API_KEY.");
-        return;
-     }
+    htmlBody += "</div>";
+
+    if (!resend || !notificationEmail) {
+      console.warn(
+        "[Email] Skipped: RESEND_API_KEY or PURCHASE_NOTIFICATION_EMAIL is not configured.",
+      );
+      return;
+    }
 
     const { data, error } = await resend.emails.send({
-       from: "EcoQuest <onboarding@resend.dev>",
-       to: "leoxkas280@gmail.com",
-       subject: `EcoQuest: ${user.name} vừa đổi quà ${itemName}!`,
-       text: textBody,
-       html: htmlBody,
+      from: notificationFrom,
+      to: notificationEmail,
+      subject: emailSubjectText(`EcoQuest: ${user.name} vừa đổi quà ${itemName}!`),
+      text: textBody,
+      html: htmlBody,
     });
     if (error) {
-       console.error("[Email] Resend error:", error);
+      console.error("[Email] Resend error:", error);
     } else {
-       console.log(`[Email] Notification sent, ID: ${data?.id}`);
+      console.log(`[Email] Notification sent, ID: ${data?.id}`);
     }
   } catch (e) {
-     console.error("[Email] Failed to send notification:", e);
+    console.error("[Email] Failed to send notification:", e);
   }
 }
 
@@ -283,10 +402,9 @@ const DB_FILE = path.join(process.cwd(), "data.json");
 let users: User[] = [];
 
 // Initialize Firebase Admin if available
-let db: admin.firestore.Firestore | null = null;
+let db: Firestore | null = null;
 const secretRaw =
-  process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 ||
-  process.env.FIREBASE_SERVICE_ACCOUNT;
+  process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || process.env.FIREBASE_SERVICE_ACCOUNT;
 
 if (secretRaw) {
   try {
@@ -295,9 +413,9 @@ if (secretRaw) {
       ? Buffer.from(secretRaw, "base64").toString("utf8")
       : secretRaw;
     const serviceAccount = JSON.parse(serviceAccountStr);
-    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+    initializeApp({
+      credential: cert(serviceAccount),
     });
     // In node we can get the default db, or pass databaseId if needed.
     // Assuming standard default or pulling from config if necessary.
@@ -313,12 +431,12 @@ if (secretRaw) {
     }
 
     if (dbId === "(default)") {
-      db = admin.firestore();
+      db = getFirestore();
       setFirestore(db);
     } else {
-      const customApp = admin.initializeApp(
+      const customApp = initializeApp(
         {
-          credential: admin.credential.cert(serviceAccount),
+          credential: cert(serviceAccount),
           projectId: serviceAccount.project_id,
         },
         "custom",
@@ -339,7 +457,7 @@ if (secretRaw) {
           const DELAY_MS = 200;
           for (let i = 0; i < data.users.length; i += BATCH) {
             const batch = data.users.slice(i, i + BATCH);
-            const promises = batch.map(async (u) => {
+            const promises = batch.map(async (u: { nick: string; name: string; pass: string }) => {
               try {
                 const docRef = db!.collection("users").doc(u.nick.toLowerCase());
                 const doc = await docRef.get();
@@ -371,7 +489,7 @@ interface UserProgress {
   flashcardCounts: Record<number, number>;
   flashcardNames?: Record<number, string>;
   checkins: number[];
-  traded: number[];
+  traded: (string | number)[];
   crafted: (string | number)[];
   purchased: (string | number)[];
   challengesCompleted: number[];
@@ -397,6 +515,23 @@ interface User {
   selectedFrame?: string;
   customAvatarUrl?: string;
   shards?: number;
+  locale?: string;
+  preferences?: Record<string, unknown>;
+  lastWheelClaimDate?: string;
+  claimedStreakGifts?: number[];
+  gameplayRewardDates?: Record<string, string>;
+  redemptionRequests?: RedemptionRequest[];
+  passwordResetNonce?: string;
+}
+
+interface RedemptionRequest {
+  id: string;
+  itemId: string;
+  itemName: string;
+  cost: number;
+  recipient: RedeemInfo;
+  status: "pending";
+  createdAt: string;
 }
 
 interface GameProgress {
@@ -431,12 +566,19 @@ async function getGameProgress(nick: string): Promise<GameProgress | null> {
 
 async function saveGameProgress(nick: string, progress: GameProgress) {
   if (!db) {
-    console.log(`[saveGameProgress] No db, skipping save for ${nick}`);
+    const localUser = users.find((user) => user.nick.toLowerCase() === nick.toLowerCase());
+    if (localUser) {
+      localUser.progress = progress;
+      saveData();
+    }
     return;
   }
   try {
     await db.collection("user_progress").doc(nick.toLowerCase()).set(progress, { merge: true });
-    console.log(`[saveGameProgress] Saved to user_progress/${nick.toLowerCase()}:`, JSON.stringify(progress.flashcardCounts || {}));
+    console.log(
+      `[saveGameProgress] Saved to user_progress/${nick.toLowerCase()}:`,
+      JSON.stringify(progress.flashcardCounts || {}),
+    );
   } catch (e) {
     console.error(`[saveGameProgress] Failed to save progress for ${nick}:`, e?.message || e);
     // Don't throw — the in-memory state is already updated; the caller should still return success
@@ -541,7 +683,7 @@ async function logRewardTransaction(
   userId: string,
   transactionType: "earn" | "spend" | "adjustment",
   amount: number,
-  options?: { reason?: string; source?: string; multiplier?: number; pointsBalance?: number }
+  options?: { reason?: string; source?: string; multiplier?: number; pointsBalance?: number },
 ) {
   const db = getDb();
   if (!db) return;
@@ -557,7 +699,7 @@ async function logRewardTransaction(
         options?.source ?? null,
         options?.multiplier ?? 1.0,
         options?.pointsBalance ?? null,
-      ]
+      ],
     );
   } catch (e) {
     console.warn("[RewardTx] Failed to log:", (e as Error).message);
@@ -602,22 +744,50 @@ function formatTimeRemaining(endDate: Date): string {
 }
 
 interface PvPMatch {
-  id: string; challengerId: string; opponentId: string;
-  challengerName: string; opponentName: string;
-  challengerWager: number; opponentWager: number;
-  winnerId?: string; challengerResult?: "win" | "lose" | "pending";
+  id: string;
+  challengerId: string;
+  opponentId: string;
+  challengerName: string;
+  opponentName: string;
+  challengerWager: number;
+  opponentWager: number;
+  winnerId?: string;
+  challengerResult?: "win" | "lose" | "pending";
   opponentResult?: "win" | "lose" | "pending";
-  stake: number; status: "matched" | "battle" | "completed";
-  createdAt: number; updatedAt: number; rounds: any[];
+  stake: number;
+  status: "matched" | "battle" | "completed";
+  createdAt: number;
+  updatedAt: number;
+  rounds: any[];
 }
 
-interface TournamentParticipant { userId: string; name: string; points: number; weeklyScore: number; joinedAt: number; }
-interface TournamentMatch { id: string; player1Id: string; player1Name: string; player2Id: string | null; player2Name: string | null; winnerId?: string; status: "pending" | "live" | "completed"; player1Score?: number; player2Score?: number; }
+interface TournamentParticipant {
+  userId: string;
+  name: string;
+  points: number;
+  weeklyScore: number;
+  joinedAt: number;
+}
+interface TournamentMatch {
+  id: string;
+  player1Id: string;
+  player1Name: string;
+  player2Id: string | null;
+  player2Name: string | null;
+  winnerId?: string;
+  status: "pending" | "live" | "completed";
+  player1Score?: number;
+  player2Score?: number;
+}
 
-function generateBracket(participants: TournamentParticipant[]): { rounds: { round: number; name: string; matches: TournamentMatch[] }[] } {
+function generateBracket(participants: TournamentParticipant[]): {
+  rounds: { round: number; name: string; matches: TournamentMatch[] }[];
+} {
   // Single-elimination bracket: round of 8 → quarter → semi → final
   const byes = 8 - participants.length;
-  const bracket: { rounds: { round: number; name: string; matches: TournamentMatch[] }[] } = { rounds: [] };
+  const bracket: { rounds: { round: number; name: string; matches: TournamentMatch[] }[] } = {
+    rounds: [],
+  };
 
   // Round 1 (Quarter-finals or pre-qualifier if < 8)
   const qfMatches: TournamentMatch[] = [];
@@ -628,8 +798,10 @@ function generateBracket(participants: TournamentParticipant[]): { rounds: { rou
     if (p1) {
       qfMatches.push({
         id: `qf_${i}`,
-        player1Id: p1.userId, player1Name: p1.name,
-        player2Id: p2?.userId || null, player2Name: p2?.name || "BYE",
+        player1Id: p1.userId,
+        player1Name: p1.name,
+        player2Id: p2?.userId || null,
+        player2Name: p2?.name || "BYE",
         status: p2 ? "pending" : "completed",
         winnerId: p2 ? undefined : p1.userId,
         player1Score: p2 ? undefined : 1,
@@ -644,8 +816,10 @@ function generateBracket(participants: TournamentParticipant[]): { rounds: { rou
   for (let i = 0; i < 4; i += 2) {
     sfMatches.push({
       id: `sf_${i}`,
-      player1Id: "", player1Name: "???",
-      player2Id: null, player2Name: "???",
+      player1Id: "",
+      player1Name: "???",
+      player2Id: null,
+      player2Name: "???",
       status: "pending",
     });
   }
@@ -653,13 +827,18 @@ function generateBracket(participants: TournamentParticipant[]): { rounds: { rou
 
   // Finals
   bracket.rounds.push({
-    round: 3, name: "Chung kết",
-    matches: [{
-      id: "final",
-      player1Id: "", player1Name: "???",
-      player2Id: null, player2Name: "???",
-      status: "pending",
-    }],
+    round: 3,
+    name: "Chung kết",
+    matches: [
+      {
+        id: "final",
+        player1Id: "",
+        player1Name: "???",
+        player2Id: null,
+        player2Name: "???",
+        status: "pending",
+      },
+    ],
   });
 
   return bracket;
@@ -692,6 +871,65 @@ async function getAllUsers(): Promise<User[]> {
     return snap.docs.map((d) => d.data() as User);
   }
   return users;
+}
+
+async function findUserByIdentifier(identifier: string): Promise<User | undefined> {
+  const normalized = identifier.trim().toLowerCase();
+  if (!normalized) return undefined;
+  const byNickname = await getUser(normalized);
+  if (byNickname) return byNickname;
+  if (!normalized.includes("@")) return undefined;
+  return findUserByEmail(normalized);
+}
+
+async function findUserByEmail(email: string): Promise<User | undefined> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (db) {
+    const snapshot = await db.collection("users").where("email", "==", normalized).limit(1).get();
+    if (!snapshot.empty) return snapshot.docs[0].data() as User;
+  }
+  return users.find((user) => user.email?.trim().toLowerCase() === normalized);
+}
+
+function passwordResetBaseUrl(): string | null {
+  const configured = process.env.PUBLIC_APP_URL?.trim();
+  if (!configured) {
+    return process.env.NODE_ENV === "production" ? null : `http://localhost:${PORT}`;
+  }
+  try {
+    const url = new URL(configured);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (process.env.NODE_ENV === "production" && url.protocol !== "https:") return null;
+    return url.origin + url.pathname.replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+async function storePasswordResetRecord(
+  tokenHash: string,
+  record: PasswordResetRecord,
+): Promise<void> {
+  passwordResetTokens.set(tokenHash, record);
+  if (db) {
+    await db.collection("password_reset_tokens").doc(tokenHash).set(record);
+  }
+}
+
+async function loadPasswordResetRecord(tokenHash: string): Promise<PasswordResetRecord | null> {
+  const cached = passwordResetTokens.get(tokenHash);
+  if (cached) return cached;
+  if (!db) return null;
+  const snapshot = await db.collection("password_reset_tokens").doc(tokenHash).get();
+  return snapshot.exists ? (snapshot.data() as PasswordResetRecord) : null;
+}
+
+async function deletePasswordResetRecord(tokenHash: string): Promise<void> {
+  passwordResetTokens.delete(tokenHash);
+  if (db) {
+    await db.collection("password_reset_tokens").doc(tokenHash).delete();
+  }
 }
 
 import Groq from "groq-sdk";
@@ -727,7 +965,9 @@ app.post("/api/robot", async (req, res) => {
     let legacyOk = false;
     if (typeof key === "string" && key === sharedSecret) {
       legacyOk = true;
-      console.warn(`[robot] deprecated legacy-secret call for ${nickname}; please update firmware to HMAC`);
+      console.warn(
+        `[robot] deprecated legacy-secret call for ${nickname}; please update firmware to HMAC`,
+      );
     }
     let hmacOk = false;
     if (typeof ts === "number" && typeof sig === "string") {
@@ -774,7 +1014,19 @@ app.post("/api/robot", async (req, res) => {
 
 // 2. Auth APIs
 app.post("/api/login", async (req, res) => {
-  const { login_nickname, login_password } = req.body;
+  const login_nickname =
+    typeof req.body?.login_nickname === "string" ? req.body.login_nickname.trim() : "";
+  const login_password =
+    typeof req.body?.login_password === "string" ? req.body.login_password : "";
+
+  if (
+    !login_nickname ||
+    !login_password ||
+    login_nickname.length > 100 ||
+    login_password.length > 256
+  ) {
+    return res.status(400).json({ success: false, message: "Thông tin đăng nhập không hợp lệ." });
+  }
 
   let user;
   try {
@@ -790,19 +1042,9 @@ app.post("/api/login", async (req, res) => {
     // keep working without leaving cleartext in the DB.
     const ok = await verifyPassword(login_password, user.pass);
     if (ok) {
-      // Auto-grant admin if nickname starts with admin
-      let role = user.role;
-      if (login_nickname.toLowerCase().startsWith('admin')) {
-        role = 'admin';
-        if (user.role !== 'admin') {
-          user.role = 'admin';
-          try {
-            await saveUser(user);
-          } catch (e) {
-            console.error("[login] saveUser failed:", e?.message || e);
-          }
-        }
-      }
+      // Privileges are persisted by an administrator; a nickname must never
+      // be able to escalate itself to admin.
+      const role = user.role === "admin" ? "admin" : "user";
 
       // Migrate plaintext password to bcrypt hash in-place (best-effort;
       // if the DB write fails the user can still log in — we just retry
@@ -817,7 +1059,7 @@ app.post("/api/login", async (req, res) => {
         }
       }
 
-      const token = createSessionToken(user.nick);
+      const token = createSessionToken(user.nick, role === "admin", user.account_id);
 
       // Research: Register in research DB if not exists, assign personality
       const accountId = user.account_id;
@@ -832,12 +1074,7 @@ app.post("/api/login", async (req, res) => {
                ON CONFLICT (user_id) DO UPDATE SET
                  username = EXCLUDED.username,
                  last_active = NOW()`,
-              [
-                accountId,
-                user.name,
-                user.fullName || null,
-                user.classGrade || null,
-              ]
+              [accountId, user.name, user.fullName || null, user.classGrade || null],
             );
             const existingProfile = await personalityEngine.getPersonality(accountId);
             if (existingProfile === "friendly") {
@@ -872,7 +1109,8 @@ app.post("/api/login", async (req, res) => {
           try {
             const shouldIntervene = await noveltyDecayDetector.shouldTriggerIntervention(accountId);
             if (shouldIntervene) {
-              const interventions = await noveltyDecayDetector.getRecommendedInterventions(accountId);
+              const interventions =
+                await noveltyDecayDetector.getRecommendedInterventions(accountId);
               if (interventions.length > 0) {
                 await noveltyDecayDetector.triggerIntervention(accountId, interventions[0]);
               }
@@ -889,12 +1127,15 @@ app.post("/api/login", async (req, res) => {
         nickname: user.name,
         points: user.points,
         account_id: user.nick,
+        user_id: user.account_id,
         role: role,
         selectedAvatar: user.selectedAvatar,
         selectedFrame: user.selectedFrame,
         full_name: user.fullName || null,
         class_grade: user.classGrade || null,
         email: user.email || null,
+        lastWheelClaimDate: user.lastWheelClaimDate || null,
+        claimedStreakGifts: user.claimedStreakGifts || [],
         message: "Đăng nhập thành công!",
       });
     } else {
@@ -906,16 +1147,21 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/register", async (req, res) => {
-  const { reg_name, reg_nickname, reg_password, reg_email, reg_class_grade, reg_full_name } = req.body;
+  const { reg_name, reg_nickname, reg_password, reg_email, reg_class_grade, reg_full_name } =
+    req.body ?? {};
   const name = (reg_name || "").trim();
   const nick = (reg_nickname || "").trim();
-  const pass = reg_password;
-  const email = (reg_email || "").trim();
+  const pass = typeof reg_password === "string" ? reg_password : "";
+  const email = (reg_email || "").trim().toLowerCase();
   const classGrade = (reg_class_grade || "").trim();
   const fullName = (reg_full_name || "").trim();
 
   if (nick.length < 4) {
     res.json({ success: false, message: "Tài khoản phải trên 4 ký tự!" });
+    return;
+  }
+  if (pass.length < 8 || pass.length > 128) {
+    res.json({ success: false, message: "Mật khẩu phải dài từ 8 đến 128 ký tự!" });
     return;
   }
   if (!/^[a-zA-Z0-9_]+$/.test(nick)) {
@@ -929,7 +1175,7 @@ app.post("/api/register", async (req, res) => {
     res.json({ success: false, message: "Email không hợp lệ!" });
     return;
   }
-  if (classGrade && !/^[1-9]|1[0-2]$/.test(classGrade)) {
+  if (classGrade && !/^(?:[1-9]|1[0-2])$/.test(classGrade)) {
     res.json({ success: false, message: "Lớp không hợp lệ (1-12)!" });
     return;
   }
@@ -949,13 +1195,34 @@ app.post("/api/register", async (req, res) => {
     res.json({ success: false, message: "Tài khoản này đã tồn tại!" });
     return;
   }
+  if (email) {
+    try {
+      const emailInUse = Boolean(await findUserByEmail(email));
+      if (emailInUse) {
+        res.json({ success: false, message: "Email này đã được dùng cho tài khoản khác!" });
+        return;
+      }
+    } catch (error) {
+      console.error("[register] email uniqueness check failed:", error);
+      return res.status(500).json({ success: false, message: "Lỗi server, vui lòng thử lại." });
+    }
+  }
 
-  const role = nick.toLowerCase().startsWith('admin') ? 'admin' : 'user';
+  // New accounts are regular users.  Admin access is granted out-of-band by
+  // an operator after verifying the person and the deployment environment.
+  const role = "user";
   const accountId = crypto.randomUUID();
+  let passwordHash: string;
+  try {
+    passwordHash = await hashPassword(pass);
+  } catch (e) {
+    console.error("[register] password hashing failed:", e?.message || e);
+    return res.status(500).json({ success: false, message: "Không thể tạo tài khoản lúc này." });
+  }
   const newUser = {
     name,
     nick,
-    pass,
+    pass: passwordHash,
     email,
     classGrade,
     fullName,
@@ -968,6 +1235,7 @@ app.post("/api/register", async (req, res) => {
     await saveUser(newUser, true);
   } catch (e) {
     console.error("[register] saveUser failed:", e?.message || e);
+    return res.status(500).json({ success: false, message: "Không thể tạo tài khoản lúc này." });
   }
 
   // Research: Register in research DB and assign personality.
@@ -985,7 +1253,7 @@ app.post("/api/register", async (req, res) => {
              username = EXCLUDED.username,
              full_name = COALESCE(EXCLUDED.full_name, research_users.full_name),
              class_grade = COALESCE(EXCLUDED.class_grade, research_users.class_grade)`,
-          [accountId, name, fullName || null, classGrade || null]
+          [accountId, name, fullName || null, classGrade || null],
         );
         await personalityEngine.assignPersonality(accountId, 1);
         await eventLogger.log(accountId, "register", {
@@ -1006,10 +1274,131 @@ app.post("/api/register", async (req, res) => {
   });
 });
 
+app.post("/api/forgot-password", async (req, res) => {
+  // Always return the same public response so this endpoint cannot be used to
+  // discover which email addresses or nicknames are registered.
+  const publicResponse = {
+    success: true,
+    message: "Nếu tài khoản tồn tại và có email, liên kết khôi phục sẽ được gửi.",
+  };
+  const identifier = typeof req.body?.identifier === "string" ? req.body.identifier.trim() : "";
+  if (!identifier || identifier.length > 254) return res.json(publicResponse);
+
+  try {
+    const user = await findUserByIdentifier(identifier);
+    const baseUrl = passwordResetBaseUrl();
+    if (!user?.email || !resend || !baseUrl) {
+      if (user && (!resend || !baseUrl)) {
+        console.warn(
+          "[forgot-password] Email delivery unavailable; configure RESEND_API_KEY and PUBLIC_APP_URL.",
+        );
+      }
+      return res.json(publicResponse);
+    }
+
+    const token = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const record: PasswordResetRecord = {
+      nick: user.nick,
+      nonce,
+      expiresAt: Date.now() + PASSWORD_RESET_TTL_MS,
+    };
+
+    // A new request invalidates older links for this account through the
+    // per-user nonce, while only a hash of the actual token is persisted.
+    user.passwordResetNonce = nonce;
+    await saveUser(user);
+    await storePasswordResetRecord(tokenHash, record);
+
+    const resetUrl = new URL(baseUrl);
+    resetUrl.searchParams.set("reset_token", token);
+    const { error } = await resend.emails.send({
+      from: notificationFrom,
+      to: user.email,
+      subject: "EcoQuest — Khôi phục mật khẩu",
+      text: [
+        `Xin chào ${user.name || user.nick},`,
+        "",
+        "Mở liên kết dưới đây để đặt mật khẩu mới. Liên kết có hiệu lực trong 30 phút:",
+        resetUrl.toString(),
+        "",
+        "Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email.",
+      ].join("\n"),
+    });
+    if (error) console.error("[forgot-password] Resend error:", error);
+  } catch (error) {
+    console.error("[forgot-password] request failed:", error);
+  }
+
+  return res.json(publicResponse);
+});
+
+app.post("/api/reset-password", async (req, res) => {
+  const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+  const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+  if (!/^[A-Za-z0-9_-]{40,100}$/.test(token)) {
+    return res.status(400).json({ success: false, message: "Liên kết khôi phục không hợp lệ." });
+  }
+  if (newPassword.length < 8 || newPassword.length > 128) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Mật khẩu mới phải dài từ 8 đến 128 ký tự." });
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  try {
+    const record = await loadPasswordResetRecord(tokenHash);
+    if (!record || record.expiresAt <= Date.now()) {
+      if (record) await deletePasswordResetRecord(tokenHash);
+      return res
+        .status(400)
+        .json({ success: false, message: "Liên kết khôi phục đã hết hạn hoặc đã được dùng." });
+    }
+
+    const user = await getUser(record.nick);
+    if (!user || user.passwordResetNonce !== record.nonce) {
+      await deletePasswordResetRecord(tokenHash);
+      return res
+        .status(400)
+        .json({ success: false, message: "Liên kết khôi phục đã hết hạn hoặc đã được dùng." });
+    }
+    if (await verifyPassword(newPassword, user.pass)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mới phải khác mật khẩu hiện tại.",
+      });
+    }
+
+    user.pass = await hashPassword(newPassword);
+    user.passwordResetNonce = crypto.randomBytes(16).toString("hex");
+    await saveUser(user);
+    revokeUserSessions(user.nick);
+    await deletePasswordResetRecord(tokenHash);
+    return res.json({ success: true, message: "Đặt lại mật khẩu thành công. Hãy đăng nhập." });
+  } catch (error) {
+    console.error("[reset-password] reset failed:", error);
+    return err(res, 500, "error.internal", req as any);
+  }
+});
+
+app.post("/api/logout", requireAuth, (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : "";
+  if (token) revokeSessionToken(token);
+  res.json({ ok: true });
+});
+
 app.post("/api/change-password", requireAuth, async (req, res) => {
   // Layer 2.3 — you can only change your own password.
   const cp_nickname = (req as any).userNick as string;
   const { cp_old_pass, cp_new_pass } = req.body ?? {};
+
+  if (typeof cp_new_pass !== "string" || cp_new_pass.length < 8 || cp_new_pass.length > 128) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Mật khẩu mới phải dài từ 8 đến 128 ký tự." });
+  }
 
   let user;
   try {
@@ -1038,29 +1427,167 @@ app.post("/api/change-password", requireAuth, async (req, res) => {
   }
 });
 
+const DAILY_WHEEL_REWARDS = [10, 25, 20, 500, 15, 30, 1, 50] as const;
+const DAILY_WHEEL_WEIGHTS = [15, 15, 15, 1, 15, 15, 14, 10] as const;
+const DAILY_WHEEL_TOTAL_WEIGHT = DAILY_WHEEL_WEIGHTS.reduce((sum, weight) => sum + weight, 0);
+const STREAK_GIFT_REWARDS: Record<number, number> = {
+  7: 30,
+  14: 75,
+  30: 200,
+  60: 500,
+  100: 1000,
+};
+
+function selectDailyWheelIndex(): number {
+  let ticket = crypto.randomInt(DAILY_WHEEL_TOTAL_WEIGHT);
+  for (let index = 0; index < DAILY_WHEEL_WEIGHTS.length; index++) {
+    ticket -= DAILY_WHEEL_WEIGHTS[index];
+    if (ticket < 0) return index;
+  }
+  return 0;
+}
+
+app.post("/api/daily-wheel", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
+  try {
+    const user = await getUser(nickname);
+    if (!user) return err(res, 404, "error.notFound", req as any);
+
+    const today = getVietnamDayKey();
+    if (user.lastWheelClaimDate === today) {
+      return res.status(409).json({ success: false, message: "Bạn đã quay thưởng hôm nay." });
+    }
+
+    const segmentIndex = selectDailyWheelIndex();
+    const earnedPoints = DAILY_WHEEL_REWARDS[segmentIndex];
+    user.points = Math.max(0, Math.trunc(user.points || 0) + earnedPoints);
+    user.lastWheelClaimDate = today;
+    await saveUser(user);
+
+    await Promise.allSettled([
+      eventLogger.logReward(user.account_id, earnedPoints, 0, "daily_wheel"),
+      logRewardTransaction(user.account_id, "earn", earnedPoints, {
+        reason: "daily_wheel",
+        source: "daily_wheel",
+        pointsBalance: user.points,
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      segmentIndex,
+      earnedPoints,
+      points: user.points,
+      claimDate: today,
+    });
+  } catch (error) {
+    console.error("[daily-wheel] claim failed:", error);
+    return err(res, 500, "error.internal", req as any);
+  } finally {
+    releaseLock();
+  }
+});
+
+app.post("/api/streak-gift", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
+  try {
+    const milestone = Number(req.body?.milestone);
+    const earnedPoints = STREAK_GIFT_REWARDS[milestone];
+    if (!Number.isSafeInteger(milestone) || earnedPoints === undefined) {
+      return res.status(400).json({ success: false, message: "Mốc streak không hợp lệ." });
+    }
+
+    const user = await getUser(nickname);
+    if (!user) return err(res, 404, "error.notFound", req as any);
+    const progress = (await getGameProgress(nickname)) ?? user.progress;
+    if ((progress?.streakDays || 0) < milestone) {
+      return res.status(403).json({ success: false, message: "Bạn chưa đạt mốc streak này." });
+    }
+
+    const claimed = user.claimedStreakGifts ?? [];
+    if (claimed.includes(milestone)) {
+      return res.json({ success: true, duplicate: true, earnedPoints: 0, points: user.points });
+    }
+
+    user.points = Math.max(0, Math.trunc(user.points || 0) + earnedPoints);
+    user.claimedStreakGifts = [...claimed, milestone].sort((a, b) => a - b);
+    await saveUser(user);
+
+    await Promise.allSettled([
+      eventLogger.logReward(user.account_id, earnedPoints, 0, `streak_gift_${milestone}`),
+      logRewardTransaction(user.account_id, "earn", earnedPoints, {
+        reason: `streak_gift_${milestone}`,
+        source: "streak_gift",
+        pointsBalance: user.points,
+      }),
+    ]);
+
+    return res.json({ success: true, earnedPoints, points: user.points });
+  } catch (error) {
+    console.error("[streak-gift] claim failed:", error);
+    return err(res, 500, "error.internal", req as any);
+  } finally {
+    releaseLock();
+  }
+});
+
 app.post("/api/reward", requireAuth, async (req, res) => {
+  let reservation: RewardReservation | null = null;
+  const rewardNickname = (req as any).userNick as string;
+  const releaseRewardLock = await acquireRewardLock(rewardNickname);
   try {
     // Layer 2.3 — the recipient is the authenticated user. We reject any
     // client-supplied nickname; an admin-issued reward should use the
     // dedicated /api/admin endpoints.
-    const nickname = (req as any).userNick as string;
-    const { points, reason } = req.body ?? {};
+    const nickname = rewardNickname;
+    const claim = resolveGameplayRewardClaim(req.body);
+    if (!claim) {
+      return res.status(400).json({
+        success: false,
+        message: "Yêu cầu thưởng không hợp lệ. Điểm thưởng do máy chủ quyết định.",
+      });
+    }
     const user = await getUser(nickname);
     if (user) {
+      const today = getVietnamDayKey();
+      if (user.gameplayRewardDates?.[claim.dailyScope] === today) {
+        return res.json({ success: true, duplicate: true, points: user.points, earnedPoints: 0 });
+      }
+
+      // The client reports an activity; its point value is resolved from the
+      // shared server policy above and cannot be selected by the request.
+      const decision = reserveReward({
+        nick: nickname,
+        points: claim.points,
+        action: claim.action,
+        reason: claim.reason,
+        idempotencyKey: `${nickname.toLowerCase()}:${claim.dailyScope}:${today}`,
+      });
+      if (decision.duplicate) {
+        return res.json({ success: true, duplicate: true, points: user.points, earnedPoints: 0 });
+      }
+      reservation = decision;
+
       // Calculate streak multiplier for positive rewards
-      let effectivePoints = points;
+      let effectivePoints = claim.points;
       let effectiveMultiplier = 1;
       let adaptiveMessage = "";
-      if (points > 0) {
-        const progress = await getGameProgress(nickname);
+      if (claim.points > 0) {
+        const progress = (await getGameProgress(nickname)) ?? user.progress;
         const streakDays = progress?.streakDays || 1;
         effectiveMultiplier = Math.min(1 + (streakDays - 1) * 0.1, 2); // max 2x
-        effectivePoints = Math.round(points * effectiveMultiplier);
+        effectivePoints = Math.round(claim.points * effectiveMultiplier);
 
         // Research: Adaptive reward based on behavioral profile
         if (isDbConnected()) {
           try {
-            const adaptiveResult = await adaptiveRewardEngine.computeReward(user.account_id, points, reason || "reward");
+            const adaptiveResult = await adaptiveRewardEngine.computeReward(
+              user.account_id,
+              claim.points,
+              claim.reason,
+            );
             if (adaptiveResult.bonusPoints > 0) {
               effectivePoints += adaptiveResult.bonusPoints;
               effectiveMultiplier = adaptiveResult.multiplier;
@@ -1071,34 +1598,60 @@ app.post("/api/reward", requireAuth, async (req, res) => {
           }
         }
       }
-      user.points += effectivePoints;
+      if (effectivePoints < 0 && (user.points || 0) + effectivePoints < 0) {
+        rollbackReward(reservation);
+        reservation = null;
+        return res.status(409).json({ success: false, message: "Không đủ điểm." });
+      }
+      user.points = Math.max(0, Math.trunc(user.points || 0) + effectivePoints);
+      user.gameplayRewardDates = {
+        ...(user.gameplayRewardDates ?? {}),
+        [claim.dailyScope]: today,
+      };
       await saveUser(user);
+      commitReward(reservation);
+      reservation = null;
 
       if (db) {
-         try {
-           await db.collection("users").doc(nickname.toLowerCase()).collection("reward_history").add({
+        try {
+          await db
+            .collection("users")
+            .doc(nickname.toLowerCase())
+            .collection("reward_history")
+            .add({
               timestamp: new Date().toISOString(),
-              reason: reason || "Thử thách xanh",
+              reason: claim.reason,
               pointsAdded: effectivePoints,
-              originalPoints: points,
+              originalPoints: claim.points,
               streakMultiplier: effectiveMultiplier,
-           });
-         } catch (e) {}
+            });
+        } catch (e) {
+          console.warn("[reward] reward history write failed:", (e as Error).message);
+        }
       }
 
-      // Research: Log reward event
-      await eventLogger.logReward(user.account_id, effectivePoints, 0, reason || "reward");
-      await logRewardTransaction(user.account_id, effectivePoints > 0 ? "earn" : "spend", effectivePoints, {
-        reason: reason || "reward",
-        source: "gameplay",
-        multiplier: effectiveMultiplier,
-        pointsBalance: user.points,
-      });
+      // Research telemetry is best-effort. The balance has already been
+      // persisted and must not be reported as a failed reward if telemetry is
+      // temporarily unavailable.
+      await Promise.allSettled([
+        eventLogger.logReward(user.account_id, effectivePoints, 0, claim.reason),
+        logRewardTransaction(
+          user.account_id,
+          effectivePoints > 0 ? "earn" : "spend",
+          effectivePoints,
+          {
+            reason: claim.reason,
+            source: claim.action,
+            multiplier: effectiveMultiplier,
+            pointsBalance: user.points,
+          },
+        ),
+      ]);
 
       writeGoogleSheetsLog(
         "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q",
         nickname,
-        reason || "Thử thách xanh",
+        claim.reason,
         effectivePoints,
       );
       res.json({
@@ -1106,13 +1659,20 @@ app.post("/api/reward", requireAuth, async (req, res) => {
         points: user.points,
         earnedPoints: effectivePoints,
         multiplier: effectiveMultiplier,
-        adaptiveMessage: adaptiveMessage || undefined
+        adaptiveMessage: adaptiveMessage || undefined,
       });
     } else {
       err(res, 404, "error.notFound", req as any);
     }
   } catch (error) {
+    if (reservation) rollbackReward(reservation);
+    const message = error instanceof Error ? error.message : "reward rejected";
+    if (/budget|cap|points|integer|authenticated|action/i.test(message)) {
+      return res.status(400).json({ success: false, message });
+    }
     err(res, 500, "error.internal", req as any);
+  } finally {
+    releaseRewardLock();
   }
 });
 
@@ -1197,7 +1757,7 @@ app.post("/api/profile/meta", requireAuth, async (req, res) => {
              SET full_name = COALESCE($2, full_name),
                  class_grade = COALESCE($3, class_grade)
              WHERE user_id = $1`,
-            [user.account_id, user.fullName || null, user.classGrade || null]
+            [user.account_id, user.fullName || null, user.classGrade || null],
           );
         }
       } catch (e) {
@@ -1237,27 +1797,62 @@ app.post("/api/update-preference", requireAuth, async (req, res) => {
   }
 });
 
+// Preferences used by the language switcher.  This route intentionally
+// accepts only a small allow-list and derives the account from the token.
+app.patch("/api/users/me/preferences", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const locale = typeof req.body?.locale === "string" ? req.body.locale.trim().toLowerCase() : "";
+  const allowedLocales = new Set(["vi", "en", "zh", "es", "fr", "ja", "ko", "id", "ar", "pt"]);
+  if (!allowedLocales.has(locale))
+    return res.status(400).json({ success: false, error: "Unsupported locale" });
+  try {
+    const user = await getUser(nickname);
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    user.locale = locale;
+    user.preferences = { ...(user.preferences || {}), locale };
+    await saveUser(user);
+    return res.json({ success: true, locale });
+  } catch (e) {
+    console.error("[preferences] update failed:", e);
+    return res.status(500).json({ success: false, error: "Unable to save preferences" });
+  }
+});
+
 // Update profile (name + avatar + frame) — Layer 2.3 requireAuth + bcrypt-confirmed
 app.put("/api/profile", requireAuth, async (req, res) => {
-  const { nickname, name, selectedAvatar, selectedFrame, customAvatarUrl, pass } = req.body;
+  const {
+    nickname: requestedNickname,
+    name,
+    selectedAvatar,
+    selectedFrame,
+    customAvatarUrl,
+    pass,
+  } = req.body ?? {};
   try {
-    const authHeader = req.headers.authorization;
-    const authNick = authHeader
-      ? validateToken(authHeader)?.nick
-      : undefined;
+    const authNick = (req as any).userNick as string;
+    const authUser = await getUser(authNick);
+    if (!authUser)
+      return res.status(401).json({ success: false, message: "Phiên đăng nhập không hợp lệ" });
+    const nickname =
+      typeof requestedNickname === "string" && requestedNickname.trim()
+        ? requestedNickname.trim()
+        : authNick;
 
     const targetUser = await getUser(nickname);
     if (!targetUser) {
       return res.json({ success: false, message: "Không tìm thấy tài khoản" });
     }
 
-    if (pass === undefined || pass !== targetUser.pass) {
+    if (authNick.toLowerCase() !== nickname.toLowerCase() && authUser.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Không có quyền chỉnh sửa" });
+    }
+    if (typeof pass !== "string" || !(await verifyPassword(pass, authUser.pass))) {
       return res.status(401).json({ success: false, message: "Mật khẩu xác nhận không đúng" });
     }
 
     if (authNick && authNick !== nickname) {
-      const authUser = await getUser(authNick);
-      if (!authUser || authUser.role !== "admin") {
+      const targetAuthUser = await getUser(authNick);
+      if (!targetAuthUser || targetAuthUser.role !== "admin") {
         return res.status(403).json({ success: false, message: "Không có quyền chỉnh sửa" });
       }
     }
@@ -1265,13 +1860,44 @@ app.put("/api/profile", requireAuth, async (req, res) => {
     if (name !== undefined) {
       const trimmed = (name || "").trim();
       if (!trimmed) return res.json({ success: false, message: "Tên không được để trống" });
+      if (trimmed.length > 100)
+        return res.status(400).json({ success: false, message: "Tên quá dài" });
       targetUser.name = trimmed;
     }
-    if (selectedAvatar !== undefined) targetUser.selectedAvatar = selectedAvatar || undefined;
-    if (selectedFrame !== undefined) targetUser.selectedFrame = selectedFrame || undefined;
-    if (customAvatarUrl !== undefined) targetUser.customAvatarUrl = customAvatarUrl || undefined;
+    if (selectedAvatar !== undefined) {
+      if (selectedAvatar && !["av1", "av2", "av3"].includes(String(selectedAvatar))) {
+        return res.status(400).json({ success: false, message: "Avatar khong hop le" });
+      }
+      targetUser.selectedAvatar = selectedAvatar || undefined;
+    }
+    if (selectedFrame !== undefined) {
+      if (selectedFrame && !["fr1", "fr2", "fr3"].includes(String(selectedFrame))) {
+        return res.status(400).json({ success: false, message: "Khung khong hop le" });
+      }
+      targetUser.selectedFrame = selectedFrame || undefined;
+    }
+    if (customAvatarUrl !== undefined) {
+      if (
+        customAvatarUrl &&
+        (typeof customAvatarUrl !== "string" ||
+          !/^https:\/\//i.test(customAvatarUrl) ||
+          customAvatarUrl.length > 2048)
+      ) {
+        return res.status(400).json({ success: false, message: "Avatar URL không hợp lệ" });
+      }
+      targetUser.customAvatarUrl = customAvatarUrl || undefined;
+    }
     await saveUser(targetUser);
-    res.json({ success: true, user: { name: targetUser.name, selectedAvatar: targetUser.selectedAvatar, selectedFrame: targetUser.selectedFrame, customAvatarUrl: targetUser.customAvatarUrl, points: targetUser.points } });
+    res.json({
+      success: true,
+      user: {
+        name: targetUser.name,
+        selectedAvatar: targetUser.selectedAvatar,
+        selectedFrame: targetUser.selectedFrame,
+        customAvatarUrl: targetUser.customAvatarUrl,
+        points: targetUser.points,
+      },
+    });
   } catch (e) {
     console.error("[profile] Error:", e?.message || e);
     res.status(500).json({ success: false, message: "Lỗi server" });
@@ -1279,7 +1905,7 @@ app.put("/api/profile", requireAuth, async (req, res) => {
 });
 
 // Upload custom avatar from device — works with password-confirmed profile flow
-app.post("/api/avatar/upload", upload.single("image"), async (req, res) => {
+app.post("/api/avatar/upload", requireAuth, upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -1287,8 +1913,23 @@ app.post("/api/avatar/upload", upload.single("image"), async (req, res) => {
 
     const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowed.includes(req.file.mimetype)) {
-      return res.status(400).json({ success: false, message: "Chỉ chấp nhận ảnh JPG, PNG, GIF, WEBP" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Chỉ chấp nhận ảnh JPG, PNG, GIF, WEBP" });
     }
+
+    const fileBytes = req.file.buffer;
+    const avatarMagicOk =
+      (fileBytes[0] === 0xff && fileBytes[1] === 0xd8) ||
+      (fileBytes[0] === 0x89 &&
+        fileBytes[1] === 0x50 &&
+        fileBytes[2] === 0x4e &&
+        fileBytes[3] === 0x47) ||
+      fileBytes.subarray(0, 3).toString("ascii") === "GIF" ||
+      (fileBytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+        fileBytes.subarray(8, 12).toString("ascii") === "WEBP");
+    if (!avatarMagicOk)
+      return res.status(400).json({ success: false, message: "Nội dung ảnh không hợp lệ" });
 
     if (req.file.size > 5 * 1024 * 1024) {
       return res.status(400).json({ success: false, message: "Ảnh tối đa 5MB" });
@@ -1320,28 +1961,30 @@ app.get("/api/leaderboard", async (req, res) => {
 });
 
 const defaultRewards = [
-  { 
-    id: "1", 
-    name: "Voucher Fahasa 50.000đ", 
+  {
+    id: "1",
+    name: "Voucher Fahasa 50.000đ",
     desc: "Đổi điểm kinh nghiệm lấy Voucher giảm giá 50.000đ khi mua sách tại hệ thống Fahasa.",
-    cost: 1500, 
+    cost: 1500,
     ingredients: ["Quà tặng thực tế", "E-Voucher"],
-    imageUrl: "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=200&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=200&q=80",
     color: "from-blue-500 to-blue-700",
     bgClass: "bg-blue-50",
-    borderClass: "border-blue-200 hover:border-blue-400"
+    borderClass: "border-blue-200 hover:border-blue-400",
   },
-  { 
-    id: "2", 
-    name: "Bình nước Eco-friendly 500ml", 
+  {
+    id: "2",
+    name: "Bình nước Eco-friendly 500ml",
     desc: "Bình nước bằng tre, gỗ giữ nhiệt, an toàn sức khỏe, giảm rác nhựa.",
-    cost: 1000, 
+    cost: 1000,
     ingredients: ["Giảm rác nhựa", "Giao tận nhà"],
-    imageUrl: "https://images.unsplash.com/photo-1605651202774-7d573fd3f12d?auto=format&fit=crop&w=200&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1605651202774-7d573fd3f12d?auto=format&fit=crop&w=200&q=80",
     color: "from-emerald-400 to-green-600",
     bgClass: "bg-emerald-50",
-    borderClass: "border-emerald-300 hover:border-emerald-500"
-  }
+    borderClass: "border-emerald-300 hover:border-emerald-500",
+  },
 ];
 
 app.get("/api/rewards", async (req, res) => {
@@ -1423,7 +2066,9 @@ app.post("/api/cards/fuse", requireAuth, async (req, res) => {
 
     const count = progress.flashcardCounts?.[String(cardId)] || 0;
     if (count < 3) {
-      return res.status(400).json({ success: false, error: `Cần 3 thẻ để hợp nhất. Bạn hiện có ${count}.` });
+      return res
+        .status(400)
+        .json({ success: false, error: `Cần 3 thẻ để hợp nhất. Bạn hiện có ${count}.` });
     }
 
     // Consume 3 copies
@@ -1482,7 +2127,10 @@ app.post("/api/cards/levelup", requireAuth, async (req, res) => {
     const xpCost = nextLevel * nextLevel * 30; // 120, 270, 480, 750...
 
     if ((user.points || 0) < xpCost) {
-      return res.status(400).json({ success: false, error: `Cần ${xpCost} EXP để lên cấp ${nextLevel}. Bạn chỉ có ${user.points}.` });
+      return res.status(400).json({
+        success: false,
+        error: `Cần ${xpCost} EXP để lên cấp ${nextLevel}. Bạn chỉ có ${user.points}.`,
+      });
     }
 
     user.points -= xpCost;
@@ -1520,11 +2168,11 @@ const SHARD_SHOP_DEFINITIONS = [
   { id: "xp_1000", type: "xp_boost", cost: 60, xpBonus: 1000 },
 ];
 const CARD_SHOP_ITEMS: Record<string, { rarity: string; element: string; cardId: number }> = {
-  shard_rare_1:   { rarity: "rare",      element: "plastic", cardId: 11  },
-  shard_rare_2:   { rarity: "rare",      element: "organic", cardId: 151 },
-  shard_epic_1:   { rarity: "epic",      element: "hazard",  cardId: 201 },
-  shard_epic_2:   { rarity: "epic",      element: "metal",   cardId: 251 },
-  shard_legendary:{ rarity: "legendary", element: "hazard",  cardId: 301 },
+  shard_rare_1: { rarity: "rare", element: "plastic", cardId: 11 },
+  shard_rare_2: { rarity: "rare", element: "organic", cardId: 151 },
+  shard_epic_1: { rarity: "epic", element: "hazard", cardId: 201 },
+  shard_epic_2: { rarity: "epic", element: "metal", cardId: 251 },
+  shard_legendary: { rarity: "legendary", element: "hazard", cardId: 301 },
 };
 
 app.post("/api/shards/purchase", requireAuth, async (req, res) => {
@@ -1543,9 +2191,13 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
     }
 
     const shardCosts: Record<string, number> = {
-      xp_50: 5, xp_200: 15, xp_1000: 60,
-      shard_rare_1: 20, shard_rare_2: 20,
-      shard_epic_1: 50, shard_epic_2: 50,
+      xp_50: 5,
+      xp_200: 15,
+      xp_1000: 60,
+      shard_rare_1: 20,
+      shard_rare_2: 20,
+      shard_epic_1: 50,
+      shard_epic_2: 50,
       shard_legendary: 120,
     };
     const cost = shardCosts[itemId];
@@ -1555,7 +2207,9 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
 
     const currentShards = progress.shards || 0;
     if (currentShards < cost) {
-      return res.status(400).json({ success: false, error: `Need ${cost} shards. You have ${currentShards}.` });
+      return res
+        .status(400)
+        .json({ success: false, error: `Need ${cost} shards. You have ${currentShards}.` });
     }
 
     progress.shards = currentShards - cost;
@@ -1567,7 +2221,12 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
       user.points = (user.points || 0) + xpBonus;
       await saveGameProgress(nickname, progress);
       await saveUser(user);
-      return res.json({ success: true, shardsRemaining: progress.shards, xpAwarded: xpBonus, remainingPoints: user.points });
+      return res.json({
+        success: true,
+        shardsRemaining: progress.shards,
+        xpAwarded: xpBonus,
+        remainingPoints: user.points,
+      });
     }
 
     // Handle card purchase
@@ -1576,7 +2235,8 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
       const cardId = cardDef.cardId;
       const serverCard = generateServerCard(cardId);
       progress.flashcardCounts = progress.flashcardCounts || {};
-      progress.flashcardCounts[String(cardId)] = (progress.flashcardCounts[String(cardId)] || 0) + 1;
+      progress.flashcardCounts[String(cardId)] =
+        (progress.flashcardCounts[String(cardId)] || 0) + 1;
       if (!progress.flashcardsRead.includes(cardId)) {
         progress.flashcardsRead.push(cardId);
       }
@@ -1598,13 +2258,13 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
 });
 
 // ─── Get card levels ─────────────────────────────────────────────────────────
-app.get("/api/cards/levels/:nickname", async (req, res) => {
+app.get("/api/cards/levels/:nickname", requireAuth, async (req, res) => {
   try {
-    const progress = await getGameProgress(req.params.nickname);
+    const progress = await getGameProgress((req as any).userNick as string);
     const levels: Record<string, number> = (progress as any)?.cardLevels || {};
-    res.json(levels);
+    res.json({ levels });
   } catch (e) {
-    res.status(500).json({});
+    res.status(500).json({ levels: {} });
   }
 });
 
@@ -1612,18 +2272,34 @@ app.get("/api/cards/levels/:nickname", async (req, res) => {
 // POST /api/cards/gacha-pull { nickname, count }
 // Returns an array of resolved cards (max 10) with isNew + shardsAwarded flags.
 app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
   try {
-    // Layer 2.3 — pulls are debited to the authenticated user.
-    const nickname = (req as any).userNick as string;
     const { count: rawCount } = req.body ?? {};
     const count = Math.max(1, Math.min(10, Number.parseInt(String(rawCount ?? 1), 10) || 1));
+    const pullCost = count * 5;
 
     const user = await getUser(nickname);
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
+    if ((user.points || 0) < pullCost) {
+      return res.status(409).json({ success: false, error: "Không đủ EXP để mở gói thẻ." });
+    }
 
-    const progress = await getGameProgress(nickname);
+    const progress: GameProgress = (await getGameProgress(nickname)) ?? {
+      flashcardsRead: [],
+      flashcardCounts: {},
+      flashcardNames: {},
+      checkins: [],
+      traded: [],
+      crafted: [],
+      purchased: [],
+      challengesCompleted: [],
+      guildDonated: false,
+      lastUpdateDate: getVietnamDayKey(),
+      shards: 0,
+    };
     progress.flashcardCounts = progress.flashcardCounts || {};
     progress.flashcardNames = progress.flashcardNames || {};
     if (!Array.isArray(progress.flashcardsRead)) progress.flashcardsRead = [];
@@ -1650,7 +2326,8 @@ app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
       const pulledCard = generateServerCard(pulledCardId);
       const isNew = !progress.flashcardsRead.includes(pulledCardId);
 
-      progress.flashcardCounts[String(pulledCardId)] = (progress.flashcardCounts[String(pulledCardId)] || 0) + 1;
+      progress.flashcardCounts[String(pulledCardId)] =
+        (progress.flashcardCounts[String(pulledCardId)] || 0) + 1;
       if (isNew) progress.flashcardsRead.push(pulledCardId);
 
       let shardsAwarded = 0;
@@ -1664,7 +2341,13 @@ app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
     }
 
     (progress as any).gachaPullCount = currentPullCount + count;
-    await saveGameProgress(nickname, progress);
+    user.points = Math.max(0, Math.trunc(user.points || 0) - pullCost);
+    await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+    await logRewardTransaction(user.account_id, "spend", -pullCost, {
+      reason: `Mở gói ${count} thẻ bài`,
+      source: "gacha",
+      pointsBalance: user.points,
+    }).catch((error) => console.warn("[gacha-pull] transaction log failed:", error));
 
     const cardLevels: Record<string, number> = (progress as any).cardLevels || {};
     const enrichedCards = cards.map((c) => ({ ...c, cardLevel: cardLevels[String(c.id)] || 1 }));
@@ -1674,10 +2357,14 @@ app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
       cards: enrichedCards,
       totalShardsAwarded,
       progress,
+      pullCost,
+      remainingPoints: user.points,
     });
   } catch (error: any) {
     console.error("[gacha-pull] Error:", error?.message || error);
     res.status(500).json({ success: false, error: "Gacha pull failed" });
+  } finally {
+    releaseLock();
   }
 });
 
@@ -1713,7 +2400,7 @@ app.delete("/api/rewards/:id", requireAdmin, async (req, res) => {
       return res.status(503).json({ success: false, error: "Rewards database unavailable" });
     }
 
-    await deleteRewardById(req.params.id);
+    await deleteRewardById(getRouteParam(req.params.id));
     res.json({ success: true });
   } catch (e) {
     console.error("[rewards:delete] Error:", e);
@@ -1724,7 +2411,15 @@ app.delete("/api/rewards/:id", requireAdmin, async (req, res) => {
 app.get("/api/admin/users", requireAdmin, async (req, res) => {
   try {
     const allUsers = await getAllUsers();
-    res.json(allUsers.map(u => ({ name: u.name, nick: u.nick, points: u.points, role: u.role || 'user', account_id: u.account_id })));
+    res.json(
+      allUsers.map((u) => ({
+        name: u.name,
+        nick: u.nick,
+        points: u.points,
+        role: u.role || "user",
+        account_id: u.account_id,
+      })),
+    );
   } catch (e) {
     err(res, 500, "error.internal", req as any);
   }
@@ -1737,11 +2432,11 @@ app.post("/api/upload", requireAdmin, upload.single("image"), async (req, res) =
     }
     const b64 = Buffer.from(req.file.buffer).toString("base64");
     let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-    
+
     const result = await cloudinary.uploader.upload(dataURI, {
       resource_type: "auto",
     });
-    
+
     res.json({ url: result.secure_url });
   } catch (error) {
     console.error("Upload error", error);
@@ -1755,39 +2450,53 @@ app.get("/api/map-data", async (req, res) => {
     let usersList: any[] = [];
     let stationsList: any[] = [];
     let barterList: any[] = [];
-    
+
     if (db) {
-       // active users
-       try {
-         const allUsers = await getAllUsers(); // Ideally based on last active, but let's just grab some users
-         usersList = allUsers.slice(0, 5).map(u => ({ id: u.account_id, name: u.name, points: u.points, badge: u.points > 100 ? "🌿" : "🌱" }));
-       } catch (err) {}
-       
-       // stations
-       try {
-         const stationsSnap = await db.collection("stations").get();
-         stationsList = stationsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-       } catch (err) {}
-       
-       // barter items
-       try {
-         const barterSnap = await db.collection("barter").get();
-         barterList = barterSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-       } catch (err) {}
+      // active users
+      try {
+        const allUsers = await getAllUsers(); // Ideally based on last active, but let's just grab some users
+        usersList = allUsers.slice(0, 5).map((u) => ({
+          id: u.account_id,
+          name: u.name,
+          points: u.points,
+          badge: u.points > 100 ? "🌿" : "🌱",
+        }));
+      } catch (err) {
+        console.warn("[map-data] users unavailable:", (err as Error).message);
+      }
+
+      // stations
+      try {
+        const stationsSnap = await db.collection("stations").get();
+        stationsList = stationsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      } catch (err) {
+        console.warn("[map-data] stations unavailable:", (err as Error).message);
+      }
+
+      // barter items
+      try {
+        const barterSnap = await db.collection("barter").get();
+        barterList = barterSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      } catch (err) {
+        console.warn("[map-data] barter items unavailable:", (err as Error).message);
+      }
     } else {
-       const allUsers = await getAllUsers();
-       usersList = allUsers.slice(0, 5).map(u => ({ id: u.account_id, name: u.name, points: u.points, badge: "🌱" }));
+      const allUsers = await getAllUsers();
+      usersList = allUsers
+        .slice(0, 5)
+        .map((u) => ({ id: u.account_id, name: u.name, points: u.points, badge: "🌱" }));
     }
-    
+
     res.json({ users: usersList, stations: stationsList, barterItems: barterList });
   } catch (e) {
     res.json({ users: [], stations: [], barterItems: [] });
   }
 });
 
-app.get("/api/user/:nick", async (req, res) => {
-  const user = await getUser(req.params.nick);
-  const progress = await getGameProgress(req.params.nick);
+app.get("/api/user/:nick", requireAuth, async (req, res) => {
+  const requestedNick = getRouteParam(req.params.nick);
+  const user = await getUser(requestedNick);
+  const progress = await getGameProgress(requestedNick);
   if (user) {
     res.json({
       name: user.name,
@@ -1796,7 +2505,9 @@ app.get("/api/user/:nick", async (req, res) => {
       progress: progress || user.progress || null,
       selectedAvatar: user.selectedAvatar,
       selectedFrame: user.selectedFrame,
-      shards: (progress?.shards ?? user.progress?.shards ?? user.shards ?? 0),
+      shards: progress?.shards ?? user.progress?.shards ?? user.shards ?? 0,
+      lastWheelClaimDate: user.lastWheelClaimDate || null,
+      claimedStreakGifts: user.claimedStreakGifts || [],
     });
   } else {
     res.status(404).json({ message: "Not found" });
@@ -1804,11 +2515,25 @@ app.get("/api/user/:nick", async (req, res) => {
 });
 
 // User Progress & Guild Progress APIs
+app.get("/api/user-progress", requireAuth, async (req, res) => {
+  try {
+    const nickname = (req as any).userNick as string;
+    const user = await getUser(nickname);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    const progress = (await getGameProgress(nickname)) || user.progress || null;
+    return res.json({ success: true, progress });
+  } catch (error) {
+    console.error("[user-progress:get] Error:", error);
+    return res.status(500).json({ success: false, error: "Failed to load progress" });
+  }
+});
+
 app.post("/api/user-progress", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
   try {
     // Layer 2.3 — progress mutations target the authenticated user.
-    const nickname = (req as any).userNick as string;
-    const { type, data, redeemInfo, pullCount } = req.body ?? {};
+    const { type, data, redeemInfo } = req.body ?? {};
     console.log(`[user-progress] type=${type} data=${data} nickname=${nickname}`);
 
     // Read progress from dedicated user_progress collection (not users/{nick})
@@ -1824,20 +2549,27 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
       progress = user.progress;
     }
 
-    const todayStr = new Date().toDateString();
+    const todayStr = getVietnamDayKey();
+    let progressReward = 0;
+    let lastProgressDay: string | null = null;
+    if (progress?.lastUpdateDate) {
+      try {
+        lastProgressDay = getVietnamDayKey(progress.lastUpdateDate);
+      } catch {
+        lastProgressDay = null;
+      }
+    }
 
     // Initialize or reset daily progress if it's a new day
-    if (!progress || progress.lastUpdateDate !== todayStr) {
+    if (!progress || lastProgressDay !== todayStr) {
       let newStreak = 1;
-      if (progress && progress.lastUpdateDate) {
-        const lastDate = new Date(progress.lastUpdateDate);
-        const today = new Date(todayStr);
-        const diffTime = Math.abs(today.getTime() - lastDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (progress && lastProgressDay) {
+        const diffDays =
+          (Date.parse(`${todayStr}T00:00:00.000Z`) -
+            Date.parse(`${lastProgressDay}T00:00:00.000Z`)) /
+          (24 * 60 * 60 * 1000);
         if (diffDays === 1) {
           newStreak = (progress.streakDays || 1) + 1;
-        } else if (diffDays === 0) {
-          newStreak = progress.streakDays || 1;
         }
       }
       progress = {
@@ -1857,39 +2589,10 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
     }
 
     if (type === "flashcard") {
-      // Server-side gacha: resolve which card is awarded
-      const unlockedIds = progress.flashcardsRead || [];
-      const pulledCardId = resolveGacha(unlockedIds, pullCount);
-      const pulledCard = generateServerCard(pulledCardId);
-      const isNew = !unlockedIds.includes(pulledCardId);
-
-      progress.flashcardCounts = progress.flashcardCounts || {};
-      progress.flashcardNames = progress.flashcardNames || {};
-      progress.flashcardCounts[pulledCardId] = (progress.flashcardCounts[pulledCardId] || 0) + 1;
-      if (!progress.flashcardsRead.includes(pulledCardId)) {
-        progress.flashcardsRead.push(pulledCardId);
-      }
-
-      // Duplicate → award 3 shards
-      let shardsAwarded = 0;
-      if (!isNew) {
-        progress.shards = (progress.shards || 0) + 3;
-        shardsAwarded = 3;
-      }
-
-      // Save and return the resolved card
-      await saveGameProgress(nickname, progress);
-      const cardLevels: Record<string, number> = (progress as any).cardLevels || {};
-      const cardLevel = cardLevels[String(pulledCardId)] || 1;
-      res.json({
-        success: true,
-        progress,
-        card: pulledCard,
-        isNew,
-        cardLevel,
-        shardsAwarded,
+      return res.status(400).json({
+        success: false,
+        message: "Use /api/cards/gacha-pull to draw cards.",
       });
-      return;
     } else if (type === "checkin") {
       if (!progress.checkins.includes(data)) {
         progress.checkins.push(data);
@@ -1899,65 +2602,125 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         progress.traded.push(data);
       }
     } else if (type === "challenge") {
-      if (!progress.challengesCompleted.includes(data)) {
-        progress.challengesCompleted.push(data);
+      const challengeId = Number(data);
+      const challengeReward = getDailyChallengeReward(challengeId);
+      const dailyIds = getDailyChallengeIds(todayStr);
+      if (
+        !Number.isInteger(challengeId) ||
+        challengeReward === null ||
+        !dailyIds.includes(challengeId)
+      ) {
+        return res.status(400).json({ success: false, message: "Thử thách không hợp lệ." });
+      }
+      if (!progress.challengesCompleted.includes(challengeId)) {
+        progress.challengesCompleted.push(challengeId);
+        progressReward = challengeReward;
+        if (progress.challengesCompleted.length === 3) progressReward += 25;
+        user.points = Math.max(0, Math.trunc(user.points || 0) + progressReward);
       }
     } else if (type === "craft") {
       progress.crafted = progress.crafted || [];
-      if (!progress.crafted.includes(data)) {
-        progress.crafted.push(data);
-        sendCraftEmail(user, data, redeemInfo).catch(console.error);
+      const parsedRedeemInfo = parseRedeemInfo(redeemInfo);
+      if (!parsedRedeemInfo.success) {
+        return res.status(400).json({ success: false, message: parsedRedeemInfo.message });
       }
-      try {
-        if (db) {
-          await db.collection("users").doc(nickname.toLowerCase()).collection("craft_history").add({
+      const normalizedRedeemInfo = parsedRedeemInfo.data;
+      const rewardId = String(data ?? "").trim();
+      if (progress.crafted.some((item) => String(item) === rewardId)) {
+        return res.status(409).json({ success: false, message: "Vật phẩm đã được đổi." });
+      }
+      const configuredRewards = isRewardsDbConfigured() ? await listRewards().catch(() => []) : [];
+      const reward = [...configuredRewards, ...defaultRewards].find(
+        (item) => String(item.id) === rewardId,
+      );
+      if (!reward || !Number.isFinite(Number(reward.cost)) || Number(reward.cost) <= 0) {
+        return res.status(400).json({ success: false, message: "Vật phẩm không hợp lệ." });
+      }
+      const craftCost = Math.trunc(Number(reward.cost));
+      if ((user.points || 0) < craftCost) {
+        return res.status(409).json({ success: false, message: "Không đủ điểm." });
+      }
+      user.points -= craftCost;
+      progress.crafted.push(rewardId);
+      const redemptionRequest: RedemptionRequest = {
+        id: crypto.randomUUID(),
+        itemId: rewardId,
+        itemName: String(reward.name || `Quà ID ${rewardId}`).slice(0, 255),
+        cost: craftCost,
+        recipient: normalizedRedeemInfo,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      };
+      user.redemptionRequests = [...(user.redemptionRequests ?? []), redemptionRequest];
+      await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+      const craftHistoryWrite = db
+        ? db.collection("users").doc(nickname.toLowerCase()).collection("craft_history").add({
             timestamp: new Date().toISOString(),
-            craftedItemId: data,
-            redeemInfo,
-          });
-        }
-      } catch (e) {}
-      // Research: Log craft transaction
-      const craftCostMap: Record<string, number> = { "1": 1500, "2": 1000, "3": 2000, "4": 3000 };
-      const craftPoints = craftCostMap[String(data)] || 0;
-      try {
-        const craftUser = await getUser(nickname);
-        if (craftUser) {
-          await logRewardTransaction(craftUser.account_id, "spend", -craftPoints, {
-            reason: `Đổi quà: ${data}`,
-            source: "craft",
-            pointsBalance: craftUser.points,
-          });
-        }
-      } catch (e) {
-        console.error("[user-progress] craft logRewardTransaction failed:", e?.message || e);
-      }
+            craftedItemId: rewardId,
+            redemptionId: redemptionRequest.id,
+            itemName: redemptionRequest.itemName,
+            cost: craftCost,
+            redeemInfo: normalizedRedeemInfo,
+            status: redemptionRequest.status,
+          })
+        : Promise.resolve();
+      await Promise.allSettled([
+        craftHistoryWrite,
+        logRewardTransaction(user.account_id, "spend", -craftCost, {
+          reason: `Đổi quà: ${rewardId}`,
+          source: "craft",
+          pointsBalance: user.points,
+        }),
+        sendCraftEmail(user, rewardId, redemptionRequest.itemName, normalizedRedeemInfo),
+      ]);
+      return res.json({
+        success: true,
+        progress,
+        points: user.points,
+        redemptionId: redemptionRequest.id,
+        status: redemptionRequest.status,
+      });
     } else if (type === "purchase") {
       progress.purchased = progress.purchased || [];
-      progress.purchased.push(data);
-      try {
-        if (db) {
-          await db.collection("users").doc(nickname.toLowerCase()).collection("purchase_history").add({
-            timestamp: new Date().toISOString(),
-            purchasedItemId: data,
-          });
-        }
-      } catch (e) {}
-      sendPurchaseEmail(user, String(data));
-      const purchaseCostMap: Record<string, number> = { "av1": 50, "av2": 150, "av3": 300, "fr1": 100, "fr2": 200, "fr3": 500 };
-      const purchaseCost = purchaseCostMap[String(data)] || 0;
-      try {
-        const purchaseUser = await getUser(nickname);
-        if (purchaseUser) {
-          await logRewardTransaction(purchaseUser.account_id, "spend", -purchaseCost, {
-            reason: `Mua vật phẩm: ${data}`,
-            source: "purchase",
-            pointsBalance: purchaseUser.points,
-          });
-        }
-      } catch (e) {
-        console.error("[user-progress] purchase logRewardTransaction failed:", e?.message || e);
+      const purchaseId = String(data ?? "").trim();
+      if (progress.purchased.some((item) => String(item) === purchaseId)) {
+        return res.status(409).json({ success: false, message: "Vật phẩm đã được sở hữu." });
       }
+      const purchaseCostMap: Record<string, number> = {
+        av1: 50,
+        av2: 150,
+        av3: 300,
+        fr1: 100,
+        fr2: 200,
+        fr3: 500,
+      };
+      const purchaseCost = purchaseCostMap[purchaseId] || 0;
+      if (purchaseCost <= 0) {
+        return res.status(400).json({ success: false, message: "Vật phẩm không hợp lệ." });
+      }
+      if ((user.points || 0) < purchaseCost) {
+        return res.status(409).json({ success: false, message: "Không đủ điểm." });
+      }
+      user.points -= purchaseCost;
+      progress.purchased.push(purchaseId);
+      await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+      const purchaseHistoryWrite = db
+        ? db
+            .collection("users")
+            .doc(nickname.toLowerCase())
+            .collection("purchase_history")
+            .add({ timestamp: new Date().toISOString(), purchasedItemId: purchaseId })
+        : Promise.resolve();
+      await Promise.allSettled([
+        purchaseHistoryWrite,
+        logRewardTransaction(user.account_id, "spend", -purchaseCost, {
+          reason: `Mua vật phẩm: ${purchaseId}`,
+          source: "purchase",
+          pointsBalance: user.points,
+        }),
+        sendPurchaseEmail(user, purchaseId),
+      ]);
+      return res.json({ success: true, progress, points: user.points });
     } else if (type === "guild_donated") {
       progress.guildDonated = true;
       try {
@@ -1965,7 +2728,7 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
           const globalRef = db.collection("global").doc("guild_campaign");
           const globalDoc = await globalRef.get();
           if (globalDoc.exists) {
-            await globalRef.update({ progress: admin.firestore.FieldValue.increment(10) });
+            await globalRef.update({ progress: FieldValue.increment(10) });
           } else {
             await globalRef.set({ progress: 10 });
           }
@@ -1974,15 +2737,22 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         console.error("Guild update local fallback needed", e);
         globalGuildProgress += 10;
       }
+    } else {
+      return res.status(400).json({ success: false, message: "Unsupported progress type" });
     }
 
     // Save to dedicated user_progress collection (not users/{nick})
-    await saveGameProgress(nickname, progress);
-    console.log(`[user-progress] Saved to user_progress/${nickname.toLowerCase()}, flashcardCounts:`, JSON.stringify(progress.flashcardCounts || {}));
-    res.json({ success: true, progress });
+    await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+    console.log(
+      `[user-progress] Saved to user_progress/${nickname.toLowerCase()}, flashcardCounts:`,
+      JSON.stringify(progress.flashcardCounts || {}),
+    );
+    res.json({ success: true, progress, points: user.points, earnedPoints: progressReward });
   } catch (error) {
     console.error(`[user-progress] Error:`, error);
     res.status(500).json({ success: false, error: "Failed to update progress" });
+  } finally {
+    releaseLock();
   }
 });
 
@@ -2005,8 +2775,8 @@ app.get("/api/guild-progress", async (req, res) => {
 });
 
 // 4. Minigame APIs
-app.get("/api/exam/:nick", async (req, res) => {
-  const user = await getUser(req.params.nick);
+app.get("/api/exam/:nick", requireAuth, async (req, res) => {
+  const user = await getUser((req as any).userNick as string);
 
   if (!user) {
     res.json({ status: "ERROR", message: "User not found" });
@@ -2100,8 +2870,7 @@ async function writeGoogleSheetsLog(
 ) {
   try {
     const secretRaw =
-      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 ||
-      process.env.FIREBASE_SERVICE_ACCOUNT;
+      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!secretRaw) {
       console.warn(`[AutoSync] Cannot write logs to Sheets. Service account is missing.`);
       return;
@@ -2111,7 +2880,7 @@ async function writeGoogleSheetsLog(
       ? Buffer.from(secretRaw, "base64").toString("utf8")
       : secretRaw;
     const serviceAccount = JSON.parse(serviceAccountStr);
-    const privateKey = serviceAccount.private_key.replace(/\\n/g, '\n');
+    const privateKey = serviceAccount.private_key.replace(/\\n/g, "\n");
 
     const auth = new google.auth.GoogleAuth({
       credentials: {
@@ -2184,14 +2953,20 @@ app.post("/api/exam/submit", requireAuth, async (req, res) => {
   await saveUser(user);
 
   if (db && nickname) {
-     try {
-       await db.collection("users").doc(nickname.toLowerCase()).collection("exam_history").add({
+    try {
+      await db
+        .collection("users")
+        .doc(nickname.toLowerCase())
+        .collection("exam_history")
+        .add({
           timestamp: new Date().toISOString(),
           answers: userAnswers || [],
           totalScore: totalScore,
-          correctCount: correctCount
-       });
-     } catch(e) {}
+          correctCount: correctCount,
+        });
+    } catch (e) {
+      console.warn("[submit-answers] exam history write failed:", (e as Error).message);
+    }
   }
 
   // Research: Log quiz completion
@@ -2222,9 +2997,26 @@ const ai = process.env.GEMINI_API_KEY
   : null;
 
 // 5. Chat API
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", requireAuth, async (req, res) => {
   try {
-    const { messages, nickname } = req.body;
+    const nickname = (req as any).userNick as string;
+    const rawMessages = req.body?.messages;
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0 || rawMessages.length > 30) {
+      return res.status(400).json({ error: "messages must contain 1–30 items" });
+    }
+    const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+    for (const item of rawMessages) {
+      if (
+        !item ||
+        (item.role !== "user" && item.role !== "assistant") ||
+        typeof item.content !== "string" ||
+        item.content.trim().length === 0 ||
+        item.content.length > 4000
+      ) {
+        return res.status(400).json({ error: "Invalid chat message" });
+      }
+      messages.push({ role: item.role, content: item.content.trim() });
+    }
 
     if (!ai) {
       return err(res, 500, "error.internal", req as any);
@@ -2238,7 +3030,7 @@ app.post("/api/chat", async (req, res) => {
     // ALWAYS overrides before the request leaves the server.
     let systemInstruction = `Bạn là Robot Siêu Cấp Xanh, một chuyên gia về bảo vệ môi trường, phân loại rác thải. Tính cách của bạn vui vẻ, nhiệt tình, luôn động viên mọi người bảo vệ trái đất. Bạn chỉ tập trung trả lời các câu hỏi liên quan đến phân loại rác, bảo vệ môi trường, sống xanh. Nếu được hỏi ngoài lề, hãy khéo léo lái câu chuyện về bảo vệ môi trường.`;
 
-    if (isDbConnected() && nickname) {
+    if (isDbConnected()) {
       try {
         const mode = await personalityEngine.getPersonality(nickname);
         systemInstruction = personalityEngine.getPrompt(mode);
@@ -2261,7 +3053,7 @@ app.post("/api/chat", async (req, res) => {
           config: { systemInstruction },
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("AI_TIMEOUT")), 30_000)
+          setTimeout(() => reject(new Error("AI_TIMEOUT")), 30_000),
         ),
       ]);
     } catch (aiErr: any) {
@@ -2269,7 +3061,9 @@ app.post("/api/chat", async (req, res) => {
       console.error(isTimeout ? "Chat AI timeout:" : "Chat AI error:", aiErr?.message);
       if (!res.headersSent) {
         res.status(isTimeout ? 504 : 500).json({
-          error: isTimeout ? "AI đang bận. Vui lòng thử lại." : "Lỗi AI: " + (aiErr?.message || "Unknown"),
+          error: isTimeout
+            ? "AI đang bận. Vui lòng thử lại."
+            : "Lỗi AI: " + (aiErr?.message || "Unknown"),
         });
       }
       return;
@@ -2280,18 +3074,22 @@ app.post("/api/chat", async (req, res) => {
     }
 
     // DB writes — fire-and-forget
-    if (nickname) {
-      if (db) {
-        db.collection("users").doc(nickname.toLowerCase()).collection("chat_history").add({
+    if (db) {
+      db.collection("users")
+        .doc(nickname.toLowerCase())
+        .collection("chat_history")
+        .add({
           timestamp: new Date().toISOString(),
           userMessage: messages[messages.length - 1].content,
-          botResponse: response?.text || ""
-        }).catch(() => {});
-      }
-      eventLogger.log(nickname, "chat_message", {
-        message_length: messages[messages.length - 1].content?.length || 0,
-      }).catch(() => {});
+          botResponse: response?.text || "",
+        })
+        .catch(() => {});
     }
+    eventLogger
+      .log(nickname, "chat_message", {
+        message_length: messages[messages.length - 1].content.length,
+      })
+      .catch(() => {});
   } catch (error: any) {
     console.error("Unexpected chat error:", error);
     if (!res.headersSent) {
@@ -2300,11 +3098,20 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.post("/api/scan-garbage", async (req, res) => {
+app.post("/api/scan-garbage", requireAuth, async (req, res) => {
   try {
-    const { imageBase64: bodyImageBase64, image, nickname, consentToRelease, locale, geoLat, geoLng } = req.body;
+    const {
+      imageBase64: bodyImageBase64,
+      image,
+      consentToRelease,
+      locale,
+      geoLat,
+      geoLng,
+    } = req.body ?? {};
+    const nickname = (req as any).userNick as string;
+    const accountId = (req as any).userId as string;
     const imageBase64 = bodyImageBase64 ?? image;
-    if (!imageBase64) {
+    if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
       return err(res, 400, "error.scan.noText", req as any);
     }
     if (!ai) {
@@ -2313,14 +3120,43 @@ app.post("/api/scan-garbage", async (req, res) => {
 
     const startTime = Date.now();
 
-    // Strip data URI prefix if present
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    // Validate the data URI and decoded bytes before hashing or forwarding the
+    // image to a third-party model.  Multer's limit does not apply to JSON.
+    const dataUri = imageBase64.match(
+      /^data:(image\/(?:jpeg|jpg|png|webp|gif));base64,([A-Za-z0-9+/=\r\n]+)$/i,
+    );
+    const mimeType = (dataUri?.[1] || "image/jpeg").toLowerCase().replace("jpg", "jpeg");
+    const base64Data = dataUri?.[2] || imageBase64;
+    if (!/^[A-Za-z0-9+/=\r\n]+$/.test(base64Data) || base64Data.length > 14_000_000) {
+      return res.status(400).json({ error: "Ảnh không hợp lệ hoặc vượt quá 10 MB." });
+    }
+    const imageBytes = Buffer.from(base64Data, "base64");
+    if (imageBytes.length === 0 || imageBytes.length > 10 * 1024 * 1024) {
+      return res.status(400).json({ error: "Ảnh không hợp lệ hoặc vượt quá 10 MB." });
+    }
+    const isJpeg = imageBytes[0] === 0xff && imageBytes[1] === 0xd8;
+    const isPng =
+      imageBytes[0] === 0x89 &&
+      imageBytes[1] === 0x50 &&
+      imageBytes[2] === 0x4e &&
+      imageBytes[3] === 0x47;
+    const isGif = imageBytes.subarray(0, 3).toString("ascii") === "GIF";
+    const isWebp =
+      imageBytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+      imageBytes.subarray(8, 12).toString("ascii") === "WEBP";
+    if (!(isJpeg || isPng || isGif || isWebp)) {
+      return res.status(400).json({ error: "Định dạng ảnh không được hỗ trợ." });
+    }
 
     // Compute image hash for dedup + provenance
     const imageHash = DatasetCuratorClass.hashImage(base64Data);
 
-    const prompt =
-      "Hãy đóng vai một chuyên gia môi trường siêu đỉnh. Hãy phân tích hình ảnh này và cho biết đây là rác gì. Nó thuộc loại nào: Rác tái chế, Rác vô cơ (còn lại), Rác hữu cơ, hay Rác nguy hại? Hướng dẫn cách bỏ rác này đúng cách. Trả lời ngắn gọn, thân thiện và kèm theo icon.";
+    const prompt = [
+      "Phân tích vật thể rác chính trong ảnh.",
+      "Chỉ trả về một JSON object, không markdown và không văn bản ngoài JSON.",
+      'Schema: {"category":"plastic|paper|glass|metal|organic|hazard","description":"mô tả ngắn bằng tiếng Việt","disposalInstructions":"hướng dẫn xử lý an toàn bằng tiếng Việt"}.',
+      "category phải là đúng một trong sáu giá trị enum đã cho; không tự tạo độ tin cậy.",
+    ].join(" ");
 
     const response = await Promise.race([
       ai.models.generateContent({
@@ -2328,20 +3164,28 @@ app.post("/api/scan-garbage", async (req, res) => {
         contents: [
           {
             role: "user",
-            parts: [
-              { text: prompt },
-              { inlineData: { data: base64Data, mimeType: "image/jpeg" } },
-            ],
+            parts: [{ text: prompt }, { inlineData: { data: base64Data, mimeType } }],
           },
         ],
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("AI_TIMEOUT: Gemini request timed out after 30s (possibly blocked in Vietnam)")), 30_000)
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                "AI_TIMEOUT: Gemini request timed out after 30s (possibly blocked in Vietnam)",
+              ),
+            ),
+          30_000,
+        ),
       ),
     ]).catch((err: any) => {
       // Ensure we always respond — don't let AI errors cascade
       const isTimeout = err?.message?.includes("AI_TIMEOUT") || err?.name === "AbortError";
-      console.error(isTimeout ? "Gemini timeout (network blocked?)" : "Gemini error:", err?.message);
+      console.error(
+        isTimeout ? "Gemini timeout (network blocked?)" : "Gemini error:",
+        err?.message,
+      );
       res.status(isTimeout ? 504 : 500).json({
         error: isTimeout
           ? "AI đang bận hoặc không thể kết nối. Vui lòng thử lại sau hoặc dùng chế độ Local AI."
@@ -2350,16 +3194,52 @@ app.post("/api/scan-garbage", async (req, res) => {
       throw err; // rethrow so we skip the rest
     });
 
-    const analysis = response?.text || "";
+    const rawAnalysis = response?.text || "";
     const latencyMs = Date.now() - startTime;
-    const predictedCategory = visionPipeline.parseGeminiResponseToCategory(analysis);
+    const structuredAnalysis = visionPipeline.parseGeminiStructuredResponse(rawAnalysis);
+    const predictedCategory =
+      structuredAnalysis?.category ?? visionPipeline.parseGeminiResponseToCategory(rawAnalysis);
+    const categoryLabels: Record<string, string> = {
+      plastic: "Nhựa",
+      paper: "Giấy",
+      glass: "Thủy tinh",
+      metal: "Kim loại",
+      organic: "Hữu cơ",
+      hazard: "Nguy hại",
+    };
+    const analysis = structuredAnalysis
+      ? `**Phân loại: ${categoryLabels[predictedCategory]}**\n\n${structuredAnalysis.description}\n\n**Hướng dẫn xử lý:**\n${structuredAnalysis.disposalInstructions}`
+      : rawAnalysis;
 
-    // Estimate confidence from response quality indicators
-    const textLen = analysis.length;
-    const hasCategoryKeyword = /nhựa|giấy|thủy tinh|kim loại|hữu cơ|nguy hại|plastic|paper|glass|metal|organic|hazard/i.test(analysis);
-    const confidence = hasCategoryKeyword
-      ? Math.min(0.95, 0.70 + (textLen > 50 ? 0.15 : 0) + (textLen > 150 ? 0.10 : 0))
-      : 0.50;
+    // Gemini's text endpoint does not expose calibrated class probabilities.
+    // Keep the legacy numeric field at zero for schema compatibility and mark
+    // the provenance explicitly; never fabricate confidence from prose length.
+    const confidence = 0;
+    const confidenceSource = "unavailable" as const;
+    const categorySource = structuredAnalysis
+      ? ("llm_structured_json" as const)
+      : ("llm_text_parse" as const);
+
+    // The request flag is only a user intention.  Release eligibility is
+    // determined from the audited consent row, so a forged JSON body cannot
+    // place an image into the research dataset.
+    let consentGranted = false;
+    if (consentToRelease === true) {
+      const researchDb = getResearchDb();
+      if (researchDb) {
+        try {
+          const { rows } = await researchDb.query(
+            `SELECT 1 FROM dataset_contributors
+             WHERE user_id = $1 AND consent_given = TRUE AND revoked_at IS NULL
+             LIMIT 1`,
+            [accountId],
+          );
+          consentGranted = rows.length > 0;
+        } catch (e) {
+          console.warn("[dataset] consent lookup failed; capture disabled:", e);
+        }
+      }
+    }
 
     // ── D5: Server-authoritative reward ──────────────────────────────────
     // Decide the reward BEFORE responding so the client can never claim
@@ -2368,6 +3248,7 @@ app.post("/api/scan-garbage", async (req, res) => {
     const reward = decideScanReward(nickname);
     let newPointsBalance: number | null = null;
     if (nickname && reward.awarded > 0) {
+      const releaseRewardLock = await acquireRewardLock(nickname);
       try {
         const user = await getUser(nickname);
         if (user) {
@@ -2388,6 +3269,8 @@ app.post("/api/scan-garbage", async (req, res) => {
         }
       } catch (e) {
         console.error("[scan] reward credit failed:", (e as Error).message);
+      } finally {
+        releaseRewardLock();
       }
     }
 
@@ -2395,32 +3278,47 @@ app.post("/api/scan-garbage", async (req, res) => {
     // its own +50 on top.
     res.json({
       analysis,
-      rewarded: reward.awarded > 0,
+      rewarded: newPointsBalance !== null && reward.awarded > 0,
       points: newPointsBalance, // null = user not logged in, no balance to report
-      pointsEarned: reward.awarded,
-      rewardReason: reward.reason,
+      pointsEarned: newPointsBalance !== null ? reward.awarded : 0,
+      rewardReason:
+        reward.awarded === 0
+          ? reward.reason
+          : newPointsBalance !== null
+            ? reward.reason
+            : "credit_failed",
       rewardCap: getScanRewardConfig(),
       aiMetrics: {
         model: "gemini_2.5_flash",
         latencyMs,
         confidence,
+        confidenceSource,
+        categorySource,
         category: predictedCategory,
       },
     });
 
     // Log events (non-blocking)
     if (isDbConnected()) {
-      visionPipeline.logInference(nickname, "gemini_2.5_flash", latencyMs, confidence, predictedCategory).catch(() => {});
+      visionPipeline
+        .logInference(accountId, "gemini_2.5_flash", latencyMs, confidence, predictedCategory)
+        .catch(() => {});
     }
     if (db && nickname) {
-      db.collection("users").doc(nickname.toLowerCase()).collection("scan_history").add({
-        timestamp: new Date().toISOString(),
-        analysis,
-        pointsEarned: reward.awarded,
-        aiModel: "gemini_2.5_flash",
-        latencyMs,
-        predictedCategory,
-      }).catch(() => {});
+      db.collection("users")
+        .doc(nickname.toLowerCase())
+        .collection("scan_history")
+        .add({
+          timestamp: new Date().toISOString(),
+          analysis,
+          pointsEarned: reward.awarded,
+          aiModel: "gemini_2.5_flash",
+          latencyMs,
+          predictedCategory,
+          confidenceSource,
+          categorySource,
+        })
+        .catch(() => {});
     }
     if (nickname) {
       eventLogger.logGarbageScan(nickname, true, predictedCategory, undefined).catch(() => {});
@@ -2428,13 +3326,13 @@ app.post("/api/scan-garbage", async (req, res) => {
 
     // ── Phase 1: Dataset capture (open science, opt-in) ───────────────────
     // Only kick off if user has explicitly consented via settings toggle.
-    if (nickname && consentToRelease === true) {
+    if (nickname && consentGranted) {
       // Fire-and-forget: don't block the response
       (async () => {
         try {
           // 1) Upload image to Cloudinary (anonymized)
           const uploaded = await uploadToDataset(base64Data, {
-            userId: nickname,
+            userId: accountId,
             scanId: Date.now(), // placeholder; real scan_id assigned after insert
             category: predictedCategory,
             confidence,
@@ -2446,45 +3344,48 @@ app.post("/api/scan-garbage", async (req, res) => {
             datasetCurator.detectImageAttribute(imageBase64, "occlusion"),
           ]);
 
-          // 3) Build top-K predictions heuristic (all 6 categories, top-1 = confidence)
-          const topKPredictions = buildTopKPredictions(predictedCategory, confidence);
-
-          // 4) Insert into ai_scan_metrics with consent + dataset metadata
+          // 3) Insert into ai_scan_metrics with consent + dataset metadata.
+          // No top-k distribution is stored because Gemini did not return
+          // logits or calibrated probabilities.
           const researchDb = getResearchDb();
           if (researchDb) {
-            await researchDb.query(
-              `INSERT INTO ai_scan_metrics (
+            await researchDb
+              .query(
+                `INSERT INTO ai_scan_metrics (
                 user_id, model_type, latency_ms, confidence_score, predicted_category,
                 image_url, image_hash, lighting_condition, occlusion_level,
                 top_k_predictions, consent_to_release, locale, geo_country, dataset_release_status
               ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending_review')
               RETURNING id`,
-              [
-                nickname,
-                "gemini_2.5_flash",
-                latencyMs,
-                confidence,
-                predictedCategory,
-                uploaded?.url || null,
-                imageHash,
-                lighting,
-                occlusion,
-                JSON.stringify(topKPredictions),
-                true,
-                locale || "vi",
-                null,
-              ],
-            ).catch((err: Error) => console.error("[dataset] insert failed:", err));
+                [
+                  accountId,
+                  "gemini_2.5_flash",
+                  latencyMs,
+                  confidence,
+                  predictedCategory,
+                  uploaded?.url || null,
+                  imageHash,
+                  lighting,
+                  occlusion,
+                  JSON.stringify([]),
+                  true,
+                  locale || "vi",
+                  null,
+                ],
+              )
+              .catch((err: Error) => console.error("[dataset] insert failed:", err));
 
             // 5) Upsert contributor row
-            await researchDb.query(
-              `INSERT INTO dataset_contributors (user_id, display_name, consent_given, consent_date, first_contribution_at, last_contribution_at)
+            await researchDb
+              .query(
+                `INSERT INTO dataset_contributors (user_id, display_name, consent_given, consent_date, first_contribution_at, last_contribution_at)
                VALUES ($1, $2, TRUE, NOW(), NOW(), NOW())
                ON CONFLICT (user_id) DO UPDATE SET
                  consent_given = TRUE,
                  last_contribution_at = NOW()`,
-              [nickname, nickname],
-            ).catch((err: Error) => console.error("[dataset] contributor upsert failed:", err));
+                [accountId, nickname],
+              )
+              .catch((err: Error) => console.error("[dataset] contributor upsert failed:", err));
           }
         } catch (err) {
           console.error("[dataset] capture pipeline error:", err);
@@ -2506,8 +3407,7 @@ app.post("/api/scan-garbage", async (req, res) => {
 
 async function syncGoogleSheetsData(spreadsheetId: string) {
   const secretRaw =
-    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 ||
-    process.env.FIREBASE_SERVICE_ACCOUNT;
+    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!secretRaw) {
     throw new Error("Service account is not configured");
   }
@@ -2516,7 +3416,7 @@ async function syncGoogleSheetsData(spreadsheetId: string) {
     ? Buffer.from(secretRaw, "base64").toString("utf8")
     : secretRaw;
   const serviceAccount = JSON.parse(serviceAccountStr);
-  const privateKey = serviceAccount.private_key.replace(/\\n/g, '\n');
+  const privateKey = serviceAccount.private_key.replace(/\\n/g, "\n");
 
   const auth = new google.auth.GoogleAuth({
     credentials: {
@@ -2593,10 +3493,8 @@ async function syncGoogleSheetsData(spreadsheetId: string) {
       const row = rows[i];
       if (!row || row.length === 0) continue;
 
-      const userId =
-        typeof row[0] === "string" ? row[0].trim() : String(row[0] || "");
-      if (userId === "UserID" || userId.includes("Tài khoản") || userId === "")
-        continue;
+      const userId = typeof row[0] === "string" ? row[0].trim() : String(row[0] || "");
+      if (userId === "UserID" || userId.includes("Tài khoản") || userId === "") continue;
 
       const name = row[1];
       const pass = row[2];
@@ -2612,10 +3510,13 @@ async function syncGoogleSheetsData(spreadsheetId: string) {
         // Do NOT use saveUser here to avoid any risk of overwriting progress
         if (db) {
           try {
-            await db.collection("users").doc(nick.toLowerCase()).update({ 
-              name: name || nick, 
-              pass: pass 
-            });
+            await db
+              .collection("users")
+              .doc(nick.toLowerCase())
+              .update({
+                name: name || nick,
+                pass: pass,
+              });
           } catch (e) {
             console.error(`[sheets-sync] Failed to update ${nick}:`, e);
           }
@@ -2647,7 +3548,7 @@ async function syncGoogleSheetsData(spreadsheetId: string) {
   return totalImported;
 }
 
-  // 6. Admin Sheets Sync
+// 6. Admin Sheets Sync
 app.post("/api/admin/sync-sheets", requireAdmin, async (req, res) => {
   try {
     const { spreadsheetId } = req.body;
@@ -2663,9 +3564,7 @@ app.post("/api/admin/sync-sheets", requireAdmin, async (req, res) => {
     });
   } catch (error: any) {
     console.error("Spreadsheet sync error:", error);
-    res
-      .status(500)
-      .json({ error: error.message || "Failed to sync spreadsheet" });
+    res.status(500).json({ error: error.message || "Failed to sync spreadsheet" });
   }
 });
 
@@ -2702,10 +3601,10 @@ app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
 // PUT /api/admin/users/:nick/role - Change user role
 app.put("/api/admin/users/:nick/role", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     const { role } = req.body;
     if (!["user", "admin"].includes(role)) {
-      return err(res, 400, 'error.validationFailed', req as any);
+      return err(res, 400, "error.validationFailed", req as any);
     }
     const user = await getUser(nick);
     if (!user) return err(res, 404, "error.notFound", req as any);
@@ -2720,7 +3619,7 @@ app.put("/api/admin/users/:nick/role", requireAdmin, async (req, res) => {
 // PUT /api/admin/users/:nick/points - Adjust points
 app.put("/api/admin/users/:nick/points", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     const { points, reason } = req.body;
     if (typeof points !== "number") {
       return err(res, 400, "error.validationFailed", req as any);
@@ -2744,7 +3643,7 @@ app.put("/api/admin/users/:nick/points", requireAdmin, async (req, res) => {
 // POST /api/admin/users/:nick/adjust-points - Increment/decrement points
 app.post("/api/admin/users/:nick/adjust-points", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     const { delta, reason } = req.body;
     if (typeof delta !== "number") {
       return err(res, 400, "error.validationFailed", req as any);
@@ -2768,11 +3667,11 @@ app.post("/api/admin/users/:nick/adjust-points", requireAdmin, async (req, res) 
 // PUT /api/admin/users/:nick/suspend - Suspend/unsuspend user
 app.put("/api/admin/users/:nick/suspend", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     const { suspended } = req.body;
     const user = await getUser(nick);
     if (!user) return err(res, 404, "error.notFound", req as any);
-    user.role = suspended ? "suspended" : (nick.toLowerCase().startsWith("admin") ? "admin" : "user");
+    user.role = suspended ? "suspended" : nick.toLowerCase().startsWith("admin") ? "admin" : "user";
     await saveUser(user);
     res.json({ success: true, message: suspended ? `Đã suspend ${nick}` : `Đã unsuspend ${nick}` });
   } catch (e) {
@@ -2787,7 +3686,7 @@ app.put("/api/admin/users/:nick/suspend", requireAdmin, async (req, res) => {
 // completes. Used by admins to cut off compromised accounts.
 app.post("/api/admin/users/:nick/disable", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     if (!nick || typeof nick !== "string" || nick.length > 64) {
       return err(res, 400, "error.validationFailed", req as any);
     }
@@ -2798,7 +3697,9 @@ app.post("/api/admin/users/:nick/disable", requireAdmin, async (req, res) => {
         target: nick,
         ts: new Date().toISOString(),
       });
-    } catch {}
+    } catch (e) {
+      console.warn("[admin] failed to audit user disable:", (e as Error).message);
+    }
     res.json({ success: true, message: `Đã vô hiệu hóa ${nick}` });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
@@ -2811,14 +3712,16 @@ app.post("/api/admin/users/:nick/disable", requireAdmin, async (req, res) => {
 // user must sign back in once to receive fresh tokens.
 app.post("/api/admin/users/:nick/enable", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     if (!nick || typeof nick !== "string" || nick.length > 64) {
       return err(res, 400, "error.validationFailed", req as any);
     }
     enableUser(nick);
     try {
       await eventLogger.log(req.body.actor || "admin", "user_enabled", { target: nick });
-    } catch {}
+    } catch (e) {
+      console.warn("[admin] failed to audit user enable:", (e as Error).message);
+    }
     res.json({ success: true, message: `Đã kích hoạt lại ${nick}` });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
@@ -2828,7 +3731,7 @@ app.post("/api/admin/users/:nick/enable", requireAdmin, async (req, res) => {
 // POST /api/admin/users/:nick/reset-progress - Reset user progress
 app.post("/api/admin/users/:nick/reset-progress", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     const { confirm } = req.query;
     if (confirm !== "true") {
       return err(res, 400, "error.validationFailed", req as any);
@@ -2856,7 +3759,7 @@ app.post("/api/admin/users/:nick/reset-progress", requireAdmin, async (req, res)
 // DELETE /api/admin/users/:nick - Delete user
 app.delete("/api/admin/users/:nick", requireAdmin, async (req, res) => {
   try {
-    const { nick } = req.params;
+    const nick = getRouteParam(req.params.nick);
     const { confirm } = req.query;
     if (confirm !== "true") {
       return err(res, 400, "error.validationFailed", req as any);
@@ -2865,7 +3768,7 @@ app.delete("/api/admin/users/:nick", requireAdmin, async (req, res) => {
       await db.collection("users").doc(nick.toLowerCase()).delete();
     }
     // Remove from local array
-    users = users.filter(u => u.nick.toLowerCase() !== nick.toLowerCase());
+    users = users.filter((u) => u.nick.toLowerCase() !== nick.toLowerCase());
     saveData();
     res.json({ success: true, message: `Đã xóa người dùng ${nick}` });
   } catch (e) {
@@ -2876,7 +3779,7 @@ app.delete("/api/admin/users/:nick", requireAdmin, async (req, res) => {
 // POST /api/admin/decay/:userId/detect - Trigger novelty decay detection manually
 app.post("/api/admin/decay/:userId/detect", requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = getRouteParam(req.params.userId);
     const state = await noveltyDecayDetector.detectDecay(userId);
     res.json({ success: true, decayState: state });
   } catch (e) {
@@ -2887,10 +3790,10 @@ app.post("/api/admin/decay/:userId/detect", requireAdmin, async (req, res) => {
 // POST /api/admin/decay/:userId/intervene - Trigger intervention manually
 app.post("/api/admin/decay/:userId/intervene", requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = getRouteParam(req.params.userId);
     const { interventionType } = req.body;
     const interventions = await noveltyDecayDetector.getRecommendedInterventions(userId);
-    const intervention = interventions.find(i => i === interventionType) || interventions[0];
+    const intervention = interventions.find((i) => i === interventionType) || interventions[0];
     if (!intervention) {
       return err(res, 404, "error.notFound", req as any);
     }
@@ -2931,7 +3834,9 @@ app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
       question_id: nextId,
       content: String(body.content || "").trim(),
       options: Array.isArray(body.options) ? body.options : [],
-      correct_key: String(body.correct_key || "A").trim().toUpperCase() as "A" | "B" | "C" | "D",
+      correct_key: String(body.correct_key || "A")
+        .trim()
+        .toUpperCase() as "A" | "B" | "C" | "D",
       points: Number(body.points) || 10,
       category: body.category || undefined,
       difficulty: body.difficulty || undefined,
@@ -2962,7 +3867,9 @@ app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
       points: q.points,
     }));
 
-    await logAdminAction(adminNick, "quiz_create", "quiz_question", String(created.question_id), { content: created.content });
+    await logAdminAction(adminNick, "quiz_create", "quiz_question", String(created.question_id), {
+      content: created.content,
+    });
 
     res.json({ success: true, question: created });
   } catch (e) {
@@ -3061,7 +3968,9 @@ app.post("/api/admin/quiz/questions/reorder", requireAdmin, async (req, res) => 
     }
     const adminNick = (req as any).userNick || "admin";
     await reorderQuizQuestions(orderedIds.map((id: any) => Number(id)));
-    await logAdminAction(adminNick, "quiz_reorder", "quiz_questions", null, { count: orderedIds.length });
+    await logAdminAction(adminNick, "quiz_reorder", "quiz_questions", null, {
+      count: orderedIds.length,
+    });
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
@@ -3088,14 +3997,17 @@ app.post("/api/admin/quiz/questions/import", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/quiz/questions/export - Export questions as JSON
-app.get("/api/admin/quiz/questions/export", requireAdmin, async (_req, res) => {
+app.get("/api/admin/quiz/questions/export", requireAdmin, async (req, res) => {
   try {
     if (!isQuizDbConfigured()) {
       return err(res, 503, "error.databaseUnavailable", req as any);
     }
     const questions = await listQuizQuestions();
     res.setHeader("Content-Type", "application/json");
-    res.setHeader("Content-Disposition", `attachment; filename="quiz-questions-${Date.now()}.json"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="quiz-questions-${Date.now()}.json"`,
+    );
     res.send(JSON.stringify({ questions, exportedAt: new Date().toISOString() }, null, 2));
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
@@ -3128,7 +4040,9 @@ app.put("/api/admin/quiz/config", requireAdmin, async (req, res) => {
       // Single key update
       await setQuizConfig(String(body.key), body.value, adminNick);
       dynamicConfig[String(body.key)] = body.value;
-      await logAdminAction(adminNick, "quiz_config_update", "quiz_config", String(body.key), { value: body.value });
+      await logAdminAction(adminNick, "quiz_config_update", "quiz_config", String(body.key), {
+        value: body.value,
+      });
     } else if (typeof body === "object") {
       // Batch update
       const count = await bulkSetQuizConfig(body, adminNick);
@@ -3212,13 +4126,7 @@ async function logAdminAction(
     await pool.query(
       `INSERT INTO admin_actions (admin_nick, action_type, target_type, target_id, details)
        VALUES ($1, $2, $3, $4, $5)`,
-      [
-        adminNick,
-        actionType,
-        targetType,
-        targetId,
-        details ? JSON.stringify(details) : null,
-      ]
+      [adminNick, actionType, targetType, targetId, details ? JSON.stringify(details) : null],
     );
   } catch (e) {
     console.warn(`[AdminAudit] Failed to log action ${actionType}:`, (e as Error).message);
@@ -3237,7 +4145,7 @@ app.get("/api/admin/audit-log", requireAdmin, async (req, res) => {
       `SELECT id, admin_nick, action_type, target_type, target_id, details, created_at
        FROM admin_actions
        ORDER BY created_at DESC
-       LIMIT ${limit}`
+       LIMIT ${limit}`,
     );
     res.json({ actions: rows, source: "supabase" });
   } catch (e) {
@@ -3270,7 +4178,7 @@ app.get("/api/admin/system/health", requireAdmin, async (_req, res) => {
     try {
       const { testSheetsConnection } = await import("../server/sheetsSync.js");
       const sheetsTest = await testSheetsConnection(
-        process.env.GOOGLE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q"
+        process.env.GOOGLE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q",
       );
       health.sheets = sheetsTest;
     } catch (e) {
@@ -3283,7 +4191,7 @@ app.get("/api/admin/system/health", requireAdmin, async (_req, res) => {
   }
 });
 
-async function startServer() {
+async function startServer(): Promise<Server> {
   // Initialize session store (sweeps expired tokens)
   await initSessionStore();
 
@@ -3306,7 +4214,7 @@ async function startServer() {
             try {
               await db.query(
                 `INSERT INTO research_users (user_id, username) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
-                [u.account_id, u.name]
+                [u.account_id, u.name],
               );
             } catch (e) {
               console.warn("[Startup] research_users insert failed for", u.account_id, e);
@@ -3322,9 +4230,13 @@ async function startServer() {
     experimentEngine.initializeDefaults().catch(console.error);
 
     // Compute social network PageRanks periodically
-    setInterval(() => {
-      socialNetworkAnalyzer.computeAllPageRanks().catch(console.error);
-    }, 60 * 60 * 1000); // Every hour
+    const pageRankTimer = setInterval(
+      () => {
+        socialNetworkAnalyzer.computeAllPageRanks().catch(console.error);
+      },
+      60 * 60 * 1000,
+    ); // Every hour
+    pageRankTimer.unref();
 
     // Schedule weekly reflection generation (runs every Sunday at 20:00)
     const scheduleWeeklyReflections = () => {
@@ -3336,12 +4248,17 @@ async function startServer() {
         nextSunday.setDate(nextSunday.getDate() + 7);
       }
       const msUntilSunday = nextSunday.getTime() - now.getTime();
-      setTimeout(() => {
+      const reflectionTimer = setTimeout(() => {
         weeklyReflectionGenerator.generateWeeklyReflections().catch(console.error);
-        setInterval(() => {
-          weeklyReflectionGenerator.generateWeeklyReflections().catch(console.error);
-        }, 7 * 24 * 60 * 60 * 1000);
+        const weeklyTimer = setInterval(
+          () => {
+            weeklyReflectionGenerator.generateWeeklyReflections().catch(console.error);
+          },
+          7 * 24 * 60 * 60 * 1000,
+        );
+        weeklyTimer.unref();
       }, msUntilSunday);
+      reflectionTimer.unref();
     };
     scheduleWeeklyReflections();
 
@@ -3359,7 +4276,8 @@ async function startServer() {
   // Placeholder: see end-of-file block.
 
   // Auto-sync Google Sheets Data initially and every 15 minutes (push DB → Sheets + pull Sheets → DB)
-  const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
+  const SPREADSHEET_ID =
+    process.env.GOOGLE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
   const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
   let syncErrorLogged = false;
   let syncIntervalHandle: NodeJS.Timeout | null = null;
@@ -3391,8 +4309,10 @@ async function startServer() {
   };
 
   // Run once after 3s, then every 15 minutes
-  setTimeout(startAutoSync, 3000);
+  const initialSyncTimer = setTimeout(startAutoSync, 3000);
+  initialSyncTimer.unref();
   syncIntervalHandle = setInterval(startAutoSync, AUTO_SYNC_INTERVAL_MS);
+  syncIntervalHandle.unref();
 
   // Cleanup on shutdown
   const stopAutoSync = () => {
@@ -3406,6 +4326,8 @@ async function startServer() {
 
   // Research API routes
   app.use("/api/research", researchRouter);
+  // Admin API routes (server-side proxy for admin operations)
+  app.use("/api/admin", adminRouter);
   app.use("/api/vision", visionRouter());
   app.use("/api/dataset", datasetRouter());
   app.use("/api/family", familyRouter());
@@ -3448,37 +4370,49 @@ async function startServer() {
   app.use("/api/health", healthRouter());
 
   // Research data endpoints (shorter paths)
-  app.get("/api/personality/:userId", async (req, res) => {
-    const mode = await personalityEngine.getPersonality(req.params.userId);
+  app.get("/api/personality/:userId", requireAuth, async (req, res) => {
+    const userId = getRouteParam(req.params.userId);
+    if (!canAccessUserScope(req, userId)) return err(res, 403, "error.forbidden", req as any);
+    const mode = await personalityEngine.getPersonality(userId);
     res.json({ personality_mode: mode });
   });
 
-  app.get("/api/profile/:userId", async (req, res) => {
-    const profile = await behavioralProfiler.getProfile(req.params.userId);
+  app.get("/api/profile/:userId", requireAuth, async (req, res) => {
+    const userId = getRouteParam(req.params.userId);
+    if (!canAccessUserScope(req, userId)) return err(res, 403, "error.forbidden", req as any);
+    const profile = await behavioralProfiler.getProfile(userId);
     if (!profile) {
-      const newProfile = await behavioralProfiler.profileUser(req.params.userId);
+      const newProfile = await behavioralProfiler.profileUser(userId);
       return res.json(newProfile);
     }
     res.json(profile);
   });
 
-  app.get("/api/reflection/:userId", async (req, res) => {
-    const reflection = await weeklyReflectionGenerator.getLatestReflection(req.params.userId);
+  app.get("/api/reflection/:userId", requireAuth, async (req, res) => {
+    const userId = getRouteParam(req.params.userId);
+    if (!canAccessUserScope(req, userId)) return err(res, 403, "error.forbidden", req as any);
+    const reflection = await weeklyReflectionGenerator.getLatestReflection(userId);
     res.json(reflection || { message: "Chưa có phản hồi tuần này" });
   });
 
-  app.get("/api/decay/:userId", async (req, res) => {
-    const state = await noveltyDecayDetector.detectDecay(req.params.userId);
+  app.get("/api/decay/:userId", requireAuth, async (req, res) => {
+    const userId = getRouteParam(req.params.userId);
+    if (!canAccessUserScope(req, userId)) return err(res, 403, "error.forbidden", req as any);
+    const state = await noveltyDecayDetector.detectDecay(userId);
     res.json(state);
   });
 
-  app.get("/api/interventions/:userId", async (req, res) => {
-    const interventions = await adaptiveRewardEngine.getRecentInterventions(req.params.userId);
+  app.get("/api/interventions/:userId", requireAuth, async (req, res) => {
+    const userId = getRouteParam(req.params.userId);
+    if (!canAccessUserScope(req, userId)) return err(res, 403, "error.forbidden", req as any);
+    const interventions = await adaptiveRewardEngine.getRecentInterventions(userId);
     res.json(interventions);
   });
 
-  app.get("/api/simulation/:userId", async (req, res) => {
-    const predictions = await simulationEngine.getSimulations(req.params.userId);
+  app.get("/api/simulation/:userId", requireAuth, async (req, res) => {
+    const userId = getRouteParam(req.params.userId);
+    if (!canAccessUserScope(req, userId)) return err(res, 403, "error.forbidden", req as any);
+    const predictions = await simulationEngine.getSimulations(userId);
     res.json(predictions);
   });
 
@@ -3487,7 +4421,7 @@ async function startServer() {
     res.json(event);
   });
 
-  app.post("/api/generate-event", async (req, res) => {
+  app.post("/api/generate-event", requireAdmin, async (req, res) => {
     const event = await eventGenerator.generateWeeklyEvent();
     res.json(event);
   });
@@ -3497,9 +4431,16 @@ async function startServer() {
     res.json(result);
   });
 
-  app.get("/api/reward-history/:nick", async (req, res) => {
-    const user = await getUser(req.params.nick);
+  app.get("/api/reward-history/:nick", requireAuth, async (req, res) => {
+    const requestedNick = getRouteParam(req.params.nick);
+    const user = await getUser(requestedNick);
     if (!user) return err(res, 404, "error.notFound", req as any);
+    if (
+      !canAccessUserScope(req, requestedNick) &&
+      !canAccessUserScope(req, String(user.account_id || ""))
+    ) {
+      return err(res, 403, "error.forbidden", req as any);
+    }
     const db = getDb();
     if (!db) return res.json([]);
     try {
@@ -3509,7 +4450,7 @@ async function startServer() {
          WHERE user_id = $1
          ORDER BY created_at DESC
          LIMIT 50`,
-        [user.account_id]
+        [user.account_id],
       );
       res.json(rows);
     } catch (e) {
@@ -3517,39 +4458,53 @@ async function startServer() {
     }
   });
 
-  app.get("/api/reward-summary/:nick", async (req, res) => {
-    const user = await getUser(req.params.nick);
+  app.get("/api/reward-summary/:nick", requireAuth, async (req, res) => {
+    const requestedNick = getRouteParam(req.params.nick);
+    const user = await getUser(requestedNick);
     if (!user) return err(res, 404, "error.notFound", req as any);
+    if (
+      !canAccessUserScope(req, requestedNick) &&
+      !canAccessUserScope(req, String(user.account_id || ""))
+    ) {
+      return err(res, 403, "error.forbidden", req as any);
+    }
     const db = getDb();
     if (!db) return res.json({ totalEarned: 0, totalSpent: 0, netChange: 0, txCount: 0 });
     try {
       const { rows } = await db.query(
         `SELECT transaction_type, amount FROM reward_transactions
          WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '30 days'`,
-        [user.account_id]
+        [user.account_id],
       );
-      let totalEarned = 0, totalSpent = 0;
+      let totalEarned = 0,
+        totalSpent = 0;
       for (const r of rows as { transaction_type: string; amount: number }[]) {
         if (r.transaction_type === "earn") totalEarned += r.amount;
         else totalSpent += Math.abs(r.amount);
       }
-      res.json({ totalEarned, totalSpent, netChange: totalEarned - totalSpent, txCount: rows.length });
+      res.json({
+        totalEarned,
+        totalSpent,
+        netChange: totalEarned - totalSpent,
+        txCount: rows.length,
+      });
     } catch (e) {
       err(res, 500, "error.internal", req as any);
     }
   });
 
   // ─── Weekly Tournament ──────────────────────────────────────────────────────
-  app.get("/api/tournament/current", async (_req, res) => {
+  app.get("/api/tournament/current", requireAuth, async (req, res) => {
     try {
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       // Get current week's Monday 00:00 Vietnam time (UTC+7)
       const now = new Date();
       const vnOffset = 7 * 60;
-      const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const localMs = now.getTime() + now.getTimezoneOffset() * 60000;
       const vnNow = new Date(localMs + vnOffset * 60000);
       const dayOfWeek = vnNow.getDay(); // 0=Sun, 1=Mon
-      const mondayMs = vnNow.getTime() - ((dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+      const mondayMs =
+        vnNow.getTime() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000;
       const weekStart = new Date(mondayMs);
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
@@ -3578,22 +4533,27 @@ async function startServer() {
           },
           createdAt: Date.now(),
         });
-        return res.json({ tournament: null, userJoined: false, userPosition: null, timeRemaining: formatTimeRemaining(weekEnd) });
+        return res.json({
+          tournament: null,
+          userJoined: false,
+          userPosition: null,
+          timeRemaining: formatTimeRemaining(weekEnd),
+        });
       }
 
       const tournamentData = tournamentDoc.data()!;
-      const user = _req.headers.authorization
-        ? await getUserFromToken(_req.headers.authorization.replace("Bearer ", ""))
-        : null;
+      const nick = (req as any).userNick as string;
 
       let userJoined = false;
       let userPosition: number | null = null;
-      if (user && tournamentData.participants) {
-        const participant = tournamentData.participants.find((p: any) => p.userId === user.nick);
+      if (tournamentData.participants) {
+        const participant = tournamentData.participants.find((p: any) => p.userId === nick);
         if (participant) {
           userJoined = true;
-          const sorted = [...tournamentData.participants].sort((a: any, b: any) => b.weeklyScore - a.weeklyScore);
-          userPosition = sorted.findIndex((p: any) => p.userId === user.nick) + 1;
+          const sorted = [...tournamentData.participants].sort(
+            (a: any, b: any) => b.weeklyScore - a.weeklyScore,
+          );
+          userPosition = sorted.findIndex((p: any) => p.userId === nick) + 1;
         }
       }
 
@@ -3615,10 +4575,11 @@ async function startServer() {
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const now = new Date();
       const vnOffset = 7 * 60;
-      const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const localMs = now.getTime() + now.getTimezoneOffset() * 60000;
       const vnNow = new Date(localMs + vnOffset * 60000);
       const dayOfWeek = vnNow.getDay();
-      const mondayMs = vnNow.getTime() - ((dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+      const mondayMs =
+        vnNow.getTime() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000;
       const weekStart = new Date(mondayMs);
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
@@ -3675,10 +4636,11 @@ async function startServer() {
         // Get most recent active tournament
         const now = new Date();
         const vnOffset = 7 * 60;
-        const localMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const localMs = now.getTime() + now.getTimezoneOffset() * 60000;
         const vnNow = new Date(localMs + vnOffset * 60000);
         const dayOfWeek = vnNow.getDay();
-        const mondayMs = vnNow.getTime() - ((dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+        const mondayMs =
+          vnNow.getTime() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) * 24 * 60 * 60 * 1000;
         const weekStart = new Date(mondayMs);
         weekStart.setHours(0, 0, 0, 0);
         const weekStartStr = weekStart.toISOString().split("T")[0];
@@ -3725,7 +4687,7 @@ async function startServer() {
       // Get all users and pick a random opponent with similar rank (nearby points)
       const allUsers = await getAllUsers();
       const eligibleOpponents = allUsers.filter(
-        (u) => u.nick !== challengerNick && (u.points || 0) >= WAGER
+        (u) => u.nick !== challengerNick && (u.points || 0) >= WAGER,
       );
 
       if (eligibleOpponents.length === 0) {
@@ -3733,8 +4695,13 @@ async function startServer() {
       }
 
       // Pick opponent with closest points (rank matchmaking)
-      eligibleOpponents.sort((a, b) => Math.abs((a.points || 0) - (challenger.points || 0)) - Math.abs((b.points || 0) - (challenger.points || 0)));
-      const opponent = eligibleOpponents[Math.floor(Math.random() * Math.min(3, eligibleOpponents.length))];
+      eligibleOpponents.sort(
+        (a, b) =>
+          Math.abs((a.points || 0) - (challenger.points || 0)) -
+          Math.abs((b.points || 0) - (challenger.points || 0)),
+      );
+      const opponent =
+        eligibleOpponents[Math.floor(Math.random() * Math.min(3, eligibleOpponents.length))];
 
       const matchId = `pvp_${Date.now()}_${challengerNick}`;
       const match: PvPMatch = {
@@ -3752,12 +4719,19 @@ async function startServer() {
         rounds: [],
       };
 
-      await db.collection("pvp_matches").doc(matchId).set(match);
-
-      // Deduct wager from challenger
-      await db.collection("users").doc(challengerNick).update({
-        points: admin.firestore.FieldValue.increment(-WAGER),
+      const matchRef = db.collection("pvp_matches").doc(matchId);
+      const challengerRef = db.collection("users").doc(challengerNick);
+      const wagerAccepted = await db.runTransaction(async (tx) => {
+        const currentChallenger = await tx.get(challengerRef);
+        const currentPoints = Number(currentChallenger.data()?.points || 0);
+        if (currentPoints < WAGER) return false;
+        tx.set(matchRef, match);
+        tx.update(challengerRef, { points: currentPoints - WAGER });
+        return true;
       });
+      if (!wagerAccepted) {
+        return err(res, 400, "error.clan.missingExp", req as any);
+      }
 
       res.json({
         matchId,
@@ -3777,44 +4751,62 @@ async function startServer() {
     try {
       const { matchId, playerWon, rounds } = req.body;
       const nick = (req as any).userNick;
+      if (typeof matchId !== "string" || !matchId || typeof playerWon !== "boolean") {
+        return res.status(400).json({ error: "matchId and playerWon are required" });
+      }
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
       const matchRef = db.collection("pvp_matches").doc(matchId);
-      const matchDoc = await matchRef.get();
-      if (!matchDoc.exists) return err(res, 404, "error.notFound", req as any);
+      const safeRounds = Array.isArray(rounds)
+        ? rounds.slice(0, 100).map((round, index) => ({
+            round: Number.isFinite(Number(round?.round)) ? Number(round.round) : index + 1,
+            playerScore: Number.isFinite(Number(round?.playerScore))
+              ? Number(round.playerScore)
+              : 0,
+            opponentScore: Number.isFinite(Number(round?.opponentScore))
+              ? Number(round.opponentScore)
+              : 0,
+            winner: ["player", "opponent", "draw"].includes(round?.winner) ? round.winner : "draw",
+          }))
+        : [];
 
-      const match = matchDoc.data() as PvPMatch;
+      const outcome = await db.runTransaction(async (tx) => {
+        const matchDoc = await tx.get(matchRef);
+        if (!matchDoc.exists) return { status: "missing" as const };
+        const match = matchDoc.data() as PvPMatch;
+        if (match.challengerId !== nick) return { status: "forbidden" as const };
+        if (match.status === "completed") {
+          return { status: "completed" as const, winnerId: match.winnerId };
+        }
 
-      if (match.status === "completed") {
-        return res.json({ alreadyProcessed: true });
-      }
+        const winnerId = playerWon ? nick : match.opponentId;
+        const winnerRef = db.collection("users").doc(winnerId);
+        const winnerDoc = await tx.get(winnerRef);
+        if (!winnerDoc.exists) return { status: "missing-user" as const };
 
-      // Determine winner
-      let winnerId: string;
-      if (playerWon) {
-        winnerId = nick;
-      } else {
-        // Opponent wins
-        winnerId = match.challengerId === nick ? match.opponentId : match.challengerId;
-      }
-
-      // Award EXP: winner gets double stake, loser loses their wager
-      const totalStake = match.stake * 2; // winner takes all
-      const winnerRef = db.collection("users").doc(winnerId);
-      await winnerRef.update({
-        points: admin.firestore.FieldValue.increment(totalStake),
+        // Only the challenger's already-deducted stake is paid out. The old
+        // `stake * 2` payout minted EXP because the opponent never staked.
+        const payout = Math.max(0, Number(match.stake) || 0);
+        tx.update(winnerRef, { points: Number(winnerDoc.data()?.points || 0) + payout });
+        tx.update(matchRef, {
+          status: "completed",
+          winnerId,
+          challengerResult: match.challengerId === winnerId ? "win" : "lose",
+          opponentResult: match.opponentId === winnerId ? "win" : "lose",
+          rounds: safeRounds,
+          updatedAt: Date.now(),
+        });
+        return { status: "processed" as const, winnerId, payout };
       });
 
-      await matchRef.update({
-        status: "completed",
-        winnerId,
-        challengerResult: match.challengerId === winnerId ? "win" : "lose",
-        opponentResult: match.opponentId === winnerId ? "win" : "lose",
-        rounds: rounds || [],
-        updatedAt: Date.now(),
-      });
-
-      res.json({ winnerId, reward: totalStake });
+      if (outcome.status === "missing" || outcome.status === "missing-user") {
+        return err(res, 404, "error.notFound", req as any);
+      }
+      if (outcome.status === "forbidden") return res.status(403).json({ error: "Forbidden" });
+      if (outcome.status === "completed") {
+        return res.json({ alreadyProcessed: true, winnerId: outcome.winnerId });
+      }
+      res.json({ winnerId: outcome.winnerId, reward: outcome.payout });
     } catch (e) {
       console.error("[pvp/result]", e);
       err(res, 500, "error.internal", req as any);
@@ -3857,7 +4849,7 @@ async function startServer() {
     return monday.getTime();
   }
 
-  app.get("/api/clans", async (_req, res) => {
+  app.get("/api/clans", async (req, res) => {
     try {
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clansSnap = await db.collection("clans").orderBy("exp", "desc").limit(50).get();
@@ -3889,22 +4881,49 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       const { name, tag, bio } = req.body || {};
-      if (!name || name.trim().length < 2) return res.status(400).json({ error: getErrorMessage("error.clan.nameTooShort", (req as any).locale?.locale) });
-      if (!tag || tag.trim().length < 2 || tag.trim().length > 5) return res.status(400).json({ error: getErrorMessage("error.clan.tagInvalid", (req as any).locale?.locale) });
+      if (!name || name.trim().length < 2)
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.nameTooShort", (req as any).locale?.locale) });
+      if (!tag || tag.trim().length < 2 || tag.trim().length > 5)
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.tagInvalid", (req as any).locale?.locale) });
 
-      if (!db) return res.status(503).json({ error: getErrorMessage("error.databaseUnavailable", (req as any).locale?.locale) });
+      if (!db)
+        return res.status(503).json({
+          error: getErrorMessage("error.databaseUnavailable", (req as any).locale?.locale),
+        });
 
       // Check if user already in a clan
-      const userClanSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
-      if (userClanSnap.exists) return res.status(400).json({ error: getErrorMessage("error.clan.alreadyMember", (req as any).locale?.locale) });
+      const userClanSnap = await db
+        .collection("users")
+        .doc(nick)
+        .collection("profile")
+        .doc("clan")
+        .get();
+      if (userClanSnap.exists)
+        return res.status(400).json({
+          error: getErrorMessage("error.clan.alreadyMember", (req as any).locale?.locale),
+        });
 
       // Check clan count limit
       const clanCount = (await db.collection("clans").count().get()).data().count;
-      if (clanCount >= MAX_CLANS) return res.status(400).json({ error: getErrorMessage("error.clan.full", (req as any).locale?.locale) });
+      if (clanCount >= MAX_CLANS)
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.full", (req as any).locale?.locale) });
 
       // Check tag uniqueness
-      const tagSnap = await db.collection("clans").where("tag", "==", tag.trim().toUpperCase()).limit(1).get();
-      if (!tagSnap.empty) return res.status(400).json({ error: getErrorMessage("error.clan.tagTaken", (req as any).locale?.locale) });
+      const tagSnap = await db
+        .collection("clans")
+        .where("tag", "==", tag.trim().toUpperCase())
+        .limit(1)
+        .get();
+      if (!tagSnap.empty)
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.tagTaken", (req as any).locale?.locale) });
 
       const clanRef = db.collection("clans").doc();
       const clanData = {
@@ -3946,36 +4965,55 @@ async function startServer() {
     }
   });
 
-  app.get("/api/clan/:id", async (req, res) => {
+  app.get("/api/clan/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
+      const nick = (req as any).userNick as string;
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanSnap = await db.collection("clans").doc(id).get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
 
       const clanData = clanSnap.data()!;
+      const memberIds: string[] = clanData.memberIds || [];
+      const isMember = memberIds.includes(nick);
 
-      // Get members
-      const membersSnap = await db.collection("clans").doc(id).collection("members").get();
-      const members = membersSnap.docs.map((d) => d.data());
-
-      // Get quests
-      const questsSnap = await db.collection("clans").doc(id).collection("quests")
-        .where("expiresAt", ">", Date.now())
-        .limit(5).get();
-      const quests = questsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      // Get recent messages
-      const msgsSnap = await db.collection("clans").doc(id).collection("messages")
-        .orderBy("createdAt", "desc").limit(30).get();
-      const messages = msgsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse();
+      let members: Record<string, unknown>[] = [];
+      let quests: Record<string, unknown>[] = [];
+      let messages: Record<string, unknown>[] = [];
+      if (isMember) {
+        const [membersSnap, questsSnap, msgsSnap] = await Promise.all([
+          db.collection("clans").doc(id).collection("members").get(),
+          db
+            .collection("clans")
+            .doc(id)
+            .collection("quests")
+            .where("expiresAt", ">", Date.now())
+            .limit(5)
+            .get(),
+          db
+            .collection("clans")
+            .doc(id)
+            .collection("messages")
+            .orderBy("createdAt", "desc")
+            .limit(30)
+            .get(),
+        ]);
+        members = membersSnap.docs.map((doc) => doc.data());
+        quests = questsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        messages = msgsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).reverse();
+      }
 
       res.json({
         id,
         name: clanData.name,
         tag: clanData.tag,
         leaderId: clanData.leaderId,
-        memberIds: clanData.memberIds || [],
+        memberIds: isMember ? memberIds : [],
+        memberCount: memberIds.length,
+        isMember,
         exp: clanData.exp || 0,
         level: clanData.level || 1,
         bio: clanData.bio || "",
@@ -3996,16 +5034,25 @@ async function startServer() {
   app.post("/api/clan/:id/join", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
       // Check if already in a clan
-      const existingClan = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
-      if (existingClan.exists) return res.status(400).json({ error: "Bạn đã ở trong một clan khác" });
+      const existingClan = await db
+        .collection("users")
+        .doc(nick)
+        .collection("profile")
+        .doc("clan")
+        .get();
+      if (existingClan.exists)
+        return res.status(400).json({ error: "Bạn đã ở trong một clan khác" });
 
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
 
       const memberIds: string[] = clanData.memberIds || [];
@@ -4043,15 +5090,21 @@ async function startServer() {
   app.post("/api/clan/:id/leave", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
 
-      if (clanData.leaderId === nick) return res.status(400).json({ error: "Chủ tịch không thể rời clan. Hãy chuyển giao hoặc giải tán clan." });
+      if (clanData.leaderId === nick)
+        return res
+          .status(400)
+          .json({ error: "Chủ tịch không thể rời clan. Hãy chuyển giao hoặc giải tán clan." });
 
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(clanRef);
@@ -4071,10 +5124,12 @@ async function startServer() {
   app.post("/api/clan/:id/donate", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
       const { amount } = req.body || {};
-      const donateAmount = Math.max(10, Math.min(10000, Number(amount) || 0));
-      if (donateAmount < 10) return res.status(400).json({ error: "Tối thiểu 10 EXP" });
+      const donateAmount = Number(amount);
+      if (!Number.isInteger(donateAmount) || donateAmount < 10 || donateAmount > 10000) {
+        return res.status(400).json({ error: "Mức đóng góp phải là số nguyên từ 10–10.000 EXP" });
+      }
 
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
 
@@ -4082,14 +5137,23 @@ async function startServer() {
       const userSnap = await db.collection("users").doc(nick).get();
       const userData = userSnap.data()!;
       const userPoints = userData.points || 0;
-      if (userPoints < donateAmount) return res.status(400).json({ error: getErrorMessage("error.clan.missingExp", (req as any).locale?.locale) });
+      if (userPoints < donateAmount)
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.missingExp", (req as any).locale?.locale) });
 
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
 
       const clanData = clanSnap.data()!;
-      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: getErrorMessage("error.clan.notMember", (req as any).locale?.locale) });
+      if (!(clanData.memberIds || []).includes(nick))
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.notMember", (req as any).locale?.locale) });
 
       await db.runTransaction(async (tx) => {
         // Deduct user points
@@ -4127,16 +5191,28 @@ async function startServer() {
   app.post("/api/clan/:id/messages", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
       const { text } = req.body || {};
-      if (!text || text.trim().length === 0) return res.status(400).json({ error: getErrorMessage("error.clan.emptyMessage", (req as any).locale?.locale) });
-      if (text.trim().length > 500) return res.status(400).json({ error: getErrorMessage("error.clan.messageTooLong", (req as any).locale?.locale) });
+      if (!text || text.trim().length === 0)
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.emptyMessage", (req as any).locale?.locale) });
+      if (text.trim().length > 500)
+        return res.status(400).json({
+          error: getErrorMessage("error.clan.messageTooLong", (req as any).locale?.locale),
+        });
 
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanSnap = await db.collection("clans").doc(id).get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
-      if (!(clanData.memberIds || []).includes(nick)) return res.status(400).json({ error: getErrorMessage("error.clan.notMember", (req as any).locale?.locale) });
+      if (!(clanData.memberIds || []).includes(nick))
+        return res
+          .status(400)
+          .json({ error: getErrorMessage("error.clan.notMember", (req as any).locale?.locale) });
 
       const userSnap = await db.collection("users").doc(nick).get();
       const userData = userSnap.data() || {};
@@ -4149,7 +5225,13 @@ async function startServer() {
         createdAt: Date.now(),
       });
 
-      res.json({ id: msgRef.id, userId: nick, nick: userData.nick || nick, text: text.trim(), createdAt: Date.now() });
+      res.json({
+        id: msgRef.id,
+        userId: nick,
+        nick: userData.nick || nick,
+        text: text.trim(),
+        createdAt: Date.now(),
+      });
     } catch (e) {
       console.error("[clan/messages]", e);
       res.status(500).json({ error: "Failed to post message" });
@@ -4159,17 +5241,29 @@ async function startServer() {
   app.post("/api/clan/:id/assign-officer", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
       const { targetNick } = req.body || {};
-      if (!targetNick) return res.status(400).json({ error: getErrorMessage("error.clan.missingTarget", (req as any).locale?.locale) });
+      if (!targetNick)
+        return res.status(400).json({
+          error: getErrorMessage("error.clan.missingTarget", (req as any).locale?.locale),
+        });
 
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
-      if (clanData.leaderId !== nick) return res.status(403).json({ error: getErrorMessage("error.clan.notLeader", (req as any).locale?.locale) });
-      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: getErrorMessage("error.clan.memberNotFound", (req as any).locale?.locale) });
+      if (clanData.leaderId !== nick)
+        return res
+          .status(403)
+          .json({ error: getErrorMessage("error.clan.notLeader", (req as any).locale?.locale) });
+      if (!(clanData.memberIds || []).includes(targetNick))
+        return res.status(400).json({
+          error: getErrorMessage("error.clan.memberNotFound", (req as any).locale?.locale),
+        });
 
       await clanRef.collection("members").doc(targetNick).update({ role: "officer" });
       res.json({ success: true });
@@ -4182,24 +5276,40 @@ async function startServer() {
   app.post("/api/clan/:id/transfer-owner", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
       const { targetNick } = req.body || {};
-      if (!targetNick) return res.status(400).json({ error: getErrorMessage("error.clan.missingTarget", (req as any).locale?.locale) });
+      if (!targetNick)
+        return res.status(400).json({
+          error: getErrorMessage("error.clan.missingTarget", (req as any).locale?.locale),
+        });
 
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
       const clanData = clanSnap.data()!;
-      if (clanData.leaderId !== nick) return res.status(403).json({ error: getErrorMessage("error.clan.notLeader", (req as any).locale?.locale) });
-      if (!(clanData.memberIds || []).includes(targetNick)) return res.status(400).json({ error: getErrorMessage("error.clan.memberNotFound", (req as any).locale?.locale) });
+      if (clanData.leaderId !== nick)
+        return res
+          .status(403)
+          .json({ error: getErrorMessage("error.clan.notLeader", (req as any).locale?.locale) });
+      if (!(clanData.memberIds || []).includes(targetNick))
+        return res.status(400).json({
+          error: getErrorMessage("error.clan.memberNotFound", (req as any).locale?.locale),
+        });
 
       await db.runTransaction(async (tx) => {
         tx.update(clanRef, { leaderId: targetNick });
         tx.update(clanRef.collection("members").doc(nick), { role: "officer" });
         tx.update(clanRef.collection("members").doc(targetNick), { role: "owner" });
-        tx.update(db.collection("users").doc(nick).collection("profile").doc("clan"), { role: "officer" });
-        tx.update(db.collection("users").doc(targetNick).collection("profile").doc("clan"), { role: "owner" });
+        tx.update(db.collection("users").doc(nick).collection("profile").doc("clan"), {
+          role: "officer",
+        });
+        tx.update(db.collection("users").doc(targetNick).collection("profile").doc("clan"), {
+          role: "owner",
+        });
       });
 
       res.json({ success: true });
@@ -4212,12 +5322,18 @@ async function startServer() {
   app.delete("/api/clan/:id", requireAuth, async (req, res) => {
     try {
       const nick = (req as any).userNick;
-      const { id } = req.params;
+      const id = getRouteParam(req.params.id);
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
       const clanRef = db.collection("clans").doc(id);
       const clanSnap = await clanRef.get();
-      if (!clanSnap.exists) return res.status(404).json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
-      if (clanSnap.data()!.leaderId !== nick) return res.status(403).json({ error: getErrorMessage("error.clan.notLeaderDisband", (req as any).locale?.locale) });
+      if (!clanSnap.exists)
+        return res
+          .status(404)
+          .json({ error: getErrorMessage("error.clan.notFound", (req as any).locale?.locale) });
+      if (clanSnap.data()!.leaderId !== nick)
+        return res.status(403).json({
+          error: getErrorMessage("error.clan.notLeaderDisband", (req as any).locale?.locale),
+        });
 
       const memberIds: string[] = clanSnap.data()!.memberIds || [];
       await db.runTransaction(async (tx) => {
@@ -4247,7 +5363,12 @@ async function startServer() {
     try {
       const nick = (req as any).userNick;
       if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
-      const profileSnap = await db.collection("users").doc(nick).collection("profile").doc("clan").get();
+      const profileSnap = await db
+        .collection("users")
+        .doc(nick)
+        .collection("profile")
+        .doc("clan")
+        .get();
       if (!profileSnap.exists) return res.json({ inClan: false, clanId: null, role: null });
 
       const { clanId, role, joinedAt } = profileSnap.data()!;
@@ -4284,9 +5405,7 @@ async function startServer() {
 
   // ── SPA fallback + 404 catch-all (must be LAST) ────────────────────────────
   // Layer 2.9 — every unknown /api route returns a localised JSON 404.
-  // Any wrong-method call to a known route gets a localised JSON 405
-  // with an Allow header (computed lazily on first hit). Both behaviours
-  // are registered BOTH in dev (Vite middlewareMode) and production so
+  // This is registered in both dev (Vite middlewareMode) and production so
   // the client `await res.json()` call never blows up with
   // "Unexpected token '<'".
   app.all(/^\/api\/.*/, (req, res, next) => {
@@ -4294,26 +5413,6 @@ async function startServer() {
     // match it. The 404/405 catch-all sits at the very end of the chain.
     if (req.method === "OPTIONS") return next();
 
-    const accepted = new Set<string>();
-    for (const layer of app._router.stack as Array<{ route?: { path: string; methods: Record<string, boolean> }; regexp?: RegExp }>) {
-      if (!layer.route) continue;
-      // Wildcards and params are intentionally conservative.
-      const rp = layer.route.path;
-      if (rp.includes("*") || rp.includes(":")) continue;
-      if (req.path === rp || (rp.endsWith("/") && req.path.startsWith(rp))) {
-        for (const m of Object.keys(layer.route.methods)) accepted.add(m.toUpperCase());
-      }
-    }
-
-    if (accepted.size > 0 && !accepted.has(req.method)) {
-      const allow = Array.from(accepted).sort().join(", ");
-      res.setHeader("Allow", allow);
-      return res.status(405).json({
-        error: "Method Not Allowed",
-        code: "method_not_allowed",
-        allow,
-      });
-    }
     return res.status(404).json({
       error: "Not Found",
       code: "not_found",
@@ -4321,7 +5420,7 @@ async function startServer() {
     });
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -4337,26 +5436,15 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+  return await new Promise<Server>((resolve, reject) => {
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+      resolve(server);
+    });
+    server.once("error", reject);
   });
 }
 
 export { app, startServer };
 
 // ─── Phase 1 helpers: dataset capture ────────────────────────────────────────
-
-/**
- * Build heuristic top-K predictions for waste classification.
- * Gemini doesn't expose logprobs, so we synthesize a softmax-like distribution
- * centered on the predicted category with the given confidence.
- * Real softmax values are stored when available (ONNX pipeline).
- */
-function buildTopKPredictions(topCategory: string, topConfidence: number): Array<{ category: string; prob: number }> {
-  const allCats = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
-  const remaining = (1 - topConfidence) / (allCats.length - 1);
-  return allCats.map((c) => ({
-    category: c,
-    prob: c === topCategory ? Math.round(topConfidence * 1000) / 1000 : Math.round(remaining * 1000) / 1000,
-  }));
-}

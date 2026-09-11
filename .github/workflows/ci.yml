@@ -83,6 +83,7 @@ jobs:
           NODE_ENV: test
           RESEARCH_DB_ENABLED: 'false'
           ADMIN_API_KEY: ci-admin-key
+          BMO_MODEL_HMAC_SECRET: ci-model-hmac-secret-not-for-production
 
   build:
     name: Build (Node ${{ matrix.node }})
@@ -109,6 +110,7 @@ jobs:
         env:
           NODE_ENV: production
           ADMIN_API_KEY: ci-admin-key
+          BMO_MODEL_HMAC_SECRET: ci-model-hmac-secret-not-for-production
 
       - name: Upload build artifacts
         if: github.ref == 'refs/heads/main'
@@ -155,18 +157,18 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Boot server in background
-        run: |
-          node dist/server.cjs &
-          for i in {1..30}; do
-            sleep 1
-            curl -sf http://localhost:3000/api/health && break
-          done
+      - name: Build production bundle
+        env:
+          NODE_ENV: production
+          RESEARCH_DB_ENABLED: 'false'
+          ADMIN_API_KEY: ci-admin-key
+          BMO_MODEL_HMAC_SECRET: ci-model-hmac-secret-not-for-production
+        run: npm run build
 
-      - name: Hit /api/health (must return 200 JSON)
-        run: curl -sf http://localhost:3000/api/health | tee health.json
-
-      - name: Hit admin endpoint with x-admin-key
-        run: |
-          curl -sf -H "x-admin-key: ${{ secrets.ADMIN_API_KEY || 'ci-admin-key' }}" \
-            http://localhost:3000/api/admin/stats | head -c 200
+      - name: Run API contract smoke
+        env:
+          NODE_ENV: production
+          RESEARCH_DB_ENABLED: 'false'
+          ADMIN_API_KEY: ci-admin-key
+          BMO_MODEL_HMAC_SECRET: ci-model-hmac-secret-not-for-production
+        run: npm run smoke -- --no-build

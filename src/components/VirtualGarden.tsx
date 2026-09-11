@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Leaf, Droplets, TreePine, Sprout, Sun, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 
 interface Props {
   points: number;
-  onReward?: (amount: number) => void;
+  onReward?: (claim: GameplayRewardClaim) => void;
 }
 
 export function VirtualGarden({ points, onReward }: Props) {
@@ -59,8 +60,7 @@ export function VirtualGarden({ points, onReward }: Props) {
     const prevCount = parseInt(localStorage.getItem("bmo:pet:moodCount") || "0", 10);
     localStorage.setItem("bmo:pet:moodCount", String(prevCount + 1));
     setPetMood("happy");
-    const bonus = Math.floor(Math.random() * 6) + 3;
-    onReward?.(bonus);
+    onReward?.({ action: "garden_pet" });
   };
 
   const getPetStage = () => {
@@ -68,7 +68,12 @@ export function VirtualGarden({ points, onReward }: Props) {
     if (points < 50)
       return {
         level: 1,
-        icon: <div className="text-gray-800 text-6xl drop-shadow-md grayscale opacity-80 relative">{moodIcon}<span className="absolute -top-1 -right-1 text-xs">{moodIcon}</span></div>,
+        icon: (
+          <div className="text-gray-800 text-6xl drop-shadow-md grayscale opacity-80 relative">
+            {moodIcon}
+            <span className="absolute -top-1 -right-1 text-xs">{moodIcon}</span>
+          </div>
+        ),
         name: "Trứng Rùa Kẹt Rác",
         desc: "Rùa con chưa thể nở vì bãi biển quá nhiều rác nhựa.",
         target: 50,
@@ -76,7 +81,11 @@ export function VirtualGarden({ points, onReward }: Props) {
     if (points < 100)
       return {
         level: 2,
-        icon: <div className="text-emerald-400 text-7xl drop-shadow-lg relative">{petMood === "happy" ? "🐢✨" : petMood === "sad" ? "💧🐢" : "🌿🐢"}</div>,
+        icon: (
+          <div className="text-emerald-400 text-7xl drop-shadow-lg relative">
+            {petMood === "happy" ? "🐢✨" : petMood === "sad" ? "💧🐢" : "🌿🐢"}
+          </div>
+        ),
         name: "Rùa Biển Nhỏ",
         desc: "Tuyệt vời, rùa con đã nở nhờ bạn dọn dẹp bãi biển!",
         target: 100,
@@ -84,14 +93,30 @@ export function VirtualGarden({ points, onReward }: Props) {
     if (points < 200)
       return {
         level: 3,
-        icon: <div className="text-green-500 text-7xl drop-shadow-xl h-16 w-24 flex items-center justify-center text-[80px] relative">🐢{petMood === "happy" && <span className="text-blue-500 text-2xl absolute -top-2 -right-2 animate-pulse">✨</span>}</div>,
+        icon: (
+          <div className="text-green-500 text-7xl drop-shadow-xl h-16 w-24 flex items-center justify-center text-[80px] relative">
+            🐢
+            {petMood === "happy" && (
+              <span className="text-blue-500 text-2xl absolute -top-2 -right-2 animate-pulse">
+                ✨
+              </span>
+            )}
+          </div>
+        ),
         name: "Rùa Biển Khỏe Mạnh",
         desc: "Rùa đang lớn lên trong làn nước sạch bóng.",
         target: 200,
       };
     return {
       level: 4,
-      icon: <div className="text-green-700 text-7xl drop-shadow-2xl h-24 w-32 flex items-center justify-center text-[100px] relative">🐢{petMood === "happy" && <span className="text-yellow-400 text-4xl absolute -top-4 -right-4">👑</span>}</div>,
+      icon: (
+        <div className="text-green-700 text-7xl drop-shadow-2xl h-24 w-32 flex items-center justify-center text-[100px] relative">
+          🐢
+          {petMood === "happy" && (
+            <span className="text-yellow-400 text-4xl absolute -top-4 -right-4">👑</span>
+          )}
+        </div>
+      ),
       name: "Rùa Thần Biển Cả",
       desc: "Thật kỳ diệu! Rùa đã trở thành biểu tượng của đại dương xanh.",
       target: 500,
@@ -103,8 +128,7 @@ export function VirtualGarden({ points, onReward }: Props) {
 
   const handleClean = () => {
     setCleaned(true);
-    const bonus = Math.floor(Math.random() * 11) + 5; // 5-15 EXP
-    onReward?.(bonus);
+    onReward?.({ action: "garden_clean" });
     setTimeout(() => setCleaned(false), 2500);
   };
 
@@ -146,7 +170,6 @@ export function VirtualGarden({ points, onReward }: Props) {
           </p>
 
           <div className="relative h-40 flex items-end justify-center w-full mb-6 relative z-10">
-
             <div className="absolute bottom-0 w-32 h-8 bg-gradient-to-t from-blue-900/40 to-blue-700/10 rounded-[100%] blur-sm pointer-events-none" />
 
             {stage.level === 1 && (
@@ -164,9 +187,21 @@ export function VirtualGarden({ points, onReward }: Props) {
                   exit={{ opacity: 0, scale: 1.2, transition: { duration: 0.3 } }}
                   className="absolute top-0 flex gap-4 text-emerald-400"
                 >
-                  <Sparkles size={24} className="animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <Sparkles size={20} className="animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <Sparkles size={28} className="animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <Sparkles
+                    size={24}
+                    className="animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <Sparkles
+                    size={20}
+                    className="animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <Sparkles
+                    size={28}
+                    className="animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -216,7 +251,9 @@ export function VirtualGarden({ points, onReward }: Props) {
                 transition={{ duration: 0.3 }}
                 className="relative z-20 w-full max-w-[280px] bg-white/90 backdrop-blur-sm border border-blue-200 rounded-xl px-3 py-2 mb-2 shadow-lg text-center"
               >
-                <p className="text-[11px] text-blue-800 font-medium leading-relaxed">🌊 {showFact}</p>
+                <p className="text-[11px] text-blue-800 font-medium leading-relaxed">
+                  🌊 {showFact}
+                </p>
               </motion.div>
             )}
           </AnimatePresence>

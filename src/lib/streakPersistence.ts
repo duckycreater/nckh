@@ -10,10 +10,7 @@ const KEY_PREFIX = "ecoquest_streak_";
 
 export function saveStreakToCache(nickname: string, streakDays: number, lastDate: string) {
   try {
-    localStorage.setItem(
-      `${KEY_PREFIX}${nickname}`,
-      JSON.stringify({ streakDays, lastDate })
-    );
+    localStorage.setItem(`${KEY_PREFIX}${nickname}`, JSON.stringify({ streakDays, lastDate }));
   } catch {
     // localStorage may be unavailable in some environments
   }
@@ -44,5 +41,7 @@ export function isStreakAtRisk(nickname: string): boolean {
 export function clearStreakCache(nickname: string) {
   try {
     localStorage.removeItem(`${KEY_PREFIX}${nickname}`);
-  } catch {}
+  } catch {
+    // Clearing a best-effort browser cache must not break logout.
+  }
 }

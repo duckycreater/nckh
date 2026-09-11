@@ -1,10 +1,44 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Users, Gift, Plus, Trash, LogOut, BarChart3, Search, Shield, RefreshCw, FlaskConical, Eye, Trash2, Ban, Zap, Activity, BookOpen, Database, FileSpreadsheet, Server } from "lucide-react";
+import {
+  Users,
+  Gift,
+  Plus,
+  Trash,
+  LogOut,
+  BarChart3,
+  Search,
+  Shield,
+  RefreshCw,
+  FlaskConical,
+  Eye,
+  Trash2,
+  Ban,
+  Zap,
+  Activity,
+  BookOpen,
+  Database,
+  FileSpreadsheet,
+  Server,
+} from "lucide-react";
 import { User, RewardItem } from "../types";
-import { Badge, Button, Card, EmptyState, FieldLabel, Input, LoadingSpinner, ModalHeader, ModalShell, SectionHeading, TabButton, TextArea } from "../lib/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  FieldLabel,
+  Input,
+  LoadingSpinner,
+  ModalHeader,
+  ModalShell,
+  SectionHeading,
+  TabButton,
+  TextArea,
+} from "../lib/ui";
 import { showToast } from "../lib/toast";
+import { getAuthHeaders } from "../lib/auth";
 import { QuizBuilder } from "./admin/QuizBuilder";
 import { QuizConfigPanel } from "./admin/QuizConfigPanel";
 import { SheetsSyncPanel } from "./admin/SheetsSyncPanel";
@@ -31,15 +65,47 @@ interface UserDetail {
   account_id: string;
   points: number;
   role?: string;
-  profile?: any;
-  interventions?: any[];
-  decay?: any;
+  profile?: UserProfile | null;
+  interventions?: UserIntervention[];
+  decay?: UserDecayState | null;
+}
+
+// User profile from /api/profile/:id
+interface UserProfile {
+  account_id: string;
+  name?: string;
+  nickname?: string;
+  points: number;
+  level?: number;
+  streak_days?: number;
+  created_at?: string;
+  last_active?: string;
+  [key: string]: unknown;
+}
+
+// Intervention record
+interface UserIntervention {
+  id: string;
+  type: string;
+  created_at: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+// User decay state
+interface UserDecayState {
+  level: number;
+  engagement: number;
+  last_decay_detected?: string;
+  [key: string]: unknown;
 }
 
 export function AdminDashboard({ user, onLogout }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"overview" | "rewards" | "users" | "experiments" | "quiz" | "sheets" | "research" | "system">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "rewards" | "users" | "experiments" | "quiz" | "sheets" | "research" | "system"
+  >("overview");
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,40 +117,42 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const [userDetailLoading, setUserDetailLoading] = useState(false);
   const [experiments, setExperiments] = useState<any[]>([]);
   const [expLoading, setExpLoading] = useState(false);
-  const [newExp, setNewExp] = useState({ id: "", name: "", description: "", groups: [{ name: "control", description: "No intervention", ratio: 0.25 }] });
+  const [newExp, setNewExp] = useState({
+    id: "",
+    name: "",
+    description: "",
+    groups: [{ name: "control", description: "No intervention", ratio: 0.25 }],
+  });
   const [showNewExp, setShowNewExp] = useState(false);
   const [showAddReward, setShowAddReward] = useState(false);
   const [newReward, setNewReward] = useState({
-    name: "", desc: "", cost: 1000, imageUrl: "",
+    name: "",
+    desc: "",
+    cost: 1000,
+    imageUrl: "",
     ingredients: "Quà tặng,E-Voucher",
     color: "from-amber-400 to-orange-500",
-    bgClass: "bg-amber-50", borderClass: "border-amber-200",
+    bgClass: "bg-amber-50",
+    borderClass: "border-amber-200",
   });
 
-  const token = localStorage.getItem("auth_token");
-  const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
-  const authHeaders = () => ({
-    headers: {
-      Authorization: token ? `Bearer ${token}` : "",
-      "x-admin-key": adminApiKey,
-    },
-  });
+  // Auth headers - server validates user role from token
+  const authHeaders = useCallback(() => ({ headers: getAuthHeaders() }), []);
 
-  useEffect(() => {
-    loadStats();
-    fetchRewards();
-    fetchUsers();
-    fetchExperiments();
-  }, []);
+  // Default spreadsheet ID - configurable via env var
+  const DEFAULT_SPREADSHEET_ID =
+    (import.meta as any).env?.VITE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/stats", authHeaders());
       if (res.ok) setStats(await res.json());
-    } catch {}
-  };
+    } catch (error) {
+      console.warn("[admin] failed to load stats:", error);
+    }
+  }, [authHeaders]);
 
-  const fetchRewards = async () => {
+  const fetchRewards = useCallback(async () => {
     setLoading(true);
     setLoadingError(null);
     try {
@@ -96,18 +164,18 @@ export function AdminDashboard({ user, onLogout }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/users", authHeaders());
       if (res.ok) setUsers(await res.json());
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [authHeaders]);
 
-  const fetchExperiments = async () => {
+  const fetchExperiments = useCallback(async () => {
     setExpLoading(true);
     try {
       const res = await fetch("/api/experiments", authHeaders());
@@ -117,7 +185,14 @@ export function AdminDashboard({ user, onLogout }: Props) {
     } finally {
       setExpLoading(false);
     }
-  };
+  }, [authHeaders]);
+
+  useEffect(() => {
+    void loadStats();
+    void fetchRewards();
+    void fetchUsers();
+    void fetchExperiments();
+  }, [fetchExperiments, fetchRewards, fetchUsers, loadStats]);
 
   const fetchUserDetail = async (u: User) => {
     setUserDetailLoading(true);
@@ -153,7 +228,11 @@ export function AdminDashboard({ user, onLogout }: Props) {
         setNewReward((prev) => ({ ...prev, imageUrl: data.url }));
         showToast("Ảnh đã sẵn sàng", "Bạn có thể tiếp tục tạo phần thưởng.", "success");
       } else {
-        showToast("Upload chưa thành công", data.error || "Vui lòng thử lại với một hình khác.", "warning");
+        showToast(
+          "Upload chưa thành công",
+          data.error || "Vui lòng thử lại với một hình khác.",
+          "warning",
+        );
       }
     } catch (error) {
       console.error("Failed to upload image", error);
@@ -171,12 +250,20 @@ export function AdminDashboard({ user, onLogout }: Props) {
         desc: newReward.desc,
         cost: Number(newReward.cost),
         imageUrl: newReward.imageUrl,
-        ingredients: newReward.ingredients.split(",").map((s) => s.trim()).filter(Boolean),
+        ingredients: newReward.ingredients
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
         color: newReward.color,
         bgClass: newReward.bgClass,
         borderClass: newReward.borderClass,
       };
-      const res = await fetch("/api/rewards", { ...authHeaders(), method: "POST", headers: { ...authHeaders().headers, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch("/api/rewards", {
+        ...authHeaders(),
+        method: "POST",
+        headers: { ...authHeaders().headers, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || "Không thể lưu phần thưởng");
@@ -186,7 +273,11 @@ export function AdminDashboard({ user, onLogout }: Props) {
       showToast("Đã thêm phần thưởng", "Danh sách quà đã được cập nhật.", "success");
     } catch (error) {
       console.error("Failed to add reward", error);
-      showToast("Không thể thêm phần thưởng", error instanceof Error ? error.message : "Vui lòng kiểm tra dữ liệu rồi thử lại.", "warning");
+      showToast(
+        "Không thể thêm phần thưởng",
+        error instanceof Error ? error.message : "Vui lòng kiểm tra dữ liệu rồi thử lại.",
+        "warning",
+      );
     }
   };
 
@@ -197,30 +288,56 @@ export function AdminDashboard({ user, onLogout }: Props) {
   };
 
   const handleRoleChange = async (nick: string, newRole: string) => {
-    await fetch(`/api/admin/users/${nick}/role`, { ...authHeaders(), method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: newRole }) });
+    await fetch(`/api/admin/users/${nick}/role`, {
+      ...authHeaders(),
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: newRole }),
+    });
     fetchUsers();
-    showToast("Vai trò đã được cập nhật", `Người dùng ${nick} đã chuyển sang ${newRole}.`, "success");
+    showToast(
+      "Vai trò đã được cập nhật",
+      `Người dùng ${nick} đã chuyển sang ${newRole}.`,
+      "success",
+    );
   };
 
   const handlePointsAdjust = async (nick: string, delta: number, reason: string) => {
-    await fetch(`/api/admin/users/${nick}/adjust-points`, { ...authHeaders(), method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delta, reason }) });
+    await fetch(`/api/admin/users/${nick}/adjust-points`, {
+      ...authHeaders(),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ delta, reason }),
+    });
     fetchUsers();
     if (selectedUser?.nick === nick) {
       const updated = users.find((u) => u.nick === nick);
       if (updated) fetchUserDetail(updated);
     }
-    showToast("Điểm đã được điều chỉnh", `${nick} vừa được cập nhật ${delta > 0 ? `+${delta}` : delta} điểm.`, "success");
+    showToast(
+      "Điểm đã được điều chỉnh",
+      `${nick} vừa được cập nhật ${delta > 0 ? `+${delta}` : delta} điểm.`,
+      "success",
+    );
   };
 
   const handleSuspend = async (nick: string, suspended: boolean) => {
-    await fetch(`/api/admin/users/${nick}/suspend`, { ...authHeaders(), method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ suspended }) });
+    await fetch(`/api/admin/users/${nick}/suspend`, {
+      ...authHeaders(),
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ suspended }),
+    });
     fetchUsers();
     setSelectedUser(null);
     showToast(suspended ? "Đã tạm khóa người dùng" : "Đã mở lại quyền truy cập", nick, "warning");
   };
 
   const handleResetProgress = async (nick: string) => {
-    await fetch(`/api/admin/users/${nick}/reset-progress?confirm=true`, { ...authHeaders(), method: "POST" });
+    await fetch(`/api/admin/users/${nick}/reset-progress?confirm=true`, {
+      ...authHeaders(),
+      method: "POST",
+    });
     fetchUsers();
     setSelectedUser(null);
     showToast("Đã reset tiến độ", `Toàn bộ tiến độ của ${nick} đã được làm mới.`, "warning");
@@ -234,11 +351,15 @@ export function AdminDashboard({ user, onLogout }: Props) {
         ...authHeaders(),
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spreadsheetId: "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q" }),
+        body: JSON.stringify({ spreadsheetId: DEFAULT_SPREADSHEET_ID }),
       });
       const data = await res.json();
       if (res.ok) {
-        showToast("Đồng bộ thành công", `Đã sync ${data.totalImported} người dùng từ Google Sheets.`, "success");
+        showToast(
+          "Đồng bộ thành công",
+          `Đã sync ${data.totalImported} người dùng từ Google Sheets.`,
+          "success",
+        );
         fetchUsers();
         loadStats();
       } else {
@@ -259,11 +380,18 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const handleCreateExp = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetch("/api/experiments", {
-      ...authHeaders(), method: "POST", headers: { "Content-Type": "application/json" },
+      ...authHeaders(),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...newExp, metrics: ["engagement", "retention"] }),
     });
     setShowNewExp(false);
-    setNewExp({ id: "", name: "", description: "", groups: [{ name: "control", description: "No intervention", ratio: 0.25 }] });
+    setNewExp({
+      id: "",
+      name: "",
+      description: "",
+      groups: [{ name: "control", description: "No intervention", ratio: 0.25 }],
+    });
     fetchExperiments();
     showToast("Đã tạo thí nghiệm", "Nhóm nghiên cứu đã được cập nhật danh sách mới.", "success");
   };
@@ -274,17 +402,22 @@ export function AdminDashboard({ user, onLogout }: Props) {
     showToast("Trạng thái thí nghiệm đã thay đổi", `${expId}: ${action}`, "info");
   };
 
-  const filteredUsers = users.filter((u) =>
-    (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
-    (u.nick || "").toLowerCase().includes(userSearch.toLowerCase()) ||
-    (u.account_id || "").toLowerCase().includes(userSearch.toLowerCase()),
+  const filteredUsers = users.filter(
+    (u) =>
+      (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.nick || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.account_id || "").toLowerCase().includes(userSearch.toLowerCase()),
   );
 
   const tabs = [
     { id: "overview", label: t("admin.tabs.overview"), icon: <BarChart3 className="h-4 w-4" /> },
     { id: "rewards", label: t("admin.tabs.rewards"), icon: <Gift className="h-4 w-4" /> },
     { id: "users", label: t("admin.tabs.users"), icon: <Users className="h-4 w-4" /> },
-    { id: "experiments", label: t("admin.tabs.experiments"), icon: <FlaskConical className="h-4 w-4" /> },
+    {
+      id: "experiments",
+      label: t("admin.tabs.experiments"),
+      icon: <FlaskConical className="h-4 w-4" />,
+    },
     { id: "quiz", label: t("admin.tabs.quiz"), icon: <BookOpen className="h-4 w-4" /> },
     { id: "sheets", label: t("admin.tabs.sheets"), icon: <FileSpreadsheet className="h-4 w-4" /> },
     { id: "research", label: t("admin.tabs.research"), icon: <Database className="h-4 w-4" /> },
@@ -294,7 +427,6 @@ export function AdminDashboard({ user, onLogout }: Props) {
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
-
         {/* ── Top bar ── */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -302,7 +434,9 @@ export function AdminDashboard({ user, onLogout }: Props) {
               B
             </div>
             <div>
-              <h1 className="text-lg font-black text-[var(--text-primary)]">{t("admin.dashboardTitle", "Dashboard quản trị")}</h1>
+              <h1 className="text-lg font-black text-[var(--text-primary)]">
+                {t("admin.dashboardTitle", "Dashboard quản trị")}
+              </h1>
               <p className="text-xs text-[var(--text-muted)]">{user.name}</p>
             </div>
           </div>
@@ -336,264 +470,420 @@ export function AdminDashboard({ user, onLogout }: Props) {
           </div>
         </Card>
 
-      {activeTab === "overview" && (
-        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                { label: t("admin.totalUsers"), value: stats?.total ?? users.length, tone: "success" as const },
-                { label: t("admin.admins"), value: stats?.admins ?? 0, tone: "accent" as const },
-                { label: t("admin.recentActivity"), value: stats?.activeUsers ?? 0, tone: "warning" as const },
-                { label: t("admin.experimentsActive"), value: stats?.experimentCount ?? experiments.length, tone: "default" as const },
-              ].map((item) => (
-                <Card key={item.label} className="rounded-[26px] p-5">
-                  <Badge tone={item.tone}>{item.label}</Badge>
-                  <p className="mt-4 text-3xl font-black text-slate-900">{item.value}</p>
-                  <p className="mt-2 text-sm text-slate-500">Số liệu được đồng bộ từ các API quản trị hiện có.</p>
-                </Card>
-              ))}
+        {activeTab === "overview" && (
+          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    label: t("admin.totalUsers"),
+                    value: stats?.total ?? users.length,
+                    tone: "success" as const,
+                  },
+                  { label: t("admin.admins"), value: stats?.admins ?? 0, tone: "accent" as const },
+                  {
+                    label: t("admin.recentActivity"),
+                    value: stats?.activeUsers ?? 0,
+                    tone: "warning" as const,
+                  },
+                  {
+                    label: t("admin.experimentsActive"),
+                    value: stats?.experimentCount ?? experiments.length,
+                    tone: "default" as const,
+                  },
+                ].map((item) => (
+                  <Card key={item.label} className="rounded-[26px] p-5">
+                    <Badge tone={item.tone}>{item.label}</Badge>
+                    <p className="mt-4 text-3xl font-black text-slate-900">{item.value}</p>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Số liệu được đồng bộ từ các API quản trị hiện có.
+                    </p>
+                  </Card>
+                ))}
+              </div>
+
+              <Card className="rounded-[28px] p-6">
+                <SectionHeading
+                  eyebrow="Điều phối"
+                  title="Thao tác nhanh"
+                  subtitle="Các lệnh thường dùng để làm mới dữ liệu, cập nhật rewards và đồng bộ nguồn ngoài."
+                />
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <Button onClick={fetchRewards} variant="secondary">
+                    <RefreshCw className="h-4 w-4" /> Làm mới phần thưởng
+                  </Button>
+                  <Button onClick={fetchUsers} variant="ghost">
+                    <Users className="h-4 w-4" /> Làm mới người dùng
+                  </Button>
+                  <Button onClick={handleSyncSheets} loading={syncingSheets}>
+                    <Zap className="h-4 w-4" /> Đồng bộ Google Sheets
+                  </Button>
+                  <Button onClick={() => setShowAddReward(true)} variant="ghost">
+                    <Plus className="h-4 w-4" /> Thêm phần thưởng
+                  </Button>
+                </div>
+              </Card>
             </div>
 
             <Card className="rounded-[28px] p-6">
               <SectionHeading
-                eyebrow="Điều phối"
-                title="Thao tác nhanh"
-                subtitle="Các lệnh thường dùng để làm mới dữ liệu, cập nhật rewards và đồng bộ nguồn ngoài."
+                eyebrow="Tín hiệu hệ thống"
+                title="Bức tranh hoạt động"
+                subtitle="Tóm lược nhanh những gì đang diễn ra để bạn nắm được mức độ sẵn sàng của hệ thống."
               />
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <Button onClick={fetchRewards} variant="secondary"><RefreshCw className="h-4 w-4" /> Làm mới phần thưởng</Button>
-                <Button onClick={fetchUsers} variant="ghost"><Users className="h-4 w-4" /> Làm mới người dùng</Button>
-                <Button onClick={handleSyncSheets} loading={syncingSheets}><Zap className="h-4 w-4" /> Đồng bộ Google Sheets</Button>
-                <Button onClick={() => setShowAddReward(true)} variant="ghost"><Plus className="h-4 w-4" /> Thêm phần thưởng</Button>
+              <div className="mt-5 space-y-3">
+                {[
+                  "Phần user, admin và research đang dùng chung design language mới.",
+                  "Toast đã thay thế dần cho các phản hồi dạng alert cũ.",
+                  "Luồng đồng bộ và cập nhật quyền có thể kiểm soát ngay từ dashboard này.",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600"
+                  >
+                    {item}
+                  </div>
+                ))}
               </div>
             </Card>
           </div>
+        )}
 
+        {activeTab === "rewards" && (
           <Card className="rounded-[28px] p-6">
             <SectionHeading
-              eyebrow="Tín hiệu hệ thống"
-              title="Bức tranh hoạt động"
-              subtitle="Tóm lược nhanh những gì đang diễn ra để bạn nắm được mức độ sẵn sàng của hệ thống."
+              eyebrow="Rewards"
+              title="Kho phần thưởng"
+              subtitle="Quản lý danh sách quà, hình ảnh và mức điểm đổi theo cách trực quan hơn."
+              action={
+                <Button onClick={() => setShowAddReward(true)}>
+                  <Plus className="h-4 w-4" /> Thêm quà
+                </Button>
+              }
             />
-            <div className="mt-5 space-y-3">
-              {[
-                "Phần user, admin và research đang dùng chung design language mới.",
-                "Toast đã thay thế dần cho các phản hồi dạng alert cũ.",
-                "Luồng đồng bộ và cập nhật quyền có thể kiểm soát ngay từ dashboard này.",
-              ].map((item) => (
-                <div key={item} className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-                  {item}
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {activeTab === "rewards" && (
-        <Card className="rounded-[28px] p-6">
-          <SectionHeading
-            eyebrow="Rewards"
-            title="Kho phần thưởng"
-            subtitle="Quản lý danh sách quà, hình ảnh và mức điểm đổi theo cách trực quan hơn."
-            action={<Button onClick={() => setShowAddReward(true)}><Plus className="h-4 w-4" /> Thêm quà</Button>}
-          />
-          {loading ? (
-            <LoadingSpinner message="Đang tải kho phần thưởng" />
-          ) : loadingError ? (
-            <EmptyState title="Không thể tải phần thưởng" subtitle={loadingError} action={{ label: "Thử lại", onClick: fetchRewards }} />
-          ) : rewards.length === 0 ? (
-            <EmptyState title="Chưa có phần thưởng nào" subtitle="Hãy thêm mục mới để người dùng có thêm động lực tích điểm." action={{ label: "Thêm phần thưởng", onClick: () => setShowAddReward(true) }} />
-          ) : (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {rewards.map((reward) => (
-                <Card key={reward.id} className="rounded-[26px] overflow-hidden p-0">
-                  <div className="h-40 bg-slate-100">
-                    {reward.imageUrl ? <img src={reward.imageUrl} alt={reward.name} className="h-full w-full object-cover" /> : null}
-                  </div>
-                  <div className="space-y-3 p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-black text-slate-900">{reward.name}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-500">{reward.desc}</p>
-                      </div>
-                      <Badge tone="warning">{reward.cost} điểm</Badge>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" className="flex-1" onClick={() => handleDeleteReward(reward.id)}><Trash className="h-4 w-4" /> Xóa</Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-
-      {activeTab === "users" && (
-        <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
-          <Card className="rounded-[28px] p-6">
-            <SectionHeading eyebrow="People" title="Danh sách người dùng" subtitle="Tìm nhanh, chọn hồ sơ và thực hiện các thay đổi quan trọng gọn gàng hơn." />
-            <div className="mt-5 rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Tìm theo tên, nick hoặc account id" className="w-full bg-transparent text-sm text-slate-700 outline-none" />
-              </div>
-            </div>
-            <div className="thin-scrollbar mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-              {filteredUsers.map((u) => (
-                <button key={u.account_id} onClick={() => fetchUserDetail(u)} className="w-full rounded-[22px] border border-slate-100 bg-white px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-black text-slate-900">{u.name}</p>
-                      <p className="mt-1 text-sm text-slate-500">@{u.account_id}</p>
-                    </div>
-                    <Badge tone={u.role === "admin" ? "accent" : "default"}>{u.role || "user"}</Badge>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="rounded-[28px] p-6">
-            {userDetailLoading ? (
-              <LoadingSpinner message="Đang tải hồ sơ người dùng" />
-            ) : !selectedUser ? (
-              <EmptyState title="Chưa chọn người dùng" subtitle="Chọn một hồ sơ từ danh sách bên trái để xem chi tiết và thao tác." />
+            {loading ? (
+              <LoadingSpinner message="Đang tải kho phần thưởng" />
+            ) : loadingError ? (
+              <EmptyState
+                title="Không thể tải phần thưởng"
+                subtitle={loadingError}
+                action={{ label: "Thử lại", onClick: fetchRewards }}
+              />
+            ) : rewards.length === 0 ? (
+              <EmptyState
+                title="Chưa có phần thưởng nào"
+                subtitle="Hãy thêm mục mới để người dùng có thêm động lực tích điểm."
+                action={{ label: "Thêm phần thưởng", onClick: () => setShowAddReward(true) }}
+              />
             ) : (
-              <div className="space-y-5">
-                <SectionHeading eyebrow="Chi tiết" title={selectedUser.name} subtitle={`@${selectedUser.account_id} · ${selectedUser.points} điểm`} />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button variant="secondary" onClick={() => handleRoleChange(selectedUser.nick, selectedUser.role === "admin" ? "user" : "admin")}>
-                    <Shield className="h-4 w-4" /> Đổi vai trò
-                  </Button>
-                  <Button variant="ghost" onClick={() => handleTriggerDecay(selectedUser.account_id)}><Activity className="h-4 w-4" /> Kiểm tra suy giảm</Button>
-                  <Button variant="soft" onClick={() => handlePointsAdjust(selectedUser.nick, 20, "Thưởng thủ công")}>+20 điểm</Button>
-                  <Button variant="soft" onClick={() => handlePointsAdjust(selectedUser.nick, -20, "Điều chỉnh thủ công")}>-20 điểm</Button>
-                  <Button variant="ghost" onClick={() => handleSuspend(selectedUser.nick, true)}><Ban className="h-4 w-4" /> Tạm khóa</Button>
-                  <Button variant="danger" onClick={() => handleResetProgress(selectedUser.nick)}><Trash2 className="h-4 w-4" /> Reset tiến độ</Button>
-                </div>
-                <Card className="rounded-[24px] bg-slate-50 p-5">
-                  <p className="text-sm font-semibold text-slate-700">Thông tin hồ sơ và dữ liệu nghiên cứu đang được giữ nguyên theo các endpoint hiện có.</p>
-                </Card>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {rewards.map((reward) => (
+                  <Card key={reward.id} className="rounded-[26px] overflow-hidden p-0">
+                    <div className="h-40 bg-slate-100">
+                      {reward.imageUrl ? (
+                        <img
+                          src={reward.imageUrl}
+                          alt={reward.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="space-y-3 p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-lg font-black text-slate-900">{reward.name}</p>
+                          <p className="mt-1 text-sm leading-6 text-slate-500">{reward.desc}</p>
+                        </div>
+                        <Badge tone="warning">{reward.cost} điểm</Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          className="flex-1"
+                          onClick={() => handleDeleteReward(reward.id)}
+                        >
+                          <Trash className="h-4 w-4" /> Xóa
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
               </div>
             )}
           </Card>
-        </div>
-      )}
+        )}
 
-      {activeTab === "experiments" && (
-        <Card className="rounded-[28px] p-6">
-          <SectionHeading
-            eyebrow="Experiments"
-            title="Điều phối thí nghiệm"
-            subtitle="Theo dõi, tạo mới và quản lý trạng thái các kịch bản nghiên cứu đang chạy."
-            action={<Button onClick={() => setShowNewExp(true)}><Plus className="h-4 w-4" /> Tạo thí nghiệm</Button>}
-          />
-          {expLoading ? (
-            <LoadingSpinner message="Đang tải danh sách thí nghiệm" />
-          ) : experiments.length === 0 ? (
-            <EmptyState title="Chưa có thí nghiệm nào" subtitle="Tạo thí nghiệm mới để bắt đầu theo dõi kết quả." action={{ label: "Tạo thí nghiệm", onClick: () => setShowNewExp(true) }} />
-          ) : (
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              {experiments.map((exp) => (
-                <Card key={exp.id} className="rounded-[26px] p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-lg font-black text-slate-900">{exp.name || exp.id}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-500">{exp.description || "Không có mô tả chi tiết."}</p>
+        {activeTab === "users" && (
+          <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+            <Card className="rounded-[28px] p-6">
+              <SectionHeading
+                eyebrow="People"
+                title="Danh sách người dùng"
+                subtitle="Tìm nhanh, chọn hồ sơ và thực hiện các thay đổi quan trọng gọn gàng hơn."
+              />
+              <div className="mt-5 rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Search className="h-4 w-4 text-slate-400" />
+                  <input
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Tìm theo tên, nick hoặc account id"
+                    className="w-full bg-transparent text-sm text-slate-700 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="thin-scrollbar mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+                {filteredUsers.map((u) => (
+                  <button
+                    key={u.account_id}
+                    onClick={() => fetchUserDetail(u)}
+                    className="w-full rounded-[22px] border border-slate-100 bg-white px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-black text-slate-900">{u.name}</p>
+                        <p className="mt-1 text-sm text-slate-500">@{u.account_id}</p>
+                      </div>
+                      <Badge tone={u.role === "admin" ? "accent" : "default"}>
+                        {u.role || "user"}
+                      </Badge>
                     </div>
-                    <Badge tone="accent">{exp.status || "active"}</Badge>
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="rounded-[28px] p-6">
+              {userDetailLoading ? (
+                <LoadingSpinner message="Đang tải hồ sơ người dùng" />
+              ) : !selectedUser ? (
+                <EmptyState
+                  title="Chưa chọn người dùng"
+                  subtitle="Chọn một hồ sơ từ danh sách bên trái để xem chi tiết và thao tác."
+                />
+              ) : (
+                <div className="space-y-5">
+                  <SectionHeading
+                    eyebrow="Chi tiết"
+                    title={selectedUser.name}
+                    subtitle={`@${selectedUser.account_id} · ${selectedUser.points} điểm`}
+                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        handleRoleChange(
+                          selectedUser.nick,
+                          selectedUser.role === "admin" ? "user" : "admin",
+                        )
+                      }
+                    >
+                      <Shield className="h-4 w-4" /> Đổi vai trò
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleTriggerDecay(selectedUser.account_id)}
+                    >
+                      <Activity className="h-4 w-4" /> Kiểm tra suy giảm
+                    </Button>
+                    <Button
+                      variant="soft"
+                      onClick={() => handlePointsAdjust(selectedUser.nick, 20, "Thưởng thủ công")}
+                    >
+                      +20 điểm
+                    </Button>
+                    <Button
+                      variant="soft"
+                      onClick={() =>
+                        handlePointsAdjust(selectedUser.nick, -20, "Điều chỉnh thủ công")
+                      }
+                    >
+                      -20 điểm
+                    </Button>
+                    <Button variant="ghost" onClick={() => handleSuspend(selectedUser.nick, true)}>
+                      <Ban className="h-4 w-4" /> Tạm khóa
+                    </Button>
+                    <Button variant="danger" onClick={() => handleResetProgress(selectedUser.nick)}>
+                      <Trash2 className="h-4 w-4" /> Reset tiến độ
+                    </Button>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button variant="ghost" onClick={() => handleExpAction(exp.id, "pause")}>Tạm dừng</Button>
-                    <Button variant="ghost" onClick={() => handleExpAction(exp.id, "activate")}>Kích hoạt</Button>
-                    <Button variant="danger" onClick={() => handleExpAction(exp.id, "delete")}>Xóa</Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
+                  <Card className="rounded-[24px] bg-slate-50 p-5">
+                    <p className="text-sm font-semibold text-slate-700">
+                      Thông tin hồ sơ và dữ liệu nghiên cứu đang được giữ nguyên theo các endpoint
+                      hiện có.
+                    </p>
+                  </Card>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
 
-      {activeTab === "quiz" && (
-        <div className="space-y-4">
-          <QuizConfigPanel />
-          <QuizBuilder />
-        </div>
-      )}
+        {activeTab === "experiments" && (
+          <Card className="rounded-[28px] p-6">
+            <SectionHeading
+              eyebrow="Experiments"
+              title="Điều phối thí nghiệm"
+              subtitle="Theo dõi, tạo mới và quản lý trạng thái các kịch bản nghiên cứu đang chạy."
+              action={
+                <Button onClick={() => setShowNewExp(true)}>
+                  <Plus className="h-4 w-4" /> Tạo thí nghiệm
+                </Button>
+              }
+            />
+            {expLoading ? (
+              <LoadingSpinner message="Đang tải danh sách thí nghiệm" />
+            ) : experiments.length === 0 ? (
+              <EmptyState
+                title="Chưa có thí nghiệm nào"
+                subtitle="Tạo thí nghiệm mới để bắt đầu theo dõi kết quả."
+                action={{ label: "Tạo thí nghiệm", onClick: () => setShowNewExp(true) }}
+              />
+            ) : (
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                {experiments.map((exp) => (
+                  <Card key={exp.id} className="rounded-[26px] p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-black text-slate-900">{exp.name || exp.id}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                          {exp.description || "Không có mô tả chi tiết."}
+                        </p>
+                      </div>
+                      <Badge tone="accent">{exp.status || "active"}</Badge>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button variant="ghost" onClick={() => handleExpAction(exp.id, "pause")}>
+                        Tạm dừng
+                      </Button>
+                      <Button variant="ghost" onClick={() => handleExpAction(exp.id, "activate")}>
+                        Kích hoạt
+                      </Button>
+                      <Button variant="danger" onClick={() => handleExpAction(exp.id, "delete")}>
+                        Xóa
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
 
-      {activeTab === "sheets" && <SheetsSyncPanel />}
+        {activeTab === "quiz" && (
+          <div className="space-y-4">
+            <QuizConfigPanel />
+            <QuizBuilder />
+          </div>
+        )}
 
-      {activeTab === "research" && <ResearchPanel />}
+        {activeTab === "sheets" && <SheetsSyncPanel />}
 
-      {activeTab === "system" && <SystemPanel />}
+        {activeTab === "research" && <ResearchPanel />}
 
-      {showAddReward && (
-        <ModalShell onClose={() => setShowAddReward(false)} className="max-w-2xl overflow-hidden p-0" title="Thêm phần thưởng">
-          <ModalHeader
-            title="Thêm phần thưởng mới"
-            subtitle="Tạo thêm phần quà hấp dẫn với mô tả rõ ràng và hình ảnh minh họa nhất quán hơn."
-            badge={<Badge tone="warning">Rewards</Badge>}
+        {activeTab === "system" && <SystemPanel />}
+
+        {showAddReward && (
+          <ModalShell
             onClose={() => setShowAddReward(false)}
-          />
-          <form onSubmit={handleAddReward} className="space-y-4 p-5 sm:p-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <FieldLabel>Tên phần thưởng</FieldLabel>
-                <Input value={newReward.name} onChange={(e) => setNewReward((prev) => ({ ...prev, name: e.target.value }))} />
+            className="max-w-2xl overflow-hidden p-0"
+            title="Thêm phần thưởng"
+          >
+            <ModalHeader
+              title="Thêm phần thưởng mới"
+              subtitle="Tạo thêm phần quà hấp dẫn với mô tả rõ ràng và hình ảnh minh họa nhất quán hơn."
+              badge={<Badge tone="warning">Rewards</Badge>}
+              onClose={() => setShowAddReward(false)}
+            />
+            <form onSubmit={handleAddReward} className="space-y-4 p-5 sm:p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel>Tên phần thưởng</FieldLabel>
+                  <Input
+                    value={newReward.name}
+                    onChange={(e) => setNewReward((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Chi phí</FieldLabel>
+                  <Input
+                    type="number"
+                    value={newReward.cost}
+                    onChange={(e) =>
+                      setNewReward((prev) => ({ ...prev, cost: Number(e.target.value) }))
+                    }
+                  />
+                </div>
               </div>
               <div>
-                <FieldLabel>Chi phí</FieldLabel>
-                <Input type="number" value={newReward.cost} onChange={(e) => setNewReward((prev) => ({ ...prev, cost: Number(e.target.value) }))} />
+                <FieldLabel>Mô tả</FieldLabel>
+                <TextArea
+                  rows={4}
+                  value={newReward.desc}
+                  onChange={(e) => setNewReward((prev) => ({ ...prev, desc: e.target.value }))}
+                />
               </div>
-            </div>
-            <div>
-              <FieldLabel>Mô tả</FieldLabel>
-              <TextArea rows={4} value={newReward.desc} onChange={(e) => setNewReward((prev) => ({ ...prev, desc: e.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>Ảnh phần thưởng</FieldLabel>
-              <input type="file" accept="image/*" onChange={handleImageUpload} />
-              {uploading && <p className="mt-2 text-sm text-slate-500">Đang tải ảnh lên...</p>}
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="ghost" onClick={() => setShowAddReward(false)}>Hủy</Button>
-              <Button type="submit">Lưu phần thưởng</Button>
-            </div>
-          </form>
-        </ModalShell>
-      )}
+              <div>
+                <FieldLabel>Ảnh phần thưởng</FieldLabel>
+                <input type="file" accept="image/*" onChange={handleImageUpload} />
+                {uploading && <p className="mt-2 text-sm text-slate-500">Đang tải ảnh lên...</p>}
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={() => setShowAddReward(false)}>
+                  Hủy
+                </Button>
+                <Button type="submit">Lưu phần thưởng</Button>
+              </div>
+            </form>
+          </ModalShell>
+        )}
 
-      {showNewExp && (
-        <ModalShell onClose={() => setShowNewExp(false)} className="max-w-2xl overflow-hidden p-0" title="Tạo thí nghiệm">
-          <ModalHeader
-            title="Tạo thí nghiệm mới"
-            subtitle="Thiết lập nhanh một thí nghiệm mới để bắt đầu theo dõi tác động và retention."
-            badge={<Badge tone="accent">Research ops</Badge>}
+        {showNewExp && (
+          <ModalShell
             onClose={() => setShowNewExp(false)}
-          />
-          <form onSubmit={handleCreateExp} className="space-y-4 p-5 sm:p-6">
-            <div>
-              <FieldLabel>ID thí nghiệm</FieldLabel>
-              <Input value={newExp.id} onChange={(e) => setNewExp((prev) => ({ ...prev, id: e.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>Tên hiển thị</FieldLabel>
-              <Input value={newExp.name} onChange={(e) => setNewExp((prev) => ({ ...prev, name: e.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>Mô tả</FieldLabel>
-              <TextArea rows={4} value={newExp.description} onChange={(e) => setNewExp((prev) => ({ ...prev, description: e.target.value }))} />
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="ghost" onClick={() => setShowNewExp(false)}>Hủy</Button>
-              <Button type="submit">Tạo thí nghiệm</Button>
-            </div>
-          </form>
-        </ModalShell>
-      )}
+            className="max-w-2xl overflow-hidden p-0"
+            title="Tạo thí nghiệm"
+          >
+            <ModalHeader
+              title="Tạo thí nghiệm mới"
+              subtitle="Thiết lập nhanh một thí nghiệm mới để bắt đầu theo dõi tác động và retention."
+              badge={<Badge tone="accent">Research ops</Badge>}
+              onClose={() => setShowNewExp(false)}
+            />
+            <form onSubmit={handleCreateExp} className="space-y-4 p-5 sm:p-6">
+              <div>
+                <FieldLabel>ID thí nghiệm</FieldLabel>
+                <Input
+                  value={newExp.id}
+                  onChange={(e) => setNewExp((prev) => ({ ...prev, id: e.target.value }))}
+                />
+              </div>
+              <div>
+                <FieldLabel>Tên hiển thị</FieldLabel>
+                <Input
+                  value={newExp.name}
+                  onChange={(e) => setNewExp((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <FieldLabel>Mô tả</FieldLabel>
+                <TextArea
+                  rows={4}
+                  value={newExp.description}
+                  onChange={(e) => setNewExp((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={() => setShowNewExp(false)}>
+                  Hủy
+                </Button>
+                <Button type="submit">Tạo thí nghiệm</Button>
+              </div>
+            </form>
+          </ModalShell>
+        )}
       </div>
     </div>
   );

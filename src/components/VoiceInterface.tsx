@@ -8,7 +8,7 @@
  * Multilingual: Vietnamese (vi-VN) + English (en-US)
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, VolumeX, X, Languages } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -24,12 +24,12 @@ interface Props {
 
 export interface VoiceCommand {
   type:
-    | "classify"       // "phân loại cái này" / "classify this"
-    | "explain"        // "giải thích" / "explain why"
-    | "start_game"     // "bắt đầu game" / "start game"
-    | "show_stats"     // "thống kê" / "show stats"
-    | "open_card"      // "mở thẻ" / "open card"
-    | "help"           // "trợ giúp" / "help"
+    | "classify" // "phân loại cái này" / "classify this"
+    | "explain" // "giải thích" / "explain why"
+    | "start_game" // "bắt đầu game" / "start game"
+    | "show_stats" // "thống kê" / "show stats"
+    | "open_card" // "mở thẻ" / "open card"
+    | "help" // "trợ giúp" / "help"
     | "unknown";
   raw: string;
   lang: Lang;
@@ -47,7 +47,10 @@ const COMMAND_PATTERNS: Record<VoiceCommand["type"], RegExp[]> = {
 };
 
 function detectCommand(text: string): VoiceCommand {
-  for (const [type, patterns] of Object.entries(COMMAND_PATTERNS) as [VoiceCommand["type"], RegExp[]][]) {
+  for (const [type, patterns] of Object.entries(COMMAND_PATTERNS) as [
+    VoiceCommand["type"],
+    RegExp[],
+  ][]) {
     if (type === "unknown") continue;
     for (const p of patterns) {
       if (p.test(text)) {
@@ -58,7 +61,12 @@ function detectCommand(text: string): VoiceCommand {
   return { type: "unknown", raw: text, lang: "vi-VN", confidence: 0 };
 }
 
-export function VoiceInterface({ lang: initialLang = "vi-VN", onTranscript, onCommand, onClose }: Props) {
+export function VoiceInterface({
+  lang: initialLang = "vi-VN",
+  onTranscript,
+  onCommand,
+  onClose,
+}: Props) {
   const { t } = useTranslation();
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -83,7 +91,11 @@ export function VoiceInterface({ lang: initialLang = "vi-VN", onTranscript, onCo
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
-    rec.onresult = (e: any) => {
+    // Use the SpeechRecognitionEvent type from the Web Speech API.
+    // lib.dom doesn't always expose these - fallback to `any` for broader compat.
+    rec.onresult = (e: {
+      results: { length: number; [k: number]: { 0: { transcript: string }; isFinal: boolean } };
+    }) => {
       const last = e.results[e.results.length - 1];
       const text = last[0].transcript;
       setTranscript(text);
@@ -94,7 +106,7 @@ export function VoiceInterface({ lang: initialLang = "vi-VN", onTranscript, onCo
       }
     };
 
-    rec.onerror = (e: any) => {
+    rec.onerror = (e: { error: string }) => {
       console.error("[Voice] Recognition error:", e.error);
       setError(`Lỗi: ${e.error}`);
       setIsListening(false);
@@ -104,35 +116,44 @@ export function VoiceInterface({ lang: initialLang = "vi-VN", onTranscript, onCo
     recognitionRef.current = rec;
 
     return () => {
-      try { rec.stop(); } catch {}
+      try {
+        rec.stop();
+      } catch {
+        // Recognition may already have stopped during teardown.
+      }
     };
   }, [lang, onTranscript, onCommand]);
 
   // ── Speak (TTS) ───────────────────────────────────────────────────────────
-  const speak = (text: string) => {
-    if (!voiceEnabled) return;
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  const speak = useCallback(
+    (text: string) => {
+      if (!voiceEnabled) return;
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = lang;
-    utter.rate = 1.0;
-    utter.pitch = 1.1;
-    utter.volume = 1.0;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 1.0;
+      utter.pitch = 1.1;
+      utter.volume = 1.0;
 
-    utter.onstart = () => setIsSpeaking(true);
-    utter.onend = () => setIsSpeaking(false);
-    utter.onerror = () => setIsSpeaking(false);
+      utter.onstart = () => setIsSpeaking(true);
+      utter.onend = () => setIsSpeaking(false);
+      utter.onerror = () => setIsSpeaking(false);
 
-    synthesisRef.current = utter;
-    window.speechSynthesis.speak(utter);
-  };
+      synthesisRef.current = utter;
+      window.speechSynthesis.speak(utter);
+    },
+    [lang, voiceEnabled],
+  );
 
   // Expose speak globally for other components
   useEffect(() => {
     (window as any).__bmoSpeak = speak;
-    return () => { delete (window as any).__bmoSpeak; };
-  }, [lang, voiceEnabled]);
+    return () => {
+      delete (window as any).__bmoSpeak;
+    };
+  }, [speak]);
 
   // ── Toggle listening ──────────────────────────────────────────────────────
   const toggleListening = () => {

@@ -59,7 +59,7 @@ export function laplaceSample(b: number = 1, bytes?: Buffer): number {
   // Map 32-bit integer to (0, 1) by reserving both boundary values.
   const u01 = (mantissa + 1) / 0x1_0000_0001; // (0, 1)
   const u = u01 - 0.5; // (-0.5, 0.5)
-  return (-b) * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+  return -b * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
 }
 
 /**

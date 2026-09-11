@@ -119,6 +119,12 @@ async function main() {
     PORT: String(PORT),
     NODE_ENV: process.env.NODE_ENV ?? "production",
     ADMIN_API_KEY: ADMIN_KEY,
+    // Production model manifests are HMAC-signed. Smoke uses an isolated,
+    // non-production key when the caller has not supplied one.
+    BMO_MODEL_HMAC_SECRET:
+      process.env.BMO_MODEL_HMAC_SECRET ??
+      process.env.AUTH_SECRET ??
+      "bmo-smoke-model-hmac-secret-not-for-production",
     RESEARCH_DB_ENABLED: process.env.RESEARCH_DB_ENABLED ?? "false",
   };
   const server = spawn(process.execPath, [serverPath], {

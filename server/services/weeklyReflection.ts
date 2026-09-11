@@ -59,7 +59,7 @@ class WeeklyReflectionGenerator {
     try {
       const { rows } = await this.db.query(
         `SELECT DISTINCT user_id FROM behavioral_events WHERE timestamp > $1`,
-        [weekStart.toISOString()]
+        [weekStart.toISOString()],
       );
 
       for (const row of rows) {
@@ -115,49 +115,66 @@ class WeeklyReflectionGenerator {
   private async computeWeeklyStats(
     userId: string,
     weekStart: Date,
-    weekEnd: Date
+    weekEnd: Date,
   ): Promise<WeeklyReflection["stats"]> {
     if (!this.db) {
-      return { pointsEarned: 0, itemsRecycled: 0, challengesCompleted: 0, sessionsCount: 0, streakDays: 0, improvement: 0 };
+      return {
+        pointsEarned: 0,
+        itemsRecycled: 0,
+        challengesCompleted: 0,
+        sessionsCount: 0,
+        streakDays: 0,
+        improvement: 0,
+      };
     }
 
     try {
-      const [pointsData, scanData, challengeData, sessionData, streakData, prevPointsData] = await Promise.all([
-        this.db.query(
-          `SELECT SUM((metadata->>'points_earned')::float) as earned FROM behavioral_events
+      const [pointsData, scanData, challengeData, sessionData, streakData, prevPointsData] =
+        await Promise.all([
+          this.db.query(
+            `SELECT SUM((metadata->>'points_earned')::float) as earned FROM behavioral_events
            WHERE user_id = $1 AND event_type = 'reward_claim' AND timestamp BETWEEN $2 AND $3`,
-          [userId, weekStart.toISOString(), weekEnd.toISOString()]
-        ),
-        this.db.query(
-          `SELECT COUNT(*) as scans FROM behavioral_events
+            [userId, weekStart.toISOString(), weekEnd.toISOString()],
+          ),
+          this.db.query(
+            `SELECT COUNT(*) as scans FROM behavioral_events
            WHERE user_id = $1 AND event_type IN ('scan_success', 'scan_garbage') AND timestamp BETWEEN $2 AND $3`,
-          [userId, weekStart.toISOString(), weekEnd.toISOString()]
-        ),
-        this.db.query(
-          `SELECT COUNT(*) as challenges FROM behavioral_events
+            [userId, weekStart.toISOString(), weekEnd.toISOString()],
+          ),
+          this.db.query(
+            `SELECT COUNT(*) as challenges FROM behavioral_events
            WHERE user_id = $1 AND event_type = 'daily_challenge_complete' AND timestamp BETWEEN $2 AND $3`,
-          [userId, weekStart.toISOString(), weekEnd.toISOString()]
-        ),
-        this.db.query(
-          `SELECT COUNT(*) as sessions FROM research_sessions
+            [userId, weekStart.toISOString(), weekEnd.toISOString()],
+          ),
+          this.db.query(
+            `SELECT COUNT(*) as sessions FROM research_sessions
            WHERE user_id = $1 AND started_at BETWEEN $2 AND $3`,
-          [userId, weekStart.toISOString(), weekEnd.toISOString()]
-        ),
-        this.db.query(
-          `SELECT MAX((metadata->>'streak_days')::int) as streak FROM behavioral_events
+            [userId, weekStart.toISOString(), weekEnd.toISOString()],
+          ),
+          this.db.query(
+            `SELECT MAX((metadata->>'streak_days')::int) as streak FROM behavioral_events
            WHERE user_id = $1 AND event_type = 'streak_update' AND timestamp BETWEEN $2 AND $3`,
-          [userId, weekStart.toISOString(), weekEnd.toISOString()]
-        ),
-        this.db.query(
-          `SELECT SUM((metadata->>'points_earned')::float) as earned FROM behavioral_events
+            [userId, weekStart.toISOString(), weekEnd.toISOString()],
+          ),
+          this.db.query(
+            `SELECT SUM((metadata->>'points_earned')::float) as earned FROM behavioral_events
            WHERE user_id = $1 AND event_type = 'reward_claim' AND timestamp BETWEEN $2 AND $3`,
-          [userId, new Date(weekStart.getTime() - 7 * 86400000).toISOString(), weekStart.toISOString()]
-        ),
-      ]);
+            [
+              userId,
+              new Date(weekStart.getTime() - 7 * 86400000).toISOString(),
+              weekStart.toISOString(),
+            ],
+          ),
+        ]);
 
       const pointsEarned = parseFloat(pointsData.rows[0]?.earned || "0");
       const prevPoints = parseFloat(prevPointsData.rows[0]?.earned || "0");
-      const improvement = prevPoints > 0 ? ((pointsEarned - prevPoints) / prevPoints) * 100 : pointsEarned > 0 ? 100 : 0;
+      const improvement =
+        prevPoints > 0
+          ? ((pointsEarned - prevPoints) / prevPoints) * 100
+          : pointsEarned > 0
+            ? 100
+            : 0;
 
       return {
         pointsEarned: Math.round(pointsEarned),
@@ -169,14 +186,21 @@ class WeeklyReflectionGenerator {
       };
     } catch (e) {
       console.warn("[WeeklyReflection] Failed to compute stats:", (e as Error).message);
-      return { pointsEarned: 0, itemsRecycled: 0, challengesCompleted: 0, sessionsCount: 0, streakDays: 0, improvement: 0 };
+      return {
+        pointsEarned: 0,
+        itemsRecycled: 0,
+        challengesCompleted: 0,
+        sessionsCount: 0,
+        streakDays: 0,
+        improvement: 0,
+      };
     }
   }
 
   private async generateReflection(
     userId: string,
     stats: WeeklyReflection["stats"],
-    weekNumber: number
+    weekNumber: number,
   ): Promise<WeeklyReflection> {
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - 7);
@@ -187,11 +211,12 @@ class WeeklyReflectionGenerator {
 
     if (this.ai) {
       try {
-        const imp = stats.improvement > 0
-          ? `Tang ${stats.improvement}% so voi tuan truoc`
-          : stats.improvement < 0
-          ? `Giam ${Math.abs(stats.improvement)}% so voi tuan truoc`
-          : "Giu nguyen so voi tuan truoc";
+        const imp =
+          stats.improvement > 0
+            ? `Tang ${stats.improvement}% so voi tuan truoc`
+            : stats.improvement < 0
+              ? `Giam ${Math.abs(stats.improvement)}% so voi tuan truoc`
+              : "Giu nguyen so voi tuan truoc";
 
         const prompt = `Ban la Robot Sieu Cap Xanh voi personality "${personality}".
 
@@ -236,11 +261,12 @@ Chu y:
   }
 
   private getDefaultReflection(stats: WeeklyReflection["stats"]): string {
-    const imp = stats.improvement > 0
-      ? `Tang ${stats.improvement}%`
-      : stats.improvement < 0
-      ? `Giam ${Math.abs(stats.improvement)}%`
-      : "Giu nguyen";
+    const imp =
+      stats.improvement > 0
+        ? `Tang ${stats.improvement}%`
+        : stats.improvement < 0
+          ? `Giam ${Math.abs(stats.improvement)}%`
+          : "Giu nguyen";
     return `Tuyet voi! Tuan nay ban kiem duoc ${stats.pointsEarned} diem, hoan thanh ${stats.challengesCompleted} thu thach. Diem so ${imp} so voi tuan truoc. Tiep tuc phat huy!`;
   }
 
@@ -252,7 +278,13 @@ Chu y:
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (user_id, week_number) DO UPDATE SET reflection_text = $2, generated_at = NOW()
          RETURNING id`,
-        [reflection.userId, reflection.reflectionText, reflection.weekNumber, reflection.weekStart, reflection.weekEnd]
+        [
+          reflection.userId,
+          reflection.reflectionText,
+          reflection.weekNumber,
+          reflection.weekStart,
+          reflection.weekEnd,
+        ],
       );
     } catch (e) {
       console.warn("[WeeklyReflection] Failed to save:", (e as Error).message);
@@ -265,7 +297,7 @@ Chu y:
       const { rows } = await this.db.query(
         `SELECT reflection_text, week_number, week_start, week_end, generated_at
          FROM ai_reflections WHERE user_id = $1 ORDER BY generated_at DESC LIMIT 1`,
-        [userId]
+        [userId],
       );
       if (rows.length > 0) {
         const r = rows[0];
@@ -275,7 +307,14 @@ Chu y:
           weekStart: r.week_start,
           weekEnd: r.week_end,
           reflectionText: r.reflection_text,
-          stats: { pointsEarned: 0, itemsRecycled: 0, challengesCompleted: 0, sessionsCount: 0, streakDays: 0, improvement: 0 },
+          stats: {
+            pointsEarned: 0,
+            itemsRecycled: 0,
+            challengesCompleted: 0,
+            sessionsCount: 0,
+            streakDays: 0,
+            improvement: 0,
+          },
         };
       }
     } catch {

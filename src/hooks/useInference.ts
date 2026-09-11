@@ -69,13 +69,16 @@ export function useInference() {
   }, []);
 
   const run = useCallback(
-    async (image: HTMLImageElement | HTMLCanvasElement | ImageBitmap | Blob | string, opts: InferenceOptions) => {
+    async (
+      image: HTMLImageElement | HTMLCanvasElement | ImageBitmap | Blob | string,
+      opts: InferenceOptions,
+    ) => {
       abortRef.current?.abort();
       const ctl = new AbortController();
       abortRef.current = ctl;
-      setState((s) => ({...s, loading: true, error: null}));
+      setState((s) => ({ ...s, loading: true, error: null }));
       try {
-        const r = await runInference(image, {...opts, signal: ctl.signal});
+        const r = await runInference(image, { ...opts, signal: ctl.signal });
         setState((s) => ({
           ...s,
           result: r,
@@ -85,8 +88,8 @@ export function useInference() {
         }));
         return r;
       } catch (e) {
-        if ((e as {name?: string}).name === "AbortError") {
-          setState((s) => ({...s, loading: false}));
+        if ((e as { name?: string }).name === "AbortError") {
+          setState((s) => ({ ...s, loading: false }));
           return null;
         }
         setState((s) => ({

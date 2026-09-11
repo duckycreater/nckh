@@ -9,7 +9,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
 
 let _client: SupabaseClient | null = null;
 
@@ -136,10 +137,12 @@ export interface RewardTransaction {
 export async function upsertResearchUser(userId: string, username: string): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  await sb.from("research_users").upsert(
-    { user_id: userId, username, last_active: new Date().toISOString() },
-    { onConflict: "user_id" }
-  );
+  await sb
+    .from("research_users")
+    .upsert(
+      { user_id: userId, username, last_active: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
 }
 
 // Update the optional profile fields (full_name, class_grade) for a user
@@ -147,7 +150,7 @@ export async function upsertResearchUser(userId: string, username: string): Prom
 // completion popup so legacy users can supply their full name and class.
 export async function updateResearchUserProfile(
   userId: string,
-  fields: { full_name?: string | null; class_grade?: string | null }
+  fields: { full_name?: string | null; class_grade?: string | null },
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -164,7 +167,7 @@ export async function logBehavioralEvent(
   userId: string,
   eventType: string,
   metadata: Record<string, unknown> = {},
-  sessionId?: number
+  sessionId?: number,
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -181,7 +184,7 @@ export async function logBehavioralEvent(
 export async function queryBehavioralEvents(
   userId: string,
   eventType?: string,
-  limit = 50
+  limit = 50,
 ): Promise<BehavioralEvent[]> {
   const sb = getSupabase();
   if (!sb) return [];
@@ -199,13 +202,18 @@ export async function queryBehavioralEvents(
 export async function queryEventCount(userId: string, eventType?: string): Promise<number> {
   const sb = getSupabase();
   if (!sb) return 0;
-  let q = sb.from("behavioral_events").select("id", { count: "exact", head: true }).eq("user_id", userId);
+  let q = sb
+    .from("behavioral_events")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
   if (eventType) q = q.eq("event_type", eventType);
   const { count } = await q;
   return count || 0;
 }
 
-export async function queryRetentionByGroup(experimentId: string): Promise<Record<string, number[]>> {
+export async function queryRetentionByGroup(
+  experimentId: string,
+): Promise<Record<string, number[]>> {
   const sb = getSupabase();
   if (!sb) return {};
   const { data } = await sb
@@ -230,7 +238,11 @@ export async function queryRetentionByGroup(experimentId: string): Promise<Recor
 export async function queryAIScanMetrics(modelType?: string): Promise<AIScanMetric[]> {
   const sb = getSupabase();
   if (!sb) return [];
-  let q = sb.from("ai_scan_metrics").select("*").order("timestamp", { ascending: false }).limit(500);
+  let q = sb
+    .from("ai_scan_metrics")
+    .select("*")
+    .order("timestamp", { ascending: false })
+    .limit(500);
   if (modelType) q = q.eq("model_type", modelType);
   const { data } = await q;
   return (data as AIScanMetric[]) || [];
@@ -248,7 +260,10 @@ export async function queryNoveltyDecay(userId: string, days = 14): Promise<Nove
   return (data as NoveltyDecayLog[]) || [];
 }
 
-export async function queryInterventions(userId: string, limit = 20): Promise<AdaptiveIntervention[]> {
+export async function queryInterventions(
+  userId: string,
+  limit = 20,
+): Promise<AdaptiveIntervention[]> {
   const sb = getSupabase();
   if (!sb) return [];
   const { data } = await sb
@@ -262,7 +277,7 @@ export async function queryInterventions(userId: string, limit = 20): Promise<Ad
 
 export async function querySocialInteractions(
   userId: string,
-  limit = 100
+  limit = 100,
 ): Promise<SocialInteraction[]> {
   const sb = getSupabase();
   if (!sb) return [];
@@ -278,11 +293,16 @@ export async function querySocialInteractions(
 export async function queryResearchUsers(): Promise<ResearchUser[]> {
   const sb = getSupabase();
   if (!sb) return [];
-  const { data } = await sb.from("research_users").select("*").order("last_active", { ascending: false });
+  const { data } = await sb
+    .from("research_users")
+    .select("*")
+    .order("last_active", { ascending: false });
   return (data as ResearchUser[]) || [];
 }
 
-export async function queryExperimentAssignments(experimentId: string): Promise<ExperimentAssignment[]> {
+export async function queryExperimentAssignments(
+  experimentId: string,
+): Promise<ExperimentAssignment[]> {
   const sb = getSupabase();
   if (!sb) return [];
   const { data } = await sb
@@ -294,7 +314,7 @@ export async function queryExperimentAssignments(experimentId: string): Promise<
 
 export async function upsertGroundTruth(
   scanId: number,
-  groundTruthCategory: string
+  groundTruthCategory: string,
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -312,7 +332,7 @@ export async function logRewardTransaction(
     source?: string;
     multiplier?: number;
     pointsBalance?: number;
-  }
+  },
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -329,7 +349,7 @@ export async function logRewardTransaction(
 
 export async function queryRewardTransactions(
   userId: string,
-  limit = 50
+  limit = 50,
 ): Promise<RewardTransaction[]> {
   const sb = getSupabase();
   if (!sb) return [];
@@ -344,7 +364,7 @@ export async function queryRewardTransactions(
 
 export async function queryRewardSummary(
   userId: string,
-  days = 30
+  days = 30,
 ): Promise<{ totalEarned: number; totalSpent: number; netChange: number; txCount: number }> {
   const sb = getSupabase();
   if (!sb) return { totalEarned: 0, totalSpent: 0, netChange: 0, txCount: 0 };
@@ -354,7 +374,8 @@ export async function queryRewardSummary(
     .select("transaction_type, amount")
     .eq("user_id", userId)
     .gte("created_at", since);
-  if (!data || data.length === 0) return { totalEarned: 0, totalSpent: 0, netChange: 0, txCount: 0 };
+  if (!data || data.length === 0)
+    return { totalEarned: 0, totalSpent: 0, netChange: 0, txCount: 0 };
   let totalEarned = 0;
   let totalSpent = 0;
   for (const row of data as { transaction_type: string; amount: number }[]) {

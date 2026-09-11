@@ -15,9 +15,7 @@ import { laplaceSample } from "../../server/services/secureSampling.ts";
 import crypto from "node:crypto";
 
 function laplaceCdf(x: number, mu = 0, b = 1) {
-  return x < mu
-    ? 0.5 * Math.exp((x - mu) / b)
-    : 1 - 0.5 * Math.exp(-(x - mu) / b);
+  return x < mu ? 0.5 * Math.exp((x - mu) / b) : 1 - 0.5 * Math.exp(-(x - mu) / b);
 }
 
 describe("laplaceSample (CSPRNG-backed, Layer 2.5)", () => {

@@ -43,11 +43,17 @@ export interface SignedManifest {
   signature: string;
 }
 
-const HMAC_SECRET =
-  process.env.BMO_MODEL_HMAC_SECRET ||
-  process.env.AUTH_SECRET ||
-  /* Hardcoded fallback so the server boots in dev. NEVER use in prod. */
-  "bmo-dev-model-secret-change-me";
+function resolveHmacSecret(): string {
+  const configured = process.env.BMO_MODEL_HMAC_SECRET || process.env.AUTH_SECRET;
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("BMO_MODEL_HMAC_SECRET or AUTH_SECRET is required in production");
+  }
+  // Development/test fallback only. It is deliberately unreachable in production.
+  return "bmo-dev-model-secret-change-me";
+}
+
+const HMAC_SECRET = resolveHmacSecret();
 
 function canonicalise(value: unknown): string {
   if (value === null || value === undefined) return "null";
@@ -58,7 +64,13 @@ function canonicalise(value: unknown): string {
     const keys = Object.keys(value as Record<string, unknown>)
       .filter((k) => (value as Record<string, unknown>)[k] !== undefined)
       .sort();
-    return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonicalise((value as Record<string, unknown>)[k])).join(",") + "}";
+    return (
+      "{" +
+      keys
+        .map((k) => JSON.stringify(k) + ":" + canonicalise((value as Record<string, unknown>)[k]))
+        .join(",") +
+      "}"
+    );
   }
   return JSON.stringify(String(value));
 }
@@ -106,7 +118,7 @@ class ModelRegistry {
   getSigned(name: string): SignedManifest | null {
     const manifest = this.get(name);
     if (!manifest) return null;
-    return {manifest, signature: signManifest(manifest)};
+    return { manifest, signature: signManifest(manifest) };
   }
 }
 

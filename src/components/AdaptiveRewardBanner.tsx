@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Sparkles, Zap, TrendingUp, X } from "lucide-react";
+import { getAuthHeaders } from "../lib/auth";
 
 interface Intervention {
   intervention_type?: string;
@@ -34,9 +35,9 @@ export function AdaptiveRewardBanner({ userId, className = "" }: AdaptiveRewardB
     const fetchData = async () => {
       try {
         const [interventionsRes, decayRes, reflectionRes] = await Promise.all([
-          fetch(`/api/interventions/${userId}`),
-          fetch(`/api/decay/${userId}`),
-          fetch(`/api/reflection/${userId}`),
+          fetch(`/api/interventions/${userId}`, { headers: getAuthHeaders() }),
+          fetch(`/api/decay/${userId}`, { headers: getAuthHeaders() }),
+          fetch(`/api/reflection/${userId}`, { headers: getAuthHeaders() }),
         ]);
 
         if (!interventionsRes.ok || !decayRes.ok || !reflectionRes.ok) return;
@@ -62,9 +63,15 @@ export function AdaptiveRewardBanner({ userId, className = "" }: AdaptiveRewardB
 
   const recentIntervention = interventions[0];
   const showDecayAlert = decayState?.isDecaying;
-  const isHighRisk = decayState?.decaySeverity === "severe" || decayState?.decaySeverity === "moderate";
+  const isHighRisk =
+    decayState?.decaySeverity === "severe" || decayState?.decaySeverity === "moderate";
 
-  if ((!recentIntervention || interventionDismissed) && (!showDecayAlert || decayDismissed) && (!reflection || reflectionDismissed)) return null;
+  if (
+    (!recentIntervention || interventionDismissed) &&
+    (!showDecayAlert || decayDismissed) &&
+    (!reflection || reflectionDismissed)
+  )
+    return null;
 
   return (
     <div className={`${className}`}>
@@ -96,19 +103,23 @@ export function AdaptiveRewardBanner({ userId, className = "" }: AdaptiveRewardB
 
       {/* Decay Alert */}
       {showDecayAlert && !decayDismissed && (
-        <div className={`rounded-xl p-4 mb-3 border ${
-          isHighRisk
-            ? "bg-red-50 border-red-200"
-            : "bg-amber-50 border-amber-200"
-        }`}>
+        <div
+          className={`rounded-xl p-4 mb-3 border ${
+            isHighRisk ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"
+          }`}
+        >
           <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-lg shrink-0 ${isHighRisk ? "bg-red-100" : "bg-amber-100"}`}>
+            <div
+              className={`p-2 rounded-lg shrink-0 ${isHighRisk ? "bg-red-100" : "bg-amber-100"}`}
+            >
               <TrendingUp size={18} className={isHighRisk ? "text-red-600" : "text-amber-600"} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className={`text-xs font-bold uppercase mb-1 ${isHighRisk ? "text-red-600" : "text-amber-600"}`}>
+                  <p
+                    className={`text-xs font-bold uppercase mb-1 ${isHighRisk ? "text-red-600" : "text-amber-600"}`}
+                  >
                     {isHighRisk ? "Canh Bao" : "Thong Bao"}
                   </p>
                   <p className="text-sm text-gray-700">
@@ -140,9 +151,12 @@ export function AdaptiveRewardBanner({ userId, className = "" }: AdaptiveRewardB
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold text-emerald-600 uppercase mb-1">Uu Dai Dac Biet</p>
+                  <p className="text-xs font-bold text-emerald-600 uppercase mb-1">
+                    Uu Dai Dac Biet
+                  </p>
                   <p className="text-sm text-gray-700 capitalize">
-                    {recentIntervention.intervention_type?.replace(/_/g, " ")} - duoc kich hoat tu dong!
+                    {recentIntervention.intervention_type?.replace(/_/g, " ")} - duoc kich hoat tu
+                    dong!
                   </p>
                 </div>
                 <button

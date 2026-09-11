@@ -10,11 +10,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  type LocalUpdate,
-  type TrainingSample,
-} from "../services/federatedTypes";
-import type {WorkerInbound, WorkerOutbound} from "../workers/federatedWorker";
+import { getAuthToken } from "../lib/auth";
+import { type LocalUpdate, type TrainingSample } from "../services/federatedTypes";
+import type { WorkerInbound, WorkerOutbound } from "../workers/federatedWorker";
 
 const TRIGGER_EVERY = 50; // plan §3: train after every 50 valid scans
 
@@ -28,7 +26,9 @@ interface Stats {
 }
 
 const API_BASE =
-  (typeof import.meta !== "undefined" && (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) || "";
+  (typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) ||
+  "";
 
 interface Options {
   clipNorm?: number;
@@ -38,12 +38,7 @@ interface Options {
 }
 
 export function useFederatedTraining(opts: Options = {}) {
-  const {
-    clipNorm = 1.0,
-    sigma = 0.05,
-    epochs = 1,
-    endpoint = "/api/federated/submit",
-  } = opts;
+  const { clipNorm = 1.0, sigma = 0.05, epochs = 1, endpoint = "/api/federated/submit" } = opts;
 
   const [stats, setStats] = useState<Stats>({
     contributed: 0,
@@ -60,19 +55,18 @@ export function useFederatedTraining(opts: Options = {}) {
   useEffect(() => {
     if (typeof Worker === "undefined") return; // SSR / tests
 
-    const worker = new Worker(
-      new URL("../workers/federatedWorker.ts", import.meta.url),
-      {type: "module"},
-    );
+    const worker = new Worker(new URL("../workers/federatedWorker.ts", import.meta.url), {
+      type: "module",
+    });
 
     const onMessage = (event: MessageEvent<WorkerOutbound>) => {
       const msg = event.data;
       if (msg.type === "progress") {
-        setStats((s) => ({...s, lastEpochLoss: msg.loss}));
+        setStats((s) => ({ ...s, lastEpochLoss: msg.loss }));
       } else if (msg.type === "done") {
         void submitUpdate(msg.update);
       } else if (msg.type === "error") {
-        setStats((s) => ({...s, running: false, error: msg.message}));
+        setStats((s) => ({ ...s, running: false, error: msg.message }));
       }
     };
 
@@ -87,31 +81,31 @@ export function useFederatedTraining(opts: Options = {}) {
 
   const queueSample = useCallback((sample: TrainingSample) => {
     queueRef.current.push(sample);
-    setStats((s) => ({...s, queueLength: queueRef.current.length}));
+    setStats((s) => ({ ...s, queueLength: queueRef.current.length }));
   }, []);
 
   const submitIfReady = useCallback(() => {
     if (queueRef.current.length < TRIGGER_EVERY) return false;
     const samples = queueRef.current.splice(0, TRIGGER_EVERY);
-    setStats((s) => ({...s, queueLength: queueRef.current.length, running: true}));
+    setStats((s) => ({ ...s, queueLength: queueRef.current.length, running: true }));
     const w = workerRef.current;
     if (!w) {
-      setStats((s) => ({...s, running: false, error: "Worker unavailable"}));
+      setStats((s) => ({ ...s, running: false, error: "Worker unavailable" }));
       return false;
     }
-    const start: WorkerInbound = {type: "start", samples, epochs, clipNorm, sigma};
+    const start: WorkerInbound = { type: "start", samples, epochs, clipNorm, sigma };
     w.postMessage(start);
     return true;
   }, [clipNorm, epochs, sigma]);
 
   async function submitUpdate(update: LocalUpdate): Promise<void> {
     try {
-      const token = typeof localStorage !== "undefined" ? (localStorage.getItem("bmo_token") || "") : "";
+      const token = typeof localStorage !== "undefined" ? getAuthToken() : "";
       const r = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? {Authorization: `Bearer ${token}`} : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(update),
       });
@@ -124,7 +118,7 @@ export function useFederatedTraining(opts: Options = {}) {
         error: ok ? null : `HTTP ${r.status}`,
       }));
     } catch (e) {
-      setStats((s) => ({...s, running: false, error: (e as Error).message}));
+      setStats((s) => ({ ...s, running: false, error: (e as Error).message }));
     }
   }
 
@@ -132,5 +126,5 @@ export function useFederatedTraining(opts: Options = {}) {
     return submitIfReady();
   }, [submitIfReady]);
 
-  return {stats, queueSample, submitIfReady, flush};
+  return { stats, queueSample, submitIfReady, flush };
 }

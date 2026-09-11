@@ -57,8 +57,8 @@ export interface RushResult {
   avgReactionTime: number;
   bonusMultiplier: number;
   bmoResult: import("./bmoCare.js").BmoInteractionResult;
-  rank: number;          // rank among today's challengers
-  percentile: number;      // top X%
+  rank: number; // rank among today's challengers
+  percentile: number; // top X%
 }
 
 export const RUSH_CATEGORIES: Record<WasteCategory, { binColor: string; binEmoji: string }> = {
@@ -72,46 +72,326 @@ export const RUSH_CATEGORIES: Record<WasteCategory, { binColor: string; binEmoji
 
 export const RUSH_ITEMS: RushItem[] = [
   // PLASTIC
-  { id: "r1", name: "Chai nhựa PET", emoji: "🧴", category: "plastic", correctBin: "plastic", hint: "Nhựa có ký hiệu ♻️", difficulty: "easy" },
-  { id: "r2", name: "Túi nilon", emoji: "🛍️", category: "plastic", correctBin: "plastic", hint: "Nhựa mềm", difficulty: "easy" },
-  { id: "r3", name: "Ống hút nhựa", emoji: "🥤", category: "plastic", correctBin: "plastic", hint: "Nhựa dùng một lần", difficulty: "easy" },
-  { id: "r4", name: "Nắp chai nhựa", emoji: "🔹", category: "plastic", correctBin: "plastic", hint: "Nhựa có thể tái chế", difficulty: "easy" },
-  { id: "r5", name: "Hộp cơm nhựa", emoji: "🥡", category: "plastic", correctBin: "plastic", hint: "Hộp nhựa dùng một lần", difficulty: "easy" },
-  { id: "r6", name: "Bình xịt nước", emoji: "🚿", category: "plastic", correctBin: "hazard", hint: "Có hóa chất bên trong", difficulty: "hard" },
-  { id: "r7", name: "Bong bóng", emoji: "🎈", category: "plastic", correctBin: "plastic", hint: "Nhựa mỏng", difficulty: "easy" },
-  { id: "r8", name: "Vỏ bút chì", emoji: "✏️", category: "plastic", correctBin: "plastic", hint: "Vỏ nhựa bút", difficulty: "easy" },
+  {
+    id: "r1",
+    name: "Chai nhựa PET",
+    emoji: "🧴",
+    category: "plastic",
+    correctBin: "plastic",
+    hint: "Nhựa có ký hiệu ♻️",
+    difficulty: "easy",
+  },
+  {
+    id: "r2",
+    name: "Túi nilon",
+    emoji: "🛍️",
+    category: "plastic",
+    correctBin: "plastic",
+    hint: "Nhựa mềm",
+    difficulty: "easy",
+  },
+  {
+    id: "r3",
+    name: "Ống hút nhựa",
+    emoji: "🥤",
+    category: "plastic",
+    correctBin: "plastic",
+    hint: "Nhựa dùng một lần",
+    difficulty: "easy",
+  },
+  {
+    id: "r4",
+    name: "Nắp chai nhựa",
+    emoji: "🔹",
+    category: "plastic",
+    correctBin: "plastic",
+    hint: "Nhựa có thể tái chế",
+    difficulty: "easy",
+  },
+  {
+    id: "r5",
+    name: "Hộp cơm nhựa",
+    emoji: "🥡",
+    category: "plastic",
+    correctBin: "plastic",
+    hint: "Hộp nhựa dùng một lần",
+    difficulty: "easy",
+  },
+  {
+    id: "r6",
+    name: "Bình xịt nước",
+    emoji: "🚿",
+    category: "plastic",
+    correctBin: "hazard",
+    hint: "Có hóa chất bên trong",
+    difficulty: "hard",
+  },
+  {
+    id: "r7",
+    name: "Bong bóng",
+    emoji: "🎈",
+    category: "plastic",
+    correctBin: "plastic",
+    hint: "Nhựa mỏng",
+    difficulty: "easy",
+  },
+  {
+    id: "r8",
+    name: "Vỏ bút chì",
+    emoji: "✏️",
+    category: "plastic",
+    correctBin: "plastic",
+    hint: "Vỏ nhựa bút",
+    difficulty: "easy",
+  },
   // PAPER
-  { id: "r9", name: "Giấy báo", emoji: "📰", category: "paper", correctBin: "paper", hint: "Giấy tái chế được", difficulty: "easy" },
-  { id: "r10", name: "Sách giáo khoa", emoji: "📚", category: "paper", correctBin: "paper", hint: "Sách cũ có thể tái sử dụng", difficulty: "easy" },
-  { id: "r11", name: "Giấy gói quà", emoji: "🎁", category: "paper", correctBin: "paper", hint: "Giấy trang trí", difficulty: "easy" },
-  { id: "r12", name: "Giấy ăn", emoji: "🧻", category: "paper", correctBin: "organic", hint: "Đã sử dụng, ướt", difficulty: "medium" },
-  { id: "r13", name: "Giấy lót", emoji: "🥧", category: "paper", correctBin: "organic", hint: "Dính dầu/thức ăn", difficulty: "medium" },
-  { id: "r14", name: "Sách nấu ăn", emoji: "🍳", category: "paper", correctBin: "paper", hint: "Sách giấy", difficulty: "easy" },
-  { id: "r15", name: "Bìa cứng", emoji: "📦", category: "paper", correctBin: "paper", hint: "Carton có thể tái chế", difficulty: "easy" },
+  {
+    id: "r9",
+    name: "Giấy báo",
+    emoji: "📰",
+    category: "paper",
+    correctBin: "paper",
+    hint: "Giấy tái chế được",
+    difficulty: "easy",
+  },
+  {
+    id: "r10",
+    name: "Sách giáo khoa",
+    emoji: "📚",
+    category: "paper",
+    correctBin: "paper",
+    hint: "Sách cũ có thể tái sử dụng",
+    difficulty: "easy",
+  },
+  {
+    id: "r11",
+    name: "Giấy gói quà",
+    emoji: "🎁",
+    category: "paper",
+    correctBin: "paper",
+    hint: "Giấy trang trí",
+    difficulty: "easy",
+  },
+  {
+    id: "r12",
+    name: "Giấy ăn",
+    emoji: "🧻",
+    category: "paper",
+    correctBin: "organic",
+    hint: "Đã sử dụng, ướt",
+    difficulty: "medium",
+  },
+  {
+    id: "r13",
+    name: "Giấy lót",
+    emoji: "🥧",
+    category: "paper",
+    correctBin: "organic",
+    hint: "Dính dầu/thức ăn",
+    difficulty: "medium",
+  },
+  {
+    id: "r14",
+    name: "Sách nấu ăn",
+    emoji: "🍳",
+    category: "paper",
+    correctBin: "paper",
+    hint: "Sách giấy",
+    difficulty: "easy",
+  },
+  {
+    id: "r15",
+    name: "Bìa cứng",
+    emoji: "📦",
+    category: "paper",
+    correctBin: "paper",
+    hint: "Carton có thể tái chế",
+    difficulty: "easy",
+  },
   // GLASS
-  { id: "r16", name: "Chai bia", emoji: "🍺", category: "glass", correctBin: "glass", hint: "Thủy tinh có thể tái chế", difficulty: "easy" },
-  { id: "r17", name: "Chai nước ngọt", emoji: "🥤", category: "glass", correctBin: "glass", hint: "Chai thủy tinh", difficulty: "easy" },
-  { id: "r18", name: "Lọ hoa", emoji: "🏺", category: "glass", correctBin: "glass", hint: "Đồ thủy tinh trang trí", difficulty: "easy" },
-  { id: "r19", name: "Bóng đèn", emoji: "💡", category: "glass", correctBin: "hazard", hint: "Có thể chứa thủy ngân", difficulty: "medium" },
-  { id: "r20", name: "Kính mắt", emoji: "👓", category: "glass", correctBin: "hazard", hint: "Cần xử lý đặc biệt", difficulty: "hard" },
+  {
+    id: "r16",
+    name: "Chai bia",
+    emoji: "🍺",
+    category: "glass",
+    correctBin: "glass",
+    hint: "Thủy tinh có thể tái chế",
+    difficulty: "easy",
+  },
+  {
+    id: "r17",
+    name: "Chai nước ngọt",
+    emoji: "🥤",
+    category: "glass",
+    correctBin: "glass",
+    hint: "Chai thủy tinh",
+    difficulty: "easy",
+  },
+  {
+    id: "r18",
+    name: "Lọ hoa",
+    emoji: "🏺",
+    category: "glass",
+    correctBin: "glass",
+    hint: "Đồ thủy tinh trang trí",
+    difficulty: "easy",
+  },
+  {
+    id: "r19",
+    name: "Bóng đèn",
+    emoji: "💡",
+    category: "glass",
+    correctBin: "hazard",
+    hint: "Có thể chứa thủy ngân",
+    difficulty: "medium",
+  },
+  {
+    id: "r20",
+    name: "Kính mắt",
+    emoji: "👓",
+    category: "glass",
+    correctBin: "hazard",
+    hint: "Cần xử lý đặc biệt",
+    difficulty: "hard",
+  },
   // METAL
-  { id: "r21", name: "Lon nước ngọt", emoji: "🥫", category: "metal", correctBin: "metal", hint: "Hộp kim loại có thể tái chế", difficulty: "easy" },
-  { id: "r22", name: "Nắp chai sắt", emoji: "🔩", category: "metal", correctBin: "metal", hint: "Sắt/kim loại", difficulty: "easy" },
-  { id: "r23", name: "Đỡ giày", emoji: "👟", category: "metal", correctBin: "plastic", hint: "Đế giày bằng cao su", difficulty: "medium" },
-  { id: "r24", name: "Pin", emoji: "🔋", category: "metal", correctBin: "hazard", hint: "Có chất độc hại", difficulty: "medium" },
-  { id: "r25", name: "Kem tiêm", emoji: "💉", category: "metal", correctBin: "hazard", hint: "Vật y tế nguy hiểm", difficulty: "hard" },
+  {
+    id: "r21",
+    name: "Lon nước ngọt",
+    emoji: "🥫",
+    category: "metal",
+    correctBin: "metal",
+    hint: "Hộp kim loại có thể tái chế",
+    difficulty: "easy",
+  },
+  {
+    id: "r22",
+    name: "Nắp chai sắt",
+    emoji: "🔩",
+    category: "metal",
+    correctBin: "metal",
+    hint: "Sắt/kim loại",
+    difficulty: "easy",
+  },
+  {
+    id: "r23",
+    name: "Đỡ giày",
+    emoji: "👟",
+    category: "metal",
+    correctBin: "plastic",
+    hint: "Đế giày bằng cao su",
+    difficulty: "medium",
+  },
+  {
+    id: "r24",
+    name: "Pin",
+    emoji: "🔋",
+    category: "metal",
+    correctBin: "hazard",
+    hint: "Có chất độc hại",
+    difficulty: "medium",
+  },
+  {
+    id: "r25",
+    name: "Kem tiêm",
+    emoji: "💉",
+    category: "metal",
+    correctBin: "hazard",
+    hint: "Vật y tế nguy hiểm",
+    difficulty: "hard",
+  },
   // ORGANIC
-  { id: "r26", name: "Vỏ cam", emoji: "🍊", category: "organic", correctBin: "organic", hint: "Phế phẩm nông nghiệp", difficulty: "easy" },
-  { id: "r27", name: "Vỏ chuối", emoji: "🍌", category: "organic", correctBin: "organic", hint: "Rác hữu cơ", difficulty: "easy" },
-  { id: "r28", name: "Lá cây", emoji: "🍂", category: "organic", correctBin: "organic", hint: "Phân compost được", difficulty: "easy" },
-  { id: "r29", name: "Xương gà", emoji: "🍗", category: "organic", correctBin: "organic", hint: "Thức ăn thừa", difficulty: "easy" },
-  { id: "r30", name: "Vỏ trứng", emoji: "🥚", category: "organic", correctBin: "organic", hint: "Có thể làm phân bón", difficulty: "easy" },
+  {
+    id: "r26",
+    name: "Vỏ cam",
+    emoji: "🍊",
+    category: "organic",
+    correctBin: "organic",
+    hint: "Phế phẩm nông nghiệp",
+    difficulty: "easy",
+  },
+  {
+    id: "r27",
+    name: "Vỏ chuối",
+    emoji: "🍌",
+    category: "organic",
+    correctBin: "organic",
+    hint: "Rác hữu cơ",
+    difficulty: "easy",
+  },
+  {
+    id: "r28",
+    name: "Lá cây",
+    emoji: "🍂",
+    category: "organic",
+    correctBin: "organic",
+    hint: "Phân compost được",
+    difficulty: "easy",
+  },
+  {
+    id: "r29",
+    name: "Xương gà",
+    emoji: "🍗",
+    category: "organic",
+    correctBin: "organic",
+    hint: "Thức ăn thừa",
+    difficulty: "easy",
+  },
+  {
+    id: "r30",
+    name: "Vỏ trứng",
+    emoji: "🥚",
+    category: "organic",
+    correctBin: "organic",
+    hint: "Có thể làm phân bón",
+    difficulty: "easy",
+  },
   // HAZARD
-  { id: "r31", name: "Pin", emoji: "🔋", category: "hazard", correctBin: "hazard", hint: "Rác điện tử nguy hại", difficulty: "medium" },
-  { id: "r32", name: "Bóng đèn huỳnh quang", emoji: "💡", category: "hazard", correctBin: "hazard", hint: "Có thủy ngân", difficulty: "medium" },
-  { id: "r33", name: "Sơn", emoji: "🎨", category: "hazard", correctBin: "hazard", hint: "Hóa chất độc hại", difficulty: "medium" },
-  { id: "r34", name: "Thuốc trừ sâu", emoji: "☠️", category: "hazard", correctBin: "hazard", hint: "Hóa chất nguy hiểm", difficulty: "hard" },
-  { id: "r35", name: "Lọ thuốc hết hạn", emoji: "💊", category: "hazard", correctBin: "hazard", hint: "Thuốc không dùng được", difficulty: "medium" },
+  {
+    id: "r31",
+    name: "Pin",
+    emoji: "🔋",
+    category: "hazard",
+    correctBin: "hazard",
+    hint: "Rác điện tử nguy hại",
+    difficulty: "medium",
+  },
+  {
+    id: "r32",
+    name: "Bóng đèn huỳnh quang",
+    emoji: "💡",
+    category: "hazard",
+    correctBin: "hazard",
+    hint: "Có thủy ngân",
+    difficulty: "medium",
+  },
+  {
+    id: "r33",
+    name: "Sơn",
+    emoji: "🎨",
+    category: "hazard",
+    correctBin: "hazard",
+    hint: "Hóa chất độc hại",
+    difficulty: "medium",
+  },
+  {
+    id: "r34",
+    name: "Thuốc trừ sâu",
+    emoji: "☠️",
+    category: "hazard",
+    correctBin: "hazard",
+    hint: "Hóa chất nguy hiểm",
+    difficulty: "hard",
+  },
+  {
+    id: "r35",
+    name: "Lọ thuốc hết hạn",
+    emoji: "💊",
+    category: "hazard",
+    correctBin: "hazard",
+    hint: "Thuốc không dùng được",
+    difficulty: "medium",
+  },
 ];
 
 const RUSH_DURATION_MS = 60_000;
@@ -185,7 +465,7 @@ class WasteRush {
   submitAnswer(
     sessionId: string,
     userAnswer: WasteCategory,
-    reactionTimeMs: number
+    reactionTimeMs: number,
   ): {
     correct: boolean;
     session: RushSession;
@@ -207,7 +487,9 @@ class WasteRush {
         session.odMaxCombo = session.odCombo;
       }
       const comboMult = getComboMultiplier(session.odCombo);
-      const timeBonus = getTimeBonus(RUSH_DURATION_MS - (Date.now() - session.odStartTime.getTime()));
+      const timeBonus = getTimeBonus(
+        RUSH_DURATION_MS - (Date.now() - session.odStartTime.getTime()),
+      );
       const points = Math.round(BASE_POINTS * comboMult * timeBonus);
       session.odScore += points;
       session.odTimeBonus += timeBonus;
@@ -220,7 +502,8 @@ class WasteRush {
 
     // Check if session is over
     const elapsed = Date.now() - session.odStartTime.getTime();
-    const isSessionOver = elapsed >= RUSH_DURATION_MS || session.odCurrentIndex >= session.odItems.length;
+    const isSessionOver =
+      elapsed >= RUSH_DURATION_MS || session.odCurrentIndex >= session.odItems.length;
 
     if (isSessionOver) {
       session.odFinished = true;
@@ -232,7 +515,13 @@ class WasteRush {
     return {
       correct,
       session,
-      pointsEarned: correct ? Math.round(BASE_POINTS * getComboMultiplier(correct ? session.odCombo : 0) * getTimeBonus(RUSH_DURATION_MS - elapsed)) : 0,
+      pointsEarned: correct
+        ? Math.round(
+            BASE_POINTS *
+              getComboMultiplier(correct ? session.odCombo : 0) *
+              getTimeBonus(RUSH_DURATION_MS - elapsed),
+          )
+        : 0,
       newCombo: session.odCombo,
       isSessionOver,
       currentItem: isSessionOver ? null : session.odItems[session.odCurrentIndex],
@@ -292,7 +581,9 @@ class WasteRush {
   /**
    * Get today's top Rush scores.
    */
-  async getTodayLeaderboard(limit = 10): Promise<Array<{ odUserId: string; odScore: number; timestamp: Date }>> {
+  async getTodayLeaderboard(
+    limit = 10,
+  ): Promise<Array<{ odUserId: string; odScore: number; timestamp: Date }>> {
     if (!this.db) return [];
     try {
       const today = new Date();
@@ -305,7 +596,7 @@ class WasteRush {
          GROUP BY user_id
          ORDER BY best_score DESC
          LIMIT $2`,
-        [today, limit]
+        [today, limit],
       );
       return rows.map((r) => ({
         odUserId: r.user_id,
@@ -317,7 +608,10 @@ class WasteRush {
     }
   }
 
-  private async getTodayRanking(userId: string, score: number): Promise<{ rank: number; percentile: number }> {
+  private async getTodayRanking(
+    userId: string,
+    score: number,
+  ): Promise<{ rank: number; percentile: number }> {
     if (!this.db) return { rank: 1, percentile: 100 };
     try {
       const today = new Date();
@@ -325,7 +619,7 @@ class WasteRush {
       const { rows } = await this.db.query(
         `SELECT COUNT(DISTINCT user_id) as total FROM behavioral_events
          WHERE event_type = 'waste_rush_complete' AND timestamp >= $1`,
-        [today]
+        [today],
       );
       const total = parseInt(rows[0]?.total || "0");
       const { rows: rankRows } = await this.db.query(
@@ -335,7 +629,7 @@ class WasteRush {
            WHERE event_type = 'waste_rush_complete' AND timestamp >= $1
            GROUP BY user_id
          ) sub WHERE best_score > $2`,
-        [today, score]
+        [today, score],
       );
       const above = parseInt(rankRows[0]?.above || "0");
       const rank = above + 1;
@@ -355,8 +649,15 @@ class WasteRush {
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
          ON CONFLICT (session_id) DO UPDATE SET
            score = $3, correct = $4, wrong = $5, max_combo = $6, finished_at = NOW()`,
-        [session.sessionId, session.odUserId, session.odFinalScore,
-         session.odCorrect, session.odWrong, session.odMaxCombo, RUSH_DURATION_MS]
+        [
+          session.sessionId,
+          session.odUserId,
+          session.odFinalScore,
+          session.odCorrect,
+          session.odWrong,
+          session.odMaxCombo,
+          RUSH_DURATION_MS,
+        ],
       );
     } catch (e) {
       console.warn("[WasteRush] Failed to save session:", (e as Error).message);
@@ -367,7 +668,7 @@ class WasteRush {
     try {
       const { rows } = await this.db!.query(
         `SELECT streak_days FROM user_progress WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       return rows[0]?.streak_days || 1;
     } catch {
@@ -383,7 +684,7 @@ class WasteRush {
       const { rows } = await this.db.query(
         `SELECT COUNT(*) FROM behavioral_events
          WHERE user_id = $1 AND event_type = 'waste_rush_complete' AND timestamp >= $2`,
-        [userId, today]
+        [userId, today],
       );
       return parseInt(rows[0]?.count || "0") === 0;
     } catch {

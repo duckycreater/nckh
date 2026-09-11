@@ -2,13 +2,11 @@
  * modelRegistry.ts — Client-side cache of signed model manifests.
  *
  * The server (server/services/modelRegistry.ts) is the source of truth.
- * Clients fetch `/api/models/:name` once, verify the HMAC signature
- * using the same secret, and store the manifest in localStorage so
- * the next launch can resolve a model offline.
- *
- * The client stores the HMAC secret? **No.** It only verifies
- * manifests when they're served by an authenticated channel (HTTPS +
- * same origin). For offline use we trust the locally cached manifest.
+ * Clients cache the manifest locally and verify the SHA-256 digest of the
+ * downloaded model bytes before passing them to ONNX Runtime. The server-side
+ * HMAC is intentionally not reproduced in the browser: a browser cannot keep
+ * an HMAC secret, and a production secret would make the old client fallback
+ * reject valid manifests.
  */
 
 import type { ModelFramework } from "./modelRegistry.types";
@@ -47,53 +45,34 @@ async function fetchSigned(name: string): Promise<SignedManifest | null> {
   }
 }
 
-/**
- * Verify a HMAC-SHA256 signature.
- *
- * The client uses the Web Crypto API. The HMAC secret is shipped
- * with the manifest itself — this is by design: any attacker who
- * can modify the manifest can also modify the secret, so the
- * signature is a *transport integrity check* (catches CDN byte-flip
- * attacks), not a trust check. Trust comes from HTTPS + pinning.
- */
-async function verifyHmac(payload: string, hexSig: string, secret: string): Promise<boolean> {
-  if (!/^[0-9a-f]{64}$/i.test(hexSig)) return false;
-  try {
-    const enc = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      "raw",
-      enc.encode(secret),
-      {name: "HMAC", hash: "SHA-256"},
-      false,
-      ["sign", "verify"],
-    );
-    const sigBytes = Uint8Array.from(
-      hexSig.match(/.{2}/g)!.map((h) => parseInt(h, 16)),
-    );
-    return await crypto.subtle.verify("HMAC", key, sigBytes, enc.encode(payload));
-  } catch {
-    return false;
-  }
+export function isValidModelManifest(value: unknown): value is SignedManifest {
+  if (!value || typeof value !== "object") return false;
+  const signed = value as Partial<SignedManifest>;
+  const m = signed.manifest;
+  if (!m || typeof m !== "object") return false;
+  const manifest = m as Partial<ModelManifest>;
+  return (
+    typeof manifest.name === "string" &&
+    /^[a-zA-Z0-9_-]{1,128}$/.test(manifest.name) &&
+    typeof manifest.version === "string" &&
+    manifest.version.length > 0 &&
+    (manifest.framework === "onnx" ||
+      manifest.framework === "tfjs" ||
+      manifest.framework === "tflite") &&
+    Array.isArray(manifest.expectedInputSize) &&
+    manifest.expectedInputSize.length === 2 &&
+    manifest.expectedInputSize.every((n) => Number.isSafeInteger(n) && n > 0) &&
+    typeof manifest.url === "string" &&
+    manifest.url.startsWith("/") &&
+    /^[0-9a-f]{64}$/i.test(manifest.sha256 || "")
+  );
 }
 
 /**
- * Canonicalise a manifest the same way the server does so that the
- * signature matches byte-for-byte.
- */
-function canonicalise(m: ModelManifest): string {
-  const sortedKeys = Object.keys(m).filter((k) => m[k as keyof ModelManifest] !== undefined).sort();
-  const obj: Record<string, unknown> = {};
-  for (const k of sortedKeys) obj[k] = (m as Record<string, unknown>)[k];
-  return JSON.stringify(obj);
-}
-
-const DEFAULT_HMAC_SECRET = "bmo-dev-model-secret-change-me";
-
-/**
- * Fetch + verify + cache a model manifest.
+ * Fetch + validate + cache a model manifest.
  *
- * Returns the verified manifest, or `null` if verification fails or
- * the model isn't registered.
+ * Returns the validated manifest, or `null` if validation fails or the model
+ * isn't registered. Weight integrity is checked by fetchVerifiedModelSource.
  */
 export async function getModelManifest(name: string): Promise<ModelManifest | null> {
   // 1. Try localStorage first.
@@ -101,8 +80,7 @@ export async function getModelManifest(name: string): Promise<ModelManifest | nu
     const raw = localStorage.getItem(cacheKey(name));
     if (raw) {
       const signed = JSON.parse(raw) as SignedManifest;
-      const ok = await verifyHmac(canonicalise(signed.manifest), signed.signature, DEFAULT_HMAC_SECRET);
-      if (ok) return signed.manifest;
+      if (isValidModelManifest(signed)) return signed.manifest;
     }
   } catch {
     // ignore
@@ -112,9 +90,8 @@ export async function getModelManifest(name: string): Promise<ModelManifest | nu
   const signed = await fetchSigned(name);
   if (!signed) return null;
 
-  const ok = await verifyHmac(canonicalise(signed.manifest), signed.signature, DEFAULT_HMAC_SECRET);
-  if (!ok) {
-    console.warn(`[modelRegistry] signature mismatch for ${name} — refusing to load`);
+  if (!isValidModelManifest(signed)) {
+    console.warn(`[modelRegistry] invalid manifest for ${name} — refusing to load`);
     return null;
   }
 
@@ -124,6 +101,37 @@ export async function getModelManifest(name: string): Promise<ModelManifest | nu
     // ignore
   }
   return signed.manifest;
+}
+
+/**
+ * Fetch model bytes and verify the digest pinned in its manifest. A failed
+ * fetch returns null; callers with a manifest must treat that as unavailable,
+ * while callers without a manifest may use their normal URL path. A digest
+ * mismatch throws and must fail closed.
+ */
+export async function fetchVerifiedModelSource(
+  manifest: ModelManifest,
+): Promise<ArrayBuffer | null> {
+  try {
+    const response = await fetch(manifest.url, { credentials: "same-origin", cache: "no-cache" });
+    if (!response.ok) return null;
+    const bytes = await response.arrayBuffer();
+    const subtle = globalThis.crypto?.subtle;
+    if (!subtle) return bytes;
+    const digest = await subtle.digest("SHA-256", bytes);
+    const actual = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join(
+      "",
+    );
+    if (actual.toLowerCase() !== manifest.sha256.toLowerCase()) {
+      const error = new Error(`Model SHA-256 mismatch for ${manifest.name}@${manifest.version}`);
+      error.name = "ModelIntegrityError";
+      throw error;
+    }
+    return bytes;
+  } catch (error) {
+    if (error instanceof Error && error.name === "ModelIntegrityError") throw error;
+    return null;
+  }
 }
 
 /** Drop a cached manifest (debug / privacy erase). */

@@ -71,7 +71,8 @@ function gammaSample(shape: number): number {
 }
 
 function normalSample(): number {
-  const u = Math.random(), v = Math.random();
+  const u = Math.random(),
+    v = Math.random();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
@@ -85,7 +86,7 @@ class AdaptiveRewardEngine {
   async computeReward(
     userId: string,
     basePoints: number,
-    actionType: string
+    actionType: string,
   ): Promise<AdaptiveRewardResult> {
     // A/B gate: only treatment arm gets adaptive rewards
     const inTreatment = await experimentEngine.hasFeature(userId, "adaptive_rewards");
@@ -118,33 +119,38 @@ class AdaptiveRewardEngine {
 
     if (engagementState.isLowEngagement && engagementState.decayDays > 3) {
       ({ bonusPoints, interventionType, message } = this.lowEngagementIntervention(
-        engagementState, personality, basePoints
+        engagementState,
+        personality,
+        basePoints,
       ));
-      multiplier = 1 + (bonusPoints / basePoints);
+      multiplier = 1 + bonusPoints / basePoints;
     } else if (engagementState.isDropoutRisk) {
-      ({ bonusPoints, interventionType, message, applyStreakProtection } = this.dropoutPreventionIntervention(
-        personality, basePoints
-      ));
-      multiplier = 1 + (bonusPoints / basePoints);
+      ({ bonusPoints, interventionType, message, applyStreakProtection } =
+        this.dropoutPreventionIntervention(personality, basePoints));
+      multiplier = 1 + bonusPoints / basePoints;
     } else if (profile?.dominantProfile === "competitive") {
       ({ bonusPoints, interventionType, message, multiplier } = this.competitiveIntervention(
-        basePoints, personality
+        basePoints,
+        personality,
       ));
     } else if (profile?.dominantProfile === "collector") {
       ({ bonusPoints, interventionType, message, multiplier } = this.collectorIntervention(
-        basePoints, personality
+        basePoints,
+        personality,
       ));
     } else if (profile?.dominantProfile === "streak_driven") {
-      ({ bonusPoints, interventionType, message, multiplier, applyStreakProtection } = this.streakDrivenIntervention(
-        basePoints, personality, engagementState
-      ));
+      ({ bonusPoints, interventionType, message, multiplier, applyStreakProtection } =
+        this.streakDrivenIntervention(basePoints, personality, engagementState));
     } else if (profile?.dominantProfile === "social") {
       ({ bonusPoints, interventionType, message, multiplier } = this.socialIntervention(
-        basePoints, personality
+        basePoints,
+        personality,
       ));
     } else if (engagementState.isHighEngagement) {
       ({ bonusPoints, multiplier } = this.highEngagementBonus(basePoints));
-      message = this.getPersonalityMessage(personality, "achievement", { score: basePoints + bonusPoints });
+      message = this.getPersonalityMessage(personality, "achievement", {
+        score: basePoints + bonusPoints,
+      });
     }
 
     const totalPoints = Math.round(basePoints * multiplier);
@@ -157,7 +163,11 @@ class AdaptiveRewardEngine {
         totalPoints,
         profile: profile?.dominantProfile,
         personality,
-        engagementState: engagementState.isLowEngagement ? "low" : engagementState.isDropoutRisk ? "at_risk" : "normal",
+        engagementState: engagementState.isLowEngagement
+          ? "low"
+          : engagementState.isDropoutRisk
+            ? "at_risk"
+            : "normal",
         multiplier,
       });
     }
@@ -230,7 +240,14 @@ class AdaptiveRewardEngine {
     engagementTrend: number;
   }> {
     if (!this.db) {
-      return { isLowEngagement: false, isDropoutRisk: false, isHighEngagement: false, decayDays: 0, engagementScore: 1, engagementTrend: 0 };
+      return {
+        isLowEngagement: false,
+        isDropoutRisk: false,
+        isHighEngagement: false,
+        decayDays: 0,
+        engagementScore: 1,
+        engagementTrend: 0,
+      };
     }
 
     try {
@@ -241,20 +258,28 @@ class AdaptiveRewardEngine {
          FROM novelty_decay_log
          WHERE user_id = $1 AND recorded_at > NOW() - INTERVAL '7 days'
          ORDER BY recorded_at DESC LIMIT 7`,
-        [userId]
+        [userId],
       );
 
       if (rows.length === 0) {
-        return { isLowEngagement: false, isDropoutRisk: false, isHighEngagement: false, decayDays: 0, engagementScore: 1, engagementTrend: 0 };
+        return {
+          isLowEngagement: false,
+          isDropoutRisk: false,
+          isHighEngagement: false,
+          decayDays: 0,
+          engagementScore: 1,
+          engagementTrend: 0,
+        };
       }
 
       const latest = rows[0];
       const engagementScore = latest.engagement_score || 1;
       const daysSinceLogin = latest.days_since_login || 0;
       const recentRows = rows.slice(0, 3);
-      const trend = recentRows.length >= 2
-        ? (recentRows[0].engagement_score - (recentRows[1]?.engagement_score || 0)) / 10
-        : 0;
+      const trend =
+        recentRows.length >= 2
+          ? (recentRows[0].engagement_score - (recentRows[1]?.engagement_score || 0)) / 10
+          : 0;
 
       return {
         isLowEngagement: engagementScore < 0.5 || trend < -0.2,
@@ -266,25 +291,39 @@ class AdaptiveRewardEngine {
       };
     } catch (e) {
       console.warn("[AdaptiveRewardEngine] Failed to get engagement state:", (e as Error).message);
-      return { isLowEngagement: false, isDropoutRisk: false, isHighEngagement: false, decayDays: 0, engagementScore: 1, engagementTrend: 0 };
+      return {
+        isLowEngagement: false,
+        isDropoutRisk: false,
+        isHighEngagement: false,
+        decayDays: 0,
+        engagementScore: 1,
+        engagementTrend: 0,
+      };
     }
   }
 
   private lowEngagementIntervention(
     state: { isLowEngagement: boolean; decayDays: number; engagementScore: number },
     personality: PersonalityMode,
-    basePoints: number
+    basePoints: number,
   ): { bonusPoints: number; interventionType: InterventionType; message: string } {
     const boostFactor = state.decayDays > 5 ? 0.5 : state.decayDays > 3 ? 0.3 : 0.2;
     const bonusPoints = Math.round(basePoints * boostFactor);
-    const msg = this.getPersonalityMessage(personality, "low_engagement", { days: state.decayDays });
+    const msg = this.getPersonalityMessage(personality, "low_engagement", {
+      days: state.decayDays,
+    });
     return { bonusPoints, interventionType: "encouragement", message: msg };
   }
 
   private dropoutPreventionIntervention(
     personality: PersonalityMode,
-    basePoints: number
-  ): { bonusPoints: number; interventionType: InterventionType; message: string; applyStreakProtection: boolean } {
+    basePoints: number,
+  ): {
+    bonusPoints: number;
+    interventionType: InterventionType;
+    message: string;
+    applyStreakProtection: boolean;
+  } {
     const bonusPoints = Math.round(basePoints * 0.75);
     const msg = this.getPersonalityMessage(personality, "low_engagement", { days: 3 });
     return {
@@ -295,21 +334,53 @@ class AdaptiveRewardEngine {
     };
   }
 
-  private competitiveIntervention(basePoints: number, personality: PersonalityMode): { bonusPoints: number; interventionType: InterventionType; message: string; multiplier: number } {
+  private competitiveIntervention(
+    basePoints: number,
+    personality: PersonalityMode,
+  ): {
+    bonusPoints: number;
+    interventionType: InterventionType;
+    message: string;
+    multiplier: number;
+  } {
     const bonusPoints = Math.round(basePoints * 0.15);
-    const message = this.getPersonalityMessage(personality, "achievement", { score: basePoints + bonusPoints });
+    const message = this.getPersonalityMessage(personality, "achievement", {
+      score: basePoints + bonusPoints,
+    });
     return { bonusPoints, interventionType: "ranking_focus", message, multiplier: 1.15 };
   }
 
-  private collectorIntervention(basePoints: number, personality: PersonalityMode): { bonusPoints: number; interventionType: InterventionType; message: string; multiplier: number } {
+  private collectorIntervention(
+    basePoints: number,
+    personality: PersonalityMode,
+  ): {
+    bonusPoints: number;
+    interventionType: InterventionType;
+    message: string;
+    multiplier: number;
+  } {
     const bonusPoints = Math.round(basePoints * 0.2);
-    const message = this.getPersonalityMessage(personality, "achievement", { score: basePoints + bonusPoints });
+    const message = this.getPersonalityMessage(personality, "achievement", {
+      score: basePoints + bonusPoints,
+    });
     return { bonusPoints, interventionType: "bonus_unlock", message, multiplier: 1.2 };
   }
 
-  private streakDrivenIntervention(basePoints: number, personality: PersonalityMode, state: { isDropoutRisk: boolean }): { bonusPoints: number; interventionType: InterventionType; message: string; multiplier: number; applyStreakProtection: boolean } {
+  private streakDrivenIntervention(
+    basePoints: number,
+    personality: PersonalityMode,
+    state: { isDropoutRisk: boolean },
+  ): {
+    bonusPoints: number;
+    interventionType: InterventionType;
+    message: string;
+    multiplier: number;
+    applyStreakProtection: boolean;
+  } {
     const bonusPoints = Math.round(basePoints * 0.25);
-    const message = this.getPersonalityMessage(personality, "achievement", { score: basePoints + bonusPoints });
+    const message = this.getPersonalityMessage(personality, "achievement", {
+      score: basePoints + bonusPoints,
+    });
     return {
       bonusPoints,
       interventionType: "streak_protection",
@@ -319,9 +390,19 @@ class AdaptiveRewardEngine {
     };
   }
 
-  private socialIntervention(basePoints: number, personality: PersonalityMode): { bonusPoints: number; interventionType: InterventionType; message: string; multiplier: number } {
+  private socialIntervention(
+    basePoints: number,
+    personality: PersonalityMode,
+  ): {
+    bonusPoints: number;
+    interventionType: InterventionType;
+    message: string;
+    multiplier: number;
+  } {
     const bonusPoints = Math.round(basePoints * 0.1);
-    const message = this.getPersonalityMessage(personality, "achievement", { score: basePoints + bonusPoints });
+    const message = this.getPersonalityMessage(personality, "achievement", {
+      score: basePoints + bonusPoints,
+    });
     return { bonusPoints, interventionType: "social_boost", message, multiplier: 1.1 };
   }
 
@@ -329,16 +410,24 @@ class AdaptiveRewardEngine {
     return { bonusPoints: Math.round(basePoints * 0.05), multiplier: 1.05 };
   }
 
-  private getPersonalityMessage(personality: PersonalityMode, key: string, params: Record<string, string | number> = {}): string {
+  private getPersonalityMessage(
+    personality: PersonalityMode,
+    key: string,
+    params: Record<string, string | number> = {},
+  ): string {
     return personalityEngine.getMessage(personality, key, params);
   }
 
-  private async recordIntervention(userId: string, interventionType: InterventionType, metadata: Record<string, unknown>): Promise<void> {
+  private async recordIntervention(
+    userId: string,
+    interventionType: InterventionType,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
     if (!this.db) return;
     try {
       await this.db.query(
         `INSERT INTO adaptive_interventions (user_id, intervention_type, triggered_by, metadata) VALUES ($1, $2, $3, $4)`,
-        [userId, interventionType, "adaptive_reward_engine", JSON.stringify(metadata)]
+        [userId, interventionType, "adaptive_reward_engine", JSON.stringify(metadata)],
       );
     } catch (e) {
       console.warn("[AdaptiveRewardEngine] Failed to record intervention:", (e as Error).message);
@@ -351,7 +440,7 @@ class AdaptiveRewardEngine {
       const { rows } = await this.db.query(
         `SELECT intervention_type, triggered_by, triggered_at, effectiveness_score, metadata
          FROM adaptive_interventions WHERE user_id = $1 ORDER BY triggered_at DESC LIMIT $2`,
-        [userId, limit]
+        [userId, limit],
       );
       return rows;
     } catch {
@@ -364,7 +453,7 @@ class AdaptiveRewardEngine {
     try {
       const { rows } = await this.db.query(
         `SELECT user_id, triggered_at, metadata FROM adaptive_interventions WHERE id = $1`,
-        [interventionId]
+        [interventionId],
       );
       if (rows.length === 0) return 0;
 
@@ -376,7 +465,7 @@ class AdaptiveRewardEngine {
         `SELECT engagement_score, recorded_at FROM novelty_decay_log
          WHERE user_id = $1 AND recorded_at >= $2 AND recorded_at <= $2::timestamp + INTERVAL '7 days'
          ORDER BY recorded_at ASC`,
-        [userId, triggeredAt.toISOString()]
+        [userId, triggeredAt.toISOString()],
       );
 
       if (decayRows.length < 2) return 0;
@@ -388,7 +477,7 @@ class AdaptiveRewardEngine {
 
       await this.db.query(
         `UPDATE adaptive_interventions SET effectiveness_score = $1, outcome_recorded = TRUE WHERE id = $2`,
-        [effectiveness, interventionId]
+        [effectiveness, interventionId],
       );
 
       return effectiveness;

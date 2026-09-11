@@ -27,14 +27,10 @@ const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`,
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
 });

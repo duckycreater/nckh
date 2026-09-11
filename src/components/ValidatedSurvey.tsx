@@ -20,10 +20,7 @@ export interface ValidatedSurveyProps {
  * Cronbach's α = (k / (k-1)) · (1 − sum(σ²_i) / σ²_t)
  *   where k = items, σ²_i = variance of item i, σ²_t = variance of total.
  */
-export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
-  language = "vi",
-  onSubmit,
-}) => {
+export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({ language = "vi", onSubmit }) => {
   const { t } = useTranslation();
   const items = language === "vi" ? EID4_ITEMS_VI : EID4_ITEMS_EN;
   const [responses, setResponses] = useState<number[]>(items.map(() => -1));
@@ -44,7 +41,8 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
         Math.max(1, Math.min(7, (vals[0] ?? 4) + (Math.random() - 0.5))),
       ]);
       const mean = extended.reduce((a, b) => a + b, 0) / extended.length;
-      const variance = extended.reduce((acc, v) => acc + (v - mean) ** 2, 0) / Math.max(1, extended.length - 1);
+      const variance =
+        extended.reduce((acc, v) => acc + (v - mean) ** 2, 0) / Math.max(1, extended.length - 1);
       itemVariances.push(variance);
     }
     const totalVariance = (() => {
@@ -57,8 +55,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
       return totals.reduce((acc, v) => acc + (v - mean) ** 2, 0) / Math.max(1, totals.length - 1);
     })();
     const sumItem = itemVariances.reduce((a, b) => a + b, 0);
-    const alpha =
-      totalVariance > 0 ? (k / (k - 1)) * (1 - sumItem / totalVariance) : 0;
+    const alpha = totalVariance > 0 ? (k / (k - 1)) * (1 - sumItem / totalVariance) : 0;
     return { alpha, eid: computeEID4Score(valid) };
   }, [responses, items.length]);
 
@@ -92,7 +89,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
             Environmental Identity Survey (EID-4)
           </h2>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Whitmarsh &amp; O'Neill (2010). Likert 1–7.
+            Whitmarsh &amp; O&rsquo;Neill (2010). Likert 1-7.
           </p>
         </div>
         {submitted && (
@@ -104,8 +101,13 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
 
       <ol className="mt-6 space-y-4">
         {items.map((it, idx) => (
-          <li key={idx} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{idx + 1}. {it}</p>
+          <li
+            key={idx}
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
+          >
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+              {idx + 1}. {it}
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {[1, 2, 3, 4, 5, 6, 7].map((value) => {
                 const selected = responses[idx] === value;
@@ -134,11 +136,10 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({
           <p>
             Items answered: {responses.filter((v) => v >= 1).length} / {items.length}
           </p>
+          <p>EID score (0..1): {Number.isFinite(stats.eid) ? stats.eid.toFixed(3) : "—"}</p>
           <p>
-            EID score (0..1): {Number.isFinite(stats.eid) ? stats.eid.toFixed(3) : "—"}
-          </p>
-          <p>
-            Internal consistency (Cronbach&apos;s α): {Number.isFinite(stats.alpha) ? stats.alpha.toFixed(2) : "—"}
+            Internal consistency (Cronbach&apos;s α):{" "}
+            {Number.isFinite(stats.alpha) ? stats.alpha.toFixed(2) : "—"}
           </p>
         </div>
         <motion.button

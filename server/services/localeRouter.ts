@@ -16,52 +16,128 @@
  */
 
 export type LocaleCode =
-  | "vi" | "en" | "es" | "fr" | "zh" | "hi" | "ar" | "sw"
-  | "lo" | "km" | "id" | "ja" | "ko" | "ru" | "pt" | "de"
-  | "it" | "th" | "tl";
+  | "vi"
+  | "en"
+  | "es"
+  | "fr"
+  | "zh"
+  | "hi"
+  | "ar"
+  | "sw"
+  | "lo"
+  | "km"
+  | "id"
+  | "ja"
+  | "ko"
+  | "ru"
+  | "pt"
+  | "de"
+  | "it"
+  | "th"
+  | "tl";
 
 export const SUPPORTED_LOCALES: LocaleCode[] = [
-  "vi", "en", "es", "fr", "zh", "hi", "ar", "sw",
-  "lo", "km", "id", "ja", "ko", "ru", "pt", "de", "it", "th", "tl",
+  "vi",
+  "en",
+  "es",
+  "fr",
+  "zh",
+  "hi",
+  "ar",
+  "sw",
+  "lo",
+  "km",
+  "id",
+  "ja",
+  "ko",
+  "ru",
+  "pt",
+  "de",
+  "it",
+  "th",
+  "tl",
 ];
 
 const LOCALE_NAMES: Record<LocaleCode, string> = {
-  vi: "Tiếng Việt", en: "English", es: "Español", fr: "Français",
-  zh: "中文", hi: "हिन्दी", ar: "العربية", sw: "Kiswahili",
-  lo: "ລາວ", km: "ខ្មែរ", id: "Bahasa Indonesia",
-  ja: "日本語", ko: "한국어", ru: "Русский", pt: "Português",
-  de: "Deutsch", it: "Italiano", th: "ไทย", tl: "Filipino",
+  vi: "Tiếng Việt",
+  en: "English",
+  es: "Español",
+  fr: "Français",
+  zh: "中文",
+  hi: "हिन्दी",
+  ar: "العربية",
+  sw: "Kiswahili",
+  lo: "ລາວ",
+  km: "ខ្មែរ",
+  id: "Bahasa Indonesia",
+  ja: "日本語",
+  ko: "한국어",
+  ru: "Русский",
+  pt: "Português",
+  de: "Deutsch",
+  it: "Italiano",
+  th: "ไทย",
+  tl: "Filipino",
 };
 
 export { LOCALE_NAMES };
 
 const LOCALE_FLAGS: Record<LocaleCode, string> = {
-  vi: "🇻🇳", en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷",
-  zh: "🇨🇳", hi: "🇮🇳", ar: "🇸🇦", sw: "🇰🇪",
-  lo: "🇱🇦", km: "🇰🇭", id: "🇮🇩",
-  ja: "🇯🇵", ko: "🇰🇷", ru: "🇷🇺", pt: "🇵🇹",
-  de: "🇩🇪", it: "🇮🇹", th: "🇹🇭", tl: "🇵🇭",
+  vi: "🇻🇳",
+  en: "🇬🇧",
+  es: "🇪🇸",
+  fr: "🇫🇷",
+  zh: "🇨🇳",
+  hi: "🇮🇳",
+  ar: "🇸🇦",
+  sw: "🇰🇪",
+  lo: "🇱🇦",
+  km: "🇰🇭",
+  id: "🇮🇩",
+  ja: "🇯🇵",
+  ko: "🇰🇷",
+  ru: "🇷🇺",
+  pt: "🇵🇹",
+  de: "🇩🇪",
+  it: "🇮🇹",
+  th: "🇹🇭",
+  tl: "🇵🇭",
 };
 
 export { LOCALE_FLAGS };
 
 /** Country ISO → default locale (for GeoIP fallback). */
 const COUNTRY_TO_LOCALE: Record<string, LocaleCode> = {
-  VN: "vi", US: "en", GB: "en", AU: "en", CA: "en",
-  ES: "es", MX: "es", AR: "es", CO: "es",
-  FR: "fr", BE: "fr",
-  CN: "zh", TW: "zh", HK: "zh",
+  VN: "vi",
+  US: "en",
+  GB: "en",
+  AU: "en",
+  CA: "en",
+  ES: "es",
+  MX: "es",
+  AR: "es",
+  CO: "es",
+  FR: "fr",
+  BE: "fr",
+  CN: "zh",
+  TW: "zh",
+  HK: "zh",
   IN: "hi",
-  SA: "ar", AE: "ar", EG: "ar",
-  KE: "sw", TZ: "sw",
+  SA: "ar",
+  AE: "ar",
+  EG: "ar",
+  KE: "sw",
+  TZ: "sw",
   LA: "lo",
   KH: "km",
   ID: "id",
   JP: "ja",
   KR: "ko",
   RU: "ru",
-  PT: "pt", BR: "pt",
-  DE: "de", AT: "de",
+  PT: "pt",
+  BR: "pt",
+  DE: "de",
+  AT: "de",
   IT: "it",
   TH: "th",
   PH: "tl",
@@ -80,11 +156,25 @@ export interface LocaleContext {
  */
 export function toBCP47(locale: LocaleCode): string {
   const map: Record<LocaleCode, string> = {
-    vi: "vi-VN", en: "en-US", es: "es-ES", fr: "fr-FR",
-    zh: "cmn-CN", hi: "hi-IN", ar: "ar-SA", sw: "sw-KE",
-    lo: "lo-LA", km: "km-KH", id: "id-ID",
-    ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", pt: "pt-BR",
-    de: "de-DE", it: "it-IT", th: "th-TH", tl: "fil-PH",
+    vi: "vi-VN",
+    en: "en-US",
+    es: "es-ES",
+    fr: "fr-FR",
+    zh: "cmn-CN",
+    hi: "hi-IN",
+    ar: "ar-SA",
+    sw: "sw-KE",
+    lo: "lo-LA",
+    km: "km-KH",
+    id: "id-ID",
+    ja: "ja-JP",
+    ko: "ko-KR",
+    ru: "ru-RU",
+    pt: "pt-BR",
+    de: "de-DE",
+    it: "it-IT",
+    th: "th-TH",
+    tl: "fil-PH",
   };
   return map[locale] || "en-US";
 }
@@ -109,8 +199,11 @@ export function resolveLocale(opts: {
   if (opts.preference && SUPPORTED_LOCALES.includes(opts.preference as LocaleCode)) {
     const loc = opts.preference as LocaleCode;
     return {
-      locale: loc, languageName: LOCALE_NAMES[loc], flag: LOCALE_FLAGS[loc],
-      bcp47: toBCP47(loc), source: "preference",
+      locale: loc,
+      languageName: LOCALE_NAMES[loc],
+      flag: LOCALE_FLAGS[loc],
+      bcp47: toBCP47(loc),
+      source: "preference",
     };
   }
 
@@ -122,8 +215,11 @@ export function resolveLocale(opts: {
       if (SUPPORTED_LOCALES.includes(code as LocaleCode)) {
         const loc = code as LocaleCode;
         return {
-          locale: loc, languageName: LOCALE_NAMES[loc], flag: LOCALE_FLAGS[loc],
-          bcp47: toBCP47(loc), source: "header",
+          locale: loc,
+          languageName: LOCALE_NAMES[loc],
+          flag: LOCALE_FLAGS[loc],
+          bcp47: toBCP47(loc),
+          source: "header",
         };
       }
     }
@@ -133,8 +229,11 @@ export function resolveLocale(opts: {
   if (opts.country && COUNTRY_TO_LOCALE[opts.country.toUpperCase()]) {
     const loc = COUNTRY_TO_LOCALE[opts.country.toUpperCase()];
     return {
-      locale: loc, languageName: LOCALE_NAMES[loc], flag: LOCALE_FLAGS[loc],
-      bcp47: toBCP47(loc), source: "geo",
+      locale: loc,
+      languageName: LOCALE_NAMES[loc],
+      flag: LOCALE_FLAGS[loc],
+      bcp47: toBCP47(loc),
+      source: "geo",
     };
   }
 

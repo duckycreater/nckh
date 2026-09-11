@@ -92,7 +92,10 @@ export class StubAdapter implements SmartBinAdapter {
 export class HTTPAdapter implements SmartBinAdapter {
   readonly adapterType = "http_poll";
 
-  constructor(private baseUrl: string, private apiKey?: string) {}
+  constructor(
+    private baseUrl: string,
+    private apiKey?: string,
+  ) {}
 
   private async fetchReading(deviceId: string): Promise<SmartBinReading> {
     const url = `${this.baseUrl}/devices/${encodeURIComponent(deviceId)}/reading`;
@@ -117,13 +120,17 @@ export class HTTPAdapter implements SmartBinAdapter {
   }
 
   async getReadings(deviceIds: string[]): Promise<SmartBinReading[]> {
-    return Promise.all(deviceIds.map((id) => this.fetchReading(id).catch(() => ({
-      deviceId: id,
-      timestamp: Date.now(),
-      weightsByCategory: {},
-      totalKg: 0,
-      isOnline: false,
-    }))));
+    return Promise.all(
+      deviceIds.map((id) =>
+        this.fetchReading(id).catch(() => ({
+          deviceId: id,
+          timestamp: Date.now(),
+          weightsByCategory: {},
+          totalKg: 0,
+          isOnline: false,
+        })),
+      ),
+    );
   }
 
   async ping(deviceId: string): Promise<boolean> {
@@ -147,7 +154,10 @@ export class HTTPAdapter implements SmartBinAdapter {
 export class MQTTAdapter implements SmartBinAdapter {
   readonly adapterType = "mqtt";
 
-  constructor(private brokerUrl: string, private topicPrefix: string = "bmo/smartbin/") {}
+  constructor(
+    private brokerUrl: string,
+    private topicPrefix: string = "bmo/smartbin/",
+  ) {}
 
   async getReading(_deviceId: string): Promise<SmartBinReading> {
     throw new Error("MQTT adapter not yet wired — see hardware/SMART_BIN_API.md");

@@ -14,10 +14,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  getInferenceStats,
-  frameworkBackendName,
-} from "../../src/services/inferenceRouter.ts";
+import { getInferenceStats, frameworkBackendName } from "../../src/services/inferenceRouter.ts";
 import {
   clearBackendCache,
   getCachedBackend,
@@ -28,14 +25,10 @@ const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`,
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toBeType: (t: string) => assert.strictEqual(typeof v, t),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
@@ -87,7 +80,7 @@ describe("webgpuDetect cache helpers", () => {
   it("getCachedBackend returns null when storage is empty", () => {
     // Stub localStorage in node environment.
     const store: Record<string, string> = {};
-    (globalThis as {localStorage?: unknown}).localStorage = {
+    (globalThis as { localStorage?: unknown }).localStorage = {
       getItem: (k: string) => (k in store ? store[k] : null),
       setItem: (k: string, v: string) => {
         store[k] = v;

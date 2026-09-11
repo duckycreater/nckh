@@ -13,7 +13,7 @@
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import type { AddressInfo } from "node:net";
+import type { Server } from "node:http";
 
 import {
   composeRenyi,
@@ -27,17 +27,23 @@ const expect = (v: unknown) => ({
   toBeType: (t: string) => assert.strictEqual(typeof v, t),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
   toBeTruthy: () => assert.ok(v),
 });
 
-let testServer: {port: number; close: () => Promise<void>} | null = null;
+let testServer: Server | null = null;
 let booted: boolean = false;
 
 before(async () => {
   process.env.PORT = process.env.BMO_TEST_PORT || String(41000 + Math.floor(Math.random() * 9000));
+  process.env.NODE_ENV = "test";
+  process.env.DISABLE_HMR = "true";
+  process.env.RESEARCH_DB_ENABLED = "false";
+  process.env.FIREBASE_SERVICE_ACCOUNT = "";
+  process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 = "";
+  process.env.SUPABASE_URL = "";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "";
   let mod: typeof import("../../server/bootstrap.ts");
   try {
     mod = await import("../../server/bootstrap.ts");
@@ -46,9 +52,9 @@ before(async () => {
     return;
   }
   try {
-    await Promise.race([
+    testServer = await Promise.race([
       mod.startServer(),
-      new Promise<void>((_, rej) =>
+      new Promise<never>((_, rej) =>
         setTimeout(() => rej(new Error("startServer timeout 15s")), 15000),
       ),
     ]);
@@ -56,40 +62,25 @@ before(async () => {
   } catch (e) {
     console.warn("[e2e-privacy] startServer timeout:", (e as Error).message);
   }
-  testServer = {
-    port: Number(process.env.PORT),
-    close: async () => {/* OS cleans up on process exit */},
-  };
 });
 
 after(async () => {
-  if (testServer) await testServer.close();
-  // Force-exit so lingering timers (autoSync, federated interval) don't
-  // hang CI. We swallow the exit code from vitest's worker so the suite
-  // remains green — vitest raises an "uncaught exception" when a test
-  // forks calls process.exit, which we don't want for a clean shutdown.
-  if (process.env.VITEST_WORKER_ID) {
-    setTimeout(() => {
-      try {
-        process.exit(0);
-      } catch {
-        // no-op: parent already torn down
-      }
-    }, 50).unref();
-  }
+  if (!testServer) return;
+  await new Promise<void>((resolve, reject) => {
+    testServer!.close((error) => (error ? reject(error) : resolve()));
+  });
 });
 
 function url(path: string): string {
-  return `http://127.0.0.1:${testServer!.port}${path}`;
+  return `http://127.0.0.1:${process.env.PORT}${path}`;
 }
 
 // ─── Live HTTP probes (only when server boots) ─────────────────────────────
 
 describe("E2E: privacy budget", () => {
-  it("GET /api/federated/stats reports a DP envelope", async (t) => {
+  it("GET /api/federated/status reports a DP envelope", async (t) => {
     if (!booted) return t.skip();
-    const r = await fetch(url("/api/federated/stats"));
-    if (r.status === 503 || r.status === 404) return; // route not mounted in this env
+    const r = await fetch(url("/api/federated/status"));
     expect(r.status).toBe(200);
     const body = await r.json();
     expect(body.ok).toBe(true);
@@ -121,7 +112,10 @@ describe("PrivacyBudgetMeter arithmetic", () => {
     expect(composed).toBeGreaterThanOrEqual(one);
   });
   it("renyiToEpsilonDelta returns sensible δ", () => {
-    const orders = [{alpha: 2, epsAlpha: 0.5}, {alpha: 4, epsAlpha: 1.0}];
+    const orders = [
+      { alpha: 2, epsAlpha: 0.5 },
+      { alpha: 4, epsAlpha: 1.0 },
+    ];
     const delta = renyiToEpsilonDelta(orders, 1.0);
     expect(delta > 0).toBeTruthy();
     expect(delta <= 1).toBeTruthy();

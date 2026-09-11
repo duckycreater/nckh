@@ -19,6 +19,8 @@
 import crypto from "crypto";
 import { getDb } from "../db.js";
 import { sampleUniform01, uniformModN } from "./secureSampling.js";
+import { logRound } from "./dpAccountant.js";
+import { getAuditTrail } from "./auditTrail.js";
 
 const CATEGORIES = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
 
@@ -64,7 +66,12 @@ export class FederatedAggregator {
   private config: FederatedConfig = DEFAULT_CONFIG;
   private buffer: Map<string, PendingUpdate> = new Map();
   private timer: NodeJS.Timeout | null = null;
-  private latestGlobalVersion: { version: string; scores: Record<string, number>; trainedOn: number; createdAt: number } | null = null;
+  private latestGlobalVersion: {
+    version: string;
+    scores: Record<string, number>;
+    trainedOn: number;
+    createdAt: number;
+  } | null = null;
 
   configure(cfg: Partial<FederatedConfig>): void {
     this.config = { ...this.config, ...cfg };
@@ -74,11 +81,11 @@ export class FederatedAggregator {
     if (this.timer) return;
     this.timer = setInterval(() => {
       this.runRoundIfReady().catch((e) =>
-        console.error("[FederatedAggregator] round error:", (e as Error).message)
+        console.error("[FederatedAggregator] round error:", (e as Error).message),
       );
     }, this.config.roundIntervalMs);
     console.log(
-      `[FederatedAggregator] started, interval=${this.config.roundIntervalMs / 1000}s, minClients=${this.config.minClients}`
+      `[FederatedAggregator] started, interval=${this.config.roundIntervalMs / 1000}s, minClients=${this.config.minClients}`,
     );
   }
 
@@ -99,7 +106,7 @@ export class FederatedAggregator {
       numSamples: number;
       metrics: { loss: number; accuracy: number; durationMs: number };
       privacy: { epsilon: number; delta: number; noiseSigma: number };
-    }
+    },
   ): Promise<{ accepted: boolean; reason?: string; weightHash: string }> {
     if (this.buffer.size >= this.config.bufferLimit) {
       return { accepted: false, reason: "buffer_full", weightHash: "" };
@@ -108,11 +115,9 @@ export class FederatedAggregator {
     // L2-norm validation (clients already clip; we double-check).
     // We collapse the tensor into per-category scores eagerly so we never
     // retain the raw `weights[][]` in memory (Layer 2.6 OOM hardening).
-    const flat = Array.isArray(payload.weights)
-      ? (payload.weights as any).flat(Infinity)
-      : [];
+    const flat = Array.isArray(payload.weights) ? (payload.weights as any).flat(Infinity) : [];
     const norm = Math.sqrt(
-      (flat as number[]).reduce((a, b) => a + (Number.isFinite(b) ? (b as number) ** 2 : 0), 0)
+      (flat as number[]).reduce((a, b) => a + (Number.isFinite(b) ? (b as number) ** 2 : 0), 0),
     );
     if (norm > this.config.clipNorm * 4) {
       return {
@@ -125,19 +130,20 @@ export class FederatedAggregator {
     // Hash the weight tensor for provenance (no raw weights persisted).
     // Use the binary hash instead of JSON.stringify for O(N) and to
     // avoid creating an in-memory copy of the full tensor.
-    const hash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(payload.weights))
-      .digest("hex");
+    const hash = crypto.createHash("sha256").update(JSON.stringify(payload.weights)).digest("hex");
 
     // Collapse to per-category weighted scores; if a tensor shape is bad
     // (no entries), fall back to zeros — we still keep the audit hash
     // and the sample count, which is what the aggregator actually needs.
+    // Clip the complete client update before aggregation. The hard rejection
+    // above remains an anomaly/DoS guard; updates between C and 4C are
+    // accepted but scaled back to C so the sensitivity bound remains valid.
+    const clipScale = norm > this.config.clipNorm ? this.config.clipNorm / norm : 1;
     const perCategoryScores: Record<string, number> = {};
     for (let i = 0; i < CATEGORIES.length; i++) {
       const firstDim = Array.isArray(payload.weights) ? (payload.weights as any)[0] : undefined;
       const w = (Array.isArray(firstDim) ? firstDim[i] : 0) as number;
-      perCategoryScores[CATEGORIES[i]] = Number.isFinite(w) ? w : 0;
+      perCategoryScores[CATEGORIES[i]] = Number.isFinite(w) ? w * clipScale : 0;
     }
 
     const update: PendingUpdate = {
@@ -162,10 +168,7 @@ export class FederatedAggregator {
             clip_norm, noise_scale)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT DO NOTHING`,
-        [
-          userId, hash, payload.numSamples, norm,
-          this.config.clipNorm, payload.privacy.noiseSigma,
-        ]
+        [userId, hash, payload.numSamples, norm, this.config.clipNorm, payload.privacy.noiseSigma],
       ).catch((e) => console.warn("[FederatedAggregator] persist failed:", (e as Error).message));
 
       db.query(
@@ -179,7 +182,7 @@ export class FederatedAggregator {
             epsilon: payload.privacy.epsilon,
             delta: payload.privacy.delta,
           }),
-        ]
+        ],
       ).catch(() => {});
     }
 
@@ -219,13 +222,17 @@ export class FederatedAggregator {
     }
 
     // Gaussian DP noise on the aggregate
-    const sensitivity = this.config.clipNorm * 2 / Math.max(updates.length, 1);
-    const sigma = (sensitivity * Math.sqrt(2 * Math.log(1.25 / this.config.dpDelta))) / this.config.dpEpsilon;
+    // Client-level replacement adjacency for a sample-weighted average.
+    // The largest normalised client weight determines sensitivity; 2C/n
+    // is only valid when every client has equal weight.
+    const maxClientWeight = Math.max(...updates.map((update) => update.numSamples / totalSamples));
+    const sensitivity = 2 * this.config.clipNorm * maxClientWeight;
+    const sigma =
+      (sensitivity * Math.sqrt(2 * Math.log(1.25 / this.config.dpDelta))) / this.config.dpEpsilon;
     for (const cat of CATEGORIES) {
       const noise = this.gaussianNoise() * sigma;
       aggregated[cat] = aggregated[cat] + noise;
     }
-
     const version = `v${Date.now()}_n${updates.length}`;
     this.latestGlobalVersion = {
       version,
@@ -233,6 +240,24 @@ export class FederatedAggregator {
       trainedOn: totalSamples,
       createdAt: Date.now(),
     };
+
+    const privacyRound = logRound({
+      sensitivity,
+      noiseStdDev: Math.max(sigma, Number.EPSILON),
+      clients: updates.map((update) => ({ clientId: update.userId, n: update.numSamples })),
+    });
+    getAuditTrail().append("fl_round", {
+      round: privacyRound.round,
+      modelVersion: version,
+      participants: updates.length,
+      totalSamples,
+      clipNorm: this.config.clipNorm,
+      sensitivity,
+      noiseStdDev: sigma,
+      epsilonAtDelta: privacyRound.state.epsilonAtDelta,
+      deltaAtEpsilon: privacyRound.state.deltaAtEpsilon,
+      withinBudget: privacyRound.state.withinBudget,
+    });
 
     // Persist round in DB
     const db = getDb();
@@ -248,11 +273,21 @@ export class FederatedAggregator {
              'completed', $1, $2, $3, $4, $5, $6, $7, $8, NOW()
            )`,
           [
-            updates.length, this.config.minClients, version,
+            updates.length,
+            this.config.minClients,
+            version,
             updates.reduce((a, u) => a + (u.privacy.noiseSigma || 0), 0) / updates.length,
-            Math.max(0, Math.min(1, Object.values(aggregated).reduce((a, b) => a + b, 0) / CATEGORIES.length + 0.5)),
-            this.config.dpEpsilon, this.config.dpDelta, sigma,
-          ]
+            Math.max(
+              0,
+              Math.min(
+                1,
+                Object.values(aggregated).reduce((a, b) => a + b, 0) / CATEGORIES.length + 0.5,
+              ),
+            ),
+            this.config.dpEpsilon,
+            this.config.dpDelta,
+            sigma,
+          ],
         );
       } catch (e) {
         console.warn("[FederatedAggregator] round persist failed:", (e as Error).message);

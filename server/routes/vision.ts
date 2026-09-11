@@ -24,7 +24,10 @@ const MisclassificationsQuery = z.object({
 
 function requireAuth(req: any, res: any, next: () => void) {
   const result = validateToken(req.headers.authorization);
-  if (!result) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!result) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   next();
 }
 
@@ -62,22 +65,29 @@ export function visionRouter(): Router {
   });
 
   // GET /api/vision/misclassifications - Top misclassifications
-  router.get("/misclassifications", requireAuth, zodValidate({ query: MisclassificationsQuery }), async (req, res) => {
-    try {
-      const limit = ((res.locals.query as { limit: number }) ?? { limit: 10 }).limit;
-      const misclassifications = await visionPipeline.getTopMisclassifications(limit);
-      res.json(misclassifications);
-    } catch (e) {
-      res.status(500).json({ error: (e as Error).message });
-    }
-  });
+  router.get(
+    "/misclassifications",
+    requireAuth,
+    zodValidate({ query: MisclassificationsQuery }),
+    async (req, res) => {
+      try {
+        const limit = ((res.locals.query as { limit: number }) ?? { limit: 10 }).limit;
+        const misclassifications = await visionPipeline.getTopMisclassifications(limit);
+        res.json(misclassifications);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    },
+  );
 
   // GET /api/vision/categories - Waste categories
   router.get("/categories", requireAuth, (_req, res) => {
-    res.json(WASTE_CATEGORIES.map((c) => ({
-      id: c,
-      label: CATEGORY_LABELS[c],
-    })));
+    res.json(
+      WASTE_CATEGORIES.map((c) => ({
+        id: c,
+        label: CATEGORY_LABELS[c],
+      })),
+    );
   });
 
   // POST /api/vision/ground-truth - Record ground truth label
@@ -87,8 +97,15 @@ export function visionRouter(): Router {
     zodValidate({ body: GroundTruthBody }),
     async (req, res) => {
       try {
-        const { userId, model, predictedCategory, actualCategory } = req.body as z.infer<typeof GroundTruthBody>;
-        await visionPipeline.recordGroundTruth(userId, model as ModelType, predictedCategory as any, actualCategory as any);
+        const { userId, model, predictedCategory, actualCategory } = req.body as z.infer<
+          typeof GroundTruthBody
+        >;
+        await visionPipeline.recordGroundTruth(
+          userId,
+          model as ModelType,
+          predictedCategory as any,
+          actualCategory as any,
+        );
         res.json({ success: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });

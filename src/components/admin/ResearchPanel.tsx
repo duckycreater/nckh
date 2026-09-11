@@ -1,25 +1,131 @@
-import React, { useState, useEffect } from "react";
-import { RefreshCw, Download, TrendingUp, Users, Activity, Brain, Zap, AlertCircle, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  RefreshCw,
+  Download,
+  TrendingUp,
+  Users,
+  Activity,
+  Brain,
+  Zap,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { Button, Card, Badge, SectionHeading, EmptyState } from "../../lib/ui";
 import { showToast } from "../../lib/toast";
 
 const token = () => localStorage.getItem("auth_token") || "";
-const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
 
+// Auth headers for API calls - server validates user role from token
 const authHeaders = (): HeadersInit => ({
   Authorization: token() ? `Bearer ${token()}` : "",
-  "x-admin-key": adminApiKey,
 });
 
-type ResearchView = "overview" | "retention" | "interventions" | "decay" | "personality" | "leaderboard";
+type ResearchView =
+  "overview" | "retention" | "interventions" | "decay" | "personality" | "leaderboard";
+
+// Types for API responses
+interface UserProfile {
+  account_id: string;
+  nickname?: string;
+  [key: string]: unknown;
+}
+
+interface DecayData {
+  [key: string]: unknown;
+}
+
+interface InterventionData {
+  [key: string]: unknown;
+}
+
+interface UserDetailResult {
+  profile: UserProfile | null;
+  decay: DecayData | null;
+  interventions: InterventionData | null;
+  loading: boolean;
+  error: string | null;
+}
+
+// Helper to safely escape HTML (prevent XSS)
+function escapeHtml(text: string): string {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Types for Research Dashboard API responses
+interface ResearchOverview {
+  totalUsers?: number;
+  total_users?: number;
+  totalEvents?: number;
+  total_events?: number;
+  totalInterventions?: number;
+  total_interventions?: number;
+  personalityCount?: number;
+  personality_count?: number;
+  personalityDistribution?: Record<string, number>;
+  error?: string;
+}
+
+interface ResearchRetention {
+  // Retention data structure - varies by API implementation
+  [key: string]: unknown;
+}
+
+interface InterventionEffectiveness {
+  // Intervention effectiveness data
+  [key: string]: unknown;
+}
+
+interface EngagementDecay {
+  // Engagement decay data
+  [key: string]: unknown;
+}
+
+interface PersonalityComparison {
+  // Personality comparison data
+  [key: string]: unknown;
+}
+
+interface LeaderboardEntry {
+  user_id?: string;
+  nick?: string;
+  username?: string;
+  points_earned?: number;
+  points?: number;
+  sessions_count?: number;
+  sessions?: number;
+  streak_days?: number;
+  streak?: number;
+}
+
+interface LeaderboardData {
+  leaderboard?: LeaderboardEntry[];
+  users?: LeaderboardEntry[];
+  [key: string]: unknown;
+}
+
+type ResearchData = ResearchOverview &
+  ResearchRetention &
+  InterventionEffectiveness &
+  EngagementDecay &
+  PersonalityComparison &
+  LeaderboardData;
 
 export function ResearchPanel() {
   const [view, setView] = useState<ResearchView>("overview");
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ResearchData | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchUser, setSearchUser] = useState("");
+  const [userDetail, setUserDetail] = useState<UserDetailResult>({
+    profile: null,
+    decay: null,
+    interventions: null,
+    loading: false,
+    error: null,
+  });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const endpoints: Record<ResearchView, string> = {
@@ -32,7 +138,7 @@ export function ResearchPanel() {
       };
       const res = await fetch(endpoints[view], { headers: authHeaders() });
       if (res.ok) {
-        setData(await res.json());
+        setData((await res.json()) as ResearchData);
       } else {
         setData({ error: `HTTP ${res.status}` });
       }
@@ -41,11 +147,11 @@ export function ResearchPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [view]);
 
   useEffect(() => {
     load();
-  }, [view]);
+  }, [load]);
 
   const exportCSV = async (type: string) => {
     try {
@@ -145,55 +251,115 @@ export function ResearchPanel() {
             placeholder="account_id (UUID)"
             className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
           />
-          <Button onClick={() => loadUserDetail(searchUser)}>Tra cứu</Button>
+          <Button
+            onClick={() => loadUserDetail(searchUser, setUserDetail)}
+            disabled={userDetail.loading}
+          >
+            {userDetail.loading ? "Đang tải..." : "Tra cứu"}
+          </Button>
         </div>
-        <div id="user-detail-result" className="mt-3"></div>
+
+        {/* Loading state */}
+        {userDetail.loading && (
+          <div className="mt-3 flex items-center gap-2 text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+          </div>
+        )}
+
+        {/* Error state - escape HTML to prevent XSS */}
+        {userDetail.error && (
+          <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+            Lỗi: {escapeHtml(userDetail.error)}
+          </div>
+        )}
+
+        {/* Success state - render JSON safely */}
+        {userDetail.profile !== null && !userDetail.loading && !userDetail.error && (
+          <div className="mt-3 rounded-2xl bg-slate-50 p-3">
+            <pre
+              className="text-xs overflow-auto"
+              style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+            >
+              {JSON.stringify(
+                {
+                  profile: userDetail.profile,
+                  decay: userDetail.decay,
+                  interventions: userDetail.interventions,
+                },
+                null,
+                2,
+              )}
+            </pre>
+          </div>
+        )}
       </Card>
     </div>
   );
 }
 
-async function loadUserDetail(userId: string) {
+// Updated loadUserDetail using React state instead of innerHTML to prevent XSS
+async function loadUserDetail(
+  userId: string,
+  setUserDetail: React.Dispatch<React.SetStateAction<UserDetailResult>>,
+) {
   if (!userId) return;
-  const result = document.getElementById("user-detail-result");
-  if (result) result.innerHTML = "Đang tải...";
+
+  setUserDetail({ profile: null, decay: null, interventions: null, loading: true, error: null });
+
   try {
     const [profile, decay, interventions] = await Promise.all([
       fetch(`/api/profile/${userId}`, { headers: authHeaders() }),
       fetch(`/api/decay/${userId}`, { headers: authHeaders() }),
       fetch(`/api/interventions/${userId}`, { headers: authHeaders() }),
     ]);
-    const data = {
+
+    const data: UserDetailResult = {
       profile: profile.ok ? await profile.json() : null,
       decay: decay.ok ? await decay.json() : null,
       interventions: interventions.ok ? await interventions.json() : null,
+      loading: false,
+      error: null,
     };
-    if (result) {
-      result.innerHTML = `<pre class="text-xs overflow-auto bg-slate-50 p-3 rounded">${JSON.stringify(data, null, 2)}</pre>`;
-    }
+
+    setUserDetail(data);
   } catch (e) {
-    if (result) result.innerHTML = `<div class="text-red-600">Lỗi: ${(e as Error).message}</div>`;
+    // Error message is safely handled - will be escaped in render
+    setUserDetail({
+      profile: null,
+      decay: null,
+      interventions: null,
+      loading: false,
+      error: (e as Error).message,
+    });
   }
 }
 
-function OverviewView({ data }: { data: any }) {
+function OverviewView({ data }: { data: ResearchOverview }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatBox label="Tổng users" value={data.totalUsers ?? data.total_users ?? 0} />
       <StatBox label="Tổng events" value={data.totalEvents ?? data.total_events ?? 0} />
-      <StatBox label="Tổng interventions" value={data.totalInterventions ?? data.total_interventions ?? 0} />
-      <StatBox label="Personality modes" value={data.personalityCount ?? data.personality_count ?? 0} />
+      <StatBox
+        label="Tổng interventions"
+        value={data.totalInterventions ?? data.total_interventions ?? 0}
+      />
+      <StatBox
+        label="Personality modes"
+        value={data.personalityCount ?? data.personality_count ?? 0}
+      />
       {data.personalityDistribution && (
         <div className="col-span-full rounded-2xl border border-slate-100 bg-slate-50 p-4">
           <h3 className="text-sm font-semibold mb-2">Phân bố personality</h3>
-          <pre className="text-xs overflow-auto">{JSON.stringify(data.personalityDistribution, null, 2)}</pre>
+          <pre className="text-xs overflow-auto">
+            {JSON.stringify(data.personalityDistribution, null, 2)}
+          </pre>
         </div>
       )}
     </div>
   );
 }
 
-function RetentionView({ data }: { data: any }) {
+function RetentionView({ data }: { data: ResearchRetention }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">7-day Retention</h3>
@@ -204,7 +370,7 @@ function RetentionView({ data }: { data: any }) {
   );
 }
 
-function InterventionsView({ data }: { data: any }) {
+function InterventionsView({ data }: { data: InterventionEffectiveness }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Intervention Effectiveness</h3>
@@ -215,7 +381,7 @@ function InterventionsView({ data }: { data: any }) {
   );
 }
 
-function DecayView({ data }: { data: any }) {
+function DecayView({ data }: { data: EngagementDecay }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Engagement Decay (30 ngày)</h3>
@@ -226,7 +392,7 @@ function DecayView({ data }: { data: any }) {
   );
 }
 
-function PersonalityView({ data }: { data: any }) {
+function PersonalityView({ data }: { data: PersonalityComparison }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Personality Comparison</h3>
@@ -237,7 +403,7 @@ function PersonalityView({ data }: { data: any }) {
   );
 }
 
-function LeaderboardView({ data }: { data: any }) {
+function LeaderboardView({ data }: { data: LeaderboardData }) {
   const arr = Array.isArray(data) ? data : data.leaderboard || data.users || [];
   return (
     <div>
@@ -256,15 +422,13 @@ function LeaderboardView({ data }: { data: any }) {
             </tr>
           </thead>
           <tbody>
-            {arr.slice(0, 20).map((row: any, i: number) => (
+            {arr.slice(0, 20).map((row: LeaderboardEntry, i: number) => (
               <tr key={i} className="border-b border-slate-100">
                 <td className="py-2 px-2">{i + 1}</td>
                 <td className="py-2 px-2 text-xs">
                   {(row.user_id || row.nick || row.username || "").slice(0, 12)}
                 </td>
-                <td className="py-2 px-2 font-semibold">
-                  {row.points_earned ?? row.points ?? 0}
-                </td>
+                <td className="py-2 px-2 font-semibold">{row.points_earned ?? row.points ?? 0}</td>
                 <td className="py-2 px-2">{row.sessions_count ?? row.sessions ?? 0}</td>
                 <td className="py-2 px-2">{row.streak_days ?? row.streak ?? 0}</td>
               </tr>

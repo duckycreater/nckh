@@ -14,7 +14,7 @@ export function cn(...parts: Array<string | false | null | undefined>) {
 
 export function useApi<T>(
   fetchFn: () => Promise<T>,
-  deps: unknown[] = []
+  deps: unknown[] = [],
 ): ApiState<T> & { refetch: () => void } {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,7 @@ export function useApi<T>(
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(() => {
@@ -57,12 +57,17 @@ export function Button({
   size?: ButtonSize;
   loading?: boolean;
 }) {
-  const base = "inline-flex items-center justify-center gap-2 rounded-2xl font-bold transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99] focus-visible:shadow-[0_0_0_4px_var(--primary-ring)]";
+  const base =
+    "inline-flex items-center justify-center gap-2 rounded-2xl font-bold transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99] focus-visible:shadow-[0_0_0_4px_var(--primary-ring)]";
   const variants = {
-    primary: "border border-transparent bg-[var(--primary)] text-white shadow-[var(--shadow-glow)] hover:bg-[var(--primary-hover)]",
-    secondary: "border border-transparent bg-[var(--secondary)] text-white shadow-[var(--shadow-soft)] hover:bg-[var(--secondary-hover)]",
-    ghost: "border border-[var(--border-subtle)] bg-white/82 text-[var(--text-secondary)] shadow-sm hover:bg-white hover:text-[var(--text-primary)]",
-    danger: "border border-transparent bg-[var(--danger)] text-white shadow-[var(--shadow-soft)] hover:opacity-95",
+    primary:
+      "border border-transparent bg-[var(--primary)] text-white shadow-[var(--shadow-glow)] hover:bg-[var(--primary-hover)]",
+    secondary:
+      "border border-transparent bg-[var(--secondary)] text-white shadow-[var(--shadow-soft)] hover:bg-[var(--secondary-hover)]",
+    ghost:
+      "border border-[var(--border-subtle)] bg-white/82 text-[var(--text-secondary)] shadow-sm hover:bg-white hover:text-[var(--text-primary)]",
+    danger:
+      "border border-transparent bg-[var(--danger)] text-white shadow-[var(--shadow-soft)] hover:opacity-95",
     soft: "border border-[var(--primary-soft-strong)] bg-[var(--primary-soft)] text-[var(--primary-strong)] hover:bg-[var(--primary-soft-strong)]",
   } as const;
   const sizes = {
@@ -72,7 +77,11 @@ export function Button({
   } as const;
 
   return (
-    <button className={cn(base, variants[variant], sizes[size], className)} disabled={loading || props.disabled} {...props}>
+    <button
+      className={cn(base, variants[variant], sizes[size], className)}
+      disabled={loading || props.disabled}
+      {...props}
+    >
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {children}
     </button>
@@ -95,7 +104,11 @@ export function Card({
     lg: "p-6 sm:p-7",
   } as const;
 
-  return <div className={cn("surface-card rounded-[28px]", paddings[padding], className)}>{children}</div>;
+  return (
+    <div className={cn("surface-card rounded-[28px]", paddings[padding], className)}>
+      {children}
+    </div>
+  );
 }
 
 export function SectionHeading({
@@ -112,7 +125,11 @@ export function SectionHeading({
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        {eyebrow && <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--primary)]/80">{eyebrow}</p>}
+        {eyebrow && (
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--primary)]/80">
+            {eyebrow}
+          </p>
+        )}
         <h2 className="text-xl font-black tracking-tight text-[var(--text-primary)]">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>}
       </div>
@@ -133,7 +150,10 @@ export function Input({ className = "", ...props }: React.InputHTMLAttributes<HT
   );
 }
 
-export function TextArea({ className = "", ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function TextArea({
+  className = "",
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       className={cn(
@@ -145,8 +165,23 @@ export function TextArea({ className = "", ...props }: React.TextareaHTMLAttribu
   );
 }
 
-export function FieldLabel({ className = "", children }: { className?: string; children: React.ReactNode }) {
-  return <label className={cn("mb-2 block text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]", className)}>{children}</label>;
+export function FieldLabel({
+  className = "",
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      className={cn(
+        "mb-2 block text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]",
+        className,
+      )}
+    >
+      {children}
+    </label>
+  );
 }
 
 export function Badge({
@@ -160,13 +195,24 @@ export function Badge({
 }) {
   const tones = {
     default: "border border-slate-200 bg-slate-100 text-slate-700",
-    success: "border border-[var(--primary-soft-strong)] bg-[var(--primary-soft)] text-[var(--primary-strong)]",
+    success:
+      "border border-[var(--primary-soft-strong)] bg-[var(--primary-soft)] text-[var(--primary-strong)]",
     warning: "border border-amber-100 bg-[var(--warning-soft)] text-[var(--warning)]",
     danger: "border border-red-100 bg-[var(--danger-soft)] text-[var(--danger)]",
     accent: "border border-indigo-100 bg-[var(--accent-soft)] text-[var(--accent)]",
   } as const;
 
-  return <span className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black", tones[tone], className)}>{children}</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black",
+        tones[tone],
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
 }
 
 export function TabButton({
@@ -214,10 +260,20 @@ export function ModalShell({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" onClick={onClose} role="presentation">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+      {onClose && (
+        <button
+          type="button"
+          className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+          onClick={onClose}
+          aria-label="Đóng hộp thoại"
+        />
+      )}
       <div
-        className={cn("w-full max-w-2xl rounded-[32px] border border-white/50 bg-white shadow-[var(--shadow-strong)]", className)}
-        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          "relative w-full max-w-2xl rounded-[32px] border border-white/50 bg-white shadow-[var(--shadow-strong)]",
+          className,
+        )}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -243,8 +299,12 @@ export function ModalHeader({
     <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
       <div>
         {badge}
-        <h2 className="mt-3 text-2xl font-black tracking-tight text-[var(--text-primary)]">{title}</h2>
-        {subtitle && <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{subtitle}</p>}
+        <h2 className="mt-3 text-2xl font-black tracking-tight text-[var(--text-primary)]">
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{subtitle}</p>
+        )}
       </div>
       {onClose && (
         <button
@@ -275,7 +335,15 @@ export function SkeletonRow({ className = "" }: { className?: string }) {
   return <Skeleton className={cn("h-12 rounded-2xl", className)} />;
 }
 
-export function ErrorRetry({ message, onRetry, title = "Có lỗi xảy ra" }: { message?: string; onRetry: () => void; title?: string }) {
+export function ErrorRetry({
+  message,
+  onRetry,
+  title = "Có lỗi xảy ra",
+}: {
+  message?: string;
+  onRetry: () => void;
+  title?: string;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
@@ -284,14 +352,24 @@ export function ErrorRetry({ message, onRetry, title = "Có lỗi xảy ra" }: {
       </div>
       <div className="space-y-1">
         <p className="text-base font-black text-[var(--text-primary)]">{title}</p>
-        <p className="text-sm font-medium text-[var(--text-muted)]">{message || t("common.errorRetry")}</p>
+        <p className="text-sm font-medium text-[var(--text-muted)]">
+          {message || t("common.errorRetry")}
+        </p>
       </div>
-      <Button onClick={onRetry} variant="secondary">{t("common.tryAgain")}</Button>
+      <Button onClick={onRetry} variant="secondary">
+        {t("common.tryAgain")}
+      </Button>
     </div>
   );
 }
 
-export function LoadingSpinner({ message = "Đang tải...", subtitle }: { message?: string; subtitle?: string }) {
+export function LoadingSpinner({
+  message = "Đang tải...",
+  subtitle,
+}: {
+  message?: string;
+  subtitle?: string;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
@@ -299,7 +377,9 @@ export function LoadingSpinner({ message = "Đang tải...", subtitle }: { messa
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-[var(--text-secondary)]">{message || t("common.loading")}</p>
+        <p className="text-sm font-semibold text-[var(--text-secondary)]">
+          {message || t("common.loading")}
+        </p>
         {subtitle && <p className="mt-1 text-xs text-[var(--text-muted)]">{subtitle}</p>}
       </div>
     </div>
@@ -326,7 +406,11 @@ export function EmptyState({
         <p className="font-black text-[var(--text-primary)]">{title}</p>
         {subtitle && <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>}
       </div>
-      {action && <Button onClick={action.onClick} variant="soft">{action.label}</Button>}
+      {action && (
+        <Button onClick={action.onClick} variant="soft">
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 }
@@ -351,7 +435,11 @@ export function AppScreenShell({
           <div>
             {badge}
             <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{title}</h1>
-            {subtitle && <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-700 sm:text-base">{subtitle}</p>}
+            {subtitle && (
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-700 sm:text-base">
+                {subtitle}
+              </p>
+            )}
           </div>
           {action}
         </div>

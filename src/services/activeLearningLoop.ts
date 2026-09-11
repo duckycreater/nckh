@@ -66,7 +66,7 @@ export const DEFAULT_OPTIONS: ActiveLearningOptions = {
  */
 export function computeUncertainty(
   pred: ClassifierPrediction,
-  options?: ActiveLearningOptions
+  options?: ActiveLearningOptions,
 ): UncertaintyScore {
   const opts = options ?? DEFAULT_OPTIONS;
   const probs = Object.values(pred.probabilities);
@@ -84,7 +84,8 @@ export function computeUncertainty(
 
   // MC-Dropout variance term (capped at 1)
   const varTerm = Math.min(1, pred.variance ?? 0);
-  const aggregate = (margin * (1 - opts.mcDropoutWeight) + entropyNorm * 0.3 + varTerm * opts.mcDropoutWeight);
+  const aggregate =
+    margin * (1 - opts.mcDropoutWeight) + entropyNorm * 0.3 + varTerm * opts.mcDropoutWeight;
   return {
     scanId: pred.scanId,
     margin,
@@ -101,7 +102,7 @@ export function computeUncertainty(
 export function buildActiveLearningBatch(
   predictions: ClassifierPrediction[],
   options?: ActiveLearningOptions,
-  categoryCounts?: Record<string, number>
+  categoryCounts?: Record<string, number>,
 ): ActiveLearningBatch {
   const opts = options ?? DEFAULT_OPTIONS;
   const counts = { ...(categoryCounts ?? {}) };
@@ -158,10 +159,7 @@ function averageEntropy(arr: number[]): number {
  * Sample a synthetic set of ClassifierPredictions for testing. Used by the
  * dashboard to show what would be queued for labelling.
  */
-export function generateDemoPredictions(
-  n: number,
-  seed = 42
-): ClassifierPrediction[] {
+export function generateDemoPredictions(n: number, seed = 42): ClassifierPrediction[] {
   const rng = mulberry32(seed);
   const cats = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
   return Array.from({ length: n }, (_, i) => {

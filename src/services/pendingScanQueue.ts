@@ -19,7 +19,7 @@ const STORE = "scans";
 interface PendingScan {
   id: string;
   endpoint: string;
-  body: string;          // serialised JSON to avoid IDBStructuredClone quirks
+  body: string; // serialised JSON to avoid IDBStructuredClone quirks
   createdAt: number;
   attempts: number;
 }
@@ -34,7 +34,7 @@ function openDb(): Promise<IDBDatabase> {
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, {keyPath: "id"});
+        db.createObjectStore(STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -99,7 +99,7 @@ export async function replay(): Promise<{ sent: number; failed: number }> {
       const body = JSON.parse(p.body);
       const r = await fetch(p.endpoint, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (r.ok) {
@@ -112,7 +112,7 @@ export async function replay(): Promise<{ sent: number; failed: number }> {
       failed++;
     }
   }
-  return {sent, failed};
+  return { sent, failed };
 }
 
 async function remove(id: string): Promise<void> {
@@ -138,7 +138,7 @@ async function requestBackgroundSync(): Promise<void> {
   } catch {
     // Background Sync not supported — replay on next online event instead.
     if (typeof window !== "undefined") {
-      window.addEventListener("online", () => void replay(), {once: true});
+      window.addEventListener("online", () => void replay(), { once: true });
     }
   }
 }

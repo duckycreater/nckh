@@ -9,7 +9,12 @@
  *   - localizedError() short helper produces expected JSON shape
  */
 import { describe, it, expect } from "vitest";
-import { getErrorMessage, localizedError, err, localeOf } from "../../server/services/errorMessages.ts";
+import {
+  getErrorMessage,
+  localizedError,
+  err,
+  localeOf,
+} from "../../server/services/errorMessages.ts";
 
 describe("getErrorMessage()", () => {
   it("returns Vietnamese for vi", () => {
@@ -17,7 +22,9 @@ describe("getErrorMessage()", () => {
   });
 
   it("returns English for en", () => {
-    expect(getErrorMessage("error.clan.full", "en")).toBe("Clan limit reached. Please join an existing clan.");
+    expect(getErrorMessage("error.clan.full", "en")).toBe(
+      "Clan limit reached. Please join an existing clan.",
+    );
   });
 
   it("returns Japanese for ja", () => {
@@ -29,7 +36,9 @@ describe("getErrorMessage()", () => {
   });
 
   it("falls back to English for unknown locale", () => {
-    expect(getErrorMessage("error.clan.full", "xx")).toBe("Clan limit reached. Please join an existing clan.");
+    expect(getErrorMessage("error.clan.full", "xx")).toBe(
+      "Clan limit reached. Please join an existing clan.",
+    );
   });
 
   it("accepts BCP-47 tags (zh-TW → zh)", () => {
@@ -43,7 +52,9 @@ describe("getErrorMessage()", () => {
 
   it("resolves nested dotted keys", () => {
     expect(getErrorMessage("error.unauthorized", "en")).toBe("Unauthorized");
-    expect(getErrorMessage("error.unauthorized", "vi")).toBe("Chưa đăng nhập hoặc phiên đã hết hạn");
+    expect(getErrorMessage("error.unauthorized", "vi")).toBe(
+      "Chưa đăng nhập hoặc phiên đã hết hạn",
+    );
   });
 
   it("handles nullish locale", () => {
@@ -58,7 +69,12 @@ describe("localizedError() / err()", () => {
     const fakeRes = {
       status(code: number) {
         captured.status = code;
-        return { json: (b: unknown) => { captured.body = b; return b; } };
+        return {
+          json: (b: unknown) => {
+            captured.body = b;
+            return b;
+          },
+        };
       },
     };
     localizedError(fakeRes, 404, "error.notFound", "vi");
@@ -71,7 +87,12 @@ describe("localizedError() / err()", () => {
     const fakeRes = {
       status(code: number) {
         captured.status = code;
-        return { json: (b: unknown) => { captured.body = b; return b; } };
+        return {
+          json: (b: unknown) => {
+            captured.body = b;
+            return b;
+          },
+        };
       },
     };
     err(fakeRes, 400, "error.clan.full", { locale: { locale: "vi" } } as any);
@@ -83,7 +104,12 @@ describe("localizedError() / err()", () => {
     const fakeRes = {
       status(code: number) {
         captured.status = code;
-        return { json: (b: unknown) => { captured.body = b; return b; } };
+        return {
+          json: (b: unknown) => {
+            captured.body = b;
+            return b;
+          },
+        };
       },
     };
     err(fakeRes, 500, "error.internal");

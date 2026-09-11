@@ -1,13 +1,12 @@
 // Admin Google Sheets API service layer
 // Wraps /api/admin/sheets/* endpoints
+// Note: Server validates user role from auth token - no admin key needed on client
 
 const token = () => localStorage.getItem("auth_token") || "";
-const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
 
 const headers = (json = false): HeadersInit => ({
   ...(json ? { "Content-Type": "application/json" } : {}),
   Authorization: token() ? `Bearer ${token()}` : "",
-  "x-admin-key": adminApiKey,
 });
 
 async function request<T>(url: string, opts: RequestInit = {}): Promise<T> {
@@ -40,7 +39,7 @@ export const adminSheetsApi = {
   pushToSheets: (spreadsheetId: string) =>
     request<{ success: boolean; users: number; quizQuestions: number; rewards: number }>(
       "/api/admin/sheets/push-to-sheets",
-      { method: "POST", body: JSON.stringify({ spreadsheetId }) }
+      { method: "POST", body: JSON.stringify({ spreadsheetId }) },
     ),
 
   pullFromSheets: (spreadsheetId: string) =>

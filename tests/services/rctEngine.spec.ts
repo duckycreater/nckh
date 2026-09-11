@@ -40,14 +40,10 @@ const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`,
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
   toBeType: (t: string) => assert.strictEqual(typeof v, t),
@@ -102,7 +98,7 @@ describe("rctEngine.validateStudySpec", () => {
   it("rejects when school has < 60 consented", () => {
     const spec: RctAssignmentSpec = {
       studyId: "fall-2027",
-      schools: [{...baseSchools[0], nConsented: 30}],
+      schools: [{ ...baseSchools[0], nConsented: 30 }],
       cohorts: ["C"],
       seed: 1,
     };
@@ -129,11 +125,11 @@ describe("rctEngine.assignCohorts", () => {
     const spec: RctAssignmentSpec = {
       studyId: "fall-2027",
       schools: [
-        {schoolId: "school-a", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "school-b", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "school-c", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "school-d", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "school-e", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x"},
+        { schoolId: "school-a", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "school-b", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "school-c", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "school-d", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "school-e", nConsented: 200, consentClosureAt: "2027-09-01", contact: "x" },
       ],
       cohorts: ["C", "E1", "E2", "E3", "E4"],
       seed: 42,
@@ -150,9 +146,9 @@ describe("rctEngine.assignCohorts", () => {
     const buildSpec = (): RctAssignmentSpec => ({
       studyId: "fall-2027",
       schools: [
-        {schoolId: "a", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "b", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "c", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x"},
+        { schoolId: "a", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "b", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "c", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x" },
       ],
       cohorts: ["C", "E1", "E2"],
       seed: 1234,
@@ -165,9 +161,9 @@ describe("rctEngine.assignCohorts", () => {
     const mkSpec = (seed: number): RctAssignmentSpec => ({
       studyId: "fall-2027",
       schools: [
-        {schoolId: "a", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "b", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x"},
-        {schoolId: "c", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x"},
+        { schoolId: "a", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "b", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x" },
+        { schoolId: "c", nConsented: 120, consentClosureAt: "2027-09-01", contact: "x" },
       ],
       cohorts: ["C", "E1", "E2"],
       seed,
@@ -341,10 +337,54 @@ describe("rctEngine.runPrimaryTest", () => {
       const baseC = 50 + jitter();
       const postT = 70 + jitter();
       const postC = 55 + jitter();
-      treatment.push({userId: `t-${u}`, schoolId: "school-A", cohort: "E1", week: 0, scansCount: 10, correctScans: 8, identityScore: baseT, active: true, co2eKgWeek: 0.5, timestamp: "2025-01-01T00:00:00Z"});
-      treatment.push({userId: `t-${u}`, schoolId: "school-A", cohort: "E1", week: 10, scansCount: 20, correctScans: 17, identityScore: postT, active: true, co2eKgWeek: 1.0, timestamp: "2025-01-11T00:00:00Z"});
-      control.push({userId: `c-${u}`, schoolId: "school-B", cohort: "C", week: 0, scansCount: 10, correctScans: 6, identityScore: baseC, active: true, co2eKgWeek: 0.5, timestamp: "2025-01-01T00:00:00Z"});
-      control.push({userId: `c-${u}`, schoolId: "school-B", cohort: "C", week: 10, scansCount: 12, correctScans: 7, identityScore: postC, active: true, co2eKgWeek: 0.6, timestamp: "2025-01-11T00:00:00Z"});
+      treatment.push({
+        userId: `t-${u}`,
+        schoolId: "school-A",
+        cohort: "E1",
+        week: 0,
+        scansCount: 10,
+        correctScans: 8,
+        identityScore: baseT,
+        active: true,
+        co2eKgWeek: 0.5,
+        timestamp: "2025-01-01T00:00:00Z",
+      });
+      treatment.push({
+        userId: `t-${u}`,
+        schoolId: "school-A",
+        cohort: "E1",
+        week: 10,
+        scansCount: 20,
+        correctScans: 17,
+        identityScore: postT,
+        active: true,
+        co2eKgWeek: 1.0,
+        timestamp: "2025-01-11T00:00:00Z",
+      });
+      control.push({
+        userId: `c-${u}`,
+        schoolId: "school-B",
+        cohort: "C",
+        week: 0,
+        scansCount: 10,
+        correctScans: 6,
+        identityScore: baseC,
+        active: true,
+        co2eKgWeek: 0.5,
+        timestamp: "2025-01-01T00:00:00Z",
+      });
+      control.push({
+        userId: `c-${u}`,
+        schoolId: "school-B",
+        cohort: "C",
+        week: 10,
+        scansCount: 12,
+        correctScans: 7,
+        identityScore: postC,
+        active: true,
+        co2eKgWeek: 0.6,
+        timestamp: "2025-01-11T00:00:00Z",
+      });
     }
     const out = runPrimaryTest(treatment, control);
     expect(out.meanDiff).toBeGreaterThan(10);
@@ -352,11 +392,33 @@ describe("rctEngine.runPrimaryTest", () => {
     expect(out.reachedTarget).toBe(true);
   });
   it("returns 0 effect for identical outcomes", () => {
-    const ids = Array.from({length: 10}, (_, i) => `u-${i}`);
+    const ids = Array.from({ length: 10 }, (_, i) => `u-${i}`);
     const flat = (ws: number): OutcomeRecord[] =>
       ids.flatMap((u) => [
-        {userId: u, schoolId: "school-A", cohort: "E1" as const, week: 0, scansCount: 5, correctScans: 4, identityScore: ws, active: true, co2eKgWeek: 0.5, timestamp: "2025-01-01T00:00:00Z"},
-        {userId: u, schoolId: "school-A", cohort: "E1" as const, week: 10, scansCount: 8, correctScans: 6, identityScore: ws, active: true, co2eKgWeek: 0.8, timestamp: "2025-01-11T00:00:00Z"},
+        {
+          userId: u,
+          schoolId: "school-A",
+          cohort: "E1" as const,
+          week: 0,
+          scansCount: 5,
+          correctScans: 4,
+          identityScore: ws,
+          active: true,
+          co2eKgWeek: 0.5,
+          timestamp: "2025-01-01T00:00:00Z",
+        },
+        {
+          userId: u,
+          schoolId: "school-A",
+          cohort: "E1" as const,
+          week: 10,
+          scansCount: 8,
+          correctScans: 6,
+          identityScore: ws,
+          active: true,
+          co2eKgWeek: 0.8,
+          timestamp: "2025-01-11T00:00:00Z",
+        },
       ]);
     const out = runPrimaryTest(flat(50), flat(50));
     expect(out.meanDiff).toBeCloseTo(0, 5);

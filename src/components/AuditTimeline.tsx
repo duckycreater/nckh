@@ -11,7 +11,9 @@
 import React, { useEffect, useState } from "react";
 import { Shield, Camera, Eye, Mic, MessageCircle, BookOpen, Wallet, Gift } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type {AuditEvent} from "../apiContract";
+import { getAuthToken } from "../lib/auth";
+import i18n from "../lib/i18n";
+import type { AuditEvent } from "../apiContract";
 
 const ICON: Record<string, React.ElementType> = {
   scan: Camera,
@@ -33,7 +35,7 @@ interface Props {
   pageSize?: number;
 }
 
-export function AuditTimeline({className = "", pageSize = 20}: Props) {
+export function AuditTimeline({ className = "", pageSize = 20 }: Props) {
   const { t, i18n } = useTranslation("audit");
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -50,13 +52,13 @@ export function AuditTimeline({className = "", pageSize = 20}: Props) {
       }`;
       const r = await fetch(path, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+          Authorization: `Bearer ${getAuthToken()}`,
           "Accept-Language": i18n.language || "en",
           "x-bmo-locale": i18n.language || "en",
         },
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = (await r.json()) as {ok: boolean; events: AuditEvent[]; cursor: string | null};
+      const data = (await r.json()) as { ok: boolean; events: AuditEvent[]; cursor: string | null };
       setEvents((prev) => (append ? [...prev, ...data.events] : data.events));
       setCursor(data.cursor);
       setHasMore(Boolean(data.cursor));
@@ -75,14 +77,18 @@ export function AuditTimeline({className = "", pageSize = 20}: Props) {
 
   if (error) {
     return (
-      <div className={`rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 ${className}`}>
+      <div
+        className={`rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 ${className}`}
+      >
         {t("loadError", { error })}
       </div>
     );
   }
 
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800 ${className}`}>
+    <div
+      className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800 ${className}`}
+    >
       <div className="mb-3 flex items-center gap-2">
         <Shield size={16} className="text-emerald-600" />
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
@@ -111,7 +117,7 @@ export function AuditTimeline({className = "", pageSize = 20}: Props) {
   );
 }
 
-function TimelineRow({event, locale}: {event: AuditEvent; locale?: string}) {
+function TimelineRow({ event, locale }: { event: AuditEvent; locale?: string }) {
   const Icon = ICON[event.type] || BookOpen;
   return (
     <li className="relative">
@@ -122,13 +128,9 @@ function TimelineRow({event, locale}: {event: AuditEvent; locale?: string}) {
         <time className="font-mono text-[10px] text-slate-500">
           {new Date(event.ts).toLocaleString(locale)}
         </time>
-        <span className="text-[10px] uppercase tracking-wider text-slate-400">
-          {event.type}
-        </span>
+        <span className="text-[10px] uppercase tracking-wider text-slate-400">{event.type}</span>
       </div>
-      <p className="mt-0.5 text-xs text-slate-700 dark:text-slate-200">
-        {humanise(event, locale)}
-      </p>
+      <p className="mt-0.5 text-xs text-slate-700 dark:text-slate-200">{humanise(event, locale)}</p>
     </li>
   );
 }
@@ -144,20 +146,35 @@ function humanise(e: AuditEvent, locale?: string): string {
     scan_garbage: `${tr(locale, "audit.messages.scan", "You scanned a sorting image. The system does NOT store the image — only hash")} ${String(p?.image_hash ?? "(hidden)").slice(0, 8)}…`,
     scan_success: `${tr(locale, "audit.messages.scan", "You scanned a sorting image. The system does NOT store the image — only hash")} ${String(p?.image_hash ?? "(hidden)").slice(0, 8)}…`,
     consent: p?.consent
-      ? tr(locale, "audit.messages.consentGranted", "You consented to dataset contribution (revocable anytime).")
+      ? tr(
+          locale,
+          "audit.messages.consentGranted",
+          "You consented to dataset contribution (revocable anytime).",
+        )
       : tr(locale, "audit.messages.consentRevoked", "You withdrew your dataset consent."),
     dataset_consent: p?.consent
-      ? tr(locale, "audit.messages.consentGranted", "You consented to dataset contribution (revocable anytime).")
+      ? tr(
+          locale,
+          "audit.messages.consentGranted",
+          "You consented to dataset contribution (revocable anytime).",
+        )
       : tr(locale, "audit.messages.consentRevoked", "You withdrew your dataset consent."),
     chat_message: `${tr(locale, "audit.messages.chatMessage", "You sent")} ${String(p?.message_length ?? "?")} ${tr(locale, "audit.messages.chatMessageSuffix", "characters to the chatbot.")}`,
     login: tr(locale, "audit.messages.login", "You logged in."),
     logout: tr(locale, "audit.messages.logout", "You logged out."),
     reward_claim: `${tr(locale, "audit.messages.rewardClaim", "You received")} ${String(p?.amount ?? "?")} ${tr(locale, "audit.messages.rewardPoints", "reward points.")}`,
     reward_spent: `${tr(locale, "audit.messages.rewardSpent", "You spent")} ${String(p?.amount ?? "?")} ${tr(locale, "audit.messages.rewardPoints", "reward points.")}`,
-    federated_submit: tr(locale, "audit.messages.federatedSubmit", "You contributed 1 federated-learning round (gradient clipped + noised before upload)."),
+    federated_submit: tr(
+      locale,
+      "audit.messages.federatedSubmit",
+      "You contributed 1 federated-learning round (gradient clipped + noised before upload).",
+    ),
     quiz_complete: `${tr(locale, "audit.messages.quizComplete", "You completed a quiz.")} ${tr(locale, "audit.messages.score", "Score")} ${String(p?.score ?? "?")}/${String(p?.total ?? "?")}.`,
   };
-  return msgs[e.type] ?? `${tr(locale, "audit.messages.fallback", "Event")} ${e.type} ${tr(locale, "audit.messages.recorded", "was recorded.")}`;
+  return (
+    msgs[e.type] ??
+    `${tr(locale, "audit.messages.fallback", "Event")} ${e.type} ${tr(locale, "audit.messages.recorded", "was recorded.")}`
+  );
 }
 
 /**
@@ -166,8 +183,6 @@ function humanise(e: AuditEvent, locale?: string): string {
  */
 function tr(locale: string | undefined, key: string, fallback: string): string {
   try {
-    // Lazy import to keep the file dependency-light.
-    const { i18n } = require("../lib/i18n") as { i18n: { t: (k: string, opts?: { lng?: string }) => string } };
     return i18n.t(key, { lng: locale }) ?? fallback;
   } catch {
     return fallback;

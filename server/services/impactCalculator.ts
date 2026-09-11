@@ -32,12 +32,12 @@ export const CO2_FACTORS: Record<ImpactCategory, number> = {
  * Used when no smart-bin weight is available — converts scan count → kg.
  */
 export const AVG_WEIGHT_G: Record<ImpactCategory, number> = {
-  plastic: 28,    // PET bottle / plastic container
-  paper: 22,      // A4 sheet / paper cup
-  glass: 180,     // glass bottle
-  metal: 14,      // aluminum can
-  organic: 110,   // food scrap
-  hazard: 80,     // battery / bulb
+  plastic: 28, // PET bottle / plastic container
+  paper: 22, // A4 sheet / paper cup
+  glass: 180, // glass bottle
+  metal: 14, // aluminum can
+  organic: 110, // food scrap
+  hazard: 80, // battery / bulb
 };
 
 export interface CategoryBreakdown {
@@ -45,8 +45,8 @@ export interface CategoryBreakdown {
   scans: number;
   estimatedKg: number;
   co2KgSaved: number;
-  treesEquivalent: number;  // 1 tree absorbs ~21 kg CO₂/year
-  kwhSaved: number;         // 1 kWh ≈ 0.5 kg CO₂ in coal-heavy grid
+  treesEquivalent: number; // 1 tree absorbs ~21 kg CO₂/year
+  kwhSaved: number; // 1 kWh ≈ 0.5 kg CO₂ in coal-heavy grid
 }
 
 export interface ImpactSummary {
@@ -62,7 +62,9 @@ export interface ImpactSummary {
 /**
  * Compute environmental impact from scan counts per category.
  */
-export function computeImpact(scansByCategory: Partial<Record<ImpactCategory, number>>): ImpactSummary {
+export function computeImpact(
+  scansByCategory: Partial<Record<ImpactCategory, number>>,
+): ImpactSummary {
   const breakdown: Record<ImpactCategory, CategoryBreakdown> = {
     plastic: empty("plastic"),
     paper: empty("paper"),
@@ -122,15 +124,15 @@ export function impactToNarrative(summary: ImpactSummary, locale: string = "vi")
   return [
     t(
       `Qua ${summary.totalScans} lượt phân loại, BMO đã giúp tiết kiệm khoảng ${summary.totalCo2KgSaved.toFixed(1)} kg CO₂ tương đương (≈ ${summary.totalTreesEquivalent.toFixed(1)} cây xanh / năm).`,
-      `Through ${summary.totalScans} sorts, BMO helped avoid approximately ${summary.totalCo2KgSaved.toFixed(1)} kg CO₂eq (≈ ${summary.totalTreesEquivalent.toFixed(1)} trees / year).`
+      `Through ${summary.totalScans} sorts, BMO helped avoid approximately ${summary.totalCo2KgSaved.toFixed(1)} kg CO₂eq (≈ ${summary.totalTreesEquivalent.toFixed(1)} trees / year).`,
     ),
     t(
       `Tương đương ${summary.totalKwhSaved.toFixed(0)} kWh điện — đủ để thắp sáng một lớp học trong ${(summary.totalKwhSaved / 0.06 / 8).toFixed(0)} giờ.`,
-      `Equivalent to ${summary.totalKwhSaved.toFixed(0)} kWh — enough to light a classroom for ${(summary.totalKwhSaved / 0.06 / 8).toFixed(0)} hours.`
+      `Equivalent to ${summary.totalKwhSaved.toFixed(0)} kWh — enough to light a classroom for ${(summary.totalKwhSaved / 0.06 / 8).toFixed(0)} hours.`,
     ),
     t(
       `Đóng góp trực tiếp cho Mục tiêu Phát triển Bền vững 12.5 (giảm thải) và 13.3 (giáo dục khí hậu).`,
-      `Direct contribution to UN SDG 12.5 (reduce waste) and 13.3 (climate education).`
+      `Direct contribution to UN SDG 12.5 (reduce waste) and 13.3 (climate education).`,
     ),
   ].join(" ");
 }

@@ -7,6 +7,7 @@ import { useTheme } from "../App";
 import { ContributeToDataset } from "./ContributeToDataset";
 import { PrivacyBudgetMeter } from "./PrivacyBudgetMeter";
 import { AuditTimeline } from "./AuditTimeline";
+import { getAuthHeaders, getAuthToken } from "../lib/auth";
 
 interface SettingsProps {
   user: User;
@@ -22,7 +23,12 @@ const AVATARS = [
 const FRAMES = [
   { id: "fr1", name: "Khung Gỗ", borderClass: "border-4 border-amber-700", shadowClass: "" },
   { id: "fr2", name: "Khung Băng", borderClass: "border-4 border-cyan-400", shadowClass: "" },
-  { id: "fr3", name: "Hào Quang Đất", borderClass: "border-4 border-emerald-500", shadowClass: "shadow-[0_0_12px_#10b981]" },
+  {
+    id: "fr3",
+    name: "Hào Quang Đất",
+    borderClass: "border-4 border-emerald-500",
+    shadowClass: "shadow-[0_0_12px_#10b981]",
+  },
 ];
 
 const ALL_PURCHASE_IDS = ["av1", "av2", "av3", "fr1", "fr2", "fr3"];
@@ -38,7 +44,9 @@ const SETTINGS_TABS = [
 export function Settings({ user, onUpdate }: SettingsProps) {
   const { t } = useTranslation();
   const { theme, toggle } = useTheme();
-  const [activeTab, setActiveTab] = useState<"appearance" | "name" | "password" | "language" | "privacy">("appearance");
+  const [activeTab, setActiveTab] = useState<
+    "appearance" | "name" | "password" | "language" | "privacy"
+  >("appearance");
   const [lang, setLang] = useState<LanguageCode>(getCurrentLanguage());
   const [savingPref, setSavingPref] = useState(false);
   const [prefMsg, setPrefMsg] = useState("");
@@ -71,7 +79,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
     try {
       const res = await fetch("/api/update-preference", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           nickname: user.account_id,
           selectedAvatar: selectedAvatar || null,
@@ -80,7 +88,11 @@ export function Settings({ user, onUpdate }: SettingsProps) {
       });
       const data = await res.json();
       if (data.success) {
-        onUpdate({ selectedAvatar: selectedAvatar || undefined, selectedFrame: selectedFrame || undefined, customAvatarUrl: undefined });
+        onUpdate({
+          selectedAvatar: selectedAvatar || undefined,
+          selectedFrame: selectedFrame || undefined,
+          customAvatarUrl: undefined,
+        });
         setPrefMsg("Đã lưu!");
       } else {
         setPrefMsg("Lưu thất bại.");
@@ -96,7 +108,8 @@ export function Settings({ user, onUpdate }: SettingsProps) {
   const getPasswordStrength = (pass: string) => {
     if (pass.length === 0) return { color: "bg-gray-200", label: "", width: "0%" };
     if (pass.length < 6) return { color: "bg-red-500", label: "Yếu", width: "33%" };
-    if (pass.length < 10 || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass)) return { color: "bg-yellow-500", label: "Trung bình", width: "66%" };
+    if (pass.length < 10 || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass))
+      return { color: "bg-yellow-500", label: "Trung bình", width: "66%" };
     return { color: "bg-green-500", label: "Mạnh", width: "100%" };
   };
   const strength = getPasswordStrength(newPass);
@@ -108,7 +121,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
     try {
       const res = await fetch("/api/change-name", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           cn_nickname: user.account_id,
           cn_newname: newName,
@@ -132,8 +145,8 @@ export function Settings({ user, onUpdate }: SettingsProps) {
     e.preventDefault();
     setPassErr("");
     setPassMsg("");
-    if (newPass.length < 6) {
-      setPassErr("Mật khẩu mới phải có ít nhất 6 ký tự.");
+    if (newPass.length < 8 || newPass.length > 128) {
+      setPassErr("Mật khẩu mới phải dài từ 8 đến 128 ký tự.");
       return;
     }
     if (newPass !== confirmPass) {
@@ -147,7 +160,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
     try {
       const res = await fetch("/api/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           cp_nickname: user.account_id,
           cp_old_pass: oldPass,
@@ -231,7 +244,9 @@ export function Settings({ user, onUpdate }: SettingsProps) {
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">Avatar</h3>
-            <p className="text-xs text-gray-500 mb-3">Chọn avatar để hiển thị trên hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Chọn avatar để hiển thị trên hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.
+            </p>
             <div className="grid grid-cols-3 gap-3">
               {AVATARS.map((av) => {
                 const owned = hasPurchased(av.id);
@@ -245,15 +260,19 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                       active
                         ? "border-emerald-500 bg-emerald-50"
                         : owned
-                        ? "border-gray-200 bg-gray-50 hover:border-gray-300"
-                        : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                          ? "border-gray-200 bg-gray-50 hover:border-gray-300"
+                          : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
                     }`}
                   >
                     {!owned && (
-                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">🔒</span>
+                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">
+                        🔒
+                      </span>
                     )}
                     {active && (
-                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">✓</span>
+                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                        ✓
+                      </span>
                     )}
                     <span className="text-3xl">{av.emoji}</span>
                     <span className="text-xs font-bold text-gray-700 text-center">{av.name}</span>
@@ -265,7 +284,9 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">Khung hồ sơ</h3>
-            <p className="text-xs text-gray-500 mb-3">Chọn khung để trang trí hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Chọn khung để trang trí hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.
+            </p>
             <div className="grid grid-cols-3 gap-3">
               {FRAMES.map((fr) => {
                 const owned = hasPurchased(fr.id);
@@ -279,17 +300,23 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                       active
                         ? "border-emerald-500 bg-emerald-50"
                         : owned
-                        ? "border-gray-200 bg-gray-50 hover:border-gray-300"
-                        : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                          ? "border-gray-200 bg-gray-50 hover:border-gray-300"
+                          : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
                     }`}
                   >
                     {!owned && (
-                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">🔒</span>
+                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">
+                        🔒
+                      </span>
                     )}
                     {active && (
-                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">✓</span>
+                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                        ✓
+                      </span>
                     )}
-                    <div className={`w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl ${fr.borderClass} ${fr.shadowClass}`}>
+                    <div
+                      className={`w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl ${fr.borderClass} ${fr.shadowClass}`}
+                    >
                       <span className="font-black text-gray-600">{user.name[0]}</span>
                     </div>
                     <span className="text-xs font-bold text-gray-700 text-center">{fr.name}</span>
@@ -301,8 +328,12 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
           {/* Dark mode toggle */}
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Chế độ giao diện</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Chọn chế độ sáng hoặc tối cho ứng dụng.</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
+              Chế độ giao diện
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Chọn chế độ sáng hoặc tối cho ứng dụng.
+            </p>
             <button
               onClick={toggle}
               className="relative flex items-center gap-3 w-full p-4 rounded-2xl border-2 transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
@@ -316,7 +347,9 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                   {theme === "dark" ? "Giao diện tối, giảm mỏi mắt" : "Giao diện sáng mặc định"}
                 </div>
               </div>
-              <div className={`relative w-12 h-6 rounded-full transition-colors ${theme === "dark" ? "bg-emerald-500" : "bg-gray-300"}`}>
+              <div
+                className={`relative w-12 h-6 rounded-full transition-colors ${theme === "dark" ? "bg-emerald-500" : "bg-gray-300"}`}
+              >
                 <div
                   className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${theme === "dark" ? "translate-x-6" : "translate-x-0.5"}`}
                 />
@@ -333,7 +366,9 @@ export function Settings({ user, onUpdate }: SettingsProps) {
               {savingPref ? "Đang lưu..." : "Lưu thay đổi"}
             </button>
             {prefMsg && (
-              <span className={`text-sm font-bold ${prefMsg.includes("thất") || prefMsg.includes("Lỗi") ? "text-red-500" : "text-emerald-600"}`}>
+              <span
+                className={`text-sm font-bold ${prefMsg.includes("thất") || prefMsg.includes("Lỗi") ? "text-red-500" : "text-emerald-600"}`}
+              >
                 {prefMsg}
               </span>
             )}
@@ -345,9 +380,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
       {activeTab === "name" && (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
           <h3 className="text-xl font-bold text-gray-900 mb-6">Đổi tên hiển thị</h3>
-          {nameErr && (
-            <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{nameErr}</p>
-          )}
+          {nameErr && <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{nameErr}</p>}
           {nameMsg && (
             <p className="text-green-600 text-sm mb-4 bg-green-50 p-3 rounded">{nameMsg}</p>
           )}
@@ -389,9 +422,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
       {activeTab === "password" && (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
           <h3 className="text-xl font-bold text-gray-900 mb-6">Đổi mật khẩu</h3>
-          {passErr && (
-            <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{passErr}</p>
-          )}
+          {passErr && <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{passErr}</p>}
           {passMsg && (
             <p className="text-green-600 text-sm mb-4 bg-green-50 p-3 rounded">{passMsg}</p>
           )}
@@ -418,9 +449,14 @@ export function Settings({ user, onUpdate }: SettingsProps) {
               {newPass.length > 0 && (
                 <div className="mt-1.5">
                   <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
-                    <div className={`h-full ${strength.color} transition-all duration-300`} style={{ width: strength.width }} />
+                    <div
+                      className={`h-full ${strength.color} transition-all duration-300`}
+                      style={{ width: strength.width }}
+                    />
                   </div>
-                  <p className={`text-xs mt-0.5 ${strength.label === "Mạnh" ? "text-green-600" : strength.label === "Trung bình" ? "text-yellow-600" : "text-red-500"}`}>
+                  <p
+                    className={`text-xs mt-0.5 ${strength.label === "Mạnh" ? "text-green-600" : strength.label === "Trung bình" ? "text-yellow-600" : "text-red-500"}`}
+                  >
                     {strength.label}
                   </p>
                 </div>
@@ -474,7 +510,9 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                     <div className="font-bold text-gray-900">{language.label}</div>
                   </div>
                   {lang === language.code && (
-                    <span className="ml-auto bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓</span>
+                    <span className="ml-auto bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      ✓
+                    </span>
                   )}
                 </button>
               ))}
@@ -482,7 +520,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
           </div>
         </div>
       )}
-    {/* Privacy & Data tab */}
+      {/* Privacy & Data tab */}
       {activeTab === "privacy" && (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
           <PrivacyTabContent user={user} />
@@ -502,15 +540,24 @@ function PrivacyTabContent({ user }: { user: User }) {
 
   useEffect(() => {
     let mounted = true;
-    fetch(`/api/dataset/status?nickname=${encodeURIComponent(user.account_id)}`)
+    const token = getAuthToken();
+    fetch("/api/dataset/status", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!mounted || !data) return;
         setConsent(data.consentGiven === true);
-        setStats({ totalImages: data.totalImages || 0, imagesInRelease: data.imagesInRelease || 0 });
+        setStats({
+          totalImages: data.totalImages || 0,
+          imagesInRelease: data.imagesInRelease || 0,
+        });
         try {
           localStorage.setItem("bmo_dataset_consent", data.consentGiven ? "true" : "false");
-        } catch {}
+        } catch (e) {
+          // localStorage may be full or disabled - non-critical
+          console.debug("[Settings] Could not persist dataset consent:", e);
+        }
       })
       .catch(() => {})
       .finally(() => mounted && setLoading(false));
@@ -537,7 +584,8 @@ function PrivacyTabContent({ user }: { user: User }) {
           <div>
             <h4 className="text-sm font-bold text-emerald-900 mb-1">🌍 Đóng góp cho Khoa học Mở</h4>
             <p className="text-xs text-emerald-800/80">
-              Cho phép ảnh phân loại rác của bạn được đưa vào TDN-Waste-World — dataset mở phục vụ nghiên cứu toàn cầu.
+              Cho phép ảnh phân loại rác của bạn được đưa vào TDN-Waste-World — dataset mở phục vụ
+              nghiên cứu toàn cầu.
             </p>
           </div>
         </div>
@@ -549,11 +597,15 @@ function PrivacyTabContent({ user }: { user: User }) {
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div className="bg-white/70 rounded-lg p-3 text-center">
                 <div className="text-lg font-bold text-emerald-700">{stats?.totalImages || 0}</div>
-                <div className="text-[10px] uppercase tracking-wider text-gray-600">Ảnh đã đóng góp</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-600">
+                  Ảnh đã đóng góp
+                </div>
               </div>
               <div className="bg-white/70 rounded-lg p-3 text-center">
                 <div className="text-lg font-bold text-blue-700">{stats?.imagesInRelease || 0}</div>
-                <div className="text-[10px] uppercase tracking-wider text-gray-600">Đã công khai</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-600">
+                  Đã công khai
+                </div>
               </div>
             </div>
 
@@ -582,10 +634,16 @@ function PrivacyTabContent({ user }: { user: User }) {
         <h4 className="text-sm font-bold text-gray-900">🛡️ Cam kết của chúng tôi</h4>
         <ul className="text-xs text-gray-600 space-y-1.5 ml-4 list-disc">
           <li>Ảnh được xóa EXIF (GPS, model camera, timestamp) trước khi upload</li>
-          <li>Bạn có thể thu hồi đồng ý bất kỳ lúc nào — dữ liệu sẽ bị ẩn khỏi các bản phát hành tương lai</li>
+          <li>
+            Bạn có thể thu hồi đồng ý bất kỳ lúc nào — dữ liệu sẽ bị ẩn khỏi các bản phát hành tương
+            lai
+          </li>
           <li>Mọi dataset phát hành đều dùng license CC-BY-4.0 (mã nguồn mở, ghi công)</li>
           <li>Người dùng dưới 13 tuổi: phải được phụ huynh đồng ý trước khi bật tính năng này</li>
-          <li><strong>Federated Learning (Phase 2):</strong> ảnh KHÔNG BAO GIỜ rời khỏi thiết bị của bạn. Chỉ model updates (đã mã hóa + thêm nhiễu) mới được gửi về server.</li>
+          <li>
+            <strong>Federated Learning (Phase 2):</strong> ảnh KHÔNG BAO GIỜ rời khỏi thiết bị của
+            bạn. Chỉ model updates (đã mã hóa + thêm nhiễu) mới được gửi về server.
+          </li>
         </ul>
       </div>
 
@@ -602,10 +660,10 @@ function PrivacyTabContent({ user }: { user: User }) {
 
       {/* Privacy budget meter + audit trail (visible, not modal) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-        <PrivacyBudgetMeter userId={user.account_id} />
+        <PrivacyBudgetMeter />
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h4 className="text-sm font-bold text-slate-900 mb-2">Nhật ký sự kiện riêng tư</h4>
-          <AuditTimeline userId={user.account_id} />
+          <AuditTimeline />
         </div>
       </div>
 
@@ -628,8 +686,14 @@ function PrivacyTabContent({ user }: { user: User }) {
   );
 }
 
-function PrivacyDashboardWrapper({ userId, isOpen, onClose }: {
-  userId: string; isOpen: boolean; onClose: () => void;
+function PrivacyDashboardWrapper({
+  userId,
+  isOpen,
+  onClose,
+}: {
+  userId: string;
+  isOpen: boolean;
+  onClose: () => void;
 }) {
   const [Comp, setComp] = useState<React.ComponentType<any> | null>(null);
   useEffect(() => {
@@ -637,7 +701,9 @@ function PrivacyDashboardWrapper({ userId, isOpen, onClose }: {
     import("./PrivacyDashboard").then((m) => {
       if (mounted) setComp(() => m.PrivacyDashboard);
     });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
   if (!Comp) return null;
   return <Comp userId={userId} isOpen={isOpen} onClose={onClose} />;

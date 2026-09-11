@@ -91,7 +91,9 @@ export function PrivacyBudgetMeter({
       : "#ef4444";
 
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800 ${className}`}>
+    <div
+      className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800 ${className}`}
+    >
       <div className="mb-3 flex items-center gap-2">
         <Shield size={16} className="text-emerald-600" />
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
@@ -113,7 +115,7 @@ export function PrivacyBudgetMeter({
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
             transform="rotate(-90 60 60)"
-            style={{transition: "stroke-dashoffset 600ms ease-out, stroke 200ms"}}
+            style={{ transition: "stroke-dashoffset 600ms ease-out, stroke 200ms" }}
           />
           <text
             x={60}
@@ -131,12 +133,8 @@ export function PrivacyBudgetMeter({
         </svg>
 
         <div className="text-xs text-slate-600 dark:text-slate-300">
-          <div className="font-semibold">
-            {state?.rounds ?? 0} vòng federated đã chạy
-          </div>
-          <div className="mt-1">
-            δ = {state ? state.delta.toExponential(1) : "—"}
-          </div>
+          <div className="font-semibold">{state?.rounds ?? 0} vòng federated đã chạy</div>
+          <div className="mt-1">δ = {state ? state.delta.toExponential(1) : "—"}</div>
           <div className="mt-1">
             {state?.withinBudget
               ? "Đang trong ngân sách — bạn có thể tiếp tục đóng góp."
@@ -154,9 +152,8 @@ export function PrivacyBudgetMeter({
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <div className="flex-1">
-            Bạn đã dùng {(usedFraction * 100).toFixed(0)}% ngân sách riêng tư
-            hôm nay. Để bảo vệ người dùng khác, hãy đợi 24h trước khi
-            đóng góp thêm round FL.
+            Bạn đã dùng {(usedFraction * 100).toFixed(0)}% ngân sách riêng tư hôm nay. Để bảo vệ
+            người dùng khác, hãy đợi 24h trước khi đóng góp thêm round FL.
           </div>
           <button
             onClick={() => setDismissed(true)}

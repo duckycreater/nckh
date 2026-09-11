@@ -11,11 +11,7 @@ interface ProfileCompletionModalProps {
 
 const CLASS_GRADES = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
-export function ProfileCompletionModal({
-  user,
-  onSaved,
-  onDismiss,
-}: ProfileCompletionModalProps) {
+export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileCompletionModalProps) {
   const { t } = useTranslation();
   const [fullName, setFullName] = useState(user.fullName || "");
   const [classGrade, setClassGrade] = useState(user.classGrade || "");
@@ -82,15 +78,10 @@ export function ProfileCompletionModal({
             <GraduationCap size={22} />
           </div>
           <div className="flex-1">
-            <h2
-              id="profile-complete-title"
-              className="text-xl font-bold text-emerald-700"
-            >
+            <h2 id="profile-complete-title" className="text-xl font-bold text-emerald-700">
               {t("auth.completeProfileTitle")}
             </h2>
-            <p className="mt-1 text-sm text-slate-600">
-              {t("auth.completeProfileSubtitle")}
-            </p>
+            <p className="mt-1 text-sm text-slate-600">{t("auth.completeProfileSubtitle")}</p>
           </div>
           {onDismiss && (
             <button
@@ -121,9 +112,7 @@ export function ProfileCompletionModal({
               autoComplete="name"
               className="w-full rounded-lg border-2 border-slate-200 bg-slate-50 p-3 text-[15px] outline-none transition-colors focus:border-emerald-500 focus:bg-white"
             />
-            <p className="mt-1 text-[11px] text-slate-500">
-              {t("auth.fullNameHint")}
-            </p>
+            <p className="mt-1 text-[11px] text-slate-500">{t("auth.fullNameHint")}</p>
           </div>
 
           <div>
@@ -146,9 +135,7 @@ export function ProfileCompletionModal({
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-[11px] text-slate-500">
-              {t("auth.classGradeHint")}
-            </p>
+            <p className="mt-1 text-[11px] text-slate-500">{t("auth.classGradeHint")}</p>
           </div>
 
           {error && (

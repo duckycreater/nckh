@@ -51,7 +51,11 @@ class DPAccountant {
   /**
    * Apply Gaussian mechanism: add calibrated noise
    */
-  gaussianMechanism(data: Float32Array | number[], sensitivity: number, epsilon: number): Float32Array {
+  gaussianMechanism(
+    data: Float32Array | number[],
+    sensitivity: number,
+    epsilon: number,
+  ): Float32Array {
     const sigma = this.computeSigma(sensitivity, epsilon);
     const out = new Float32Array(data.length);
     for (let i = 0; i < data.length; i++) {

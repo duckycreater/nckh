@@ -31,16 +31,36 @@ export const TheoryOfChangeViz: React.FC<TheoryOfChangeVizProps> = ({
   const { t } = useTranslation();
   const breakdown = useMemo<ComBreakdown>(
     () => breakdownProp ?? computeBreakdown(user ?? {}),
-    [breakdownProp, user]
+    [breakdownProp, user],
   );
   const scores = breakdown.scores;
-  const intervention = useMemo(() => selectIntervention(scores), [scores]);
+  const intervention = useMemo(() => selectIntervention(breakdown), [breakdown]);
 
   const nodes = [
-    { id: "capability", label: t("theoryOfChange.nodes.capability"), score: scores.capability, kind: t("theoryOfChange.kinds.knowledgeSkill") },
-    { id: "opportunity", label: t("theoryOfChange.nodes.opportunity"), score: scores.opportunity, kind: t("theoryOfChange.kinds.peerBinAccess") },
-    { id: "motivation", label: t("theoryOfChange.nodes.motivation"), score: scores.motivation, kind: t("theoryOfChange.kinds.identityReward") },
-    { id: "behaviour", label: t("theoryOfChange.nodes.behaviour"), score: scores.behaviour, kind: t("theoryOfChange.kinds.sortAccuracy") },
+    {
+      id: "capability",
+      label: t("theoryOfChange.nodes.capability"),
+      score: scores.capability,
+      kind: t("theoryOfChange.kinds.knowledgeSkill"),
+    },
+    {
+      id: "opportunity",
+      label: t("theoryOfChange.nodes.opportunity"),
+      score: scores.opportunity,
+      kind: t("theoryOfChange.kinds.peerBinAccess"),
+    },
+    {
+      id: "motivation",
+      label: t("theoryOfChange.nodes.motivation"),
+      score: scores.motivation,
+      kind: t("theoryOfChange.kinds.identityReward"),
+    },
+    {
+      id: "behaviour",
+      label: t("theoryOfChange.nodes.behaviour"),
+      score: scores.behaviour,
+      kind: t("theoryOfChange.kinds.sortAccuracy"),
+    },
   ];
 
   return (
@@ -54,14 +74,17 @@ export const TheoryOfChangeViz: React.FC<TheoryOfChangeVizProps> = ({
         </span>
       </div>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-        {t("theoryOfChange.tagline")}
-        {" "}{t("theoryOfChange.taglineHint")}
+        {t("theoryOfChange.tagline")} {t("theoryOfChange.taglineHint")}
       </p>
 
       {/* Causal pathway: 4 columns, each is a coloured card with a slider. */}
       <div className="mt-6 grid gap-4 md:grid-cols-4">
         {nodes.map((node) => (
-          <NodeCard key={node.id} node={node} accent={NODE_COLOURS[node.id as keyof typeof NODE_COLOURS]} />
+          <NodeCard
+            key={node.id}
+            node={node}
+            accent={NODE_COLOURS[node.id as keyof typeof NODE_COLOURS]}
+          />
         ))}
       </div>
 
@@ -70,11 +93,10 @@ export const TheoryOfChangeViz: React.FC<TheoryOfChangeVizProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-widest opacity-80">SDG Impact</p>
-            <p className="text-2xl font-bold">
-              Behaviour × Drop-off Rate × Population = ?
-            </p>
+            <p className="text-2xl font-bold">Behaviour × Drop-off Rate × Population = ?</p>
             <p className="mt-1 text-sm opacity-90">
-              KPI: ≥ 0.4 SD shift on EID-4 by week 10. Behaviour score = {scores.behaviour.toFixed(3)}.
+              KPI: ≥ 0.4 SD shift on EID-4 by week 10. Behaviour score ={" "}
+              {scores.behaviour.toFixed(3)}.
             </p>
           </div>
           <div className="text-right">
@@ -122,10 +144,7 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, accent }) => {
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
           {node.label}
         </p>
-        <span
-          className="text-xs font-mono font-bold"
-          style={{ color: accent }}
-        >
+        <span className="text-xs font-mono font-bold" style={{ color: accent }}>
           {pct}%
         </span>
       </div>

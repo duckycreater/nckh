@@ -43,18 +43,16 @@ export interface ResearchUserRecord {
 export function subscoresFromRecord(r: Partial<ResearchUserRecord>): ComSubscores {
   const scans = r.totalScans ?? 0;
   const accuracy = r.accuracy ?? 0.5;
-  const physicalCapability = squish((scans / 60) - 1.0) * 0.6 + accuracy * 0.4;
+  const physicalCapability = squish(scans / 60 - 1.0) * 0.6 + accuracy * 0.4;
 
   const quizzes = r.quizzesCompleted ?? 0;
   const psychologicalCapability =
-    squish((quizzes - 3) / 12) * 0.5 +
-    Math.min(1, (r.chatMessagesCount ?? 0) / 30) * 0.5;
+    squish((quizzes - 3) / 12) * 0.5 + Math.min(1, (r.chatMessagesCount ?? 0) / 30) * 0.5;
 
   const physicalOpportunity = 0.7; // assumption: schools all have bins
   const friends = r.friendCount ?? 0;
   const regionsUnlocked = (r.unlockedRegions?.length ?? 0) / 8.0;
-  const socialOpportunity =
-    squish((friends - 1) / 6) * 0.55 + Math.min(1, regionsUnlocked) * 0.45;
+  const socialOpportunity = squish((friends - 1) / 6) * 0.55 + Math.min(1, regionsUnlocked) * 0.45;
 
   const eidScore = r.environmentalIdentityScore;
   const reflectiveMotivation = eidScore == null ? 0.5 : Math.max(0, Math.min(1, eidScore));
@@ -84,12 +82,9 @@ export function aggregateComBFromRecords(records: Partial<ResearchUserRecord>[])
   const subs: ComSubscores[] = records.map(subscoresFromRecord);
   const n = subs.length || 1;
   const sum = (s: keyof ComSubscores) => subs.reduce((a, b) => a + b[s], 0) / n;
-  const capability =
-    sum("physicalCapability") * 0.55 + sum("psychologicalCapability") * 0.45;
-  const opportunity =
-    sum("physicalOpportunity") * 0.4 + sum("socialOpportunity") * 0.6;
-  const motivation =
-    sum("reflectiveMotivation") * 0.65 + sum("automaticMotivation") * 0.35;
+  const capability = sum("physicalCapability") * 0.55 + sum("psychologicalCapability") * 0.45;
+  const opportunity = sum("physicalOpportunity") * 0.4 + sum("socialOpportunity") * 0.6;
+  const motivation = sum("reflectiveMotivation") * 0.65 + sum("automaticMotivation") * 0.35;
   return {
     capability,
     opportunity,

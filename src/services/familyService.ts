@@ -5,6 +5,7 @@
  * tracking, and aggregate carbon stats with the server.
  */
 
+import { getAuthToken } from "../lib/auth";
 import type {
   Family,
   FamilyMember,
@@ -13,7 +14,10 @@ import type {
   FamilyLeaderboard,
 } from "../types/family";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) ||
+  "";
 
 class FamilyService {
   /** Create a new family. Creator becomes parent automatically. */
@@ -22,7 +26,7 @@ class FamilyService {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
       body: JSON.stringify({ name, region }),
     });
@@ -34,7 +38,7 @@ class FamilyService {
   async getMyFamily(): Promise<{ family: Family; members: FamilyMember[] } | null> {
     const r = await fetch(`${API_BASE}/api/family/me`, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
     });
     if (r.status === 404) return null;
@@ -48,7 +52,7 @@ class FamilyService {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
       body: JSON.stringify({ inviteCode: inviteCode.toUpperCase() }),
     });
@@ -61,7 +65,7 @@ class FamilyService {
     const r = await fetch(`${API_BASE}/api/family/leave`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
     });
     if (!r.ok) throw new Error("Leave failed");
@@ -71,7 +75,7 @@ class FamilyService {
   async getChallenges(familyId: string): Promise<FamilyChallenge[]> {
     const r = await fetch(`${API_BASE}/api/family/${familyId}/challenges`, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
     });
     if (!r.ok) return [];
@@ -82,16 +86,13 @@ class FamilyService {
   /** Create a new challenge (parent only). */
   async createChallenge(
     familyId: string,
-    data: Pick<
-      FamilyChallenge,
-      "title" | "description" | "type" | "target" | "endAt" | "reward"
-    >,
+    data: Pick<FamilyChallenge, "title" | "description" | "type" | "target" | "endAt" | "reward">,
   ): Promise<FamilyChallenge> {
     const r = await fetch(`${API_BASE}/api/family/${familyId}/challenges`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
       body: JSON.stringify(data),
     });
@@ -104,7 +105,7 @@ class FamilyService {
   async getCarbonStats(familyId: string): Promise<FamilyCarbonStats> {
     const r = await fetch(`${API_BASE}/api/family/${familyId}/carbon`, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
     });
     if (!r.ok) throw new Error("Fetch stats failed");
@@ -115,7 +116,7 @@ class FamilyService {
   async getLeaderboard(familyId: string): Promise<FamilyLeaderboard> {
     const r = await fetch(`${API_BASE}/api/family/${familyId}/leaderboard`, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("bmo_token") || ""}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
     });
     if (!r.ok) throw new Error("Fetch leaderboard failed");

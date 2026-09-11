@@ -74,7 +74,7 @@ export function formatDate(
     long: { day: "numeric", month: "long", year: "numeric" },
     full: { weekday: "long", day: "numeric", month: "long", year: "numeric" },
   };
-  const opts = typeof style === "string" ? presets[style] ?? presets.medium : style;
+  const opts = typeof style === "string" ? (presets[style] ?? presets.medium) : style;
   return new Intl.DateTimeFormat(toBCP47(locale), opts).format(d);
 }
 
@@ -120,7 +120,11 @@ export function toBCP47(locale: string): string {
     ko: "ko-KR",
     id: "id-ID",
   };
-  return m[String(locale).toLowerCase().split("-")[0]] ?? locale;
+  const normalized = String(locale).trim();
+  // Preserve already-specific tags such as zh-Hant-TW. Collapsing them to
+  // the base language silently changes script/region and formats dates wrong.
+  if (normalized.includes("-")) return normalized;
+  return m[normalized.toLowerCase()] ?? normalized;
 }
 
 /**

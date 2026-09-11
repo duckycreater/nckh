@@ -1,31 +1,58 @@
-import React, { useState, useEffect, useRef, createContext, useContext, useCallback, lazy, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  createContext,
+  useContext,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Auth } from "./components/Auth";
-import { Dashboard } from "./components/Dashboard";
-import { Chatbot } from "./components/Chatbot";
-import { ResearchDashboard } from "./components/ResearchDashboard";
-import { ProfileCompletionModal } from "./components/ProfileCompletionModal";
-import WorldMap from "./components/WorldMap";
-import CampaignStage from "./components/CampaignStage";
 import { User } from "./types";
-import { FamilyMode } from "./components/FamilyMode";
 import { Card, LoadingSpinner } from "./lib/ui";
-import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode, onLanguageChanged } from "./lib/i18n";
+import {
+  changeLanguage,
+  getCurrentLanguage,
+  LANGUAGES,
+  LanguageCode,
+  onLanguageChanged,
+} from "./lib/i18n";
 import { Globe } from "lucide-react";
 import { calculateLevel } from "./lib/useLevel";
 
 // Phase 4: public global impact dashboard (no login required)
 const GlobalImpactDashboard = lazy(() =>
-  import("./components/GlobalImpactDashboard").then((m) => ({ default: m.GlobalImpactDashboard }))
+  import("./components/GlobalImpactDashboard").then((m) => ({ default: m.GlobalImpactDashboard })),
+);
+const LazyDashboard = lazy(() =>
+  import("./components/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
+const LazyChatbot = lazy(() =>
+  import("./components/Chatbot").then((m) => ({ default: m.Chatbot })),
+);
+const LazyResearchDashboard = lazy(() =>
+  import("./components/ResearchDashboard").then((m) => ({ default: m.ResearchDashboard })),
+);
+const LazyProfileCompletionModal = lazy(() =>
+  import("./components/ProfileCompletionModal").then((m) => ({
+    default: m.ProfileCompletionModal,
+  })),
+);
+const LazyWorldMap = lazy(() => import("./components/WorldMap"));
+const LazyCampaignStage = lazy(() => import("./components/CampaignStage"));
+const LazyFamilyMode = lazy(() =>
+  import("./components/FamilyMode").then((m) => ({ default: m.FamilyMode })),
 );
 
 // ─── Lazy Imports ──────────────────────────────────────────────────────
 const LazyAdminDashboard = lazy(() =>
-  import("./components/AdminDashboard").then((m) => ({ default: m.AdminDashboard }))
+  import("./components/AdminDashboard").then((m) => ({ default: m.AdminDashboard })),
 );
 const LazyFlashcards = lazy(() =>
-  import("./components/Flashcards").then((m) => ({ default: m.Flashcards }))
+  import("./components/Flashcards").then((m) => ({ default: m.Flashcards })),
 );
 
 function LoadingFallback({ message }: { message?: string }) {
@@ -72,11 +99,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
   }, []);
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
 }
 
 // ─── Campaign Route Wrappers
@@ -85,7 +108,7 @@ function WorldMapRoute({ user }: { user: User }) {
   const totalExp = user.totalExpEarned ?? user.points;
   const { level: playerLevel } = calculateLevel(totalExp);
   return (
-    <WorldMap
+    <LazyWorldMap
       playerLevel={playerLevel}
       unlockedRegions={user.unlockedRegions || ["region_01"]}
       currentRegion={user.currentRegion || ""}
@@ -135,7 +158,7 @@ function FamilyModeStandalone({ user }: { user: User }) {
           {t("family.open")}
         </button>
       )}
-      <FamilyMode user={user} isOpen={open} onClose={() => setOpen(false)} />
+      <LazyFamilyMode user={user} isOpen={open} onClose={() => setOpen(false)} />
     </>
   );
 }
@@ -144,7 +167,7 @@ function CampaignStageRoute() {
   const navigate = useNavigate();
   const { regionId, stageId } = useParams<{ regionId: string; stageId: string }>();
   return (
-    <CampaignStage
+    <LazyCampaignStage
       regionId={regionId || ""}
       stageId={stageId || ""}
       onBack={() => navigate("/world-map")}
@@ -231,12 +254,20 @@ function LanguageSwitcher() {
                 type="button"
                 onClick={() => handleSelect(lang.code)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-start hover:bg-gray-50 transition-colors ${
-                  lang.code === current ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-700"
+                  lang.code === current
+                    ? "bg-emerald-50 text-emerald-700 font-semibold"
+                    : "text-gray-700"
                 }`}
               >
-                <span aria-hidden="true" className="text-base">{lang.flag}</span>
+                <span aria-hidden="true" className="text-base">
+                  {lang.flag}
+                </span>
                 <span className="flex-1">{lang.label}</span>
-                {lang.code === current && <span aria-hidden="true" className="text-emerald-600">✓</span>}
+                {lang.code === current && (
+                  <span aria-hidden="true" className="text-emerald-600">
+                    ✓
+                  </span>
+                )}
               </button>
             </li>
           ))}
@@ -258,6 +289,7 @@ function RestoringScreen() {
 }
 
 export default function App() {
+  const { t } = useTranslation();
   const [user, setUser] = useState<User | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
@@ -280,14 +312,15 @@ export default function App() {
   }, []);
 
   // Phase 2: bootstrap on-device trainer + auto-pull global model updates.
+  const userAccountId = user?.account_id;
   useEffect(() => {
-    if (!user) return;
+    if (!userAccountId) return;
     let cancelled = false;
     (async () => {
       try {
         const { onDeviceTrainer } = await import("./services/onDeviceTrainer");
         const { modelUpdateService } = await import("./services/modelUpdateService");
-        onDeviceTrainer.setUserId(user.account_id);
+        onDeviceTrainer.setUserId(userAccountId);
         onDeviceTrainer.loadFromStorage();
         await modelUpdateService.loadFromStorage();
         if (cancelled) return;
@@ -299,16 +332,16 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [user?.account_id]);
+  }, [userAccountId]);
 
-  const handleUpdateUser = (updatedUser: Partial<User>) => {
+  const handleUpdateUser = useCallback((updatedUser: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return null;
       const next = { ...prev, ...updatedUser };
       localStorage.setItem("user_session", JSON.stringify(next));
       return next;
     });
-  };
+  }, []);
 
   const handleLogin = (loggedInUser: User) => {
     localStorage.setItem("user_session", JSON.stringify(loggedInUser));
@@ -334,11 +367,18 @@ export default function App() {
   };
 
   const requiresProfileCompletion =
-    !!user && !user.role?.toLowerCase().includes("admin") && !user.fullName && !user.classGrade;
+    !!user &&
+    !user.role?.toLowerCase().includes("admin") &&
+    !user.fullName &&
+    !user.classGrade &&
+    localStorage.getItem("profile_meta_skipped") !== user.account_id;
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
+    localStorage.removeItem("bmo_token");
+    localStorage.removeItem("sessionToken");
     localStorage.removeItem("user_session");
+    localStorage.removeItem("profile_meta_skipped");
     setUser(null);
   };
 
@@ -357,11 +397,14 @@ export default function App() {
       <ThemeProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/impact" element={
-              <Suspense fallback={<LoadingFallback />}>
-                <GlobalImpactDashboard />
-              </Suspense>
-            } />
+            <Route
+              path="/impact"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <GlobalImpactDashboard />
+                </Suspense>
+              }
+            />
             <Route path="*" element={<Auth onLogin={handleLogin} />} />
           </Routes>
         </BrowserRouter>
@@ -377,42 +420,78 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
           {isAdmin ? (
-          <>
-            <Route path="/research" element={<ResearchDashboard user={user} />} />
-            <Route
-              path="/:tab"
-              element={
-                <Suspense fallback={<LoadingFallback message={t("app.loadingDashboard")} />}>
-                  <LazyAdminDashboard user={user} onLogout={handleLogout} />
-                </Suspense>
-              }
-            />
-          </>
+            <>
+              <Route
+                path="/research"
+                element={
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyResearchDashboard user={user} />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/:tab"
+                element={
+                  <Suspense fallback={<LoadingFallback message={t("app.loadingDashboard")} />}>
+                    <LazyAdminDashboard user={user} onLogout={handleLogout} />
+                  </Suspense>
+                }
+              />
+            </>
           ) : (
             <Route
               path="/:tab"
               element={
-                <Dashboard
-                  user={user}
-                  onLogout={handleLogout}
-                  onUpdateUser={handleUpdateUser}
-                />
+                <Suspense fallback={<LoadingFallback message={t("app.loadingDashboard")} />}>
+                  <LazyDashboard
+                    user={user}
+                    onLogout={handleLogout}
+                    onUpdateUser={handleUpdateUser}
+                  />
+                </Suspense>
               }
             />
           )}
           {/* Campaign Routes */}
-          <Route path="/world-map" element={<WorldMapRoute user={user} />} />
-          <Route path="/campaign/:regionId/:stageId" element={<CampaignStageRoute />} />
-          <Route path="/family" element={<FamilyRoute user={user} />} />
+          <Route
+            path="/world-map"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <WorldMapRoute user={user} />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/campaign/:regionId/:stageId"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <CampaignStageRoute />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/family"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <FamilyRoute user={user} />
+              </Suspense>
+            }
+          />
           <Route path="*" element={<Navigate to={isAdmin ? "/overview" : "/home"} replace />} />
         </Routes>
-        {chatOpen && <Chatbot currentUser={user.account_id} />}
+        {chatOpen && (
+          <Suspense fallback={null}>
+            <LazyChatbot currentUser={user.account_id} />
+          </Suspense>
+        )}
         {requiresProfileCompletion && (
-          <ProfileCompletionModal
-            user={user}
-            onSaved={handleProfileUpdates}
-            onDismiss={handleDismissProfileCompletion}
-          />
+          <Suspense fallback={null}>
+            <LazyProfileCompletionModal
+              user={user}
+              onSaved={handleProfileUpdates}
+              onDismiss={handleDismissProfileCompletion}
+            />
+          </Suspense>
         )}
       </BrowserRouter>
     </ThemeProvider>

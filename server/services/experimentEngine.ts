@@ -75,10 +75,30 @@ const DEFAULT_EXPERIMENTS: ExperimentConfig[] = [
     name: "Chatbot Personality Experiment",
     description: "Which chatbot personality mode produces highest retention?",
     groups: [
-      { name: "mentor", description: "Supportive mentor style", features: ["personality_mentor"], ratio: 0.25 },
-      { name: "competitive", description: "Competitive style", features: ["personality_competitive"], ratio: 0.25 },
-      { name: "friendly", description: "Friendly style", features: ["personality_friendly"], ratio: 0.25 },
-      { name: "playful", description: "Playful meme style", features: ["personality_playful"], ratio: 0.25 },
+      {
+        name: "mentor",
+        description: "Supportive mentor style",
+        features: ["personality_mentor"],
+        ratio: 0.25,
+      },
+      {
+        name: "competitive",
+        description: "Competitive style",
+        features: ["personality_competitive"],
+        ratio: 0.25,
+      },
+      {
+        name: "friendly",
+        description: "Friendly style",
+        features: ["personality_friendly"],
+        ratio: 0.25,
+      },
+      {
+        name: "playful",
+        description: "Playful meme style",
+        features: ["personality_playful"],
+        ratio: 0.25,
+      },
     ],
     metrics: ["retention_7d", "chat_messages_count", "session_duration"],
     status: "active",
@@ -89,8 +109,18 @@ const DEFAULT_EXPERIMENTS: ExperimentConfig[] = [
     description: "Does competitive leaderboard display improve engagement?",
     groups: [
       { name: "control", description: "No leaderboard", features: [], ratio: 0.33 },
-      { name: "treatment_weekly", description: "Weekly leaderboard only", features: ["leaderboard_weekly"], ratio: 0.33 },
-      { name: "treatment_multi", description: "Multi-layer leaderboard", features: ["leaderboard_weekly", "leaderboard_consistency", "leaderboard_eco"], ratio: 0.34 },
+      {
+        name: "treatment_weekly",
+        description: "Weekly leaderboard only",
+        features: ["leaderboard_weekly"],
+        ratio: 0.33,
+      },
+      {
+        name: "treatment_multi",
+        description: "Multi-layer leaderboard",
+        features: ["leaderboard_weekly", "leaderboard_consistency", "leaderboard_eco"],
+        ratio: 0.34,
+      },
     ],
     metrics: ["leaderboard_views", "engagement_score", "points_earned"],
     status: "active",
@@ -121,7 +151,7 @@ class ExperimentEngine {
             JSON.stringify(exp.groups),
             JSON.stringify(exp.metrics),
             exp.status,
-          ]
+          ],
         );
       } catch (e) {
         console.warn("[ExperimentEngine] Failed to init experiment:", exp.id, (e as Error).message);
@@ -135,7 +165,7 @@ class ExperimentEngine {
     try {
       const { rows } = await this.db.query(
         `SELECT experiment_id AS id, name, description, groups, metrics, start_date, end_date, status
-         FROM experiment_configs WHERE status = 'active' ORDER BY created_at DESC`
+         FROM experiment_configs WHERE status = 'active' ORDER BY created_at DESC`,
       );
       if (rows.length === 0) return DEFAULT_EXPERIMENTS.filter((e) => e.status === "active");
       return rows.map((r) => ({
@@ -172,7 +202,7 @@ class ExperimentEngine {
       const existing = await this.db.query(
         `SELECT group_name FROM experiment_assignments
          WHERE experiment_id = $1 AND user_id = $2`,
-        [experimentId, userId]
+        [experimentId, userId],
       );
       if (existing.rows.length > 0) {
         const groupName = existing.rows[0].group_name;
@@ -218,7 +248,7 @@ class ExperimentEngine {
              )
            )
          GROUP BY ea.group_name`,
-        [experimentId, stratumId]
+        [experimentId, stratumId],
       );
 
       // Build current counts map
@@ -245,7 +275,20 @@ class ExperimentEngine {
       // Also apply deterministic hash to break ties consistently
       const hash = this.hashUserId(userId + experimentId + stratumId);
       const tieBreaker = hash % nGroups;
-      if (minDeficit === Infinity || Math.abs(minDeficit - Math.min(...groupNames.map((g) => idealCounts[groupNames.indexOf(g)] * Object.values(currentCounts).reduce((a, b) => a + b, 0) - currentCounts[g]))) < 0.01) {
+      if (
+        minDeficit === Infinity ||
+        Math.abs(
+          minDeficit -
+            Math.min(
+              ...groupNames.map(
+                (g) =>
+                  idealCounts[groupNames.indexOf(g)] *
+                    Object.values(currentCounts).reduce((a, b) => a + b, 0) -
+                  currentCounts[g],
+              ),
+            ),
+        ) < 0.01
+      ) {
         selectedGroup = groupNames[tieBreaker % nGroups];
       }
 
@@ -256,7 +299,7 @@ class ExperimentEngine {
         `INSERT INTO experiment_assignments (experiment_id, user_id, group_name)
          VALUES ($1, $2, $3)
          ON CONFLICT (experiment_id, user_id) DO NOTHING`,
-        [experimentId, userId, selectedGroup]
+        [experimentId, userId, selectedGroup],
       );
 
       return {
@@ -281,7 +324,7 @@ class ExperimentEngine {
       const { rows } = await this.db.query(
         `SELECT experiment_id AS id, name, description, groups, metrics, start_date, end_date, status
          FROM experiment_configs WHERE experiment_id = $1`,
-        [experimentId]
+        [experimentId],
       );
       if (rows.length === 0) return DEFAULT_EXPERIMENTS.find((e) => e.id === experimentId) || null;
       const r = rows[0];
@@ -307,7 +350,7 @@ class ExperimentEngine {
       const { rows } = await this.db.query(
         `SELECT experiment_id, user_id, group_name, assigned_at
          FROM experiment_assignments WHERE user_id = $1 AND experiment_id = $2`,
-        [userId, experimentId]
+        [userId, experimentId],
       );
       if (rows.length === 0) return null;
       const r = rows[0];
@@ -332,7 +375,7 @@ class ExperimentEngine {
       const { rows } = await this.db.query(
         `SELECT experiment_id, user_id, group_name, assigned_at
          FROM experiment_assignments WHERE user_id = $1 ORDER BY assigned_at DESC`,
-        [userId]
+        [userId],
       );
       const results: AssignmentResult[] = [];
       for (const r of rows) {
@@ -361,7 +404,7 @@ class ExperimentEngine {
         `SELECT group_name, COUNT(*)::int AS user_count
          FROM experiment_assignments WHERE experiment_id = $1
          GROUP BY group_name ORDER BY group_name`,
-        [experimentId]
+        [experimentId],
       );
 
       // Get metrics per group from experiment_metrics table
@@ -374,7 +417,7 @@ class ExperimentEngine {
          WHERE em.experiment_id = $1
          GROUP BY em.group_name, em.metric_name
          ORDER BY em.group_name, em.metric_name`,
-        [experimentId]
+        [experimentId],
       );
 
       // Get retention per group (from events)
@@ -393,7 +436,7 @@ class ExperimentEngine {
          WHERE ea.experiment_id = $1
          GROUP BY ea.group_name
          ORDER BY ea.group_name`,
-        [experimentId]
+        [experimentId],
       );
 
       // Compute statistical significance (chi-square approximation)
@@ -432,7 +475,7 @@ class ExperimentEngine {
     try {
       const { rows } = await this.db.query(
         `SELECT profile_type FROM user_behavioral_profiles WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       return rows[0]?.profile_type || null;
     } catch {
@@ -449,7 +492,7 @@ class ExperimentEngine {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return Math.abs(hash);
@@ -496,7 +539,7 @@ class ExperimentEngine {
                 ) THEN 1 ELSE 0 END AS retained
          FROM experiment_assignments ea
          WHERE ea.experiment_id = $1`,
-        [experimentId]
+        [experimentId],
       );
 
       // Build retention arrays per group
@@ -509,9 +552,14 @@ class ExperimentEngine {
       }
 
       const groupNames = Object.keys(retentionByGroup);
-      const nComparisons = groupNames.length * (groupNames.length - 1) / 2;
+      const nComparisons = (groupNames.length * (groupNames.length - 1)) / 2;
 
-      const analysis = analyzeExperiment(experimentId, exp.name, retentionByGroup, Math.max(1, nComparisons));
+      const analysis = analyzeExperiment(
+        experimentId,
+        exp.name,
+        retentionByGroup,
+        Math.max(1, nComparisons),
+      );
 
       // Group counts
       const groupCounts = groupNames.map((g) => ({

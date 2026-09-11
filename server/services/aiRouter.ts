@@ -17,13 +17,7 @@ import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 
 export type TaskType =
-  | "chat"
-  | "reasoning"
-  | "vision"
-  | "reflection"
-  | "behavioral"
-  | "voice_intent"
-  | "event_gen";
+  "chat" | "reasoning" | "vision" | "reflection" | "behavioral" | "voice_intent" | "event_gen";
 
 export type Provider = "groq" | "gemini";
 
@@ -63,11 +57,15 @@ export interface GenerateOptions {
  * Cost estimates in USD per 1M tokens (rough, used for budget accounting).
  */
 const COST_PER_M_TOKENS: Record<Provider, { input: number; output: number }> = {
-  groq: { input: 0.59, output: 0.79 },   // llama-3.3-70b
-  gemini: { input: 0.075, output: 0.30 }, // gemini-2.5-flash
+  groq: { input: 0.59, output: 0.79 }, // llama-3.3-70b
+  gemini: { input: 0.075, output: 0.3 }, // gemini-2.5-flash
 };
 
-export function estimateCost(provider: Provider, inputTokens: number, outputTokens: number): number {
+export function estimateCost(
+  provider: Provider,
+  inputTokens: number,
+  outputTokens: number,
+): number {
   const r = COST_PER_M_TOKENS[provider];
   return (inputTokens / 1_000_000) * r.input + (outputTokens / 1_000_000) * r.output;
 }
@@ -77,7 +75,7 @@ export function estimateCost(provider: Provider, inputTokens: number, outputToke
  */
 export function pickProvider(
   task: TaskType,
-  opts: { latencyBudgetMs?: number; locale?: string; forceProvider?: Provider }
+  opts: { latencyBudgetMs?: number; locale?: string; forceProvider?: Provider },
 ): Provider {
   if (opts.forceProvider) return opts.forceProvider;
 
@@ -100,9 +98,16 @@ export function pickProvider(
 export async function generateText(
   taskType: TaskType,
   prompt: string,
-  options: GenerateOptions = {}
+  options: GenerateOptions = {},
 ): Promise<string> {
-  const { systemInstruction, temperature = 0.7, maxTokens = 2048, latencyBudgetMs, locale, forceProvider } = options;
+  const {
+    systemInstruction,
+    temperature = 0.7,
+    maxTokens = 2048,
+    latencyBudgetMs,
+    locale,
+    forceProvider,
+  } = options;
   const provider = pickProvider(taskType, { latencyBudgetMs, locale, forceProvider });
 
   if (provider === "gemini") {
@@ -125,7 +130,7 @@ async function generateGemini(
   prompt: string,
   systemInstruction?: string,
   temperature?: number,
-  maxTokens?: number
+  maxTokens?: number,
 ): Promise<string> {
   const ai = getGemini();
   if (!ai) {
@@ -157,7 +162,7 @@ async function generateGroqChat(
   prompt: string,
   systemInstruction?: string,
   temperature?: number,
-  maxTokens?: number
+  maxTokens?: number,
 ): Promise<string> {
   const messages: Groq.Chat.ChatCompletionMessageParam[] = [];
   if (systemInstruction) {
@@ -182,7 +187,7 @@ async function generateGroqChat(
 export async function generateWithImage(
   base64Image: string,
   prompt: string,
-  systemInstruction?: string
+  systemInstruction?: string,
 ): Promise<string> {
   const ai = getGemini();
   if (!ai) {

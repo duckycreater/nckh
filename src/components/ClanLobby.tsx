@@ -1,11 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Users, Trophy, Star, Zap, X, ChevronRight, Crown,
-  Plus, ArrowLeft, Search, Shield, Loader2, LogOut,
-  MessageSquare, Target, CheckCircle, Clock, AlertCircle,
+  Users,
+  Trophy,
+  Star,
+  Zap,
+  X,
+  ChevronRight,
+  Crown,
+  Plus,
+  ArrowLeft,
+  Search,
+  Shield,
+  Loader2,
+  LogOut,
+  MessageSquare,
+  Target,
+  CheckCircle,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { Button, Card } from "../lib/ui";
+import { getAuthToken } from "../lib/auth";
 import type { Clan, ClanMember, ClanQuest, ClanMessage } from "../types";
 
 // ─── Clan List Browser ─────────────────────────────────────────────────────────
@@ -13,10 +29,9 @@ interface ClanListProps {
   onSelect: (clanId: string) => void;
   onCreate: () => void;
   onClose: () => void;
-  userNick: string;
 }
 
-function ClanList({ onSelect, onCreate, onClose, userNick }: ClanListProps) {
+function ClanList({ onSelect, onCreate, onClose }: ClanListProps) {
   const [clans, setClans] = useState<Clan[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -32,13 +47,16 @@ function ClanList({ onSelect, onCreate, onClose, userNick }: ClanListProps) {
   const filtered = clans.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.tag.toLowerCase().includes(search.toLowerCase())
+      c.tag.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <button onClick={onClose} className="flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-white">
+        <button
+          onClick={onClose}
+          className="flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-white"
+        >
           <ArrowLeft size={16} /> Quay lại
         </button>
         <Button onClick={onCreate} size="sm" variant="primary" className="gap-1">
@@ -85,12 +103,20 @@ function ClanList({ onSelect, onCreate, onClose, userNick }: ClanListProps) {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-black text-white">{clan.name}</p>
-                      <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-black text-slate-300">[{clan.tag}]</span>
+                      <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-black text-slate-300">
+                        [{clan.tag}]
+                      </span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-400">
-                      <span className="flex items-center gap-1"><Users size={10} /> {(clan.memberIds || []).length}/{clan.level * 5 + 10}</span>
-                      <span className="flex items-center gap-1"><Trophy size={10} /> Lv.{clan.level}</span>
-                      <span className="flex items-center gap-1"><Star size={10} /> {(clan.exp || 0).toLocaleString()} EXP</span>
+                      <span className="flex items-center gap-1">
+                        <Users size={10} /> {clan.memberCount ?? clan.memberIds?.length ?? 0}/20
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Trophy size={10} /> Lv.{clan.level}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Star size={10} /> {(clan.exp || 0).toLocaleString()} EXP
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -119,8 +145,14 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
   const [error, setError] = useState("");
 
   const handleCreate = async () => {
-    if (name.trim().length < 2) { setError("Tên clan phải có ít nhất 2 ký tự"); return; }
-    if (tag.trim().length < 2) { setError("Tag phải có 2-5 ký tự"); return; }
+    if (name.trim().length < 2) {
+      setError("Tên clan phải có ít nhất 2 ký tự");
+      return;
+    }
+    if (tag.trim().length < 2) {
+      setError("Tag phải có 2-5 ký tự");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -128,7 +160,7 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("sessionToken") || ""}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({ name: name.trim(), tag: tag.trim().toUpperCase(), bio: bio.trim() }),
       });
@@ -144,7 +176,10 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
 
   return (
     <div className="space-y-4">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-white">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-white"
+      >
         <ArrowLeft size={16} /> Quay lại
       </button>
 
@@ -153,8 +188,11 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
 
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-bold text-slate-400">Tên clan</label>
+            <label htmlFor="clan-name" className="mb-1 block text-xs font-bold text-slate-400">
+              Tên clan
+            </label>
             <input
+              id="clan-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={30}
@@ -164,8 +202,11 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-bold text-slate-400">Tag (2-5 ký tự, hiển thị trong [ ])</label>
+            <label htmlFor="clan-tag" className="mb-1 block text-xs font-bold text-slate-400">
+              Tag (2-5 ký tự, hiển thị trong [ ])
+            </label>
             <input
+              id="clan-tag"
               value={tag}
               onChange={(e) => setTag(e.target.value.toUpperCase().slice(0, 5))}
               maxLength={5}
@@ -175,8 +216,11 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-bold text-slate-400">Mô tả (tùy chọn)</label>
+            <label htmlFor="clan-bio" className="mb-1 block text-xs font-bold text-slate-400">
+              Mô tả (tùy chọn)
+            </label>
             <textarea
+              id="clan-bio"
               value={bio}
               onChange={(e) => setBio(e.target.value.slice(0, 200))}
               maxLength={200}
@@ -193,7 +237,13 @@ function CreateClanForm({ onBack, onCreated }: CreateClanProps) {
             </div>
           )}
 
-          <Button onClick={handleCreate} loading={loading} className="w-full" size="lg" variant="primary">
+          <Button
+            onClick={handleCreate}
+            loading={loading}
+            className="w-full"
+            size="lg"
+            variant="primary"
+          >
             <Crown size={16} /> Tạo clan
           </Button>
         </div>
@@ -209,11 +259,12 @@ interface ClanDetailProps {
   userNick: string;
   onBack: () => void;
   onLeft: () => void;
+  onJoined: () => void;
 }
 
 type DetailTab = "info" | "quests" | "chat";
 
-function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailProps) {
+function ClanDetail({ clanId, userRole, userNick, onBack, onLeft, onJoined }: ClanDetailProps) {
   const [clan, setClan] = useState<any>(null);
   const [members, setMembers] = useState<ClanMember[]>([]);
   const [quests, setQuests] = useState<ClanQuest[]>([]);
@@ -225,12 +276,16 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
   const [donateAmount, setDonateAmount] = useState("100");
   const [donating, setDonating] = useState(false);
   const [donateMsg, setDonateMsg] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState("");
 
   const isOwner = userRole === "owner";
   const isOfficer = userRole === "officer" || isOwner;
 
-  const fetchClan = () => {
-    fetch(`/api/clan/${clanId}`)
+  const fetchClan = useCallback(() => {
+    fetch(`/api/clan/${clanId}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    })
       .then((r) => r.json())
       .then((d) => {
         setClan(d);
@@ -240,9 +295,30 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }, [clanId]);
+
+  const handleJoin = async () => {
+    setJoining(true);
+    setJoinError("");
+    try {
+      const response = await fetch(`/api/clan/${clanId}/join`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể tham gia clan");
+      onJoined();
+      fetchClan();
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : "Không thể tham gia clan");
+    } finally {
+      setJoining(false);
+    }
   };
 
-  useEffect(() => { fetchClan(); }, [clanId]);
+  useEffect(() => {
+    fetchClan();
+  }, [fetchClan]);
 
   const handleDonate = async () => {
     const amount = parseInt(donateAmount) || 0;
@@ -254,7 +330,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("sessionToken") || ""}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({ amount }),
       });
@@ -277,7 +353,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("sessionToken") || ""}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({ text: msgText.trim() }),
       });
@@ -295,10 +371,12 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
     try {
       const res = await fetch(`/api/clan/${clanId}/leave`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("sessionToken") || ""}` },
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       if (res.ok) onLeft();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   if (loading) {
@@ -319,11 +397,16 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
     return (b.expContributed || 0) - (a.expContributed || 0);
   });
 
-  const weeklyProgress = clan.weeklyGoal ? Math.min(100, Math.round((clan.weeklyDonations / clan.weeklyGoal) * 100)) : 0;
+  const weeklyProgress = clan.weeklyGoal
+    ? Math.min(100, Math.round((clan.weeklyDonations / clan.weeklyGoal) * 100))
+    : 0;
 
   return (
     <div className="space-y-4">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-white">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-white"
+      >
         <ArrowLeft size={16} /> Danh sách clan
       </button>
 
@@ -336,12 +419,20 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-black text-white">{clan.name}</h3>
-              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-xs font-black text-emerald-400">[{clan.tag}]</span>
+              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-xs font-black text-emerald-400">
+                [{clan.tag}]
+              </span>
             </div>
             <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
-              <span className="flex items-center gap-1"><Users size={11} /> {members.length}/{20}</span>
-              <span className="flex items-center gap-1"><Trophy size={11} /> Lv.{clan.level || 1}</span>
-              <span className="flex items-center gap-1"><Star size={11} /> {(clan.exp || 0).toLocaleString()} EXP</span>
+              <span className="flex items-center gap-1">
+                <Users size={11} /> {clan.memberCount ?? members.length}/{20}
+              </span>
+              <span className="flex items-center gap-1">
+                <Trophy size={11} /> Lv.{clan.level || 1}
+              </span>
+              <span className="flex items-center gap-1">
+                <Star size={11} /> {(clan.exp || 0).toLocaleString()} EXP
+              </span>
             </div>
           </div>
           {clan.leaderId === userNick && (
@@ -356,7 +447,9 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
         <div className="mt-3">
           <div className="mb-1 flex items-center justify-between text-xs">
             <span className="font-bold text-slate-400">Mục tiêu tuần này</span>
-            <span className="font-bold text-emerald-400">{clan.weeklyDonations || 0} / {clan.weeklyGoal || 500} EXP</span>
+            <span className="font-bold text-emerald-400">
+              {clan.weeklyDonations || 0} / {clan.weeklyGoal || 500} EXP
+            </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-800">
             <motion.div
@@ -368,46 +461,69 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
         </div>
 
         {/* Donate */}
-        <div className="mt-3 flex items-center gap-2">
-          <input
-            type="number"
-            value={donateAmount}
-            onChange={(e) => setDonateAmount(e.target.value)}
-            min={10}
-            max={10000}
-            className="w-24 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-bold text-white focus:border-emerald-500 focus:outline-none"
-          />
-          <Button onClick={handleDonate} loading={donating} size="sm" variant="primary" className="gap-1">
-            <Zap size={12} /> Đóng góp
-          </Button>
-          {donateMsg && (
-            <span className="text-xs font-bold text-emerald-400">{donateMsg}</span>
-          )}
-        </div>
+        {userRole && (
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="number"
+              value={donateAmount}
+              onChange={(e) => setDonateAmount(e.target.value)}
+              min={10}
+              max={10000}
+              className="w-24 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-bold text-white focus:border-emerald-500 focus:outline-none"
+            />
+            <Button
+              onClick={handleDonate}
+              loading={donating}
+              size="sm"
+              variant="primary"
+              className="gap-1"
+            >
+              <Zap size={12} /> Đóng góp
+            </Button>
+            {donateMsg && <span className="text-xs font-bold text-emerald-400">{donateMsg}</span>}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-2xl border border-slate-700/50 bg-slate-800/30 p-1">
-        {(["info", "quests", "chat"] as DetailTab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${
-              tab === t ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            {t === "info" ? "Thành viên" : t === "quests" ? "Nhiệm vụ" : "Tin nhắn"}
-          </button>
-        ))}
-      </div>
+      {userRole ? (
+        <div className="flex gap-1 rounded-2xl border border-slate-700/50 bg-slate-800/30 p-1">
+          {(["info", "quests", "chat"] as DetailTab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${
+                tab === t ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {t === "info" ? "Thành viên" : t === "quests" ? "Nhiệm vụ" : "Tin nhắn"}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4 text-center">
+          <p className="text-sm text-slate-300">
+            Tham gia clan để xem thành viên, nhiệm vụ và tin nhắn.
+          </p>
+          <Button onClick={handleJoin} loading={joining} className="w-full" variant="primary">
+            <Users size={14} /> Tham gia clan
+          </Button>
+          {joinError && <p className="text-xs font-bold text-red-400">{joinError}</p>}
+        </div>
+      )}
 
       {/* Tab: Members */}
-      {tab === "info" && (
+      {userRole && tab === "info" && (
         <div className="space-y-1.5">
           {sortedMembers.map((m, i) => (
-            <div key={m.userId} className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-800/30 px-3 py-2">
+            <div
+              key={m.userId}
+              className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-800/30 px-3 py-2"
+            >
               <div className="flex items-center gap-2">
-                <span className={`w-4 text-center text-xs font-black ${i === 0 ? "text-amber-400" : i === 1 ? "text-slate-300" : i === 2 ? "text-orange-400" : "text-slate-500"}`}>
+                <span
+                  className={`w-4 text-center text-xs font-black ${i === 0 ? "text-amber-400" : i === 1 ? "text-slate-300" : i === 2 ? "text-orange-400" : "text-slate-500"}`}
+                >
                   #{i + 1}
                 </span>
                 <div>
@@ -415,9 +531,13 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
                     <p className="text-sm font-bold text-white">{m.nick || m.userId}</p>
                     {m.role === "owner" && <Crown size={11} className="text-amber-400" />}
                     {m.role === "officer" && <Shield size={11} className="text-blue-400" />}
-                    {m.userId === userNick && <span className="text-[9px] font-black text-emerald-400">(Bạn)</span>}
+                    {m.userId === userNick && (
+                      <span className="text-[9px] font-black text-emerald-400">(Bạn)</span>
+                    )}
                   </div>
-                  <p className="text-[10px] text-slate-400">Đã đóng góp: {(m.expContributed || 0).toLocaleString()} EXP</p>
+                  <p className="text-[10px] text-slate-400">
+                    Đã đóng góp: {(m.expContributed || 0).toLocaleString()} EXP
+                  </p>
                 </div>
               </div>
               <div className="text-right">
@@ -430,7 +550,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
       )}
 
       {/* Tab: Quests */}
-      {tab === "quests" && (
+      {userRole && tab === "quests" && (
         <div className="space-y-2">
           {quests.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 py-8 text-center">
@@ -439,7 +559,10 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
             </div>
           ) : (
             quests.map((q: any) => (
-              <div key={q.id} className={`rounded-2xl border p-3 ${q.completed ? "border-emerald-500/30 bg-emerald-950/20" : "border-slate-700/50 bg-slate-800/30"}`}>
+              <div
+                key={q.id}
+                className={`rounded-2xl border p-3 ${q.completed ? "border-emerald-500/30 bg-emerald-950/20" : "border-slate-700/50 bg-slate-800/30"}`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
                     {q.completed ? (
@@ -448,14 +571,25 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
                       <Target size={16} className="mt-0.5 shrink-0 text-slate-400" />
                     )}
                     <div>
-                      <p className={`text-sm font-bold ${q.completed ? "text-emerald-400" : "text-white"}`}>{q.descVi || q.desc}</p>
-                      <p className="text-xs text-slate-400">Phần thưởng: <span className="font-black text-amber-400">{q.reward} EXP</span></p>
+                      <p
+                        className={`text-sm font-bold ${q.completed ? "text-emerald-400" : "text-white"}`}
+                      >
+                        {q.descVi || q.desc}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Phần thưởng:{" "}
+                        <span className="font-black text-amber-400">{q.reward} EXP</span>
+                      </p>
                     </div>
                   </div>
                   {q.target && (
                     <div className="text-right">
-                      <p className="text-xs font-bold text-slate-400">{q.progress || 0}/{q.target}</p>
-                      <p className="text-sm font-black text-white">{q.target ? Math.round(((q.progress || 0) / q.target) * 100) : 0}%</p>
+                      <p className="text-xs font-bold text-slate-400">
+                        {q.progress || 0}/{q.target}
+                      </p>
+                      <p className="text-sm font-black text-white">
+                        {q.target ? Math.round(((q.progress || 0) / q.target) * 100) : 0}%
+                      </p>
                     </div>
                   )}
                 </div>
@@ -474,15 +608,19 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
       )}
 
       {/* Tab: Chat */}
-      {tab === "chat" && (
+      {userRole && tab === "chat" && (
         <div className="space-y-3">
           <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-2xl border border-slate-700/50 bg-slate-900/50 p-3">
             {messages.length === 0 ? (
-              <p className="py-4 text-center text-xs text-slate-500">Chưa có tin nhắn nào. Hãy là người đầu tiên!</p>
+              <p className="py-4 text-center text-xs text-slate-500">
+                Chưa có tin nhắn nào. Hãy là người đầu tiên!
+              </p>
             ) : (
               messages.map((m: any) => (
                 <div key={m.id} className="flex gap-2">
-                  <div className={`shrink-0 rounded-lg px-2 py-1 text-xs ${m.userId === userNick ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-300"}`}>
+                  <div
+                    className={`shrink-0 rounded-lg px-2 py-1 text-xs ${m.userId === userNick ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-300"}`}
+                  >
                     <span className="font-black">{m.nick}: </span>
                     <span>{m.text}</span>
                   </div>
@@ -499,7 +637,13 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
               placeholder="Viết tin nhắn..."
               className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
             />
-            <Button onClick={handleSendMsg} loading={sendingMsg} size="sm" variant="primary" className="gap-1">
+            <Button
+              onClick={handleSendMsg}
+              loading={sendingMsg}
+              size="sm"
+              variant="primary"
+              className="gap-1"
+            >
               <MessageSquare size={14} />
             </Button>
           </div>
@@ -507,7 +651,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft }: ClanDetailPr
       )}
 
       {/* Leave */}
-      {!isOwner && (
+      {userRole && !isOwner && (
         <button
           onClick={handleLeave}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-2 text-sm font-bold text-red-400 transition hover:border-red-500/50"
@@ -537,7 +681,7 @@ export function ClanLobby({ onClose, userNick, onClanLeft }: Props) {
 
   useEffect(() => {
     fetch("/api/user-clan", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("sessionToken") || ""}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     })
       .then((r) => r.json())
       .then((d) => {
@@ -559,20 +703,24 @@ export function ClanLobby({ onClose, userNick, onClanLeft }: Props) {
     setUserRole("owner");
     setStage("detail");
     fetch("/api/user-clan", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("sessionToken") || ""}` },
-    }).then((r) => r.json()).then((d) => {
-      setMyClan(d.clan);
-      setUserRole(d.role);
-    });
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        setMyClan(d.clan);
+        setUserRole(d.role);
+      });
   };
 
   const handleClanSelected = (id: string) => {
     setClanId(id);
     fetch("/api/user-clan", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("sessionToken") || ""}` },
-    }).then((r) => r.json()).then((d) => {
-      setUserRole(d.role || "");
-    });
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        setUserRole(d.role || "");
+      });
     setStage("detail");
   };
 
@@ -582,6 +730,15 @@ export function ClanLobby({ onClose, userNick, onClanLeft }: Props) {
     setUserRole("");
     setStage("list");
     onClanLeft?.();
+  };
+
+  const handleJoined = () => {
+    setUserRole("member");
+    fetch("/api/user-clan", {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    })
+      .then((response) => response.json())
+      .then((data) => setMyClan(data.clan || null));
   };
 
   return (
@@ -613,7 +770,10 @@ export function ClanLobby({ onClose, userNick, onClanLeft }: Props) {
                   </p>
                 </div>
               </div>
-              <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white hover:bg-white/30">
+              <button
+                onClick={onClose}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white hover:bg-white/30"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -627,37 +787,58 @@ export function ClanLobby({ onClose, userNick, onClanLeft }: Props) {
             ) : (
               <AnimatePresence mode="wait">
                 {stage === "my_clan" && (
-                  <motion.div key="my_clan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-4 py-8">
+                  <motion.div
+                    key="my_clan"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex flex-col items-center gap-4 py-8"
+                  >
                     <Loader2 size={24} className="animate-spin text-emerald-400" />
                     <p className="text-sm text-slate-500">Đang kiểm tra clan...</p>
                   </motion.div>
                 )}
 
                 {stage === "list" && (
-                  <motion.div key="list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <motion.div
+                    key="list"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                  >
                     <ClanList
                       onSelect={handleClanSelected}
                       onCreate={() => setStage("create")}
                       onClose={onClose}
-                      userNick={userNick}
                     />
                   </motion.div>
                 )}
 
                 {stage === "create" && (
-                  <motion.div key="create" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <motion.div
+                    key="create"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                  >
                     <CreateClanForm onBack={() => setStage("list")} onCreated={handleClanCreated} />
                   </motion.div>
                 )}
 
                 {stage === "detail" && clanId && (
-                  <motion.div key="detail" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <motion.div
+                    key="detail"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
                     <ClanDetail
                       clanId={clanId}
                       userRole={userRole}
                       userNick={userNick}
                       onBack={() => setStage("list")}
                       onLeft={handleLeft}
+                      onJoined={handleJoined}
                     />
                   </motion.div>
                 )}

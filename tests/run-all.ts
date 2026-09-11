@@ -33,32 +33,23 @@ import {
   modelRegistry,
   type ModelManifest,
 } from "../server/services/modelRegistry.ts";
-import {
-  evaluatePhysics,
-  PHYSICS_RULES,
-} from "../src/services/physicsAwareXAI.ts";
+import { evaluatePhysics, PHYSICS_RULES } from "../src/services/physicsAwareXAI.ts";
 
 // ─── helpers so we can keep writing `expect(x).toBe(y)` style ───────────
 const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeLessThanOrEqual: (x: number) =>
-    assert.ok(Number(v) <= x, `${v} > ${x}`),
+  toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toBeNull: () => assert.equal(v, null),
   toBeDefined: () => assert.notEqual(v, undefined),
   toBeUndefined: () => assert.equal(v, undefined),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} !~ ${re}`),
-  toContain: (x: unknown) =>
-    assert.ok(String(v).includes(String(x)), `${v} missing ${x}`),
+  toContain: (x: unknown) => assert.ok(String(v).includes(String(x)), `${v} missing ${x}`),
   toThrow: (msg?: string | RegExp) => {
     if (typeof v !== "function") {
       throw new Error("toThrow() called on non-function");
@@ -82,8 +73,7 @@ const expect = (v: unknown) => ({
   not: {
     toBe: (x: unknown) => assert.notDeepStrictEqual(v, x),
     toEqual: (x: unknown) => assert.notDeepStrictEqual(v, x),
-    toContain: (x: unknown) =>
-      assert.ok(!String(v).includes(String(x)), `${v} contains ${x}`),
+    toContain: (x: unknown) => assert.ok(!String(v).includes(String(x)), `${v} contains ${x}`),
     toBeGreaterThan: (x: number) => assert.ok(Number(v) <= x),
     toBeLessThan: (x: number) => assert.ok(Number(v) >= x),
   },
@@ -139,7 +129,7 @@ describe("dpAccountant", () => {
       // epsAlpha must be ≤ targetEpsilon for the bound to be tight.
       // Test that with epsAlpha strictly less than target, the function
       // returns the minimum delta it found across the supplied alphas.
-      const out = renyiToEpsilonDelta([{alpha: 2, epsAlpha: 1.0}], 2.0);
+      const out = renyiToEpsilonDelta([{ alpha: 2, epsAlpha: 1.0 }], 2.0);
       // Function returns the minimum δ seen; with one valid order we get
       // a number in (0, 1] (the "1" initialiser if nothing qualified).
       expect(out).toBeGreaterThan(0);
@@ -177,11 +167,11 @@ describe("impactCalculator", () => {
     expect(out.totalEstimatedKg).toBe(0);
   });
   it("computeImpact sums scans", () => {
-    const out = computeImpact({plastic: 10, paper: 5});
+    const out = computeImpact({ plastic: 10, paper: 5 });
     expect(out.totalScans).toBe(15);
   });
   it("computeImpact CO₂ matches EPA WARM factor", () => {
-    const out = computeImpact({plastic: 10});
+    const out = computeImpact({ plastic: 10 });
     const plasticKg = (10 * AVG_WEIGHT_G.plastic) / 1000;
     expect(out.byCategory.plastic.co2KgSaved).toBeCloseTo(plasticKg * CO2_FACTORS.plastic);
   });
@@ -214,20 +204,20 @@ describe("modelRegistry", () => {
   });
   it("verify accepts own signature", () => {
     const sig = signManifest(sample);
-    expect(verifyManifest({manifest: sample, signature: sig})).toBe(true);
+    expect(verifyManifest({ manifest: sample, signature: sig })).toBe(true);
   });
   it("verify rejects tampered signature", () => {
     const sig = signManifest(sample);
     const evil = sig.replace(/.$/, (c) => (c === "0" ? "1" : "0"));
-    expect(verifyManifest({manifest: sample, signature: evil})).toBe(false);
+    expect(verifyManifest({ manifest: sample, signature: evil })).toBe(false);
   });
   it("verify rejects tampered manifest", () => {
     const sig = signManifest(sample);
-    const evil = {...sample, url: "https://attacker.example/x.onnx"};
-    expect(verifyManifest({manifest: evil, signature: sig})).toBe(false);
+    const evil = { ...sample, url: "https://attacker.example/x.onnx" };
+    expect(verifyManifest({ manifest: evil, signature: sig })).toBe(false);
   });
   it("register + get latest", () => {
-    const m = modelRegistry.register({...sample, name: "reg-test-2", version: "v9"});
+    const m = modelRegistry.register({ ...sample, name: "reg-test-2", version: "v9" });
     expect(modelRegistry.get("reg-test-2")?.version).toBe("v9");
     expect(modelRegistry.get("reg-test-2")?.url).toBe(m.url);
   });
@@ -335,8 +325,8 @@ describe("apiContract", () => {
       ok: true as const,
       bufferSize: 12,
       minClients: 5,
-      latestVersion: {version: "v3", trainedOn: 1234, createdAt: 1700000000},
-      dp: {epsilon: 1.0, delta: 1e-5, clipNorm: 1.0},
+      latestVersion: { version: "v3", trainedOn: 1234, createdAt: 1700000000 },
+      dp: { epsilon: 1.0, delta: 1e-5, clipNorm: 1.0 },
     };
     expect(sample.bufferSize).toBeGreaterThanOrEqual(sample.minClients);
   });

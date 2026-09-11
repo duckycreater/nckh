@@ -10,13 +10,7 @@
 
 import { getDb } from "../db.js";
 
-export type WasteCategory =
-  | "plastic"
-  | "paper"
-  | "glass"
-  | "metal"
-  | "organic"
-  | "hazard";
+export type WasteCategory = "plastic" | "paper" | "glass" | "metal" | "organic" | "hazard";
 
 export type ModelType = "gemini_2.5_flash" | "mobilenet_v2" | "efficientnet_lite" | "yolov8n";
 
@@ -26,6 +20,12 @@ export interface ClassificationResult {
   confidence: number;
   model: ModelType;
   latencyMs: number;
+  description: string;
+  disposalInstructions: string;
+}
+
+export interface StructuredGeminiAnalysis {
+  category: WasteCategory;
   description: string;
   disposalInstructions: string;
 }
@@ -50,12 +50,15 @@ export interface ConfusionMatrixData {
   labels: WasteCategory[];
   totals: Record<WasteCategory, number>;
   overallAccuracy: number;
-  perClassMetrics: Record<WasteCategory, {
-    precision: number;
-    recall: number;
-    f1: number;
-    support: number;
-  }>;
+  perClassMetrics: Record<
+    WasteCategory,
+    {
+      precision: number;
+      recall: number;
+      f1: number;
+      support: number;
+    }
+  >;
 }
 
 export interface ModelBenchmark {
@@ -70,7 +73,12 @@ export interface ModelBenchmark {
 
 // --- Category mapping for local models ---
 export const WASTE_CATEGORIES: WasteCategory[] = [
-  "plastic", "paper", "glass", "metal", "organic", "hazard",
+  "plastic",
+  "paper",
+  "glass",
+  "metal",
+  "organic",
+  "hazard",
 ];
 
 export const CATEGORY_LABELS: Record<WasteCategory, string> = {
@@ -82,7 +90,10 @@ export const CATEGORY_LABELS: Record<WasteCategory, string> = {
   hazard: "Nguy hại",
 };
 
-export const CATEGORY_DESCRIPTIONS: Record<WasteCategory, { description: string; instructions: string }> = {
+export const CATEGORY_DESCRIPTIONS: Record<
+  WasteCategory,
+  { description: string; instructions: string }
+> = {
   plastic: {
     description: "Đây là loại rác nhựa có thể tái chế được.",
     instructions: "Rửa sạch, vát dẹt để tiết kiệm không gian, bỏ vào thùng tái chế màu xanh dương.",
@@ -101,11 +112,13 @@ export const CATEGORY_DESCRIPTIONS: Record<WasteCategory, { description: string;
   },
   organic: {
     description: "Đây là loại rác hữu cơ có thể ủ compost.",
-    instructions: "Bỏ vào thùng rác hữu cơ hoặc ủ làm phân bón tự nhiên. Không bỏ vào thùng tái chế.",
+    instructions:
+      "Bỏ vào thùng rác hữu cơ hoặc ủ làm phân bón tự nhiên. Không bỏ vào thùng tái chế.",
   },
   hazard: {
     description: "Đây là loại rác nguy hại cần xử lý đặc biệt.",
-    instructions: "KHÔNG bỏ chung rác thường. Mang đến điểm thu gom rác nguy hại hoặc trạm xử lý chuyên dụng.",
+    instructions:
+      "KHÔNG bỏ chung rác thường. Mang đến điểm thu gom rác nguy hại hoặc trạm xử lý chuyên dụng.",
   },
 };
 
@@ -121,7 +134,7 @@ class VisionPipeline {
     confidence: number,
     predictedCategory: WasteCategory,
     groundTruthCategory?: WasteCategory,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     if (!this.db) return;
     try {
@@ -129,7 +142,15 @@ class VisionPipeline {
         `INSERT INTO ai_scan_metrics
           (user_id, model_type, latency_ms, confidence_score, predicted_category, ground_truth_category, session_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [userId, model, latencyMs, confidence, predictedCategory, groundTruthCategory || null, sessionId || null]
+        [
+          userId,
+          model,
+          latencyMs,
+          confidence,
+          predictedCategory,
+          groundTruthCategory || null,
+          sessionId || null,
+        ],
       );
     } catch (e) {
       console.warn("[VisionPipeline] Failed to log inference:", (e as Error).message);
@@ -142,7 +163,7 @@ class VisionPipeline {
     model: ModelType,
     predictedCategory: WasteCategory,
     actualCategory: WasteCategory,
-    sessionId?: number
+    sessionId?: number,
   ): Promise<void> {
     if (!this.db) return;
     try {
@@ -156,7 +177,7 @@ class VisionPipeline {
            WHERE user_id = $2 AND model_type = $3 AND predicted_category = $4
            ORDER BY timestamp DESC LIMIT 1
          )`,
-        [actualCategory, userId, model, predictedCategory]
+        [actualCategory, userId, model, predictedCategory],
       );
     } catch (e) {
       console.warn("[VisionPipeline] Failed to record ground truth:", (e as Error).message);
@@ -270,7 +291,10 @@ class VisionPipeline {
       }
 
       // Calculate per-class metrics
-      const perClassMetrics: Record<WasteCategory, { precision: number; recall: number; f1: number; support: number }> = {} as any;
+      const perClassMetrics: Record<
+        WasteCategory,
+        { precision: number; recall: number; f1: number; support: number }
+      > = {} as any;
       let totalCorrect = 0;
       let totalSamples = 0;
 
@@ -293,7 +317,7 @@ class VisionPipeline {
         const colTotal = Object.values(matrix).reduce((sum, row) => sum + (row[actual] || 0), 0);
         const precision = colTotal > 0 ? truePositives / colTotal : 0;
         // F1 = 2 * P * R / (P + R)
-        const f1 = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0;
+        const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
         perClassMetrics[actual] = {
           precision: Math.round(precision * 1000) / 10,
@@ -308,7 +332,8 @@ class VisionPipeline {
         matrix,
         labels: WASTE_CATEGORIES,
         totals,
-        overallAccuracy: totalSamples > 0 ? Math.round(totalCorrect / totalSamples * 1000) / 10 : 0,
+        overallAccuracy:
+          totalSamples > 0 ? Math.round((totalCorrect / totalSamples) * 1000) / 10 : 0,
         perClassMetrics,
       };
     } catch {
@@ -317,10 +342,13 @@ class VisionPipeline {
   }
 
   // --- Get top misclassifications ---
-  async getTopMisclassifications(limit = 10): Promise<{ actual: string; predicted: string; count: number }[]> {
+  async getTopMisclassifications(
+    limit = 10,
+  ): Promise<{ actual: string; predicted: string; count: number }[]> {
     if (!this.db) return [];
     try {
-      const { rows } = await this.db.query(`
+      const { rows } = await this.db.query(
+        `
         SELECT ground_truth_category AS actual, predicted_category AS predicted, COUNT(*)::int AS count
         FROM ai_scan_metrics
         WHERE ground_truth_category IS NOT NULL
@@ -329,14 +357,52 @@ class VisionPipeline {
         GROUP BY ground_truth_category, predicted_category
         ORDER BY count DESC
         LIMIT $1
-      `, [limit]);
+      `,
+        [limit],
+      );
       return rows;
     } catch {
       return [];
     }
   }
 
-  // --- Parse Gemini's text response to category ---
+  /** Parse the strict JSON contract requested from Gemini, if it obeyed it. */
+  parseGeminiStructuredResponse(text: string): StructuredGeminiAnalysis | null {
+    const candidates = [
+      text.trim(),
+      text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || "",
+      text.match(/\{[\s\S]*\}/)?.[0] || "",
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      try {
+        const value = JSON.parse(candidate) as Record<string, unknown>;
+        const rawCategory =
+          typeof value.category === "string" ? value.category.trim().toLowerCase() : "";
+        const category =
+          WASTE_CATEGORIES.find((item) => item === rawCategory) ??
+          (rawCategory.includes("nhựa") || rawCategory.includes("plastic") ? "plastic" : null) ??
+          (rawCategory.includes("giấy") || rawCategory.includes("paper") ? "paper" : null) ??
+          (rawCategory.includes("thủy tinh") || rawCategory.includes("glass") ? "glass" : null) ??
+          (rawCategory.includes("kim loại") || rawCategory.includes("metal") ? "metal" : null) ??
+          (rawCategory.includes("hữu cơ") || rawCategory.includes("organic") ? "organic" : null) ??
+          (rawCategory.includes("nguy hại") || rawCategory.includes("hazard") ? "hazard" : null);
+        if (!category) continue;
+        const description =
+          typeof value.description === "string" ? value.description.trim().slice(0, 2000) : "";
+        const disposalInstructions =
+          typeof value.disposalInstructions === "string"
+            ? value.disposalInstructions.trim().slice(0, 2000)
+            : "";
+        if (!description || !disposalInstructions) continue;
+        return { category, description, disposalInstructions };
+      } catch {
+        // Try the next extraction strategy, then use the legacy text parser.
+      }
+    }
+    return null;
+  }
+
+  // --- Parse Gemini's text response to category (legacy compatibility) ---
   parseGeminiResponseToCategory(text: string): WasteCategory {
     const lower = text.toLowerCase();
     if (lower.includes("nhựa") || lower.includes("plastic")) return "plastic";

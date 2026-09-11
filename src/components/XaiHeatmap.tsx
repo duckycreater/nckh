@@ -32,20 +32,14 @@ interface Props {
 }
 
 const FALLBACK_POINTS: HeatPoint[] = [
-  {x: 0.5, y: 0.5, weight: 0.32},
-  {x: 0.45, y: 0.55, weight: 0.18},
-  {x: 0.6, y: 0.4, weight: 0.12},
-  {x: 0.4, y: 0.45, weight: 0.08},
+  { x: 0.5, y: 0.5, weight: 0.32 },
+  { x: 0.45, y: 0.55, weight: 0.18 },
+  { x: 0.6, y: 0.4, weight: 0.12 },
+  { x: 0.4, y: 0.45, weight: 0.08 },
 ];
 
-export function XaiHeatmap({
-  width,
-  height,
-  points,
-  intensity = 0.55,
-  onPickPoint,
-}: Props) {
-  const pts = (points && points.length > 0) ? points : FALLBACK_POINTS;
+export function XaiHeatmap({ width, height, points, intensity = 0.55, onPickPoint }: Props) {
+  const pts = points && points.length > 0 ? points : FALLBACK_POINTS;
   const normalised = normalise(pts);
 
   return (
@@ -54,7 +48,7 @@ export function XaiHeatmap({
       height={height}
       viewBox={`0 0 ${width} ${height}`}
       className="pointer-events-auto absolute inset-0"
-      style={{mixBlendMode: "screen"}}
+      style={{ mixBlendMode: "screen" }}
     >
       <defs>
         <filter id="xai-blur" x="-20%" y="-20%" width="140%" height="140%">
@@ -89,7 +83,7 @@ export function XaiHeatmap({
             strokeOpacity={0.85}
             strokeWidth={1.5}
             onClick={() => onPickPoint?.(p, p.weight * 100)}
-            style={{cursor: onPickPoint ? "pointer" : "default"}}
+            style={{ cursor: onPickPoint ? "pointer" : "default" }}
           />
         </g>
       ))}
@@ -99,5 +93,5 @@ export function XaiHeatmap({
 
 function normalise(pts: HeatPoint[]): HeatPoint[] {
   const sum = pts.reduce((a, b) => a + b.weight, 0) || 1;
-  return pts.map((p) => ({...p, weight: p.weight / sum}));
+  return pts.map((p) => ({ ...p, weight: p.weight / sum }));
 }

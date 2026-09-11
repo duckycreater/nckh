@@ -105,7 +105,7 @@ export function fetchRecentHistory(
   bin: EmulatedBinProfile,
   lookbackHours = 72,
   stepMinutes = 60,
-  startTime = Date.now()
+  startTime = Date.now(),
 ): { timestamp: number; totalKg: number; weightsByCategory: Record<string, number> }[] {
   const out = [];
   for (let h = 0; h < lookbackHours; h += stepMinutes / 60) {
@@ -139,7 +139,12 @@ function designRow(timestamp: number, baseTs: number, maxOrd: number): number[] 
 /** Forecast next `horizonHours` hours of bin demand per category. */
 export function forecastBinDemand(
   bin: EmulatedBinProfile,
-  options?: { startTime?: number; lookbackHours?: number; horizonHours?: number; stepMinutes?: number }
+  options?: {
+    startTime?: number;
+    lookbackHours?: number;
+    horizonHours?: number;
+    stepMinutes?: number;
+  },
 ): HourForecast[] {
   const startTime = options?.startTime ?? Date.now();
   const lookbackHours = options?.lookbackHours ?? 168; // 1 week
@@ -215,7 +220,7 @@ export function forecastBinDemand(
  */
 export function aggregateForecast(
   bins: EmulatedBinProfile[],
-  opts?: { horizonHours?: number; stepMinutes?: number }
+  opts?: { horizonHours?: number; stepMinutes?: number },
 ): HourForecast[] {
   const horizon = opts?.horizonHours ?? 24;
   const stepMin = opts?.stepMinutes ?? 60;

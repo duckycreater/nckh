@@ -23,7 +23,7 @@ interface Options {
 }
 
 export function useEventSource<T = unknown>(url: string | null, opts: Options = {}) {
-  const {enabled = true, onEvent, withCredentials = false} = opts;
+  const { enabled = true, onEvent, withCredentials = false } = opts;
   const [status, setStatus] = useState<SSEStatus>("connecting");
   const [last, setLast] = useState<SSEEvent<T> | null>(null);
   const handlerRef = useRef(onEvent);
@@ -39,7 +39,7 @@ export function useEventSource<T = unknown>(url: string | null, opts: Options = 
       if (cancelled) return;
       setStatus("connecting");
       try {
-        es = new EventSource(url, {withCredentials});
+        es = new EventSource(url, { withCredentials });
       } catch (e) {
         setStatus("error");
         scheduleReconnect();
@@ -64,7 +64,7 @@ export function useEventSource<T = unknown>(url: string | null, opts: Options = 
           } catch {
             data = ev.data as unknown as T;
           }
-          const event: SSEEvent<T> = {type: String(name), data, ts: Date.now()};
+          const event: SSEEvent<T> = { type: String(name), data, ts: Date.now() };
           setLast(event);
           handlerRef.current?.(event);
         });
@@ -86,5 +86,5 @@ export function useEventSource<T = unknown>(url: string | null, opts: Options = 
     };
   }, [url, enabled, withCredentials]);
 
-  return {status, last};
+  return { status, last };
 }

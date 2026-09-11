@@ -1,6 +1,29 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Save, X, Download, Upload, ListOrdered, Eye, EyeOff, GripVertical } from "lucide-react";
-import { Button, Card, Badge, Input, TextArea, FieldLabel, ModalShell, ModalHeader, EmptyState, SectionHeading } from "../../lib/ui";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Save,
+  X,
+  Download,
+  Upload,
+  ListOrdered,
+  Eye,
+  EyeOff,
+  GripVertical,
+} from "lucide-react";
+import {
+  Button,
+  Card,
+  Badge,
+  Input,
+  TextArea,
+  FieldLabel,
+  ModalShell,
+  ModalHeader,
+  EmptyState,
+  SectionHeading,
+} from "../../lib/ui";
 import { showToast } from "../../lib/toast";
 
 export interface QuizQuestionUI {
@@ -17,12 +40,10 @@ export interface QuizQuestionUI {
 }
 
 const token = () => localStorage.getItem("auth_token") || "";
-const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
 
 const authHeaders = (): HeadersInit => ({
   "Content-Type": "application/json",
   Authorization: token() ? `Bearer ${token()}` : "",
-  "x-admin-key": adminApiKey,
 });
 
 const EMPTY_QUESTION: Omit<QuizQuestionUI, "question_id"> = {
@@ -97,7 +118,11 @@ export function QuizBuilder() {
         const err = await res.text();
         throw new Error(err);
       }
-      showToast("Đã lưu", isNew ? "Câu hỏi mới đã được thêm" : "Câu hỏi đã được cập nhật", "success");
+      showToast(
+        "Đã lưu",
+        isNew ? "Câu hỏi mới đã được thêm" : "Câu hỏi đã được cập nhật",
+        "success",
+      );
       setEditing(null);
       setShowAdd(false);
       load();
@@ -278,9 +303,7 @@ export function QuizBuilder() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge tone={q.enabled ? "success" : "default"}>
-                      #{q.question_id}
-                    </Badge>
+                    <Badge tone={q.enabled ? "success" : "default"}>#{q.question_id}</Badge>
                     {q.category && <Badge tone="accent">{q.category}</Badge>}
                     {q.difficulty && (
                       <Badge tone={q.difficulty === "hard" ? "warning" : "default"}>
@@ -363,8 +386,8 @@ export function QuizBuilder() {
           <ModalHeader title="Nhập câu hỏi từ JSON" onClose={() => setShowImport(false)} />
           <div className="p-6 space-y-3">
             <p className="text-sm text-slate-500">
-              Dán JSON mảng câu hỏi hoặc object có key <code>questions</code>. Câu hỏi sẽ được merge theo{" "}
-              <code>question_id</code>.
+              Dán JSON mảng câu hỏi hoặc object có key <code>questions</code>. Câu hỏi sẽ được merge
+              theo <code>question_id</code>.
             </p>
             <TextArea
               rows={10}

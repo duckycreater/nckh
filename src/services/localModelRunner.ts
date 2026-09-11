@@ -9,6 +9,7 @@
  */
 
 import { getWasteClassifier, type WasteCategory, type WastePrediction } from "./wasteClassifier";
+import { logger } from "../lib/logger";
 
 export type LocalModelType = "mobilenet_v2" | "efficientnet_lite" | "yolov8n" | "onnx_waste_v1";
 
@@ -26,10 +27,10 @@ export const LOCAL_MODELS: LocalModelConfig[] = [
   {
     type: "onnx_waste_v1",
     displayName: "ONNX Waste Classifier v1",
-    inputSize: [224, 224],
-    description: "MobileNetV3-Small trained on TDN-Waste-5000. Edge-optimized, 6 Vietnamese categories.",
+    inputSize: [16, 1],
+    description: "ONNX v1 image-statistics adapter (16 features), 6 Vietnamese categories.",
     modelUrl: "/models/waste_classifier_v1.onnx",
-    classLabels: ["plastic", "paper", "glass", "metal", "organic", "hazard"],
+    classLabels: ["organic", "plastic", "paper", "glass", "metal", "hazard"],
     framework: "onnx",
   },
   {
@@ -38,7 +39,16 @@ export const LOCAL_MODELS: LocalModelConfig[] = [
     inputSize: [224, 224],
     description: "Legacy TF.js model. Kept for backward compatibility.",
     modelUrl: "/models/mobilenet_v2/model.json",
-    classLabels: ["plastic", "paper", "glass", "metal", "organic", "hazard", "cardboard", "textile"],
+    classLabels: [
+      "plastic",
+      "paper",
+      "glass",
+      "metal",
+      "organic",
+      "hazard",
+      "cardboard",
+      "textile",
+    ],
     framework: "tfjs",
   },
   {
@@ -47,7 +57,16 @@ export const LOCAL_MODELS: LocalModelConfig[] = [
     inputSize: [224, 224],
     description: "Legacy TFLite model.",
     modelUrl: "/models/efficientnet_lite/model.json",
-    classLabels: ["plastic", "paper", "glass", "metal", "organic", "hazard", "cardboard", "textile"],
+    classLabels: [
+      "plastic",
+      "paper",
+      "glass",
+      "metal",
+      "organic",
+      "hazard",
+      "cardboard",
+      "textile",
+    ],
     framework: "tfjs",
   },
   {
@@ -56,21 +75,36 @@ export const LOCAL_MODELS: LocalModelConfig[] = [
     inputSize: [640, 640],
     description: "Object detection model. Detects multiple objects per image.",
     modelUrl: "/models/yolov8n/model.json",
-    classLabels: ["plastic_bottle", "paper_box", "glass_jar", "metal_can", "organic_waste", "hazard_battery"],
+    classLabels: [
+      "plastic_bottle",
+      "paper_box",
+      "glass_jar",
+      "metal_can",
+      "organic_waste",
+      "hazard_battery",
+    ],
     framework: "tfjs",
   },
 ];
 
 const WASTE_CATEGORIES: WasteCategory[] = [
-  "plastic", "paper", "glass", "metal", "organic", "hazard",
+  "organic",
+  "plastic",
+  "paper",
+  "glass",
+  "metal",
+  "hazard",
 ];
 
 interface ClassifyResult {
   category: WasteCategory;
   confidence: number;
+  confidenceSource?: "raw_softmax" | "conformal";
   latencyMs: number;
   probabilities?: Record<WasteCategory, number>;
   provider?: string;
+  abstained?: boolean;
+  abstentionReason?: string;
 }
 
 class LocalModelRunner {
@@ -94,7 +128,7 @@ class LocalModelRunner {
         await classifier.ensureLoaded();
         this.loadedModels.set(modelType, true);
         this.onnxInitialized = true;
-        console.log(`[LocalModel] ONNX waste classifier ready on ${classifier.getProvider()}`);
+        logger.debug(`[LocalModel] ONNX waste classifier ready on ${classifier.getProvider()}`);
         return true;
       }
 
@@ -108,7 +142,7 @@ class LocalModelRunner {
         this.loadedModels.set(modelType, true);
         return true;
       } catch (e) {
-        console.warn(`[LocalModel] Failed to load legacy model ${modelType}:`, e);
+        logger.warn(`[LocalModel] Failed to load legacy model ${modelType}:`, e);
         return false;
       }
     } finally {
@@ -118,11 +152,11 @@ class LocalModelRunner {
 
   /**
    * Classify an image using the preferred ONNX model.
-   * Falls back to a deterministic mock if model not trained yet.
+   * Errors are surfaced to the scanner; a heuristic must never be presented as AI.
    */
   async classify(
     imageData: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData,
-    modelType: LocalModelType = this.preferredModel
+    modelType: LocalModelType = this.preferredModel,
   ): Promise<ClassifyResult> {
     const startTime = performance.now();
 
@@ -135,13 +169,16 @@ class LocalModelRunner {
         return {
           category: result.category,
           confidence: result.confidence,
+          confidenceSource: result.confidenceSource,
           latencyMs: Math.round(performance.now() - startTime),
           probabilities: result.probabilities,
           provider: result.provider,
+          abstained: result.isAbstained,
+          abstentionReason: result.abstention?.reason,
         };
       } catch (e) {
-        console.warn("[LocalModel] ONNX inference failed, falling back to heuristic:", e);
-        return this.heuristicFallback(imageData, startTime);
+        logger.warn("[LocalModel] ONNX inference failed:", e);
+        throw new Error("Local ONNX model is unavailable");
       }
     }
 
@@ -157,21 +194,22 @@ class LocalModelRunner {
       return { ...result, latencyMs: Math.round(performance.now() - startTime) };
     }
 
-    return this.heuristicFallback(imageData, startTime);
+    throw new Error(`Local model ${modelType} is unavailable`);
   }
 
   /**
    * Convert various image inputs to HTMLImageElement (needed by ONNX pipeline)
    */
   private async toImageElement(
-    input: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData
+    input: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData,
   ): Promise<HTMLImageElement> {
     if (input instanceof HTMLImageElement) return input;
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = input instanceof HTMLVideoElement
-      ? input.src
-      : (input as HTMLCanvasElement).toDataURL?.() ?? "";
+    img.src =
+      input instanceof HTMLVideoElement
+        ? input.src
+        : ((input as HTMLCanvasElement).toDataURL?.() ?? "");
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = (e) => reject(e);
@@ -192,7 +230,7 @@ class LocalModelRunner {
 
   private async runLegacyInference(
     imageData: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData,
-    modelType: LocalModelType
+    modelType: LocalModelType,
   ): Promise<{ category: WasteCategory; confidence: number }> {
     const tf = await import("@tensorflow/tfjs");
     const config = LOCAL_MODELS.find((m) => m.type === modelType);
@@ -206,21 +244,28 @@ class LocalModelRunner {
     if (imageData instanceof ImageData) ctx.putImageData(imageData, 0, 0);
     else ctx.drawImage(imageData, 0, 0);
 
-    const tensor = tf.browser.fromPixels(canvas)
+    const tensor = tf.browser
+      .fromPixels(canvas)
       .resizeNearestNeighbor([w, h])
       .toFloat()
       .div(tf.scalar(255.0))
       .expandDims(0);
 
-    const output = (await import("@tensorflow/tfjs")).loadGraphModel(config.modelUrl!).then(async (m) => {
-      const o = m.predict(tensor) as any;
-      return o.data();
-    }) as Promise<any>;
+    const output = (await import("@tensorflow/tfjs"))
+      .loadGraphModel(config.modelUrl!)
+      .then(async (m) => {
+        const o = m.predict(tensor) as any;
+        return o.data();
+      }) as Promise<any>;
 
     const data = await output;
-    let topIdx = 0; let topScore = 0;
+    let topIdx = 0;
+    let topScore = 0;
     for (let i = 0; i < data.length; i++) {
-      if (data[i] > topScore) { topScore = data[i]; topIdx = i; }
+      if (data[i] > topScore) {
+        topScore = data[i];
+        topIdx = i;
+      }
     }
     tensor.dispose();
 
@@ -228,43 +273,6 @@ class LocalModelRunner {
     return {
       category: WASTE_CATEGORIES[mapped],
       confidence: Math.round(topScore * 100) / 100,
-    };
-  }
-
-  /**
-   * Deterministic color-based heuristic. Used only when no model is trained/loaded.
-   * Returns a real waste category based on dominant colour, with low confidence.
-   */
-  private heuristicFallback(
-    imageData: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData,
-    startTime: number
-  ): ClassifyResult {
-    const canvas = document.createElement("canvas");
-    canvas.width = 224; canvas.height = 224;
-    const ctx = canvas.getContext("2d")!;
-    if (imageData instanceof ImageData) ctx.putImageData(imageData, 0, 0);
-    else ctx.drawImage(imageData, 0, 0);
-
-    const data = ctx.getImageData(0, 0, 224, 224).data;
-    let r = 0, g = 0, b = 0, n = 0;
-    for (let i = 0; i < data.length; i += 16) {
-      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
-    }
-    r /= n; g /= n; b /= n;
-
-    let category: WasteCategory = "organic";
-    if (b > r && b > g) category = "plastic";
-    else if (r > 180 && g > 180 && b < 150) category = "paper";
-    else if (Math.abs(r - g) < 15 && Math.abs(g - b) < 15 && r > 150) category = "glass";
-    else if (r < 100 && g < 100 && b < 100) category = "metal";
-    else if (g > r && g > b) category = "organic";
-    else category = "hazard";
-
-    return {
-      category,
-      confidence: 0.5,
-      latencyMs: Math.round(performance.now() - startTime),
-      provider: "heuristic",
     };
   }
 

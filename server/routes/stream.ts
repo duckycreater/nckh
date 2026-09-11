@@ -65,7 +65,7 @@ export function streamRouter(): Router {
     });
 
     // Send a hello event so the client knows the stream is open.
-    send("hello", {serverTime: Date.now()});
+    send("hello", { serverTime: Date.now() });
 
     // Announce latest FL round right away so UI doesn't wait for next event.
     try {

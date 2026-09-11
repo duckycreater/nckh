@@ -87,7 +87,9 @@ export function getPersonalisedFlState(): PersonalisedFlState {
   return _state;
 }
 
-export function configurePersonalisedFl(config: Partial<PersonalisedFlConfig>): PersonalisedFlState {
+export function configurePersonalisedFl(
+  config: Partial<PersonalisedFlConfig>,
+): PersonalisedFlState {
   _state = null;
   const state = getPersonalisedFlState();
   state.config = { ...state.config, ...config };
@@ -99,16 +101,24 @@ function l2norm(flat: number[]): number {
   return Math.sqrt(flat.reduce((a, b) => a + b * b, 0));
 }
 
-/** Add Gaussian noise to each element of an array (deterministic via seed). */
-function addGaussianNoise(arr: number[], sigma: number, seed: number): number[] {
-  // Box-Muller with seeded RNG.
-  let s = seed >>> 0;
+/** Add Gaussian noise. A seed is supported only for reproducible tests;
+ * production calls draw uniforms from Web Crypto. */
+function addGaussianNoise(arr: number[], sigma: number, seed?: number): number[] {
+  let seededState = seed === undefined ? null : seed >>> 0;
   const rng = () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    if (seededState !== null) {
+      seededState = (seededState + 0x6d2b79f5) >>> 0;
+      let t = seededState;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    if (!globalThis.crypto?.getRandomValues) {
+      throw new Error("Web Crypto is required for privacy-preserving Gaussian noise");
+    }
+    const word = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(word);
+    return word[0]! / 4294967296;
   };
   const gauss = () => {
     const u = Math.max(1e-9, rng());
@@ -128,24 +138,31 @@ function addGaussianNoise(arr: number[], sigma: number, seed: number): number[] 
 export function buildLocalDelta(
   localBase: number[][],
   serverBase: number[][],
-  options?: { clipNorm?: number; sigma?: number; seed?: number }
+  options?: { clipNorm?: number; sigma?: number; seed?: number },
 ): number[][] {
   const clip = options?.clipNorm ?? DEFAULT_FEDPER_CONFIG.clipNorm;
   const sigma = options?.sigma ?? DEFAULT_FEDPER_CONFIG.sigma;
-  const seed = options?.seed ?? 0xdeadbeef;
+  const seed = options?.seed;
+  if (!Number.isFinite(clip) || clip <= 0) throw new Error("clipNorm must be > 0");
+  if (!Number.isFinite(sigma) || sigma < 0) throw new Error("sigma must be >= 0");
   if (localBase.length !== serverBase.length) {
-    throw new Error(`base shape mismatch: local=${localBase.length} vs server=${serverBase.length}`);
+    throw new Error(
+      `base shape mismatch: local=${localBase.length} vs server=${serverBase.length}`,
+    );
   }
-  const deltas: number[][] = localBase.map((row, i) => {
-    const d = row.map((v, j) => v - (serverBase[i]?.[j] ?? 0));
-    // Compute the global L2 norm across the whole delta.
-    const flat = deltasToFlat([d]);
-    const norm = l2norm(flat);
-    const factor = norm > clip ? clip / norm : 1;
-    return d.map((v) => v * factor);
+  const deltas = localBase.map((row, i) => row.map((v, j) => v - (serverBase[i]?.[j] ?? 0)));
+  const flat = deltasToFlat(deltas);
+  const norm = l2norm(flat);
+  const factor = norm > clip ? clip / norm : 1;
+  const clipped = flat.map((value) => value * factor);
+  const noisy = addGaussianNoise(clipped, sigma, seed);
+
+  let offset = 0;
+  return deltas.map((row) => {
+    const next = noisy.slice(offset, offset + row.length);
+    offset += row.length;
+    return next;
   });
-  const noisy = deltas.map((row) => addGaussianNoise(row, sigma, seed));
-  return noisy;
 }
 
 function deltasToFlat(d: number[][]): number[] {
@@ -159,11 +176,7 @@ function deltasToFlat(d: number[][]): number[] {
  * information is large (i.e., they matter for prior tasks).
  * `prevFlat`: previous round's flat weights; `fisher`: diagonal Fisher.
  */
-export function ewcPenalty(
-  prevFlat: number[],
-  currentFlat: number[],
-  fisher: number[]
-): number {
+export function ewcPenalty(prevFlat: number[], currentFlat: number[], fisher: number[]): number {
   let s = 0;
   const len = Math.min(prevFlat.length, currentFlat.length, fisher.length);
   for (let i = 0; i < len; i++) {
@@ -181,7 +194,7 @@ export function runFedPerRound(
   baseWeights: number[][],
   headWeights: number[][],
   serverBase: number[][],
-  options?: Partial<PersonalisedFlConfig>
+  options?: Partial<PersonalisedFlConfig>,
 ): FedPerRound {
   const state = getPersonalisedFlState();
   state.config = { ...state.config, ...options };
@@ -193,18 +206,19 @@ export function runFedPerRound(
   });
   // 2) Record DP budget
   const dp = getDpAccountant();
-  dp.setConfig({ clipNorm: state.config.clipNorm, sigma: state.config.sigma });
+  // Replacement adjacency has sensitivity 2C for an L2 clipping bound C.
+  dp.setConfig({ clipNorm: 2 * state.config.clipNorm, sigma: state.config.sigma });
   dp.recordRound();
   const computed = dp.computeState();
   state.dpBudget.spentEpsilon = computed.epsilonAtDelta;
   // 3) Fine-tune head locally (heuristic; we don't have ground-truth labels).
   const newHead = headWeights.map((row, i) =>
-    row.map((v, j) => v + state.config.lr * (Math.sin(i + j + round) * 0.001))
+    row.map((v, j) => v + state.config.lr * (Math.sin(i + j + round) * 0.001)),
   );
   // 4) Update Fisher matrix
   if (state.fisher.length === 0) state.fisher = newHead.map((row) => row.map(() => 0));
   state.fisher = state.fisher.map((row, i) =>
-    row.map((v, j) => 0.9 * v + 0.1 * Math.abs(newHead[i]?.[j] ?? 0))
+    row.map((v, j) => 0.9 * v + 0.1 * Math.abs(newHead[i]?.[j] ?? 0)),
   );
   const entry: FedPerRound = {
     round,

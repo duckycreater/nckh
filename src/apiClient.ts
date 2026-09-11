@@ -11,6 +11,7 @@
  *   - throws `ApiError` on non-2xx responses (no silent fallback).
  */
 
+import { getAuthToken } from "./lib/auth";
 import type {
   AuditTimelineResponse,
   ClassifyImageRequest,
@@ -31,7 +32,7 @@ import type {
 
 const API_BASE =
   (typeof import.meta !== "undefined" &&
-    (import.meta as {env?: {VITE_API_BASE_URL?: string}}).env?.VITE_API_BASE_URL) ||
+    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) ||
   "";
 
 export class ApiError extends Error {
@@ -61,16 +62,16 @@ interface FetchOptions {
 }
 
 async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
-  const {method = "GET", body, withAuth = true, headers = {}, retries = 2, signal} = opts;
+  const { method = "GET", body, withAuth = true, headers = {}, retries = 2, signal } = opts;
 
-  const finalHeaders: Record<string, string> = {...headers};
+  const finalHeaders: Record<string, string> = { ...headers };
   let payload: BodyInit | undefined;
   if (body !== undefined) {
     finalHeaders["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
   if (withAuth && typeof localStorage !== "undefined") {
-    const token = localStorage.getItem("bmo_token") || localStorage.getItem("auth_token");
+    const token = getAuthToken();
     if (token) finalHeaders["Authorization"] = `Bearer ${token}`;
   }
 
@@ -113,22 +114,26 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
 
 /* ─── Typed methods ─── */
 
-const post = <Req, Res>(path: string) => (body: Req, opts?: FetchOptions) =>
-  apiFetch<Res>(path, {...opts, method: "POST", body});
-const get = <Res>(path: string) => (opts?: FetchOptions) =>
-  apiFetch<Res>(path, {...opts, method: "GET"});
+const post =
+  <Req, Res>(path: string) =>
+  (body: Req, opts?: FetchOptions) =>
+    apiFetch<Res>(path, { ...opts, method: "POST", body });
+const get =
+  <Res>(path: string) =>
+  (opts?: FetchOptions) =>
+    apiFetch<Res>(path, { ...opts, method: "GET" });
 
 export const api = {
   // Auth
   login: post<LoginRequest, LoginResponseOk>("/api/login"),
   register: post<RegisterRequest, RegisterResponseOk>("/api/register"),
-  logout: post<{}, {ok: true}>("/api/logout"),
+  logout: post<Record<string, never>, { ok: true }>("/api/logout"),
 
   // Dataset
   getDatasetStatus: (nickname: string) =>
     get<DatasetStatusResponse>(`/api/dataset/status?nickname=${encodeURIComponent(nickname)}`),
   grantDatasetConsent: post<DatasetConsentRequest, DatasetConsentResponse>("/api/dataset/consent"),
-  revokeDatasetConsent: post<{}, DatasetConsentResponse>("/api/dataset/revoke"),
+  revokeDatasetConsent: post<Record<string, never>, DatasetConsentResponse>("/api/dataset/revoke"),
 
   // Federated
   submitFederated: post<FederatedSubmitRequest, FederatedSubmitResponse>("/api/federated/submit"),

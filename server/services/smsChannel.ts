@@ -18,6 +18,7 @@
  */
 
 import Groq from "groq-sdk";
+import twilio from "twilio";
 
 // Twilio is dynamically imported so the module is optional at runtime
 type TwilioClient = any;
@@ -75,7 +76,6 @@ function ensureClient() {
   try {
     // Dynamic import keeps twilio optional — module not required if env vars missing
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const twilio = require("twilio");
     client = twilio(cfg.accountSid, cfg.authToken);
     configured = true;
   } catch (e) {
@@ -89,7 +89,7 @@ function ensureClient() {
 export interface SMSMessage {
   to: string;
   body: string;
-  mediaUrl?: string[];   // MMS attachments
+  mediaUrl?: string[]; // MMS attachments
 }
 
 export interface SMSSendResult {
@@ -187,19 +187,68 @@ const SMS_REPLY: Record<string, (cat: string, conf: number, hint: string) => str
 };
 
 const DISPOSAL_HINTS: Record<string, Record<string, string>> = {
-  vi: { plastic: "Rửa sạch, bỏ thùng nhựa tái chế.", paper: "Bỏ thùng giấy khô.", glass: "Bỏ thùng thủy tinh, cẩn thận vỡ.", metal: "Bỏ thùng kim loại.", organic: "Bỏ thùng hữu cơ / ủ compost.", hazard: "Mang đến điểm thu gom rác nguy hại." },
-  en: { plastic: "Rinse, place in plastic recycling bin.", paper: "Place in dry paper bin.", glass: "Glass bin; handle carefully.", metal: "Place in metal recycling bin.", organic: "Compost bin or organic waste.", hazard: "Take to hazardous waste collection point." },
-  es: { plastic: "Enjuagar, depositar en el contenedor de plástico.", paper: "Contenedor de papel.", glass: "Contenedor de vidrio.", metal: "Contenedor de metal.", organic: "Contenedor orgánico / compost.", hazard: "Llevar al punto de residuos peligrosos." },
-  fr: { plastic: "Rincer, mettre dans le bac plastique.", paper: "Bac à papier.", glass: "Bac à verre.", metal: "Bac à métaux.", organic: "Bac à compost.", hazard: "Point de collecte des déchets dangereux." },
-  sw: { plastic: "Osha, weka katika boksi la plastiki.", paper: "Boksi la karatasi.", glass: "Boksi la kioo.", metal: "Boksi la metali.", organic: "Boksi la mboji / komposti.", hazard: "Peleka kituo cha taka hatari." },
-  ar: { plastic: "اشطفها، ضعها في سلة البلاستيك.", paper: "سلة الورق.", glass: "سلة الزجاج.", metal: "سلة المعادن.", organic: "سلة العضوي / السماد.", hazard: "اذهب إلى نقطة جمع النفايات الخطرة." },
-  hi: { plastic: "धोकर प्लास्टिक रीसाइक्लिंग बिन में डालें।", paper: "कागज़ के डिब्बे में।", glass: "काँच के डिब्बे में।", metal: "धातु के डिब्बे में।", organic: "कम्पोस्ट बिन में।", hazard: "खतरनाक कचरा संग्रह केंद्र पर ले जाएँ।" },
+  vi: {
+    plastic: "Rửa sạch, bỏ thùng nhựa tái chế.",
+    paper: "Bỏ thùng giấy khô.",
+    glass: "Bỏ thùng thủy tinh, cẩn thận vỡ.",
+    metal: "Bỏ thùng kim loại.",
+    organic: "Bỏ thùng hữu cơ / ủ compost.",
+    hazard: "Mang đến điểm thu gom rác nguy hại.",
+  },
+  en: {
+    plastic: "Rinse, place in plastic recycling bin.",
+    paper: "Place in dry paper bin.",
+    glass: "Glass bin; handle carefully.",
+    metal: "Place in metal recycling bin.",
+    organic: "Compost bin or organic waste.",
+    hazard: "Take to hazardous waste collection point.",
+  },
+  es: {
+    plastic: "Enjuagar, depositar en el contenedor de plástico.",
+    paper: "Contenedor de papel.",
+    glass: "Contenedor de vidrio.",
+    metal: "Contenedor de metal.",
+    organic: "Contenedor orgánico / compost.",
+    hazard: "Llevar al punto de residuos peligrosos.",
+  },
+  fr: {
+    plastic: "Rincer, mettre dans le bac plastique.",
+    paper: "Bac à papier.",
+    glass: "Bac à verre.",
+    metal: "Bac à métaux.",
+    organic: "Bac à compost.",
+    hazard: "Point de collecte des déchets dangereux.",
+  },
+  sw: {
+    plastic: "Osha, weka katika boksi la plastiki.",
+    paper: "Boksi la karatasi.",
+    glass: "Boksi la kioo.",
+    metal: "Boksi la metali.",
+    organic: "Boksi la mboji / komposti.",
+    hazard: "Peleka kituo cha taka hatari.",
+  },
+  ar: {
+    plastic: "اشطفها، ضعها في سلة البلاستيك.",
+    paper: "سلة الورق.",
+    glass: "سلة الزجاج.",
+    metal: "سلة المعادن.",
+    organic: "سلة العضوي / السماد.",
+    hazard: "اذهب إلى نقطة جمع النفايات الخطرة.",
+  },
+  hi: {
+    plastic: "धोकर प्लास्टिक रीसाइक्लिंग बिन में डालें।",
+    paper: "कागज़ के डिब्बे में।",
+    glass: "काँच के डिब्बे में।",
+    metal: "धातु के डिब्बे में।",
+    organic: "कम्पोस्ट बिन में।",
+    hazard: "खतरनाक कचरा संग्रह केंद्र पर ले जाएँ।",
+  },
 };
 
 export function formatSMSReply(
   category: string,
   confidence: number,
-  locale: string = "vi"
+  locale: string = "vi",
 ): string {
   const tmpl = SMS_REPLY[locale] || SMS_REPLY.en;
   const hintMap = DISPOSAL_HINTS[locale] || DISPOSAL_HINTS.en;
@@ -214,7 +263,7 @@ export function formatSMSReply(
 export interface USSDRequest {
   sessionId: string;
   phoneNumber: string;
-  text: string;          // current input
+  text: string; // current input
   serviceCode: string;
 }
 

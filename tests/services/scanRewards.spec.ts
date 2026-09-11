@@ -6,12 +6,8 @@
  */
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import "../../vitest.node-test-bridge.ts";
 
-import {
-  decideScanReward,
-  getScanRewardConfig,
-} from "../../server/services/scanRewards.js";
+import { decideScanReward, getScanRewardConfig } from "../../server/services/scanRewards.js";
 
 const originalNow = Date.now;
 let fakeNow = 1_700_000_000_000;

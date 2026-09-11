@@ -35,9 +35,7 @@ export const LANGUAGES = [
 
 export type LanguageCode = (typeof LANGUAGES)[number]["code"];
 
-export const SUPPORTED_LANGUAGE_CODES: readonly LanguageCode[] = LANGUAGES.map(
-  (l) => l.code,
-);
+export const SUPPORTED_LANGUAGE_CODES: readonly LanguageCode[] = LANGUAGES.map((l) => l.code);
 
 function migrateLegacyKey() {
   try {
@@ -59,7 +57,9 @@ function getInitialLanguage(): LanguageCode {
     if (stored && (SUPPORTED_LANGUAGE_CODES as readonly string[]).includes(stored)) {
       return stored as LanguageCode;
     }
-  } catch {}
+  } catch {
+    // localStorage may be unavailable in private browsing or SSR.
+  }
   return "vi";
 }
 
@@ -119,8 +119,7 @@ const META: Record<string, { title: string; description: string }> = {
   },
   zh: {
     title: "BMO Robot — 智能垃圾分类",
-    description:
-      "BMO Robot 是一款智能垃圾分类 PWA,内置端侧 AI、联邦学习和差分隐私分析。",
+    description: "BMO Robot 是一款智能垃圾分类 PWA,内置端侧 AI、联邦学习和差分隐私分析。",
   },
   es: {
     title: "BMO Robot — Clasificación inteligente de residuos",
@@ -166,7 +165,9 @@ export function changeLanguage(code: LanguageCode) {
   i18n.changeLanguage(code);
   try {
     localStorage.setItem(STORAGE_KEY, code);
-  } catch {}
+  } catch {
+    // Keep the in-memory language when persistence is unavailable.
+  }
   // Update <html dir> attribute synchronously so the next paint is RTL-correct.
   if (typeof document !== "undefined") {
     const rtlCodes = new Set(["ar", "he", "fa", "ur", "yi"]);

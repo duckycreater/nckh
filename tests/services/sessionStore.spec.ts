@@ -13,6 +13,7 @@ import {
   createSessionToken,
   validateSessionToken,
   revokeSessionToken,
+  revokeUserSessions,
   hashPassword,
   verifyPassword,
   isLikelyHash,
@@ -73,6 +74,16 @@ describe("sessionStore.token lifecycle", () => {
     assert.equal(validateSessionToken(token), null);
   });
 
+  it("revokeUserSessions invalidates every token for that account only", () => {
+    const first = createSessionToken("reset-user");
+    const second = createSessionToken("RESET-USER");
+    const other = createSessionToken("other-user");
+    revokeUserSessions("Reset-User");
+    assert.equal(validateSessionToken(first), null);
+    assert.equal(validateSessionToken(second), null);
+    assert.ok(validateSessionToken(other));
+  });
+
   it("initSessionStore sweeps expired entries and runs sweep", async () => {
     const token = createSessionToken("dave");
     const rec = validateSessionToken(token);
@@ -82,7 +93,10 @@ describe("sessionStore.token lifecycle", () => {
     await initSessionStore();
     assert.equal(validateSessionToken(token), null);
     // sweep was invoked
-    assert.ok(calls.some((c) => c.op === "sweep"), "expected sweep call");
+    assert.ok(
+      calls.some((c) => c.op === "sweep"),
+      "expected sweep call",
+    );
   });
 });
 

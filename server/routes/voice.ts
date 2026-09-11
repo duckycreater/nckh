@@ -12,8 +12,13 @@ import multer from "multer";
 import { transcribeAudio, detectIntent, isVoiceConfigured } from "../services/voiceSTT.js";
 import { synthesizeSpeech, isTTSConfigured } from "../services/voiceTTS.js";
 import { resolveLocale } from "../services/localeRouter.js";
+import { requireAuth } from "../auth.js";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, /^audio\//i.test(file.mimetype)),
+});
 
 export function voiceRouter(): Router {
   const router = Router();
@@ -26,7 +31,7 @@ export function voiceRouter(): Router {
   });
 
   // POST /api/voice/transcribe - multipart upload "audio" + optional "language" hint
-  router.post("/transcribe", upload.single("audio"), async (req, res) => {
+  router.post("/transcribe", requireAuth, upload.single("audio"), async (req, res) => {
     try {
       if (!isVoiceConfigured()) {
         return res.status(503).json({ error: "Voice STT not configured (GROQ_API_KEY missing)" });
@@ -34,7 +39,8 @@ export function voiceRouter(): Router {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file uploaded" });
       }
-      const hint = (req.body?.language as string) || undefined;
+      const hint =
+        typeof req.body?.language === "string" ? req.body.language.slice(0, 32) : undefined;
       const result = await transcribeAudio(req.file.buffer, req.file.mimetype, hint);
       const intent = detectIntent(result.text);
       res.json({ ...result, intent });
@@ -45,7 +51,7 @@ export function voiceRouter(): Router {
   });
 
   // POST /api/voice/intent - text-only intent detection (for non-audio clients)
-  router.post("/intent", async (req, res) => {
+  router.post("/intent", requireAuth, async (req, res) => {
     const { text } = req.body || {};
     if (!text || typeof text !== "string") {
       return res.status(400).json({ error: "text required" });
@@ -54,10 +60,12 @@ export function voiceRouter(): Router {
   });
 
   // POST /api/voice/speak - text → synthesized audio
-  router.post("/speak", async (req, res) => {
+  router.post("/speak", requireAuth, async (req, res) => {
     try {
       const { text, locale } = req.body || {};
-      if (!text) return res.status(400).json({ error: "text required" });
+      if (typeof text !== "string" || !text.trim() || text.length > 4000) {
+        return res.status(400).json({ error: "text must contain 1–4000 characters" });
+      }
       const loc = resolveLocale({
         preference: locale,
         acceptLanguage: req.headers["accept-language"],

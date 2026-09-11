@@ -34,12 +34,12 @@ function normalizeReward(row: any): RewardRecord {
     desc: row.description || row.desc || "",
     cost: Number(row.cost || 0),
     ingredients: Array.isArray(row.ingredients)
-      ? row.ingredients.map((item) => String(item))
+      ? row.ingredients.map((item: unknown) => String(item))
       : typeof row.ingredients === "string"
         ? (() => {
             try {
               const parsed = JSON.parse(row.ingredients);
-              return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
+              return Array.isArray(parsed) ? parsed.map((item: unknown) => String(item)) : [];
             } catch {
               return [];
             }

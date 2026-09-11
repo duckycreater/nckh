@@ -1,5 +1,5 @@
 import "dotenv/config";
-import admin from "firebase-admin";
+import type { Firestore } from "firebase-admin/firestore";
 
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -12,13 +12,13 @@ export interface ResearchPool {
 let pool: ResearchPool | null = null;
 let isConnected = false;
 
-let firestoreDb: admin.firestore.Firestore | null = null;
+let firestoreDb: Firestore | null = null;
 
-export function getFirestore(): admin.firestore.Firestore | null {
+export function getFirestore(): Firestore | null {
   return firestoreDb;
 }
 
-export function setFirestore(db: admin.firestore.Firestore): void {
+export function setFirestore(db: Firestore): void {
   firestoreDb = db;
 }
 
@@ -32,7 +32,9 @@ export function isDbConnected(): boolean {
 
 export async function initDb(): Promise<boolean> {
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.warn("[ResearchDB] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set. Research features disabled.");
+    console.warn(
+      "[ResearchDB] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set. Research features disabled.",
+    );
     return false;
   }
 
@@ -42,8 +44,8 @@ export async function initDb(): Promise<boolean> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": supabaseServiceKey,
-        "Authorization": `Bearer ${supabaseServiceKey}`,
+        apikey: supabaseServiceKey,
+        Authorization: `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({ query: "SELECT 1 AS connected" }),
     });
@@ -75,8 +77,8 @@ export async function initDb(): Promise<boolean> {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": supabaseServiceKey,
-            "Authorization": `Bearer ${supabaseServiceKey}`,
+            apikey: supabaseServiceKey,
+            Authorization: `Bearer ${supabaseServiceKey}`,
           },
           body: JSON.stringify({ query: sql }),
         });
@@ -102,7 +104,9 @@ export async function initDb(): Promise<boolean> {
 
         return { rows: rows as T[], rowCount: rows.length };
       },
-      end: async () => { pool = null; },
+      end: async () => {
+        pool = null;
+      },
     };
 
     isConnected = true;

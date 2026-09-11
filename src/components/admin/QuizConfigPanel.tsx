@@ -4,12 +4,10 @@ import { Button, Card, Badge, Input, FieldLabel, SectionHeading, TextArea } from
 import { showToast } from "../../lib/toast";
 
 const token = () => localStorage.getItem("auth_token") || "";
-const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
 
 const authHeaders = (): HeadersInit => ({
   "Content-Type": "application/json",
   Authorization: token() ? `Bearer ${token()}` : "",
-  "x-admin-key": adminApiKey,
 });
 
 // Convert Date to DD/MM/YYYY HH:mm:ss
@@ -154,9 +152,7 @@ export function QuizConfigPanel() {
               setConfig({ ...config, ThoiGianBatDau: toSheetDate(d) });
             }}
           />
-          {startDate && (
-            <p className="text-xs text-slate-500">Sheet: {config.ThoiGianBatDau}</p>
-          )}
+          {startDate && <p className="text-xs text-slate-500">Sheet: {config.ThoiGianBatDau}</p>}
         </div>
 
         <div className="space-y-2">
@@ -172,9 +168,7 @@ export function QuizConfigPanel() {
               setConfig({ ...config, ThoiGianKetThuc: toSheetDate(d) });
             }}
           />
-          {endDate && (
-            <p className="text-xs text-slate-500">Sheet: {config.ThoiGianKetThuc}</p>
-          )}
+          {endDate && <p className="text-xs text-slate-500">Sheet: {config.ThoiGianKetThuc}</p>}
         </div>
 
         <div className="space-y-2">
@@ -187,7 +181,9 @@ export function QuizConfigPanel() {
             min={10}
             max={600}
             value={config.ThoiGianCauHoi}
-            onChange={(e) => setConfig({ ...config, ThoiGianCauHoi: Number(e.target.value) || 120 })}
+            onChange={(e) =>
+              setConfig({ ...config, ThoiGianCauHoi: Number(e.target.value) || 120 })
+            }
           />
         </div>
 
@@ -237,7 +233,13 @@ export function QuizConfigPanel() {
           <Save className="h-4 w-4" /> Lưu cấu hình
         </Button>
         {startDate && endDate && (
-          <Badge tone={Date.now() >= startDate.getTime() && Date.now() <= endDate.getTime() ? "success" : "warning"}>
+          <Badge
+            tone={
+              Date.now() >= startDate.getTime() && Date.now() <= endDate.getTime()
+                ? "success"
+                : "warning"
+            }
+          >
             {Date.now() >= startDate.getTime() && Date.now() <= endDate.getTime()
               ? "Đang mở"
               : Date.now() < startDate.getTime()

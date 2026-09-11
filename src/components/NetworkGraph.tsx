@@ -21,7 +21,11 @@ interface NetworkGraphProps {
   title?: string;
 }
 
-export function NetworkGraph({ edges = [], labels = [], title = "User Social Network" }: NetworkGraphProps) {
+export function NetworkGraph({
+  edges = [],
+  labels = [],
+  title = "User Social Network",
+}: NetworkGraphProps) {
   const { nodes, svgEdges } = useMemo(() => {
     if (edges.length === 0 && labels.length === 0) {
       // Generate sample nodes for demo
@@ -98,7 +102,8 @@ export function NetworkGraph({ edges = [], labels = [], title = "User Social Net
     <div className="space-y-3">
       <h4 className="font-bold text-gray-800 text-sm">{title}</h4>
       <p className="text-xs text-gray-500">
-        Force-directed network graph. Node size = degree centrality (connections). Color = community.
+        Force-directed network graph. Node size = degree centrality (connections). Color =
+        community.
       </p>
       <svg
         width="100%"

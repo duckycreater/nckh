@@ -12,7 +12,8 @@
 
 import { onDeviceTrainer } from "./onDeviceTrainer";
 
-const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_BASE_URL) || "";
+const API_BASE =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_BASE_URL) || "";
 
 export interface ModelVersionInfo {
   version: string;
@@ -44,9 +45,12 @@ class ModelUpdateService {
   saveToStorage(): void {
     try {
       if (typeof localStorage === "undefined") return;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        currentVersion: this.currentVersion,
-      }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          currentVersion: this.currentVersion,
+        }),
+      );
     } catch (e) {
       console.warn("[ModelUpdate] save failed:", e);
     }
@@ -79,9 +83,13 @@ class ModelUpdateService {
   startAutoCheck(intervalMs = CHECK_INTERVAL_MS): void {
     if (this.timer) return;
     // First check after 30s (let app boot), then every interval.
-    setTimeout(() => this.checkForUpdate().catch(() => {}), 30_000);
+    setTimeout(
+      () =>
+        this.checkForUpdate().catch((e) => console.debug("[ModelUpdate] auto-check failed:", e)),
+      30_000,
+    );
     this.timer = setInterval(() => {
-      this.checkForUpdate().catch(() => {});
+      this.checkForUpdate().catch((e) => console.debug("[ModelUpdate] auto-check failed:", e));
     }, intervalMs);
   }
 

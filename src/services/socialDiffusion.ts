@@ -160,10 +160,7 @@ export class PeerGraph {
    * Recommend social nudges: find peers in the same cluster whose accuracy
    * is greater than `userId`'s. Sort by eigenvector centrality descending.
    */
-  recommendPeersToShow(
-    userId: string,
-    options?: { limit?: number }
-  ): PeerNode[] {
+  recommendPeersToShow(userId: string, options?: { limit?: number }): PeerNode[] {
     const limit = options?.limit ?? 5;
     const central = this.eigenvectorCentrality();
     const user = this.getNode(userId);
@@ -193,7 +190,7 @@ export class PeerGraph {
   estimateDiffusion(
     initialAdopters: Set<string>,
     weeks = 10,
-    options?: { perStepProbability?: number; homophilyBoost?: number }
+    options?: { perStepProbability?: number; homophilyBoost?: number },
   ): number[] {
     const p = options?.perStepProbability ?? 0.08;
     const h = options?.homophilyBoost ?? 0.04;

@@ -61,7 +61,9 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
   const [activeTab, setActiveTab] = useState<LbTab>("total");
-  const [clans, setClans] = useState<{ name: string; tag: string; exp: number; member_count: number }[]>([]);
+  const [clans, setClans] = useState<
+    { name: string; tag: string; exp: number; member_count: number }[]
+  >([]);
   const [currentRank, setCurrentRank] = useState<number | null>(null);
   const { width, height } = useWindowSize();
 
@@ -110,15 +112,25 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
       }
     };
     fetchBoard();
-  }, [refreshTrigger, refetchKey, activeTab]);
+  }, [refreshTrigger, refetchKey, activeTab, t]);
 
   const isTop1 = currentUser && users[0] && users[0].nick === currentUser;
 
   const rankedUsers = React.useMemo(() => {
     if (activeTab === "clans") return [];
     const sorted = [...users].sort((a, b) => {
-      const aScore = sortKey === "total" ? a.points : sortKey === "weekly" ? a.weekly_points ?? a.score ?? 0 : a.monthly_points ?? 0;
-      const bScore = sortKey === "total" ? b.points : sortKey === "weekly" ? b.weekly_points ?? b.score ?? 0 : b.monthly_points ?? 0;
+      const aScore =
+        sortKey === "total"
+          ? a.points
+          : sortKey === "weekly"
+            ? (a.weekly_points ?? a.score ?? 0)
+            : (a.monthly_points ?? 0);
+      const bScore =
+        sortKey === "total"
+          ? b.points
+          : sortKey === "weekly"
+            ? (b.weekly_points ?? b.score ?? 0)
+            : (b.monthly_points ?? 0);
       return bScore - aScore;
     });
     return sorted;
@@ -159,7 +171,9 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
   const RankChangeBadge = ({ change }: { change: number | undefined }) => {
     if (change === undefined || change === 0) return null;
     return (
-      <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${change > 0 ? "text-emerald-500" : "text-red-400"}`}>
+      <span
+        className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${change > 0 ? "text-emerald-500" : "text-red-400"}`}
+      >
         {getRankIcon(change)}
         {change > 0 ? `+${change}` : change}
       </span>
@@ -170,14 +184,19 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
     const scoreDisplay = getScoreDisplay(user);
     const isCurrent = user.nick === currentUser;
     return (
-      <div className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition-all ${isCurrent ? "border-amber-200 bg-amber-50 shadow-sm ring-2 ring-amber-100" : "border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200"}`}>
+      <div
+        className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition-all ${isCurrent ? "border-amber-200 bg-amber-50 shadow-sm ring-2 ring-amber-100" : "border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200"}`}
+      >
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-black text-slate-500">
             #{rank}
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <button onClick={() => onUserClick && onUserClick(user.nick)} className="truncate text-left font-bold text-slate-800 hover:text-emerald-600 hover:underline">
+              <button
+                onClick={() => onUserClick && onUserClick(user.nick)}
+                className="truncate text-left font-bold text-slate-800 hover:text-emerald-600 hover:underline"
+              >
                 {user.name}
               </button>
               {user.clan_name && (
@@ -185,7 +204,11 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                   {user.clan_name}
                 </span>
               )}
-              {isCurrent && <span className="text-[11px] font-bold italic text-amber-600">{t("common.you")}</span>}
+              {isCurrent && (
+                <span className="text-[11px] font-bold italic text-amber-600">
+                  {t("common.you")}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <RankChangeBadge change={user.rank_change} />
@@ -196,7 +219,9 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
           <p className="text-base font-black text-emerald-600">
             {typeof scoreDisplay === "number" ? fmt(scoreDisplay) : scoreDisplay}
           </p>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{getScoreLabel()}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {getScoreLabel()}
+          </p>
         </div>
       </div>
     );
@@ -212,18 +237,35 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
           if (!user) return <div key={pos} className="w-24" />;
           const isCurrent = user.nick === currentUser;
           return (
-            <div key={pos} className={`flex w-24 flex-col items-center ${pos === 0 ? "-mb-2 z-10" : ""}`}>
-              <div className={`relative flex h-10 w-10 items-center justify-center rounded-full text-lg ${isCurrent ? "ring-4 ring-amber-300" : ""}`}>
-                <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${PODIUM_BG[pos]}`} />
+            <div
+              key={pos}
+              className={`flex w-24 flex-col items-center ${pos === 0 ? "-mb-2 z-10" : ""}`}
+            >
+              <div
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full text-lg ${isCurrent ? "ring-4 ring-amber-300" : ""}`}
+              >
+                <div
+                  className={`absolute inset-0 rounded-full bg-gradient-to-br ${PODIUM_BG[pos]}`}
+                />
                 <span className="relative z-10">{PODIUM_CROWN[pos]}</span>
               </div>
               <div className={`relative mt-1.5 ${PODIUM_NAME_TOP[pos]} flex flex-col items-center`}>
-                <p className={`max-w-20 truncate text-center text-xs font-bold leading-tight ${isCurrent ? "text-amber-700" : "text-slate-600"}`}>{user.name}</p>
-                <p className="text-[10px] font-black text-emerald-600">{fmt(getScoreDisplay(user))}</p>
+                <p
+                  className={`max-w-20 truncate text-center text-xs font-bold leading-tight ${isCurrent ? "text-amber-700" : "text-slate-600"}`}
+                >
+                  {user.name}
+                </p>
+                <p className="text-[10px] font-black text-emerald-600">
+                  {fmt(getScoreDisplay(user))}
+                </p>
               </div>
-              <div className={`relative mt-1 w-full rounded-t-2xl rounded-b-lg bg-gradient-to-b ${PODIUM_BG[pos]} flex flex-col items-center justify-end pb-3 pt-4 ${PODIUM_HEIGHT[pos]}`}>
+              <div
+                className={`relative mt-1 w-full rounded-t-2xl rounded-b-lg bg-gradient-to-b ${PODIUM_BG[pos]} flex flex-col items-center justify-end pb-3 pt-4 ${PODIUM_HEIGHT[pos]}`}
+              >
                 <p className="text-xl font-black text-white drop-shadow-sm">{pos + 1}</p>
-                <p className="text-[9px] font-bold uppercase tracking-wider text-white/80">#{pos + 1}</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-white/80">
+                  #{pos + 1}
+                </p>
               </div>
             </div>
           );
@@ -248,13 +290,23 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
             </div>
             <div>
               <p className="text-sm font-bold text-slate-700">{t("leaderboard.yourRank")}</p>
-              <p className="text-xs text-slate-400">{t("leaderboard.yourRankInfo", { rank: currentRank, label: getScoreLabel().toLowerCase() })}</p>
+              <p className="text-xs text-slate-400">
+                {t("leaderboard.yourRankInfo", {
+                  rank: currentRank,
+                  label: getScoreLabel().toLowerCase(),
+                })}
+              </p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-lg font-black text-emerald-600">{fmt(getScoreDisplay(myEntry))}</p>
             {pointsToNext > 0 && (
-              <p className="text-[10px] text-slate-400">{t("leaderboard.pointsToNext", { points: fmt(pointsToNext), prevRank: currentRank - 1 })}</p>
+              <p className="text-[10px] text-slate-400">
+                {t("leaderboard.pointsToNext", {
+                  points: fmt(pointsToNext),
+                  prevRank: currentRank - 1,
+                })}
+              </p>
             )}
           </div>
         </div>
@@ -276,7 +328,10 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
             <TabButton
               key={tab.key}
               active={activeTab === tab.key}
-              onClick={() => { setActiveTab(tab.key); setRefetchKey((k) => k + 1); }}
+              onClick={() => {
+                setActiveTab(tab.key);
+                setRefetchKey((k) => k + 1);
+              }}
               className="shrink-0 gap-1.5 whitespace-nowrap px-4 py-2"
             >
               <span>{tab.emoji}</span>
@@ -287,7 +342,9 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
 
         {loading ? (
           <div className="space-y-3 py-4">
-            {[1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} className="h-16" />)}
+            {[1, 2, 3, 4, 5].map((i) => (
+              <SkeletonRow key={i} className="h-16" />
+            ))}
           </div>
         ) : error ? (
           <ErrorRetry message={error} onRetry={() => setRefetchKey((k) => k + 1)} />
@@ -298,24 +355,38 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
             <div className="space-y-3 py-4">
               <div className="mb-2 flex items-center gap-2 px-1">
                 <Trophy size={16} className="text-amber-500" />
-                <p className="text-sm font-bold text-slate-600">{t("leaderboard.clanLeaderboard")}</p>
+                <p className="text-sm font-bold text-slate-600">
+                  {t("leaderboard.clanLeaderboard")}
+                </p>
               </div>
               {rankedClans.map((clan, index) => {
                 const isTop3 = index < 3;
                 return (
-                  <div key={clan.tag || index} className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition ${isTop3 ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
+                  <div
+                    key={clan.tag || index}
+                    className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition ${isTop3 ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}
+                  >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${isTop3 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-500"}`}>
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${isTop3 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-500"}`}
+                      >
                         {isTop3 ? PODIUM_CROWN[index] : `#${index + 1}`}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate font-bold text-slate-800">{clan.name}</p>
-                        <p className="text-xs text-slate-400">{t("leaderboard.clanMembers", { tag: clan.tag, count: clan.member_count })}</p>
+                        <p className="text-xs text-slate-400">
+                          {t("leaderboard.clanMembers", {
+                            tag: clan.tag,
+                            count: clan.member_count,
+                          })}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-black text-violet-600">{fmt(clan.exp)}</p>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">EXP</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        EXP
+                      </p>
                     </div>
                   </div>
                 );
@@ -323,8 +394,8 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
               <YourRankCard />
             </div>
           )
-        ) :           rankedUsers.length === 0 ? (
-            <EmptyState title={t("leaderboard.noClanData")} subtitle={t("leaderboard.firstRecord")} />
+        ) : rankedUsers.length === 0 ? (
+          <EmptyState title={t("leaderboard.noClanData")} subtitle={t("leaderboard.firstRecord")} />
         ) : (
           <div className="space-y-3 py-4">
             <Podium />

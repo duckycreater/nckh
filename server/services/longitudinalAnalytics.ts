@@ -43,7 +43,8 @@ class LongitudinalAnalytics {
   async getCohortRetentionTable(weeksBack = 12): Promise<Record<string, Record<number, number>>> {
     if (!this.db) return {};
     try {
-      const { rows } = await this.db.query(`
+      const { rows } = await this.db.query(
+        `
         WITH cohort_week AS (
           SELECT
             user_id,
@@ -71,7 +72,9 @@ class LongitudinalAnalytics {
         JOIN weekly_activity wa ON wa.user_id = cw.user_id
         GROUP BY cw.cohort_start, EXTRACT(week FROM wa.activity_week)::int
         ORDER BY cw.cohort_start, EXTRACT(week FROM wa.activity_week)::int
-      `, [weeksBack]);
+      `,
+        [weeksBack],
+      );
 
       // Build cohort table
       const cohortTable: Record<string, Record<number, number>> = {};
@@ -92,7 +95,8 @@ class LongitudinalAnalytics {
   async getWeeklyMetrics(weeksBack = 12): Promise<LongitudinalMetrics[]> {
     if (!this.db) return [];
     try {
-      const { rows } = await this.db.query(`
+      const { rows } = await this.db.query(
+        `
         WITH weekly_users AS (
           SELECT
             DATE_TRUNC('week', timestamp)::date AS week_start,
@@ -145,7 +149,9 @@ class LongitudinalAnalytics {
         LEFT JOIN weekly_retained wr ON wr.week_start = wu.week_start
         LEFT JOIN weekly_stats ws ON ws.week_start = wu.week_start
         ORDER BY wu.week_start
-      `, [weeksBack]);
+      `,
+        [weeksBack],
+      );
 
       return rows.map((r) => ({
         week: r.week,
@@ -241,7 +247,8 @@ class LongitudinalAnalytics {
   async getFeatureAdoptionTimeline(weeksBack = 8): Promise<Record<number, Record<string, number>>> {
     if (!this.db) return {};
     try {
-      const { rows } = await this.db.query(`
+      const { rows } = await this.db.query(
+        `
         SELECT
           EXTRACT(week FROM timestamp)::int AS week,
           (metadata->>'feature_name')::text AS feature,
@@ -252,7 +259,9 @@ class LongitudinalAnalytics {
           AND timestamp >= NOW() - ($1 * INTERVAL '1 week')
         GROUP BY EXTRACT(week FROM timestamp)::int, (metadata->>'feature_name')
         ORDER BY week, users DESC
-      `, [weeksBack]);
+      `,
+        [weeksBack],
+      );
 
       const timeline: Record<number, Record<string, number>> = {};
       for (const row of rows) {
@@ -267,10 +276,13 @@ class LongitudinalAnalytics {
   }
 
   // --- Engagement decay curve ---
-  async getEngagementDecayCurve(weeksBack = 12): Promise<{ week: number; avgEngagement: number }[]> {
+  async getEngagementDecayCurve(
+    weeksBack = 12,
+  ): Promise<{ week: number; avgEngagement: number }[]> {
     if (!this.db) return [];
     try {
-      const { rows } = await this.db.query(`
+      const { rows } = await this.db.query(
+        `
         WITH weekly AS (
           SELECT
             EXTRACT(week FROM timestamp)::int AS week,
@@ -286,7 +298,9 @@ class LongitudinalAnalytics {
         FROM weekly
         GROUP BY week
         ORDER BY week
-      `, [weeksBack]);
+      `,
+        [weeksBack],
+      );
       return rows.map((r, i) => ({
         week: i + 1,
         avgEngagement: r.avgEngagement,
@@ -307,7 +321,10 @@ class LongitudinalAnalytics {
       atRisk: Math.round(100 * Math.pow(0.85, i)),
       events: Math.round(28 * Math.pow(0.85, i)),
       censored: Math.round(2 * Math.pow(0.9, i)),
-      hazardRate: i > 0 ? Math.round((decayCurve[i - 1] - decayCurve[i]) / decayCurve[i - 1] * 1000) / 10 : 0,
+      hazardRate:
+        i > 0
+          ? Math.round(((decayCurve[i - 1] - decayCurve[i]) / decayCurve[i - 1]) * 1000) / 10
+          : 0,
     }));
   }
 }

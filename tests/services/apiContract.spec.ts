@@ -37,8 +37,7 @@ const expect = (v: unknown) => ({
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
 });
 
 describe("apiContract.types", () => {
@@ -78,7 +77,7 @@ describe("apiContract.types", () => {
     expect(sample.reg_nickname.length).toBeGreaterThan(0);
   });
   it("ClassifyImageRequest uses snake_case base64 image", () => {
-    const sample: ClassifyImageRequest = {image: "data:image/jpeg;base64,xxx"};
+    const sample: ClassifyImageRequest = { image: "data:image/jpeg;base64,xxx" };
     expect(sample.image.startsWith("data:")).toBe(true);
   });
   it("ClassifyImageResponse has category + confidence + alternatives + latencyMs + backend", () => {
@@ -86,7 +85,7 @@ describe("apiContract.types", () => {
       ok: true,
       category: "plastic",
       confidence: 0.92,
-      alternatives: [{category: "paper", confidence: 0.04}],
+      alternatives: [{ category: "paper", confidence: 0.04 }],
       latencyMs: 42,
       backend: "webgpu",
     };
@@ -109,8 +108,8 @@ describe("apiContract.types", () => {
       ok: true,
       bufferSize: 5,
       minClients: 5,
-      latestVersion: {version: "v1", trainedOn: 100, createdAt: 1700000000},
-      dp: {epsilon: 1.0, delta: 1e-5, clipNorm: 1.0},
+      latestVersion: { version: "v1", trainedOn: 100, createdAt: 1700000000 },
+      dp: { epsilon: 1.0, delta: 1e-5, clipNorm: 1.0 },
     };
     expect(sample.bufferSize).toBeGreaterThanOrEqual(sample.minClients);
     expect(sample.dp.epsilon > 0).toBe(true);
@@ -118,7 +117,7 @@ describe("apiContract.types", () => {
   it("AuditTimelineResponse shape", () => {
     const sample: AuditTimelineResponse = {
       ok: true,
-      events: [{id: "1", ts: 1, type: "fl_round", payload: {}}],
+      events: [{ id: "1", ts: 1, type: "fl_round", payload: {} }],
       cursor: null,
     };
     expect(sample.events.length).toBeGreaterThan(0);
@@ -156,7 +155,7 @@ describe("apiContract.types", () => {
 describe("apiContract.error envelope", () => {
   it("error responses carry `error` field (string)", () => {
     // No exported type for the error envelope; this is a sanity check.
-    const err = {ok: false, error: "rate_limited"};
+    const err = { ok: false, error: "rate_limited" };
     expect(typeof err.error).toBe("string");
   });
 });

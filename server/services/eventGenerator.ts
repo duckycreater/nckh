@@ -147,7 +147,7 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
            SELECT $1, user_id, $2, $3, 1, 0, $4, 'active', NOW() + INTERVAL '7 days'
            FROM research_users
            ON CONFLICT (event_id, user_id, title) DO NOTHING`,
-          [eventId, missionTitles[i], `Hoàn thành: ${missionTitles[i]}`, reward]
+          [eventId, missionTitles[i], `Hoàn thành: ${missionTitles[i]}`, reward],
         );
       } catch {
         // OK if some fail
@@ -161,7 +161,14 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
       const { rows } = await this.db.query(
         `INSERT INTO generated_events (event_name, event_theme, description, missions, start_date, end_date)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-        [event.eventName, event.eventTheme, event.description, JSON.stringify(event.missions), event.startDate, event.endDate]
+        [
+          event.eventName,
+          event.eventTheme,
+          event.description,
+          JSON.stringify(event.missions),
+          event.startDate,
+          event.endDate,
+        ],
       );
       return rows[0]?.id || null;
     } catch (e) {
@@ -216,7 +223,13 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
       eventName: theme.split(" - ")[0],
       eventTheme: "Bao ve moi truong",
       description: "Tuan su kien dac biet da bat dau!",
-      missions: ["Hoan thanh 5 thu thach", "Quet rac 10 lan", "Tham gia quiz", "Chia se voi ban be", "Hoan thanh tat ca"],
+      missions: [
+        "Hoan thanh 5 thu thach",
+        "Quet rac 10 lan",
+        "Tham gia quiz",
+        "Chia se voi ban be",
+        "Hoan thanh tat ca",
+      ],
       bonusMultiplier: 1.5,
       startDate: now.toISOString().split("T")[0],
       endDate: end.toISOString().split("T")[0],
@@ -231,7 +244,7 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
     if (!this.db) return null;
     try {
       const { rows } = await this.db.query(
-        `SELECT * FROM generated_events WHERE active = TRUE AND end_date >= CURRENT_DATE ORDER BY generated_at DESC LIMIT 1`
+        `SELECT * FROM generated_events WHERE active = TRUE AND end_date >= CURRENT_DATE ORDER BY generated_at DESC LIMIT 1`,
       );
       if (rows.length > 0) {
         const r = rows[0];
@@ -240,7 +253,7 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
           eventName: r.event_name,
           eventTheme: r.event_theme,
           description: r.description,
-          missions: typeof r.missions === "string" ? JSON.parse(r.missions) : (r.missions || []),
+          missions: typeof r.missions === "string" ? JSON.parse(r.missions) : r.missions || [],
           bonusMultiplier: 1.5,
           startDate: r.start_date,
           endDate: r.end_date,
@@ -259,14 +272,14 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
     try {
       const { rows } = await this.db.query(
         `SELECT * FROM generated_events ORDER BY generated_at DESC LIMIT $1`,
-        [limit]
+        [limit],
       );
       return rows.map((r: any) => ({
         id: r.id,
         eventName: r.event_name,
         eventTheme: r.event_theme,
         description: r.description,
-        missions: typeof r.missions === "string" ? JSON.parse(r.missions) : (r.missions || []),
+        missions: typeof r.missions === "string" ? JSON.parse(r.missions) : r.missions || [],
         bonusMultiplier: 1.5,
         startDate: r.start_date,
         endDate: r.end_date,
@@ -285,7 +298,7 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
         `SELECT * FROM event_missions
          WHERE user_id = $1 AND status = 'active' AND expires_at > NOW()
          ORDER BY id LIMIT 10`,
-        [userId]
+        [userId],
       );
       return rows.map((r: any) => ({
         id: r.id,
@@ -302,7 +315,11 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
     }
   }
 
-  async updateMissionProgress(userId: string, missionTitle: string, increment = 1): Promise<EventMission | null> {
+  async updateMissionProgress(
+    userId: string,
+    missionTitle: string,
+    increment = 1,
+  ): Promise<EventMission | null> {
     if (!this.db) return null;
     try {
       const { rows } = await this.db.query(
@@ -312,7 +329,7 @@ Respond ONLY in this JSON format (no markdown, no code blocks):
              completed_at = CASE WHEN progress + $3 >= target THEN NOW() ELSE completed_at END
          WHERE user_id = $1 AND title = $2 AND status = 'active'
          RETURNING *`,
-        [userId, missionTitle, increment]
+        [userId, missionTitle, increment],
       );
       if (rows.length > 0) {
         const r = rows[0];

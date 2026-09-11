@@ -19,8 +19,36 @@ export const CARD_RARITIES = [
   { id: "legendary", name: "Huyền thoại", chance: 1.0 },
 ];
 
-const TRASH_NAMES = ["Chai Nhựa", "Lon Nhôm", "Túi Nilon", "Bia Cát-tông", "Lõi Giấy", "Hộp Sữa", "Pin Cũ", "Lốp Xe", "Bo Mạch", "Vỏ Lon Cúc To", "Ống Hút", "Bóng Đèn", "Nắp Chai", "Lõi Than Trắng", "Mẩu Ghế Gãy"];
-const ADJECTIVES = ["Tái Sinh", "Độc Hại", "Gỉ Sét", "Siêu Cứng", "Phân Hủy", "Bốc Mùi", "Biến Dạng", "Quật Khởi", "Tái Chế", "Khổng Lồ", "Hoá Thạch"];
+const TRASH_NAMES = [
+  "Chai Nhựa",
+  "Lon Nhôm",
+  "Túi Nilon",
+  "Bia Cát-tông",
+  "Lõi Giấy",
+  "Hộp Sữa",
+  "Pin Cũ",
+  "Lốp Xe",
+  "Bo Mạch",
+  "Vỏ Lon Cúc To",
+  "Ống Hút",
+  "Bóng Đèn",
+  "Nắp Chai",
+  "Lõi Than Trắng",
+  "Mẩu Ghế Gãy",
+];
+const ADJECTIVES = [
+  "Tái Sinh",
+  "Độc Hại",
+  "Gỉ Sét",
+  "Siêu Cứng",
+  "Phân Hủy",
+  "Bốc Mùi",
+  "Biến Dạng",
+  "Quật Khởi",
+  "Tái Chế",
+  "Khổng Lồ",
+  "Hoá Thạch",
+];
 
 function seededRandom(seed: number): number {
   const x = Math.sin(seed) * 10000;
@@ -34,7 +62,10 @@ export function generateServerCard(id: number) {
   const rngRarity = seededRandom(id * 2.2);
   let rarity = CARD_RARITIES[0];
   for (const r of CARD_RARITIES) {
-    if (rngRarity <= r.chance) { rarity = r; break; }
+    if (rngRarity <= r.chance) {
+      rarity = r;
+      break;
+    }
   }
 
   const nameIdx = Math.floor(seededRandom(id * 3.3) * TRASH_NAMES.length);
@@ -42,7 +73,8 @@ export function generateServerCard(id: number) {
   const baseHp = Math.floor(seededRandom(id * 5.5) * 100) + 20;
   const baseAtk = Math.floor(seededRandom(id * 6.6) * 50) + 10;
 
-  const hpMult = rarity.id === "common" ? 1 : rarity.id === "rare" ? 1.2 : rarity.id === "epic" ? 1.5 : 2;
+  const hpMult =
+    rarity.id === "common" ? 1 : rarity.id === "rare" ? 1.2 : rarity.id === "epic" ? 1.5 : 2;
   const atkMult = hpMult;
 
   return {
@@ -79,16 +111,20 @@ export function resolveGacha(unlockedCardIds: number[], pullCount: number = 0): 
       const rarityId = seededRandom(i * 2.2);
       let r = CARD_RARITIES[0];
       for (const rr of CARD_RARITIES) {
-        if (rarityId <= rr.chance) { r = rr; break; }
+        if (rarityId <= rr.chance) {
+          r = rr;
+          break;
+        }
       }
       if (!lockedByRarity[r.id]) lockedByRarity[r.id] = [];
       lockedByRarity[r.id].push(i);
     }
   }
 
-  const pool = lockedCards.length > 0 && Math.random() > 0.3
-    ? lockedCards
-    : Array.from({ length: CARD_TOTAL }, (_, i) => i + 1);
+  const pool =
+    lockedCards.length > 0 && Math.random() > 0.3
+      ? lockedCards
+      : Array.from({ length: CARD_TOTAL }, (_, i) => i + 1);
 
   if (guaranteedRarity) {
     // Force from pity pool

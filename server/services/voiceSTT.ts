@@ -27,11 +27,11 @@ function getClient(): Groq | null {
 
 export interface STTResult {
   text: string;
-  language: string;          // ISO 639-1 (e.g., "vi", "en")
+  language: string; // ISO 639-1 (e.g., "vi", "en")
   languageName: string;
   durationSec: number;
   model: string;
-  cost: number;              // USD (rough estimate)
+  cost: number; // USD (rough estimate)
 }
 
 /**
@@ -39,11 +39,25 @@ export interface STTResult {
  * Used for downstream locale routing.
  */
 const LANG_NAME: Record<string, string> = {
-  vi: "Tiếng Việt", en: "English", es: "Español", fr: "Français",
-  zh: "中文", hi: "हिन्दी", ar: "العربية", sw: "Kiswahili",
-  lo: "ລາວ", km: "ខ្មែរ", id: "Bahasa Indonesia",
-  ja: "日本語", ko: "한국어", ru: "Русский", pt: "Português",
-  de: "Deutsch", it: "Italiano", th: "ไทย", tl: "Filipino",
+  vi: "Tiếng Việt",
+  en: "English",
+  es: "Español",
+  fr: "Français",
+  zh: "中文",
+  hi: "हिन्दी",
+  ar: "العربية",
+  sw: "Kiswahili",
+  lo: "ລາວ",
+  km: "ខ្មែរ",
+  id: "Bahasa Indonesia",
+  ja: "日本語",
+  ko: "한국어",
+  ru: "Русский",
+  pt: "Português",
+  de: "Deutsch",
+  it: "Italiano",
+  th: "ไทย",
+  tl: "Filipino",
 };
 
 export function languageName(code: string | undefined): string {
@@ -58,7 +72,7 @@ export function languageName(code: string | undefined): string {
 export async function transcribeAudio(
   audioBuffer: Buffer,
   mimeType: string = "audio/webm",
-  hintLanguage?: string
+  hintLanguage?: string,
 ): Promise<STTResult> {
   const groq = getClient();
   if (!groq) {
@@ -112,30 +126,12 @@ const INTENT_PATTERNS: Record<VoiceIntent, RegExp[]> = {
     /phân loại|classify|categorize|cái này là gì|what is this/i,
     /这是什么|categorizar|clasificar|classer/i,
   ],
-  explain: [
-    /giải thích|explain|why|tại sao|how/i,
-    /解释|por qué|pourquoi/i,
-  ],
-  play_game: [
-    /chơi|play|game|trò chơi|bắt đầu|start/i,
-    /jugar|jouer|玩游戏/i,
-  ],
-  show_stats: [
-    /thống kê|stats|điểm|score|points|tổng/i,
-    /estadísticas|statistiques|统计/i,
-  ],
-  open_card: [
-    /mở thẻ|open card|show card|thẻ bài/i,
-    /abrir carta|ouvrir carte/i,
-  ],
-  help: [
-    /trợ giúp|help|hướng dẫn|how to/i,
-    /ayuda|aide|帮助/i,
-  ],
-  small_talk: [
-    /xin chào|hello|hi |hey|chào/i,
-    /hola|bonjour|你好/i,
-  ],
+  explain: [/giải thích|explain|why|tại sao|how/i, /解释|por qué|pourquoi/i],
+  play_game: [/chơi|play|game|trò chơi|bắt đầu|start/i, /jugar|jouer|玩游戏/i],
+  show_stats: [/thống kê|stats|điểm|score|points|tổng/i, /estadísticas|statistiques|统计/i],
+  open_card: [/mở thẻ|open card|show card|thẻ bài/i, /abrir carta|ouvrir carte/i],
+  help: [/trợ giúp|help|hướng dẫn|how to/i, /ayuda|aide|帮助/i],
+  small_talk: [/xin chào|hello|hi |hey|chào/i, /hola|bonjour|你好/i],
   unknown: [],
 };
 

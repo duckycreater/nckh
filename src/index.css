@@ -1,4 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap");
+/* Self-hosted Roboto (Apache-2.0). Previously this imported from
+ * fonts.googleapis.com, which workbox would re-issue as a fetch() and the
+ * helmet-set CSP would block under `connect-src`. Serving locally keeps the
+ * PWA offline-capable and avoids leaking visitor IPs to Google. */
+@import url("/fonts/roboto.css");
 @import "tailwindcss";
 
 @theme {

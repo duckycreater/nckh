@@ -55,10 +55,7 @@ export function getVoiceForLocale(locale: string) {
  * Synthesize speech via Google Cloud TTS.
  * Requires GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_TTS_API_KEY env var.
  */
-export async function synthesizeGoogle(
-  text: string,
-  locale: string = "vi"
-): Promise<TTSResult> {
+export async function synthesizeGoogle(text: string, locale: string = "vi"): Promise<TTSResult> {
   const apiKey = process.env.GOOGLE_TTS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_TTS_API_KEY not configured");
   const voice = getVoiceForLocale(locale);
@@ -93,7 +90,7 @@ export async function synthesizeGoogle(
 export async function synthesizeSpeech(
   text: string,
   locale: string = "vi",
-  provider: TTSProvider = "google"
+  provider: TTSProvider = "google",
 ): Promise<TTSResult> {
   if (!text?.trim()) {
     throw new Error("Empty text for TTS");

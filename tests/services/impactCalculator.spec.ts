@@ -23,14 +23,10 @@ const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
   toEqual: (x: unknown) => assert.deepStrictEqual(v, x),
   toBeCloseTo: (x: number, digits = 5) =>
-    assert.ok(
-      Math.abs(Number(v) - x) < Math.pow(10, -digits),
-      `expected ${v} ≈ ${x}`,
-    ),
+    assert.ok(Math.abs(Number(v) - x) < Math.pow(10, -digits), `expected ${v} ≈ ${x}`),
   toBeGreaterThan: (x: number) => assert.ok(Number(v) > x, `${v} <= ${x}`),
   toBeLessThan: (x: number) => assert.ok(Number(v) < x, `${v} >= ${x}`),
-  toBeGreaterThanOrEqual: (x: number) =>
-    assert.ok(Number(v) >= x, `${v} < ${x}`),
+  toBeGreaterThanOrEqual: (x: number) => assert.ok(Number(v) >= x, `${v} < ${x}`),
   toBeLessThanOrEqual: (x: number) => assert.ok(Number(v) <= x, `${v} > ${x}`),
   toBeType: (t: string) => assert.strictEqual(typeof v, t),
   toMatch: (re: RegExp) => assert.ok(re.test(String(v)), `${v} did not match ${re}`),
@@ -76,7 +72,7 @@ describe("impactCalculator.computeImpact", () => {
     }
   });
   it("plastic: 100 scans → expected kg and CO₂", () => {
-    const s = computeImpact({plastic: 100});
+    const s = computeImpact({ plastic: 100 });
     // 100 scans × 28 g = 2800 g = 2.8 kg
     expect(s.byCategory.plastic.estimatedKg).toBeCloseTo(2.8, 3);
     // 2.8 kg × 2.5 = 7.0 kg CO₂
@@ -88,7 +84,7 @@ describe("impactCalculator.computeImpact", () => {
     expect(s.totalScans).toBe(100);
   });
   it("totals equal sum of per-category breakdown", () => {
-    const s = computeImpact({plastic: 50, paper: 30, metal: 20});
+    const s = computeImpact({ plastic: 50, paper: 30, metal: 20 });
     expect(s.totalScans).toBe(100);
     const sumKg =
       s.byCategory.plastic.estimatedKg +
@@ -105,13 +101,13 @@ describe("impactCalculator.computeImpact", () => {
     expect(s.totalCo2KgSaved).toBeCloseTo(sumCo2, 6);
   });
   it("hazard contributes 0 to CO₂ but tracks count", () => {
-    const s = computeImpact({hazard: 5});
+    const s = computeImpact({ hazard: 5 });
     expect(s.byCategory.hazard.scans).toBe(5);
     expect(s.byCategory.hazard.co2KgSaved).toBe(0);
     expect(s.totalCo2KgSaved).toBe(0);
   });
   it("treats missing keys as 0", () => {
-    const s = computeImpact({plastic: 10});
+    const s = computeImpact({ plastic: 10 });
     expect(s.byCategory.paper.scans).toBe(0);
   });
 });
@@ -124,13 +120,13 @@ describe("impactCalculator.impactToNarrative", () => {
     expect(impactToNarrative(s, "en")).toBeType("string");
   });
   it("vi narrative contains CO₂ number", () => {
-    const s = computeImpact({plastic: 100, paper: 50});
+    const s = computeImpact({ plastic: 100, paper: 50 });
     const txt = impactToNarrative(s, "vi");
     expect(txt).toMatch(/CO₂/);
     expect(txt.length).toBeGreaterThan(20);
   });
   it("en narrative mentions SDG", () => {
-    const s = computeImpact({plastic: 100, paper: 50});
+    const s = computeImpact({ plastic: 100, paper: 50 });
     const txt = impactToNarrative(s, "en");
     expect(txt.toLowerCase()).toMatch(/sdg/);
   });

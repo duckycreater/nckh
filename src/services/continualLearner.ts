@@ -15,20 +15,22 @@
  *   - Penalizes updates to weights that were critical for past tasks
  */
 
+import { logger } from "../lib/logger";
+
 export interface TaskSnapshot {
   taskId: string;
-  params: number[][];      // serialized parameters
-  fisher: number[][];      // diagonal Fisher information
+  params: number[][]; // serialized parameters
+  fisher: number[][]; // diagonal Fisher information
   loss: number;
   samples: number;
   timestamp: number;
 }
 
 export interface EWCConfig {
-  lambda: number;          // penalty strength (default 5000)
-  fisherSamples: number;   // # samples to estimate Fisher (default 200)
-  maxSnapshots: number;    // max tasks to remember (default 5)
-  onlineEpsilon: boolean;  // use online EWC (single Fisher matrix, less memory)
+  lambda: number; // penalty strength (default 5000)
+  fisherSamples: number; // # samples to estimate Fisher (default 200)
+  maxSnapshots: number; // max tasks to remember (default 5)
+  onlineEpsilon: boolean; // use online EWC (single Fisher matrix, less memory)
 }
 
 const DEFAULT_CONFIG: EWCConfig = {
@@ -49,10 +51,11 @@ class ContinualLearner {
 
   loadFromStorage(): void {
     try {
-      const raw = typeof localStorage !== "undefined" ? localStorage.getItem(this.storageKey) : null;
+      const raw =
+        typeof localStorage !== "undefined" ? localStorage.getItem(this.storageKey) : null;
       if (raw) this.snapshots = JSON.parse(raw);
     } catch (e) {
-      console.warn("[EWC] Failed to load snapshots:", e);
+      logger.warn("[EWC] Failed to load snapshots:", e);
     }
   }
 
@@ -62,7 +65,7 @@ class ContinualLearner {
         localStorage.setItem(this.storageKey, JSON.stringify(this.snapshots));
       }
     } catch (e) {
-      console.warn("[EWC] Failed to save snapshots:", e);
+      logger.warn("[EWC] Failed to save snapshots:", e);
     }
   }
 
@@ -73,25 +76,29 @@ class ContinualLearner {
   computeFisher(
     currentParams: number[][],
     gradients: number[][],
-    sampleCount: number
+    _sampleCount: number,
   ): number[][] {
     return currentParams.map((layer, l) => {
       const gradLayer = gradients[l];
       if (!gradLayer) return new Array(layer.length).fill(0);
-      return Array.isArray(gradLayer[0])
-        ? gradLayer.map((row: number[]) => row.map((g: number) => g * g))
-        : gradLayer.map((g: number) => g * g);
+      return gradLayer.map((g) => g * g);
     });
   }
 
   /**
    * Save a task snapshot (params + Fisher + loss)
    */
-  saveSnapshot(taskId: string, params: number[][], fisher: number[][], loss: number, samples: number): void {
+  saveSnapshot(
+    taskId: string,
+    params: number[][],
+    fisher: number[][],
+    loss: number,
+    samples: number,
+  ): void {
     const snapshot: TaskSnapshot = {
       taskId,
-      params: params.map((p) => Array.isArray(p[0]) ? p.flat() : Array.from(p)),
-      fisher: fisher.map((f) => Array.isArray(f[0]) ? f.flat() : Array.from(f)),
+      params: params.map((p) => Array.from(p)),
+      fisher: fisher.map((f) => Array.from(f)),
       loss,
       samples,
       timestamp: Date.now(),
@@ -103,7 +110,7 @@ class ContinualLearner {
       this.snapshots.shift();
     }
     this.saveToStorage();
-    console.log(`[EWC] Saved snapshot for task ${taskId} (total: ${this.snapshots.length})`);
+    logger.debug(`[EWC] Saved snapshot for task ${taskId} (total: ${this.snapshots.length})`);
   }
 
   /**
@@ -132,10 +139,7 @@ class ContinualLearner {
    * Compute consolidated gradient (current grad + EWC grad)
    * Returns the adjustment to apply to each parameter
    */
-  consolidateGradients(
-    currentParams: number[][],
-    currentLossGrad: number[][]
-  ): number[][] {
+  consolidateGradients(currentParams: number[][], currentLossGrad: number[][]): number[][] {
     return currentParams.map((layer, l) => {
       const out = new Array(layer.length).fill(0);
       const curGrad = currentLossGrad[l];
@@ -166,18 +170,13 @@ class ContinualLearner {
   applyUpdate(
     currentParams: number[][],
     currentLossGrad: number[][],
-    learningRate: number
+    learningRate: number,
   ): number[][] {
     const consolidated = this.consolidateGradients(currentParams, currentLossGrad);
     return currentParams.map((layer, l) => {
       const update = consolidated[l];
       if (!update) return Array.from(layer);
-      if (Array.isArray(layer[0])) {
-        return (layer as number[][]).map((row, r) =>
-          row.map((v, c) => v - learningRate * (update[r * row.length + c] ?? 0))
-        );
-      }
-      return (layer as number[]).map((v, i) => v - learningRate * (update[i] ?? 0));
+      return layer.map((v, i) => v - learningRate * (update[i] ?? 0));
     });
   }
 
@@ -190,7 +189,7 @@ class ContinualLearner {
     const removed = initial - this.snapshots.length;
     if (removed > 0) {
       this.saveToStorage();
-      console.log(`[EWC] Forgot task ${taskId}`);
+      logger.debug(`[EWC] Forgot task ${taskId}`);
     }
     return removed > 0;
   }
@@ -200,8 +199,10 @@ class ContinualLearner {
   }
 
   getMemorySize(): { tasks: number; params: number } {
-    const params = this.snapshots.reduce((sum, s) =>
-      sum + s.params.reduce((a, p) => a + p.length, 0), 0);
+    const params = this.snapshots.reduce(
+      (sum, s) => sum + s.params.reduce((a, p) => a + p.length, 0),
+      0,
+    );
     return { tasks: this.snapshots.length, params };
   }
 

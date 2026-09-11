@@ -5,17 +5,20 @@ interface CohortHeatmapProps {
   title?: string;
 }
 
-export function CohortHeatmap({ cohortData, title = "Cohort Retention Heatmap" }: CohortHeatmapProps) {
+export function CohortHeatmap({
+  cohortData,
+  title = "Cohort Retention Heatmap",
+}: CohortHeatmapProps) {
   if (!cohortData || Object.keys(cohortData).length === 0) {
     return (
-      <div className="text-center py-8 text-gray-400 italic">
-        No cohort data available yet.
-      </div>
+      <div className="text-center py-8 text-gray-400 italic">No cohort data available yet.</div>
     );
   }
 
   const cohorts = Object.keys(cohortData).sort();
-  const maxWeek = Math.max(...cohorts.map((c) => Math.max(...Object.keys(cohortData[c]).map(Number), 0)));
+  const maxWeek = Math.max(
+    ...cohorts.map((c) => Math.max(...Object.keys(cohortData[c]).map(Number), 0)),
+  );
 
   // Build grid
   const weeks = Array.from({ length: maxWeek }, (_, i) => i + 1);

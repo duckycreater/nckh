@@ -9,7 +9,10 @@ import { validateToken } from "../auth.js";
 
 function requireAuth(req: any, res: any, next: () => void) {
   const result = validateToken(req.headers.authorization);
-  if (!result) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!result) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   next();
 }
 

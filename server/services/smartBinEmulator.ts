@@ -118,7 +118,7 @@ export function buildProfile(
   kind: BinKind,
   schoolId: string | undefined,
   seed: number,
-  opts?: Partial<EmulatedBinProfile>
+  opts?: Partial<EmulatedBinProfile>,
 ): EmulatedBinProfile {
   const defaults: EmulatedBinProfile = {
     deviceId,
@@ -130,7 +130,7 @@ export function buildProfile(
     categoryShares: {
       plastic: 0.32,
       paper: 0.22,
-      glass: 0.10,
+      glass: 0.1,
       metal: 0.06,
       organic: 0.25,
       hazard: 0.05,
@@ -139,10 +139,10 @@ export function buildProfile(
       kind === "school"
         ? schoolHourly
         : kind === "household"
-        ? householdHourly
-        : kind === "factory"
-        ? factoryHourly
-        : publicHourly,
+          ? householdHourly
+          : kind === "factory"
+            ? factoryHourly
+            : publicHourly,
     battery: (e) => linearBattery(e),
     offlineProb: kind === "factory" ? 0.05 : 0.02,
     rngSeed: seed,
@@ -184,10 +184,10 @@ export function generateBins(opts: {
         kind === "school"
           ? `${schoolId} — ${i < 4 ? "Block " + "ABCD"[i] : "Yard " + (i - 3)}`
           : kind === "household"
-          ? `${schoolId} neighborhood — house ${i}`
-          : kind === "public_park"
-          ? `${schoolId} district — park ${i}`
-          : `${schoolId} industrial zone — factory ${i}`;
+            ? `${schoolId} neighborhood — house ${i}`
+            : kind === "public_park"
+              ? `${schoolId} district — park ${i}`
+              : `${schoolId} industrial zone — factory ${i}`;
       bins.push(buildProfile(deviceId, location, kind, schoolId, baseSeed + idx));
     }
   }
@@ -204,10 +204,7 @@ export function generateBins(opts: {
  * Single-bin deterministic snapshot for a given wall-clock time.
  * Used by both the live adapter and offline analysis.
  */
-export function snapshot(
-  profile: EmulatedBinProfile,
-  now: number = Date.now()
-): SmartBinReading {
+export function snapshot(profile: EmulatedBinProfile, now: number = Date.now()): SmartBinReading {
   const rng = mulberry32(profile.rngSeed + Math.floor(now / (60 * 60_000)));
   const dt = new Date(now);
   const hour = dt.getHours();
@@ -262,11 +259,16 @@ export function aggregateImpact(
   profiles: EmulatedBinProfile[],
   startMs: number,
   endMs: number,
-  stepMinutes = 60
+  stepMinutes = 60,
 ) {
   const categories = Object.keys(AVG_WEIGHT_G) as ImpactCategory[];
   const totals: Record<ImpactCategory, number> = {
-    plastic: 0, paper: 0, glass: 0, metal: 0, organic: 0, hazard: 0,
+    plastic: 0,
+    paper: 0,
+    glass: 0,
+    metal: 0,
+    organic: 0,
+    hazard: 0,
   };
   let co2Total = 0;
   let binsOnline = 0;
@@ -303,7 +305,7 @@ export class EmulatorAdapter implements SmartBinAdapter {
 
   constructor(
     private profiles: EmulatedBinProfile[],
-    private rngOverride?: () => number
+    private rngOverride?: () => number,
   ) {
     this.indexById();
   }
@@ -349,7 +351,7 @@ export class EmulatorAdapter implements SmartBinAdapter {
  */
 let _singleton: EmulatorAdapter | null = null;
 export function getEmulator(
-  opts: { schools?: string[]; totalBins?: number } = {}
+  opts: { schools?: string[]; totalBins?: number } = {},
 ): EmulatorAdapter {
   if (_singleton) return _singleton;
   const schools = opts.schools ?? ["school_a", "school_b", "school_c", "school_d", "school_e"];

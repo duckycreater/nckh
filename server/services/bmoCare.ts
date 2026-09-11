@@ -20,14 +20,14 @@ export type BmoMoodLevel = "critical" | "sad" | "neutral" | "happy" | "excited";
 
 export interface BmoCareState {
   userId: string;
-  moodScore: number;        // 0-100, start at 50
+  moodScore: number; // 0-100, start at 50
   moodLevel: BmoMoodLevel;
   currentAccessories: string[];
   unlockedAccessories: string[];
   lastInteraction: Date;
   totalInteractions: number;
-  longestStreakMood: number;  // highest mood streak achieved
-  moodHistory: number[];      // last 30 daily mood scores
+  longestStreakMood: number; // highest mood streak achieved
+  moodHistory: number[]; // last 30 daily mood scores
 }
 
 export interface BmoInteractionResult {
@@ -37,7 +37,7 @@ export interface BmoInteractionResult {
   isNewAccessory: boolean;
   newAccessory: string | null;
   moodMessage: string;
-  bonusMultiplier: number;  // applied to next points reward
+  bonusMultiplier: number; // applied to next points reward
 }
 
 export interface BmoAccessory {
@@ -47,9 +47,9 @@ export interface BmoAccessory {
   description: string;
   descriptionVi: string;
   emoji: string;
-  requiredStreak: number;  // streak days needed to unlock
-  moodThreshold: number;   // minimum mood score needed
-  visualVariant: string;    // CSS class or color for BMO display
+  requiredStreak: number; // streak days needed to unlock
+  moodThreshold: number; // minimum mood score needed
+  visualVariant: string; // CSS class or color for BMO display
 }
 
 export const BMO_ACCESSORIES: BmoAccessory[] = [
@@ -135,11 +135,11 @@ export const BMO_ACCESSORIES: BmoAccessory[] = [
 const MAX_MOOD = 100;
 const START_MOOD = 50;
 const MOOD_DECAY_PER_DAY = 2;
-const MOOD_GAIN_CORRECT = 5;    // base mood gain for correct sorting
+const MOOD_GAIN_CORRECT = 5; // base mood gain for correct sorting
 const MOOD_GAIN_CORRECT_VAR = 3; // variance: random(5-8)
-const MOOD_LOSS_WRONG = 2;        // base mood loss for wrong sorting
-const MOOD_LOSS_WRONG_VAR = 1;    // variance: random(1-3)
-const MOOD_STREAK_BONUS = 0.5;   // bonus mood per streak day
+const MOOD_LOSS_WRONG = 2; // base mood loss for wrong sorting
+const MOOD_LOSS_WRONG_VAR = 1; // variance: random(1-3)
+const MOOD_STREAK_BONUS = 0.5; // bonus mood per streak day
 
 function computeMoodLevel(score: number): BmoMoodLevel {
   if (score >= 80) return "excited";
@@ -204,7 +204,7 @@ class BmoCare {
     try {
       const { rows } = await this.db.query(
         `SELECT bmo_care_state FROM user_bmo_care WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       if (rows.length === 0) return null;
       const state = rows[0].bmo_care_state;
@@ -240,7 +240,7 @@ class BmoCare {
   async onCorrectSort(
     userId: string,
     streakDays: number,
-    isFirstToday: boolean
+    isFirstToday: boolean,
   ): Promise<BmoInteractionResult> {
     const state = await this.getOrCreateState(userId);
     const prevLevel = state.moodLevel;
@@ -267,9 +267,11 @@ class BmoCare {
       isNewAccessory = true;
     } else {
       for (const acc of BMO_ACCESSORIES) {
-        if (!state.unlockedAccessories.includes(acc.id) &&
-            streakDays >= acc.requiredStreak &&
-            moodScore >= acc.moodThreshold) {
+        if (
+          !state.unlockedAccessories.includes(acc.id) &&
+          streakDays >= acc.requiredStreak &&
+          moodScore >= acc.moodThreshold
+        ) {
           newAccessory = acc.id;
           isNewAccessory = true;
           break;
@@ -277,9 +279,10 @@ class BmoCare {
       }
     }
 
-    const updatedAccessories = isNewAccessory && newAccessory
-      ? [...state.unlockedAccessories, newAccessory]
-      : state.unlockedAccessories;
+    const updatedAccessories =
+      isNewAccessory && newAccessory
+        ? [...state.unlockedAccessories, newAccessory]
+        : state.unlockedAccessories;
 
     // Update longest streak mood
     const longestStreakMood = Math.max(state.longestStreakMood, moodScore);
@@ -398,7 +401,10 @@ class BmoCare {
   /**
    * Equip an accessory.
    */
-  async equipAccessory(userId: string, accessoryId: string): Promise<{ success: boolean; error?: string }> {
+  async equipAccessory(
+    userId: string,
+    accessoryId: string,
+  ): Promise<{ success: boolean; error?: string }> {
     const state = await this.getOrCreateState(userId);
 
     if (!state.unlockedAccessories.includes(accessoryId)) {
@@ -442,7 +448,11 @@ class BmoCare {
     const state = await this.getOrCreateState(userId);
     const streakDays = await this.getStreakDays(userId);
 
-    const nextUnlock = this.findNextAccessory(state.unlockedAccessories, streakDays, state.moodScore);
+    const nextUnlock = this.findNextAccessory(
+      state.unlockedAccessories,
+      streakDays,
+      state.moodScore,
+    );
 
     return {
       moodLevel: state.moodLevel,
@@ -460,7 +470,7 @@ class BmoCare {
   private findNextAccessory(
     unlocked: string[],
     streakDays: number,
-    moodScore: number
+    moodScore: number,
   ): { accessory: BmoAccessory; daysAway: number } | null {
     for (const acc of BMO_ACCESSORIES) {
       if (!unlocked.includes(acc.id)) {
@@ -475,11 +485,16 @@ class BmoCare {
 
   private getMoodDisplayMessage(level: BmoMoodLevel, score: number): string {
     switch (level) {
-      case "excited": return `BMO is SO happy right now! ${score}/100 💖`;
-      case "happy": return `BMO is feeling good! ${score}/100 😊`;
-      case "neutral": return `BMO is doing okay. ${score}/100 😐`;
-      case "sad": return `BMO is a bit down... ${score}/100 🥺`;
-      case "critical": return `BMO really misses you... ${score}/100 💔`;
+      case "excited":
+        return `BMO is SO happy right now! ${score}/100 💖`;
+      case "happy":
+        return `BMO is feeling good! ${score}/100 😊`;
+      case "neutral":
+        return `BMO is doing okay. ${score}/100 😐`;
+      case "sad":
+        return `BMO is a bit down... ${score}/100 🥺`;
+      case "critical":
+        return `BMO really misses you... ${score}/100 💔`;
     }
   }
 
@@ -493,7 +508,7 @@ class BmoCare {
     try {
       const { rows } = await this.db!.query(
         `SELECT streak_days FROM user_progress WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       return rows[0]?.streak_days || 1;
     } catch {
@@ -511,15 +526,18 @@ class BmoCare {
         `INSERT INTO user_bmo_care (user_id, bmo_care_state, last_updated)
          VALUES ($1, $2, NOW())
          ON CONFLICT (user_id) DO UPDATE SET bmo_care_state = $2, last_updated = NOW()`,
-        [state.userId, JSON.stringify({
-          moodScore: state.moodScore,
-          currentAccessories: state.currentAccessories,
-          unlockedAccessories: state.unlockedAccessories,
-          lastInteraction: state.lastInteraction,
-          totalInteractions: state.totalInteractions,
-          longestStreakMood: state.longestStreakMood,
-          moodHistory: state.moodHistory,
-        })]
+        [
+          state.userId,
+          JSON.stringify({
+            moodScore: state.moodScore,
+            currentAccessories: state.currentAccessories,
+            unlockedAccessories: state.unlockedAccessories,
+            lastInteraction: state.lastInteraction,
+            totalInteractions: state.totalInteractions,
+            longestStreakMood: state.longestStreakMood,
+            moodHistory: state.moodHistory,
+          }),
+        ],
       );
     } catch (e) {
       console.warn("[BmoCare] Failed to save state:", (e as Error).message);

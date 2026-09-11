@@ -11,10 +11,26 @@
  */
 
 import { Router } from "express";
-import { computeImpact, impactToNarrative, type ImpactCategory } from "../services/impactCalculator.js";
+import {
+  CO2_FACTORS,
+  computeImpact,
+  impactToNarrative,
+  type ImpactCategory,
+} from "../services/impactCalculator.js";
 import { carbonLedger } from "../services/carbonLedger.js";
 import { smartBinRegistry, type StubAdapter } from "../services/smartBinAdapter.js";
 import { getDb } from "../db.js";
+import { validateToken } from "../auth.js";
+
+function requireAuth(req: any, res: any, next: () => void): void {
+  const result = validateToken(req.headers.authorization);
+  if (!result) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  req.userNick = result.nick;
+  next();
+}
 
 export function impactRouter(): Router {
   const router = Router();
@@ -28,7 +44,10 @@ export function impactRouter(): Router {
       const db = getDb();
       if (!db) {
         return res.json({
-          cohort, sinceDays, scansByCategory: {}, ...computeImpact({}),
+          cohort,
+          sinceDays,
+          scansByCategory: {},
+          ...computeImpact({}),
           narrative: impactToNarrative(computeImpact({}), String(req.query.locale || "vi")),
         });
       }
@@ -46,7 +65,7 @@ export function impactRouter(): Router {
          WHERE timestamp > NOW() - ($1::int * INTERVAL '1 day')
            ${cohortFilter}
          GROUP BY predicted_category`,
-        params
+        params,
       );
       const scansByCategory: Partial<Record<ImpactCategory, number>> = {};
       for (const row of rows) {
@@ -83,7 +102,7 @@ export function impactRouter(): Router {
          WHERE timestamp > NOW() - ($1::int * INTERVAL '1 day')
          GROUP BY DATE(timestamp), predicted_category
          ORDER BY day ASC`,
-        [days]
+        [days],
       );
       const byDay: Record<string, Partial<Record<ImpactCategory, number>>> = {};
       for (const row of rows) {
@@ -123,18 +142,23 @@ export function impactRouter(): Router {
         `SELECT COUNT(DISTINCT user_id) AS users,
                 COUNT(*) AS total_scans
          FROM ai_scan_metrics
-         WHERE timestamp > NOW() - INTERVAL '30 days'`
+         WHERE timestamp > NOW() - INTERVAL '30 days'`,
       );
       const summaryRows = await db.query(
         `SELECT predicted_category, COUNT(*) AS scans
          FROM ai_scan_metrics
          WHERE timestamp > NOW() - INTERVAL '30 days'
-         GROUP BY predicted_category`
+         GROUP BY predicted_category`,
       );
-      const summaryRowsArr: any[] = Array.isArray(summaryRows) ? summaryRows : (summaryRows as any).rows || [];
-      const cohortRowsArr: any[] = Array.isArray(cohortRows) ? cohortRows : (cohortRows as any).rows || [];
+      const summaryRowsArr: any[] = Array.isArray(summaryRows)
+        ? summaryRows
+        : (summaryRows as any).rows || [];
+      const cohortRowsArr: any[] = Array.isArray(cohortRows)
+        ? cohortRows
+        : (cohortRows as any).rows || [];
       const scans: Partial<Record<ImpactCategory, number>> = {};
-      for (const r of summaryRowsArr) scans[r.predicted_category as ImpactCategory] = Number(r.scans);
+      for (const r of summaryRowsArr)
+        scans[r.predicted_category as ImpactCategory] = Number(r.scans);
       const summary = computeImpact(scans);
 
       const totals = await carbonLedger.getTotals({ cohort, sinceDays: 30 });
@@ -147,7 +171,10 @@ export function impactRouter(): Router {
           unique_users_30d: cohortRowsArr[0]?.users || 0,
           total_estimated_kg_diverted: summary.totalEstimatedKg,
           by_category: Object.fromEntries(
-            Object.entries(summary.byCategory).map(([k, v]) => [k, { scans: v.scans, kg: v.estimatedKg }])
+            Object.entries(summary.byCategory).map(([k, v]) => [
+              k,
+              { scans: v.scans, kg: v.estimatedKg },
+            ]),
           ),
         },
         sdg_13_3: {
@@ -165,16 +192,27 @@ export function impactRouter(): Router {
   });
 
   // POST /api/impact/ledger/record - manual audit entry
-  router.post("/ledger/record", async (req, res) => {
+  router.post("/ledger/record", requireAuth, async (req, res) => {
     try {
-      const { category, weightKg, source, userId, cohort } = req.body || {};
-      if (!category || typeof weightKg !== "number") {
+      const { category, weightKg, source, cohort } = req.body || {};
+      const allowed = new Set(Object.keys(CO2_FACTORS));
+      if (
+        !allowed.has(String(category)) ||
+        typeof weightKg !== "number" ||
+        !Number.isFinite(weightKg) ||
+        weightKg <= 0 ||
+        weightKg > 1000
+      ) {
         return res.status(400).json({ error: "category + weightKg required" });
       }
-      const co2 = weightKg * (require("../services/impactCalculator.js").CO2_FACTORS[category] || 0);
+      const co2 = weightKg * (CO2_FACTORS[category as ImpactCategory] || 0);
       const entry = await carbonLedger.record({
-        userId, cohort, category, weightKg,
-        co2KgAvoided: co2, source: source || "audit",
+        userId: (req as any).userNick,
+        cohort: typeof cohort === "string" ? cohort.slice(0, 64) : undefined,
+        category,
+        weightKg,
+        co2KgAvoided: co2,
+        source: source || "audit",
         timestamp: Date.now(),
       });
       res.json(entry);
@@ -195,9 +233,12 @@ export function impactRouter(): Router {
   });
 
   // POST /api/impact/smartbin/:deviceId/scan - record a scan against the bin
-  router.post("/smartbin/:deviceId/scan", async (req, res) => {
+  router.post("/smartbin/:deviceId/scan", requireAuth, async (req, res) => {
     try {
       const { category } = req.body || {};
+      if (!Object.prototype.hasOwnProperty.call(CO2_FACTORS, category)) {
+        return res.status(400).json({ error: "invalid category" });
+      }
       const stub = smartBinRegistry.get("stub") as StubAdapter;
       stub.recordScan(req.params.deviceId, category);
       res.json({ success: true });

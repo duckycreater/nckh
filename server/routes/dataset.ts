@@ -18,30 +18,69 @@ import { validateToken } from "../auth.js";
 
 function requireAuth(req: any, res: any, next: () => void) {
   const result = validateToken(req.headers.authorization);
-  if (!result) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!result) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   (req as any).userNick = result.nick;
   next();
 }
 
 function requireAdmin(req: any, res: any, next: () => void) {
-  const adminKey = req.headers["x-admin-key"] || req.query.adminKey;
-  if (adminKey !== process.env.ADMIN_API_KEY) {
-    res.status(403).json({ error: "Admin access required" });
-    return;
-  }
+  // Layer 2.2 — accept the admin key ONLY via header. `req.query.adminKey`
+  // is rejected because it ends up in proxy logs, browser history, and
+  // referer headers sent to third parties. Authorisation should never
+  // travel in URLs.
+  const headerKey =
+    req.headers["x-admin-key"] || req.headers.authorization?.replace(/^Bearer\s+/i, "");
+  const adminKey = typeof headerKey === "string" ? headerKey.trim() : "";
+  if (process.env.ADMIN_API_KEY && adminKey === process.env.ADMIN_API_KEY) return next();
+  const result = validateToken(req.headers.authorization);
+  if (!result) return res.status(401).json({ error: "Unauthorized" });
+  if (!result.isAdmin) return res.status(403).json({ error: "Admin access required" });
+  (req as any).userNick = result.nick;
   next();
+}
+
+// Validation helpers
+const NICKNAME_MAX_LENGTH = 100;
+const NICKNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+/**
+ * Validates and sanitizes nickname input.
+ * Returns the validated nickname or throws an error.
+ */
+function validateNickname(nickname: unknown): string {
+  if (!nickname || typeof nickname !== "string") {
+    throw new Error("nickname required");
+  }
+
+  const trimmed = nickname.trim();
+
+  if (trimmed.length === 0) {
+    throw new Error("nickname required");
+  }
+
+  if (trimmed.length > NICKNAME_MAX_LENGTH) {
+    throw new Error(`nickname must be ${NICKNAME_MAX_LENGTH} characters or less`);
+  }
+
+  if (!NICKNAME_PATTERN.test(trimmed)) {
+    throw new Error("nickname can only contain letters, numbers, underscores, and hyphens");
+  }
+
+  return trimmed;
 }
 
 export function datasetRouter(): Router {
   const router = Router();
 
-  // GET /api/dataset/status?nickname=xxx - Check consent + contribution stats
-  router.get("/status", async (req, res) => {
+  // GET /api/dataset/status - Check consent + contribution stats for caller.
+  // The legacy nickname query parameter is accepted for compatibility but is
+  // deliberately ignored; identity comes from the bearer token.
+  router.get("/status", requireAuth, async (req, res) => {
     try {
-      const nickname = String(req.query.nickname || "");
-      if (!nickname) {
-        return res.status(400).json({ error: "nickname required" });
-      }
+      const nickname = validateNickname((req as any).userNick);
 
       const db = getDb();
       if (!db) {
@@ -94,11 +133,13 @@ export function datasetRouter(): Router {
         [userNick],
       );
 
-      await db.query(
-        `INSERT INTO privacy_audit_log (user_id, action, metadata, ip_address, user_agent)
+      await db
+        .query(
+          `INSERT INTO privacy_audit_log (user_id, action, metadata, ip_address, user_agent)
          VALUES ($1, 'consent_granted', '{}'::jsonb, $2, $3)`,
-        [userNick, req.ip || null, req.headers["user-agent"] || null],
-      ).catch(() => {});
+          [userNick, req.ip || null, req.headers["user-agent"] || null],
+        )
+        .catch(() => {});
 
       res.json({ success: true, consentGiven: true });
     } catch (e) {
@@ -115,11 +156,13 @@ export function datasetRouter(): Router {
 
       await db.query(`SELECT withdraw_dataset_consent($1)`, [userNick]);
 
-      await db.query(
-        `INSERT INTO privacy_audit_log (user_id, action, metadata, ip_address, user_agent)
+      await db
+        .query(
+          `INSERT INTO privacy_audit_log (user_id, action, metadata, ip_address, user_agent)
          VALUES ($1, 'consent_revoked', '{}'::jsonb, $2, $3)`,
-        [userNick, req.ip || null, req.headers["user-agent"] || null],
-      ).catch(() => {});
+          [userNick, req.ip || null, req.headers["user-agent"] || null],
+        )
+        .catch(() => {});
 
       res.json({ success: true, consentGiven: false });
     } catch (e) {
@@ -197,6 +240,18 @@ export function datasetRouter(): Router {
     try {
       const id = Number(req.params.id);
       const { finalLabel, notes } = req.body || {};
+      const allowedLabels = new Set(["plastic", "paper", "glass", "metal", "organic", "hazard"]);
+      if (!Number.isSafeInteger(id) || id <= 0)
+        return res.status(400).json({ error: "invalid queue id" });
+      if (
+        finalLabel !== undefined &&
+        (!allowedLabels.has(String(finalLabel)) || String(finalLabel).length > 32)
+      ) {
+        return res.status(400).json({ error: "invalid final label" });
+      }
+      if (notes !== undefined && (typeof notes !== "string" || notes.length > 2000)) {
+        return res.status(400).json({ error: "invalid curator notes" });
+      }
       const db = getDb();
       if (!db) return res.status(503).json({ error: "Research DB unavailable" });
 
@@ -237,6 +292,11 @@ export function datasetRouter(): Router {
     try {
       const id = Number(req.params.id);
       const { notes } = req.body || {};
+      if (!Number.isSafeInteger(id) || id <= 0)
+        return res.status(400).json({ error: "invalid queue id" });
+      if (notes !== undefined && (typeof notes !== "string" || notes.length > 2000)) {
+        return res.status(400).json({ error: "invalid curator notes" });
+      }
       const db = getDb();
       if (!db) return res.status(503).json({ error: "Research DB unavailable" });
 

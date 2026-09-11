@@ -211,10 +211,7 @@ export function paillierSum(ciphertexts: bigint[], n: bigint): bigint {
  * High-level façade: encrypt a vector of small integers.
  * Each element i is encrypted as E(v_i) so that decryption + sum equals sum(v_i).
  */
-export function paillierEncryptVector(
-  vec: number[],
-  pub: { n: bigint; g: bigint }
-): bigint[] {
+export function paillierEncryptVector(vec: number[], pub: { n: bigint; g: bigint }): bigint[] {
   return vec.map((v) => paillierEncrypt(v, pub));
 }
 
@@ -235,7 +232,7 @@ export function paillierEncryptWithLaplaceNoise(
   v: number,
   pub: { n: bigint; g: bigint },
   sensitivity: number,
-  epsilon: number
+  epsilon: number,
 ): bigint {
   const b = sensitivity / epsilon;
   const lapNoise = Math.round(b * laplaceSample());

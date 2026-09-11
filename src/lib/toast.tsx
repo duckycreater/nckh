@@ -20,7 +20,10 @@ export function showPointsToast(points: number, multiplier: number, reason: stri
     detail: {
       id: ++toastId,
       title: reason,
-      description: multiplier > 1 ? `Nhân thưởng x${multiplier.toFixed(1)}` : "Điểm thưởng đã được cộng vào tài khoản của bạn.",
+      description:
+        multiplier > 1
+          ? `Nhân thưởng x${multiplier.toFixed(1)}`
+          : "Điểm thưởng đã được cộng vào tài khoản của bạn.",
       tone: "success",
       points,
       multiplier,
@@ -100,7 +103,9 @@ export function PointsToastContainer() {
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
               className={`flex items-center gap-3 rounded-2xl border bg-white/95 px-5 py-3 shadow-xl backdrop-blur ${meta.border}`}
             >
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-sm ${meta.iconBg}`}>
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-sm ${meta.iconBg}`}
+              >
                 {t.points ? <TrendingUp size={18} className="text-emerald-600" /> : meta.icon}
               </div>
               <div className="min-w-0 flex-1">
@@ -117,8 +122,7 @@ export function PointsToastContainer() {
                       transition={{ delay: 0.15, type: "spring" }}
                       className="flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[11px] font-black text-orange-600"
                     >
-                      <Flame size={10} className="fill-current" />
-                      x{t.multiplier.toFixed(1)}
+                      <Flame size={10} className="fill-current" />x{t.multiplier.toFixed(1)}
                     </motion.span>
                   )}
                 </div>

@@ -8,8 +8,9 @@
  *   - Live teacher dashboard showing causal ATE per mechanic
  */
 
-const CAUSAL_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_CAUSAL_URL)
-  || "http://localhost:8001";
+const CAUSAL_BASE =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_CAUSAL_URL) ||
+  "http://localhost:8001";
 
 export interface CausalEdge {
   from: string;
@@ -55,7 +56,7 @@ class CausalReasoning {
   async discover(
     data: Record<string, any>[],
     method: "pc" | "ges" | "lingam" = "pc",
-    alpha = 0.05
+    alpha = 0.05,
   ): Promise<CausalGraph | null> {
     if (!(await this.isAvailable())) return null;
     try {
@@ -75,7 +76,7 @@ class CausalReasoning {
     data: Record<string, any>[],
     treatment: string,
     outcome: string,
-    options: { common_causes?: string[]; instruments?: string[]; effect_modifiers?: string[] } = {}
+    options: { common_causes?: string[]; instruments?: string[]; effect_modifiers?: string[] } = {},
   ): Promise<ATEResult | null> {
     if (!(await this.isAvailable())) return null;
     try {
@@ -100,7 +101,7 @@ class CausalReasoning {
   async counterfactual(
     userData: Record<string, any>,
     intervention: Record<string, number>,
-    outcome: string
+    outcome: string,
   ): Promise<CounterfactualResult | null> {
     if (!(await this.isAvailable())) return null;
     try {

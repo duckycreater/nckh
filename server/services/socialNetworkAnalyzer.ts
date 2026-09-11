@@ -30,7 +30,8 @@ export interface CommunityStats {
   density: number;
 }
 
-export type InteractionType = "profile_view" | "leaderboard_view" | "share" | "team_join" | "chat" | "follow";
+export type InteractionType =
+  "profile_view" | "leaderboard_view" | "share" | "team_join" | "chat" | "follow";
 
 class SocialNetworkAnalyzer {
   private db = getDb();
@@ -40,14 +41,14 @@ class SocialNetworkAnalyzer {
     userId: string,
     interactionType: InteractionType,
     targetUserId?: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
   ): Promise<void> {
     if (!this.db) return;
     try {
       await this.db.query(
         `INSERT INTO social_interactions (user_id, target_user_id, interaction_type, metadata)
          VALUES ($1, $2, $3, $4)`,
-        [userId, targetUserId || null, interactionType, JSON.stringify(metadata)]
+        [userId, targetUserId || null, interactionType, JSON.stringify(metadata)],
       );
     } catch (e) {
       console.warn("[SocialNetwork] Failed to log interaction:", (e as Error).message);
@@ -65,7 +66,7 @@ class SocialNetworkAnalyzer {
                   WHERE s2.target_user_id = si.user_id)) AS in_degree
          FROM social_interactions si
          WHERE si.user_id = $1`,
-        [userId]
+        [userId],
       );
       const degree = (degreeRows[0]?.out_degree || 0) + (degreeRows[0]?.in_degree || 0);
 
@@ -88,14 +89,14 @@ class SocialNetworkAnalyzer {
              WHERE e.user_id = n1.friend AND e.target_user_id = n2.friend
                 OR e.user_id = n2.friend AND e.target_user_id = n1.friend
            )`,
-        [userId]
+        [userId],
       );
       const clustering = parseFloat(clusterRows[0]?.edges_between_neighbors || "0");
 
       // Community detection: simple label propagation (approximate via interaction clustering)
       const { rows: communityRows } = await this.db.query(
         `SELECT community_id FROM user_network_metrics WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       const communityId = communityRows[0]?.community_id || null;
 
@@ -109,20 +110,20 @@ class SocialNetworkAnalyzer {
         )
         SELECT CASE WHEN t.total > 0 THEN (i.inbound_count / t.total) * 10.0 ELSE 0 END AS page_rank
         FROM total_inbound t, inbound i`,
-        [userId]
+        [userId],
       );
       const pageRank = parseFloat(prRows[0]?.page_rank?.toFixed(4) || "0");
 
       // Total interactions
       const { rows: totalRows } = await this.db.query(
         `SELECT COUNT(*)::int AS total FROM social_interactions WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
 
       return {
         userId,
         degreeCentrality: degree,
-        clusteringCoefficient: Math.min(clustering / Math.max(degree * (degree - 1) / 2, 1), 1),
+        clusteringCoefficient: Math.min(clustering / Math.max((degree * (degree - 1)) / 2, 1), 1),
         pageRank,
         communityId,
         totalInteractions: totalRows[0]?.total || 0,
@@ -163,7 +164,9 @@ class SocialNetworkAnalyzer {
   }
 
   // --- Get top influencers ---
-  async getTopInfluencers(limit = 10): Promise<{ userId: string; pageRank: number; degree: number }[]> {
+  async getTopInfluencers(
+    limit = 10,
+  ): Promise<{ userId: string; pageRank: number; degree: number }[]> {
     if (!this.db) return [];
     try {
       const { rows } = await this.db.query(
@@ -178,7 +181,7 @@ class SocialNetworkAnalyzer {
          ) ic ON ic.user_id = unm.user_id
          ORDER BY unm.page_rank DESC
          LIMIT $1`,
-        [limit]
+        [limit],
       );
       return rows;
     } catch {
@@ -233,7 +236,8 @@ class SocialNetworkAnalyzer {
     density: number;
     communityCount: number;
   }> {
-    if (!this.db) return { totalUsers: 0, totalInteractions: 0, avgDegree: 0, density: 0, communityCount: 0 };
+    if (!this.db)
+      return { totalUsers: 0, totalInteractions: 0, avgDegree: 0, density: 0, communityCount: 0 };
     try {
       const { rows } = await this.db.query(`
         SELECT

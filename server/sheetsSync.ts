@@ -30,7 +30,9 @@ function getServiceAccount() {
   return serviceAccount;
 }
 
-async function getSheetsClient(scopes: string[] = ["https://www.googleapis.com/auth/spreadsheets"]) {
+async function getSheetsClient(
+  scopes: string[] = ["https://www.googleapis.com/auth/spreadsheets"],
+) {
   const sa = getServiceAccount();
   const auth = new google.auth.GoogleAuth({
     credentials: {
@@ -107,11 +109,36 @@ function recordSync(result: any, error?: string) {
 const SHEET_DEFS: Record<string, { headers: string[]; description: string }> = {
   Users: {
     description: "All user accounts (from Firestore + data.json)",
-    headers: ["UserID", "Name", "Nick", "Points", "Role", "Status", "CreatedAt", "LastActive", "AccountID"],
+    headers: [
+      "UserID",
+      "Name",
+      "Nick",
+      "Points",
+      "Role",
+      "Status",
+      "CreatedAt",
+      "LastActive",
+      "AccountID",
+    ],
   },
   QuizQuestions: {
     description: "Quiz questions bank (from Supabase quiz_questions)",
-    headers: ["QuestionID", "Content", "A", "B", "C", "D", "CorrectKey", "Points", "Category", "Difficulty", "Enabled", "Order", "ImageURL", "UpdatedAt"],
+    headers: [
+      "QuestionID",
+      "Content",
+      "A",
+      "B",
+      "C",
+      "D",
+      "CorrectKey",
+      "Points",
+      "Category",
+      "Difficulty",
+      "Enabled",
+      "Order",
+      "ImageURL",
+      "UpdatedAt",
+    ],
   },
   QuizConfig: {
     description: "Quiz runtime config (from Supabase quiz_config)",
@@ -155,17 +182,13 @@ async function ensureSheet(
   headers: string[],
 ): Promise<{ created: boolean }> {
   const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  const exists = (meta.data.sheets || []).some(
-    (s: any) => s.properties?.title === sheetName,
-  );
+  const exists = (meta.data.sheets || []).some((s: any) => s.properties?.title === sheetName);
   if (exists) return { created: false };
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
     requestBody: {
-      requests: [
-        { addSheet: { properties: { title: sheetName } } },
-      ],
+      requests: [{ addSheet: { properties: { title: sheetName } } }],
     },
   });
 
@@ -266,15 +289,7 @@ async function fetchQuizConfigFromDb(): Promise<any[][]> {
 async function fetchRewardsFromDb(): Promise<any[][]> {
   if (!isRewardsDbConfigured()) return [];
   const rewards = await listRewards();
-  return rewards.map((r) => [
-    r.id,
-    r.name,
-    r.desc,
-    String(r.cost),
-    r.imageUrl,
-    r.color,
-    "TRUE",
-  ]);
+  return rewards.map((r) => [r.id, r.name, r.desc, String(r.cost), r.imageUrl, r.color, "TRUE"]);
 }
 
 async function fetchFromSupabase(sqlQuery: string): Promise<any[][]> {
@@ -286,7 +301,9 @@ async function fetchFromSupabase(sqlQuery: string): Promise<any[][]> {
     if (!pool) return [];
     const { rows } = await pool.query(sqlQuery);
     return Array.isArray(rows)
-      ? rows.map((r: any) => Object.values(r).map((v) => (v === null || v === undefined ? "" : String(v))))
+      ? rows.map((r: any) =>
+          Object.values(r).map((v) => (v === null || v === undefined ? "" : String(v))),
+        )
       : [];
   } catch (e) {
     console.warn(`[sheetsSync] Supabase query failed:`, (e as Error).message);
@@ -354,9 +371,7 @@ export async function runFullSheetsSync(
       try {
         // Clear existing data (keep header)
         const meta = await sheets.spreadsheets.get({ spreadsheetId });
-        const sheet = (meta.data.sheets || []).find(
-          (s: any) => s.properties?.title === sheetName,
-        );
+        const sheet = (meta.data.sheets || []).find((s: any) => s.properties?.title === sheetName);
         if (sheet && sheet.properties?.gridProperties?.rowCount) {
           const totalRows = sheet.properties.gridProperties.rowCount;
           if (totalRows > 1) {
@@ -514,8 +529,7 @@ export async function getSheetsSyncStatus() {
     spreadsheetId: DEFAULT_SPREADSHEET_ID,
     autoSyncIntervalMs: 15 * 60 * 1000,
     isConfigured: !!(
-      process.env.FIREBASE_SERVICE_ACCOUNT ||
-      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
+      process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
     ),
   };
 }

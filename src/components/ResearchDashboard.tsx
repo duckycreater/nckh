@@ -4,14 +4,15 @@ import { useTranslation } from "react-i18next";
 import {
   getSyntheticPopulation,
   summarisePopulation,
-  type SyntheticUserSpec,
   type CohortId,
 } from "../services/syntheticPopulation";
-import { holmBonferroni, bonferroni } from "../../server/services/rctEngine";
+import { holmBonferroni, bonferroni } from "../lib/multipleTesting";
+import { getAuthHeaders } from "../lib/auth";
 
 export interface ResearchDashboardProps {
   endpoint?: string;
   refreshSeconds?: number;
+  user?: unknown;
 }
 
 interface RctRow {
@@ -27,6 +28,8 @@ interface RctRow {
 }
 
 interface RctSummary {
+  provenance?: "live" | "synthetic" | "unknown";
+  generatedAt?: string;
   rows: RctRow[];
   primaryTests?: {
     cohensD: number;
@@ -37,14 +40,6 @@ interface RctSummary {
   }[];
   audit?: { merkleRoot: string; rounds: number };
 }
-
-const COHORT_LABEL_KEYS: Record<CohortId, string> = {
-  C: "research.cohorts.C",
-  E1: "research.cohorts.E1",
-  E2: "research.cohorts.E2",
-  E3: "research.cohorts.E3",
-  E4: "research.cohorts.E4",
-};
 
 export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
   endpoint = "/api/research/summary",
@@ -61,22 +56,28 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
   const [summary, setSummary] = useState<RctSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [nUsers, setNUsers] = useState(1000);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [syntheticPreview, setSyntheticPreview] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const fetchOnce = async () => {
       try {
-        const r = await fetch(endpoint);
+        const r = await fetch(endpoint, { headers: getAuthHeaders() });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = (await r.json()) as RctSummary;
+        const json = validateSummary((await r.json()) as RctSummary);
         if (!cancelled) {
           setSummary(json);
+          setSyntheticPreview(false);
+          setLoadError(null);
           setLoading(false);
         }
       } catch {
-        // Fallback: derive from synthetic population.
         if (!cancelled) {
-          setSummary(deriveFromSynthetic(nUsers));
+          setSummary((current) => (current?.provenance === "synthetic" ? current : null));
+          setLoadError(
+            "Chưa có dữ liệu RCT thật từ máy chủ. Không có kết quả mô phỏng nào được hiển thị mặc định.",
+          );
           setLoading(false);
         }
       }
@@ -87,7 +88,11 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
       cancelled = true;
       clearInterval(id);
     };
-  }, [endpoint, refreshSeconds, nUsers]);
+  }, [endpoint, refreshSeconds]);
+
+  useEffect(() => {
+    if (syntheticPreview) setSummary(deriveFromSynthetic(nUsers));
+  }, [nUsers, syntheticPreview]);
 
   const correctedP = useMemo(() => {
     if (!summary?.primaryTests) return null;
@@ -103,39 +108,68 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
             Research Dashboard — RCT analytics
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Live cohort outcomes, Welch's t-tests, multiple-comparison corrections,
-            and privacy-budget tracker.
+            Kết quả cohort thật chỉ xuất hiện khi API nghiên cứu đã được cấu hình và xác thực.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-500 dark:text-slate-400">N users</label>
-          <input
-            type="range"
-            min={100}
-            max={2000}
-            step={100}
-            value={nUsers}
-            onChange={(e) => setNUsers(Number(e.target.value))}
-            className="accent-cyan-600"
-          />
-          <span className="text-xs font-mono">{nUsers}</span>
-        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${summary?.provenance === "live" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}
+        >
+          {summary?.provenance === "live"
+            ? "LIVE DATA"
+            : summary?.provenance === "synthetic"
+              ? "SYNTHETIC PREVIEW"
+              : "NO LIVE DATA"}
+        </span>
+        {summary?.provenance === "synthetic" && (
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="research-user-count"
+              className="text-xs text-slate-500 dark:text-slate-400"
+            >
+              N mô phỏng
+            </label>
+            <input
+              id="research-user-count"
+              type="range"
+              min={100}
+              max={2000}
+              step={100}
+              value={nUsers}
+              onChange={(e) => setNUsers(Number(e.target.value))}
+              className="accent-cyan-600"
+            />
+            <span className="text-xs font-mono">{nUsers}</span>
+          </div>
+        )}
       </header>
 
       {loading && <p className="text-sm text-slate-500">Loading…</p>}
+      {loadError && (
+        <div
+          role="status"
+          className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setSyntheticPreview((enabled) => !enabled);
+              setSummary(syntheticPreview ? null : deriveFromSynthetic(nUsers));
+            }}
+            className="shrink-0 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-100"
+          >
+            {syntheticPreview ? "Tắt mô phỏng" : "Mở mô phỏng minh họa"}
+          </button>
+        </div>
+      )}
 
       {summary && <CohortTable rows={summary.rows} labels={COHORT_LABELS} />}
 
-      {summary?.primaryTests && (
-        <PrimaryTestsCard
-          tests={summary.primaryTests}
-          corrected={correctedP}
-        />
+      {summary?.provenance === "live" && summary.primaryTests && (
+        <PrimaryTestsCard tests={summary.primaryTests} corrected={correctedP} />
       )}
 
-      {summary?.audit && (
-        <AuditCard audit={summary.audit} />
-      )}
+      {summary?.provenance === "live" && summary.audit && <AuditCard audit={summary.audit} />}
     </div>
   );
 };
@@ -146,6 +180,7 @@ const CohortTable: React.FC<{ rows: RctRow[]; labels: Record<CohortId, string> }
   rows,
   labels,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
       <table className="w-full text-xs">
@@ -181,9 +216,7 @@ const CohortTable: React.FC<{ rows: RctRow[]; labels: Record<CohortId, string> }
               </td>
               <td className="font-mono">{(r.d30Retention * 100).toFixed(1)}%</td>
               <td className="font-mono">{r.kgCo2ePerUserWeek.toFixed(3)}</td>
-              <td className="font-mono">
-                {r.cohensD !== undefined ? r.cohensD.toFixed(2) : "—"}
-              </td>
+              <td className="font-mono">{r.cohensD !== undefined ? r.cohensD.toFixed(2) : "—"}</td>
             </motion.tr>
           ))}
         </tbody>
@@ -196,13 +229,22 @@ const CohortTable: React.FC<{ rows: RctRow[]; labels: Record<CohortId, string> }
 
 const PrimaryTestsCard: React.FC<{
   tests: NonNullable<RctSummary["primaryTests"]>;
-  corrected: { holm: { rejectedIdx: number[]; adjustedP: number[] }; bonf: { rejectedIdx: number[]; adjustedP: number[] } } | null;
+  corrected: {
+    holm: { rejectedIdx: number[]; adjustedP: number[] };
+    bonf: { rejectedIdx: number[]; adjustedP: number[] };
+  } | null;
 }> = ({ tests, corrected }) => {
   const { t } = useTranslation();
-  const labels = [t("research.axisLabels.identityChange"), t("research.axisLabels.sortAccuracy"), t("research.axisLabels.d30Retention")];
+  const labels = [
+    t("research.axisLabels.identityChange"),
+    t("research.axisLabels.sortAccuracy"),
+    t("research.axisLabels.d30Retention"),
+  ];
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Primary tests (E4 vs C)</p>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        Primary tests (E4 vs C)
+      </p>
       <table className="mt-3 w-full text-xs">
         <thead className="text-left text-[10px] uppercase tracking-widest text-slate-500">
           <tr>
@@ -225,7 +267,9 @@ const PrimaryTestsCard: React.FC<{
                 <td className="font-mono">{t.t.toFixed(3)}</td>
                 <td className="font-mono">{t.df.toFixed(1)}</td>
                 <td className="font-mono">{t.pValue.toExponential(2)}</td>
-                <td className="font-mono">{corrected ? corrected.holm.adjustedP[i].toExponential(2) : "—"}</td>
+                <td className="font-mono">
+                  {corrected ? corrected.holm.adjustedP[i].toExponential(2) : "—"}
+                </td>
                 <td>
                   {rejected ? (
                     <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-mono text-emerald-700">
@@ -278,28 +322,46 @@ function deriveFromSynthetic(nUsers: number): RctSummary {
     const cohort = c as CohortId;
     const cohortUsers = pop.filter((u) => u.cohort === cohort);
     const identityChange = effectByCohort[cohort];
-    const accuracy = cohortUsers.reduce((a, b) => a + b.baseline.accuracy, 0) / Math.max(1, cohortUsers.length);
+    const accuracy =
+      cohortUsers.reduce((a, b) => a + b.baseline.accuracy, 0) / Math.max(1, cohortUsers.length);
     return {
       cohort,
       n: cohortUsers.length,
       identityChange,
       identityChangeSD: 0.12,
       sortAccuracy: accuracy,
-      sortAccuracySD: 0.10,
+      sortAccuracySD: 0.1,
       d30Retention: 0.65 + effectByCohort[cohort] * 0.4,
       kgCo2ePerUserWeek: 0.027 + effectByCohort[cohort] * 0.05,
       cohensD: (identityChange - 0.04) / 0.12,
     };
   });
   return {
+    provenance: "synthetic",
     rows,
-    primaryTests: [
-      { meanDiff: effectByCohort.E4 - effectByCohort.C, t: 14.0, df: 198, pValue: 1e-20, cohensD: 4.0 },
-      { meanDiff: 0.20, t: 10.0, df: 198, pValue: 1e-15, cohensD: 2.8 },
-      { meanDiff: 0.20, t: 9.0, df: 198, pValue: 1e-12, cohensD: 2.5 },
-    ],
-    audit: { merkleRoot: "a".repeat(64), rounds: 50 },
   };
+}
+
+function validateSummary(summary: RctSummary): RctSummary {
+  if (!summary || !Array.isArray(summary.rows)) throw new Error("Invalid research summary");
+  const provenance = summary.provenance ?? "unknown";
+  if (!["live", "synthetic", "unknown"].includes(provenance)) {
+    throw new Error("Invalid research provenance");
+  }
+  for (const row of summary.rows) {
+    if (!row || !Number.isFinite(row.n) || row.n < 0) throw new Error("Invalid research row");
+    for (const value of [
+      row.identityChange,
+      row.identityChangeSD,
+      row.sortAccuracy,
+      row.sortAccuracySD,
+      row.d30Retention,
+      row.kgCo2ePerUserWeek,
+    ]) {
+      if (!Number.isFinite(value)) throw new Error("Non-finite research value");
+    }
+  }
+  return { ...summary, provenance: provenance as RctSummary["provenance"] };
 }
 
 export default ResearchDashboard;

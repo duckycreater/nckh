@@ -10,8 +10,25 @@ import { validateToken } from "../auth.js";
 // Auth middleware for research routes
 function requireAuth(req: Request, res: Response, next: () => void) {
   const result = validateToken(req.headers.authorization);
-  if (!result) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!result) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   (req as any).userNick = result.nick;
+  (req as any).userId = result.accountId ?? result.nick;
+  (req as any).isAdmin = result.isAdmin;
+  next();
+}
+
+function requireAdmin(req: Request, res: Response, next: () => void) {
+  const key = req.headers["x-admin-key"];
+  if (process.env.ADMIN_API_KEY && key === process.env.ADMIN_API_KEY) return next();
+  const result = validateToken(req.headers.authorization);
+  if (!result) return res.status(401).json({ error: "Unauthorized" });
+  if (!result.isAdmin) return res.status(403).json({ error: "Admin access required" });
+  (req as any).userNick = result.nick;
+  (req as any).userId = result.accountId ?? result.nick;
+  (req as any).isAdmin = true;
   next();
 }
 
@@ -26,7 +43,10 @@ researchRouter.get("/status", async (req, res) => {
   }
   try {
     const { rows } = await db.query("SELECT COUNT(*) as total_users FROM research_users");
-    return res.json({ status: "connected", totalResearchUsers: parseInt(rows[0]?.total_users || "0") });
+    return res.json({
+      status: "connected",
+      totalResearchUsers: parseInt(rows[0]?.total_users || "0"),
+    });
   } catch {
     return res.json({ status: "connected", totalResearchUsers: 0 });
   }
@@ -34,14 +54,18 @@ researchRouter.get("/status", async (req, res) => {
 
 // Register user in research DB
 researchRouter.post("/register-user", requireAuth, async (req, res) => {
-  const { userId, username } = req.body;
+  const userId = (req as any).userId as string;
+  const username =
+    typeof req.body?.username === "string"
+      ? req.body.username.slice(0, 100)
+      : (req as any).userNick;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     await db.query(
       `INSERT INTO research_users (user_id, username) VALUES ($1, $2)
        ON CONFLICT (user_id) DO UPDATE SET last_active = NOW(), username = COALESCE($2, research_users.username)`,
-      [userId, username]
+      [userId, username],
     );
     res.json({ success: true });
   } catch (e) {
@@ -51,13 +75,19 @@ researchRouter.post("/register-user", requireAuth, async (req, res) => {
 
 // Log a behavioral event
 researchRouter.post("/log-event", requireAuth, async (req, res) => {
-  const { userId, eventType, metadata, sessionId } = req.body;
+  const userId = (req as any).userId as string;
+  const eventType =
+    typeof req.body?.eventType === "string" ? req.body.eventType.slice(0, 80) : "unknown";
+  const metadata =
+    req.body?.metadata && typeof req.body.metadata === "object" ? req.body.metadata : {};
+  const sessionId =
+    typeof req.body?.sessionId === "string" ? req.body.sessionId.slice(0, 128) : null;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     await db.query(
       `INSERT INTO behavioral_events (user_id, event_type, session_id, metadata) VALUES ($1, $2, $3, $4)`,
-      [userId, eventType, sessionId || null, JSON.stringify(metadata || {})]
+      [userId, eventType, sessionId || null, JSON.stringify(metadata || {})],
     );
     res.json({ success: true });
   } catch (e) {
@@ -66,14 +96,14 @@ researchRouter.post("/log-event", requireAuth, async (req, res) => {
 });
 
 // Get user's behavioral profile
-researchRouter.get("/profile/:userId", async (req, res) => {
-  const { userId } = req.params;
+researchRouter.get("/profile/:userId", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     const { rows } = await db.query(
       `SELECT profile_type, confidence, metrics, last_updated FROM user_behavioral_profiles WHERE user_id = $1`,
-      [userId]
+      [userId],
     );
     if (rows.length === 0) {
       return res.json({ profile_type: "unknown", confidence: 0, metrics: {} });
@@ -85,14 +115,14 @@ researchRouter.get("/profile/:userId", async (req, res) => {
 });
 
 // Get user's personality mode
-researchRouter.get("/personality/:userId", async (req, res) => {
-  const { userId } = req.params;
+researchRouter.get("/personality/:userId", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     const { rows } = await db.query(
       `SELECT personality_mode, round_id, current_round FROM personality_assignments WHERE user_id = $1`,
-      [userId]
+      [userId],
     );
     if (rows.length === 0) {
       return res.json({ personality_mode: "friendly", round_id: 1, current_round: 1 });
@@ -104,15 +134,15 @@ researchRouter.get("/personality/:userId", async (req, res) => {
 });
 
 // Get user's AI reflections
-researchRouter.get("/reflections/:userId", async (req, res) => {
-  const { userId } = req.params;
+researchRouter.get("/reflections/:userId", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     const { rows } = await db.query(
       `SELECT reflection_text, week_number, week_start, week_end, generated_at
        FROM ai_reflections WHERE user_id = $1 ORDER BY week_number DESC LIMIT 10`,
-      [userId]
+      [userId],
     );
     res.json(rows);
   } catch (e) {
@@ -121,15 +151,15 @@ researchRouter.get("/reflections/:userId", async (req, res) => {
 });
 
 // Get active interventions for user
-researchRouter.get("/interventions/:userId", async (req, res) => {
-  const { userId } = req.params;
+researchRouter.get("/interventions/:userId", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     const { rows } = await db.query(
       `SELECT intervention_type, triggered_by, triggered_at, effectiveness_score, metadata
        FROM adaptive_interventions WHERE user_id = $1 ORDER BY triggered_at DESC LIMIT 20`,
-      [userId]
+      [userId],
     );
     res.json(rows);
   } catch (e) {
@@ -138,15 +168,15 @@ researchRouter.get("/interventions/:userId", async (req, res) => {
 });
 
 // Get novelty decay status for user
-researchRouter.get("/decay/:userId", async (req, res) => {
-  const { userId } = req.params;
+researchRouter.get("/decay/:userId", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     const { rows } = await db.query(
       `SELECT engagement_score, streak_stability, feature_diversity, days_since_login, recorded_at
        FROM novelty_decay_log WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 7`,
-      [userId]
+      [userId],
     );
     res.json(rows);
   } catch (e) {
@@ -155,23 +185,23 @@ researchRouter.get("/decay/:userId", async (req, res) => {
 });
 
 // Researcher Dashboard: Overview metrics
-researchRouter.get("/dashboard/overview", async (req, res) => {
+researchRouter.get("/dashboard/overview", requireAdmin, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
     const totalUsers = await db.query("SELECT COUNT(*) FROM research_users");
     const totalEvents = await db.query("SELECT COUNT(*) FROM behavioral_events");
     const personalityDist = await db.query(
-      `SELECT personality_mode, COUNT(*) FROM personality_assignments GROUP BY personality_mode`
+      `SELECT personality_mode, COUNT(*) FROM personality_assignments GROUP BY personality_mode`,
     );
     const profileDist = await db.query(
-      `SELECT profile_type, COUNT(*) FROM user_behavioral_profiles GROUP BY profile_type`
+      `SELECT profile_type, COUNT(*) FROM user_behavioral_profiles GROUP BY profile_type`,
     );
     const activeUsers7d = await db.query(
-      `SELECT COUNT(DISTINCT user_id) FROM behavioral_events WHERE timestamp > NOW() - INTERVAL '7 days'`
+      `SELECT COUNT(DISTINCT user_id) FROM behavioral_events WHERE timestamp > NOW() - INTERVAL '7 days'`,
     );
     const avgSessionDuration = await db.query(
-      `SELECT AVG(duration_seconds) as avg_dur FROM research_sessions WHERE ended_at IS NOT NULL AND started_at > NOW() - INTERVAL '7 days'`
+      `SELECT AVG(duration_seconds) as avg_dur FROM research_sessions WHERE ended_at IS NOT NULL AND started_at > NOW() - INTERVAL '7 days'`,
     );
 
     res.json({
@@ -188,7 +218,7 @@ researchRouter.get("/dashboard/overview", async (req, res) => {
 });
 
 // Researcher Dashboard: Retention metrics
-researchRouter.get("/dashboard/retention", async (req, res) => {
+researchRouter.get("/dashboard/retention", requireAdmin, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
@@ -212,7 +242,7 @@ researchRouter.get("/dashboard/retention", async (req, res) => {
 });
 
 // Researcher Dashboard: Intervention effectiveness
-researchRouter.get("/dashboard/intervention-effectiveness", async (req, res) => {
+researchRouter.get("/dashboard/intervention-effectiveness", requireAdmin, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
@@ -231,7 +261,7 @@ researchRouter.get("/dashboard/intervention-effectiveness", async (req, res) => 
 });
 
 // Researcher Dashboard: Personality comparison (HCI experiment)
-researchRouter.get("/dashboard/personality-comparison", async (req, res) => {
+researchRouter.get("/dashboard/personality-comparison", requireAdmin, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
@@ -251,7 +281,7 @@ researchRouter.get("/dashboard/personality-comparison", async (req, res) => {
 });
 
 // Researcher Dashboard: Engagement decay curve
-researchRouter.get("/dashboard/engagement-decay", async (req, res) => {
+researchRouter.get("/dashboard/engagement-decay", requireAdmin, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
   try {
@@ -271,8 +301,8 @@ researchRouter.get("/dashboard/engagement-decay", async (req, res) => {
 });
 
 // Export data as CSV
-researchRouter.get("/export/:type", requireAuth, async (req, res) => {
-  const { type } = req.params;
+researchRouter.get("/export/:type", requireAdmin, async (req, res) => {
+  const type = Array.isArray(req.params.type) ? req.params.type[0] : req.params.type;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
 
@@ -302,12 +332,14 @@ researchRouter.get("/export/:type", requireAuth, async (req, res) => {
     }
     const headers = Object.keys(rows[0]).join(",");
     const csvRows = rows.map((r: any) =>
-      Object.values(r).map((v: any) => {
-        const str = String(v ?? "");
-        return str.includes(",") || str.includes('"') || str.includes("\n")
-          ? `"${str.replace(/"/g, '""')}"`
-          : str;
-      }).join(",")
+      Object.values(r)
+        .map((v: any) => {
+          const str = String(v ?? "");
+          return str.includes(",") || str.includes('"') || str.includes("\n")
+            ? `"${str.replace(/"/g, '""')}"`
+            : str;
+        })
+        .join(","),
     );
     const csv = [headers, ...csvRows].join("\n");
     res.setHeader("Content-Type", "text/csv");
@@ -332,7 +364,7 @@ researchRouter.get("/leaderboard/:type", async (req, res) => {
     switch (type) {
       case "weekly":
         query = `
-          SELECT u.user_id, ru.username, ws.points_earned as score, ws.sessions_count
+           SELECT ws.user_id, ru.username, ws.points_earned as score, ws.sessions_count
           FROM weekly_scores ws
           JOIN research_users ru ON ws.user_id = ru.user_id
           WHERE ws.week_start = $1
@@ -340,7 +372,7 @@ researchRouter.get("/leaderboard/:type", async (req, res) => {
         break;
       case "consistency":
         query = `
-          SELECT u.user_id, ru.username, ws.streak_days as score, ws.consistency_score
+           SELECT ws.user_id, ru.username, ws.streak_days as score, ws.consistency_score
           FROM weekly_scores ws
           JOIN research_users ru ON ws.user_id = ru.user_id
           WHERE ws.week_start = $1
@@ -348,7 +380,7 @@ researchRouter.get("/leaderboard/:type", async (req, res) => {
         break;
       case "improvement":
         query = `
-          SELECT u.user_id, ru.username, ws.improvement_pct as score, ws.points_earned
+           SELECT ws.user_id, ru.username, ws.improvement_pct as score, ws.points_earned
           FROM weekly_scores ws
           JOIN research_users ru ON ws.user_id = ru.user_id
           WHERE ws.week_start = $1 AND ws.improvement_pct > 0
@@ -356,7 +388,7 @@ researchRouter.get("/leaderboard/:type", async (req, res) => {
         break;
       case "eco_impact":
         query = `
-          SELECT u.user_id, ru.username, ws.eco_impact_score as score
+           SELECT ws.user_id, ru.username, ws.eco_impact_score as score
           FROM weekly_scores ws
           JOIN research_users ru ON ws.user_id = ru.user_id
           WHERE ws.week_start = $1
@@ -373,7 +405,7 @@ researchRouter.get("/leaderboard/:type", async (req, res) => {
 });
 
 // Raw events query (for researchers)
-researchRouter.get("/events", async (req, res) => {
+researchRouter.get("/events", requireAdmin, async (req, res) => {
   const { userId, eventType, from, to, limit = "1000" } = req.query;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
@@ -382,17 +414,29 @@ researchRouter.get("/events", async (req, res) => {
     const params: any[] = [];
     let paramIdx = 1;
 
-    if (userId) { conditions.push(`user_id = $${paramIdx++}`); params.push(userId); }
-    if (eventType) { conditions.push(`event_type = $${paramIdx++}`); params.push(eventType); }
-    if (from) { conditions.push(`timestamp >= $${paramIdx++}`); params.push(from); }
-    if (to) { conditions.push(`timestamp <= $${paramIdx++}`); params.push(to); }
+    if (userId) {
+      conditions.push(`user_id = $${paramIdx++}`);
+      params.push(userId);
+    }
+    if (eventType) {
+      conditions.push(`event_type = $${paramIdx++}`);
+      params.push(eventType);
+    }
+    if (from) {
+      conditions.push(`timestamp >= $${paramIdx++}`);
+      params.push(from);
+    }
+    if (to) {
+      conditions.push(`timestamp <= $${paramIdx++}`);
+      params.push(to);
+    }
     conditions.push(`timestamp > NOW() - INTERVAL '90 days'`);
     params.push(parseInt(limit as string));
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const { rows } = await db.query(
       `SELECT * FROM behavioral_events ${where} ORDER BY timestamp DESC LIMIT $${paramIdx}`,
-      params
+      params,
     );
     res.json({ count: rows.length, data: rows });
   } catch (e) {
@@ -402,14 +446,32 @@ researchRouter.get("/events", async (req, res) => {
 
 // Record intervention effectiveness
 researchRouter.post("/intervention-effectiveness", requireAuth, async (req, res) => {
-  const { interventionType, userId, baselineScore, postScore, daysToEffect } = req.body;
+  const { interventionType, baselineScore, postScore, daysToEffect } = req.body ?? {};
+  const userId = (req as any).userId as string;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
+  if (
+    typeof interventionType !== "string" ||
+    interventionType.length > 80 ||
+    !Number.isFinite(Number(baselineScore)) ||
+    !Number.isFinite(Number(postScore)) ||
+    !Number.isFinite(Number(daysToEffect)) ||
+    Number(daysToEffect) < 0
+  ) {
+    return res.status(400).json({ error: "Invalid intervention metric" });
+  }
   try {
     const { rows } = await db.query(
       `INSERT INTO intervention_effectiveness (intervention_type, user_id, baseline_score, post_intervention_score, delta, days_to_effect)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [interventionType, userId || null, baselineScore, postScore, postScore - baselineScore, daysToEffect || 0]
+      [
+        interventionType,
+        userId || null,
+        baselineScore,
+        postScore,
+        postScore - baselineScore,
+        daysToEffect || 0,
+      ],
     );
     res.json({ success: true, record: rows[0] });
   } catch (e) {
@@ -419,13 +481,25 @@ researchRouter.post("/intervention-effectiveness", requireAuth, async (req, res)
 
 // Record experiment metric
 researchRouter.post("/experiment-metric", requireAuth, async (req, res) => {
-  const { experimentId, metricName, groupName, value, userId } = req.body;
+  const { experimentId, metricName, groupName, value } = req.body ?? {};
+  const userId = (req as any).userId as string;
   const db = getDb();
   if (!db) return res.status(503).json({ error: "Research DB unavailable" });
+  if (
+    typeof experimentId !== "string" ||
+    experimentId.length > 128 ||
+    typeof metricName !== "string" ||
+    metricName.length > 80 ||
+    typeof groupName !== "string" ||
+    groupName.length > 80 ||
+    !Number.isFinite(Number(value))
+  ) {
+    return res.status(400).json({ error: "Invalid experiment metric" });
+  }
   try {
     await db.query(
       `INSERT INTO experiment_metrics (experiment_id, metric_name, group_name, value, user_id) VALUES ($1, $2, $3, $4, $5)`,
-      [experimentId, metricName, groupName, value, userId || null]
+      [experimentId, metricName, groupName, value, userId || null],
     );
     res.json({ success: true });
   } catch (e) {

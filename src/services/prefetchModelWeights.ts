@@ -41,7 +41,7 @@ function markPrefetched(name: string): void {
     const raw = localStorage.getItem(PREFETCHED_KEY);
     const parsed: PrefetchedSet = raw
       ? (JSON.parse(raw) as PrefetchedSet)
-      : {ts: Date.now(), names: []};
+      : { ts: Date.now(), names: [] };
     if (!parsed.names.includes(name)) parsed.names.push(name);
     parsed.ts = Date.now();
     localStorage.setItem(PREFETCHED_KEY, JSON.stringify(parsed));
@@ -53,10 +53,9 @@ function markPrefetched(name: string): void {
 function scheduleIdle(work: () => void): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ric = (window as any).requestIdleCallback as
-    | ((cb: () => void, opts?: {timeout: number}) => number)
-    | undefined;
+    ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
   if (ric) {
-    ric(work, {timeout: 8000});
+    ric(work, { timeout: 8000 });
   } else {
     setTimeout(work, 1500);
   }
@@ -105,4 +104,4 @@ export function schedulePrefetch(): void {
 }
 
 /* Test-only export */
-export const _internal = {alreadyPrefetched, markPrefetched, PREFETCHED_KEY};
+export const _internal = { alreadyPrefetched, markPrefetched, PREFETCHED_KEY };

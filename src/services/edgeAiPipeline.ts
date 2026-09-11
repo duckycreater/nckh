@@ -10,12 +10,15 @@
  *   3. WASM-threads (if available) — multi-core
  */
 
+import { logger } from "../lib/logger";
 import * as ort from "onnxruntime-web";
 
 export type ExecutionProvider = "webgpu" | "wasm" | "wasm-simd" | "wasm-threads";
 
 export interface EdgeInferenceOptions {
   modelUrl: string;
+  /** Optional verified bytes. When present ONNX Runtime never refetches them. */
+  modelSource?: ArrayBuffer;
   executionProvider?: ExecutionProvider | "auto";
   inputShape?: number[];
   warmup?: boolean;
@@ -37,23 +40,27 @@ export async function detectBestProvider(): Promise<ExecutionProvider> {
   // WebGPU support
   try {
     if ("gpu" in navigator) {
-      const adapter = await (navigator as any).gpu.requestAdapter();
+      const adapter = await (
+        navigator as unknown as { gpu: { requestAdapter: () => Promise<unknown> } }
+      ).gpu.requestAdapter();
       if (adapter) {
-        console.log("[EdgeAI] WebGPU adapter available");
+        logger.debug("[EdgeAI] WebGPU adapter available");
         return "webgpu";
       }
     }
   } catch (e) {
-    console.warn("[EdgeAI] WebGPU detection failed:", e);
+    logger.warn("[EdgeAI] WebGPU detection failed:", e);
   }
 
   // WASM with threads + SIMD
   try {
     if (typeof SharedArrayBuffer !== "undefined" && crossOriginIsolated) {
-      console.log("[EdgeAI] WASM-threads available");
+      logger.debug("[EdgeAI] WASM-threads available");
       return "wasm";
     }
-  } catch {}
+  } catch {
+    // crossOriginIsolated is defined if isolation is enabled
+  }
 
   return "wasm";
 }
@@ -65,16 +72,21 @@ let initialized = false;
 export async function initOrtEnv(): Promise<void> {
   if (initialized) return;
 
-  // Configure WASM paths for cross-origin support
-  ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/";
-  ort.env.wasm.numThreads = navigator.hardwareConcurrency
-    ? Math.min(navigator.hardwareConcurrency, 4)
-    : 2;
+  // Leave wasmPaths unset so Vite resolves the matching, locally bundled
+  // runtime artifact. A hard-coded CDN version can drift from the JS package
+  // and is also blocked by the production Content-Security-Policy.
+  const hardwareConcurrency =
+    typeof navigator === "undefined" ? 1 : navigator.hardwareConcurrency || 2;
+  ort.env.wasm.numThreads = Math.min(hardwareConcurrency, 4);
   ort.env.wasm.simd = true;
   ort.env.logLevel = "warning";
 
   initialized = true;
-  console.log("[EdgeAI] ONNX Runtime initialized");
+  logger.debug("[EdgeAI] ONNX Runtime initialized");
+}
+
+export function createFloatTensor(data: Float32Array, dimensions: readonly number[]): ort.Tensor {
+  return new ort.Tensor("float32", data, [...dimensions]);
 }
 
 /**
@@ -91,18 +103,22 @@ export class EdgeModel {
   async load(): Promise<void> {
     await initOrtEnv();
 
-    const provider = this.opts.executionProvider && this.opts.executionProvider !== "auto"
-      ? this.opts.executionProvider
-      : await detectBestProvider();
+    const provider =
+      this.opts.executionProvider && this.opts.executionProvider !== "auto"
+        ? this.opts.executionProvider
+        : await detectBestProvider();
 
     this.provider = provider;
 
-    const providers: ort.InferenceSession.ExecutionProviderConfig[] = provider === "webgpu"
-      ? [{ name: "webgpu" }, { name: "wasm" }]
-      : [{ name: "wasm" }];
+    const providers: ort.InferenceSession.ExecutionProviderConfig[] =
+      provider === "webgpu" ? [{ name: "webgpu" }, { name: "wasm" }] : [{ name: "wasm" }];
+    const createSession = (options: ort.InferenceSession.SessionOptions) =>
+      this.opts.modelSource
+        ? ort.InferenceSession.create(this.opts.modelSource, options)
+        : ort.InferenceSession.create(this.opts.modelUrl, options);
 
     try {
-      this.session = await ort.InferenceSession.create(this.opts.modelUrl, {
+      this.session = await createSession({
         executionProviders: providers,
         graphOptimizationLevel: "all",
         enableCpuMemArena: true,
@@ -112,7 +128,7 @@ export class EdgeModel {
       this.inputName = this.session.inputNames[0] ?? "input";
       this.outputName = this.session.outputNames[0] ?? "output";
 
-      console.log(`[EdgeAI] Model loaded on ${provider}:`, this.opts.modelUrl);
+      logger.debug(`[EdgeAI] Model loaded on ${provider}`, { modelUrl: this.opts.modelUrl });
 
       // Optional warmup run
       if (this.opts.warmup && this.opts.inputShape) {
@@ -120,9 +136,9 @@ export class EdgeModel {
         await this.session.run(dummy);
       }
     } catch (e) {
-      console.error("[EdgeAI] Model load failed, falling back to WASM:", e);
+      logger.error("[EdgeAI] Model load failed, falling back to WASM", e);
       this.provider = "wasm";
-      this.session = await ort.InferenceSession.create(this.opts.modelUrl, {
+      this.session = await createSession({
         executionProviders: ["wasm"],
         graphOptimizationLevel: "all",
       });
@@ -151,7 +167,10 @@ export class EdgeModel {
     let maxIdx = 0;
     let maxVal = data[0];
     for (let i = 1; i < data.length; i++) {
-      if (data[i] > maxVal) { maxVal = data[i]; maxIdx = i; }
+      if (data[i] > maxVal) {
+        maxVal = data[i];
+        maxIdx = i;
+      }
     }
 
     return {

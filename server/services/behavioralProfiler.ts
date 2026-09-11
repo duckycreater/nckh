@@ -21,22 +21,22 @@ import { eventLogger } from "./eventLogger.js";
 export type BehavioralProfile = "competitive" | "collector" | "casual" | "streak_driven" | "social";
 
 export interface BehavioralMetrics {
-  loginFrequency: number;       // logins per week
-  streakStability: number;       // 0-1, variance in streak length
-  rewardResponseRate: number;    // earned vs spent ratio
-  avgSessionDuration: number;    // seconds per session
-  featureDiversity: number;      // 0-1, % of features used
-  leaderboardViews: number;      // leaderboard views per week
-  gachaPullRate: number;        // gacha pulls per week
-  dailyChallengeRate: number;    // challenges completed per week
-  engagementTrend: number;       // -1 to 1, recent vs historical engagement
-  quizCompletionRate: number;    // how often they complete quizzes
+  loginFrequency: number; // logins per week
+  streakStability: number; // 0-1, variance in streak length
+  rewardResponseRate: number; // earned vs spent ratio
+  avgSessionDuration: number; // seconds per session
+  featureDiversity: number; // 0-1, % of features used
+  leaderboardViews: number; // leaderboard views per week
+  gachaPullRate: number; // gacha pulls per week
+  dailyChallengeRate: number; // challenges completed per week
+  engagementTrend: number; // -1 to 1, recent vs historical engagement
+  quizCompletionRate: number; // how often they complete quizzes
 }
 
 export interface MultiDimensionalProfile {
-  scores: Record<BehavioralProfile, number>;  // 0-1 per profile type
+  scores: Record<BehavioralProfile, number>; // 0-1 per profile type
   dominantProfile: BehavioralProfile;
-  confidence: number;  // entropy-based confidence
+  confidence: number; // entropy-based confidence
   metrics: BehavioralMetrics;
   lastUpdated: Date;
 }
@@ -62,44 +62,60 @@ class BehavioralProfiler {
   async computeMetrics(userId: string): Promise<BehavioralMetrics> {
     if (!this.db) {
       return {
-        loginFrequency: 0, streakStability: 0, rewardResponseRate: 1,
-        avgSessionDuration: 0, featureDiversity: 0, leaderboardViews: 0,
-        gachaPullRate: 0, dailyChallengeRate: 0, engagementTrend: 0, quizCompletionRate: 0,
+        loginFrequency: 0,
+        streakStability: 0,
+        rewardResponseRate: 1,
+        avgSessionDuration: 0,
+        featureDiversity: 0,
+        leaderboardViews: 0,
+        gachaPullRate: 0,
+        dailyChallengeRate: 0,
+        engagementTrend: 0,
+        quizCompletionRate: 0,
       };
     }
 
     try {
-      const [loginCount, sessionData, rewardData, featureData, lbData, gachaData, challengeData, quizData] = await Promise.all([
+      const [
+        loginCount,
+        sessionData,
+        rewardData,
+        featureData,
+        lbData,
+        gachaData,
+        challengeData,
+        quizData,
+      ] = await Promise.all([
         this.db.query(
           `SELECT COUNT(*) FROM behavioral_events WHERE user_id = $1 AND event_type = 'login' AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT AVG(duration_seconds) as avg_dur, STDDEV(duration_seconds) as std_dur FROM research_sessions WHERE user_id = $1 AND ended_at IS NOT NULL AND started_at > NOW() - INTERVAL '14 days'`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT
             SUM((metadata->>'points_earned')::float) as earned,
             SUM((metadata->>'points_spent')::float) as spent
            FROM behavioral_events WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '7 days' AND event_type IN ('reward_claim', 'reward_spent')`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT COUNT(DISTINCT (metadata->>'feature_name')) as feature_count FROM behavioral_events WHERE user_id = $1 AND event_type = 'feature_used' AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT COUNT(*) FROM behavioral_events WHERE user_id = $1 AND event_type = 'leaderboard_view' AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT COUNT(*) FROM behavioral_events WHERE user_id = $1 AND event_type IN ('gacha_pull', 'gacha_new_card', 'gacha_duplicate') AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
         this.db.query(
           `SELECT COUNT(*) FROM behavioral_events WHERE user_id = $1 AND event_type = 'daily_challenge_complete' AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
         // quizCompletionRate: completed / started
         this.db.query(
@@ -107,7 +123,7 @@ class BehavioralProfiler {
             COUNT(*) FILTER (WHERE event_type = 'quiz_complete') as completed,
             COUNT(*) FILTER (WHERE event_type = 'quiz_start') as started
            FROM behavioral_events WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '7 days'`,
-          [userId]
+          [userId],
         ),
       ]);
 
@@ -115,7 +131,7 @@ class BehavioralProfiler {
         `SELECT COUNT(*) as recent, (
           SELECT COUNT(*) FROM behavioral_events WHERE user_id = $1 AND event_type = 'login' AND timestamp > NOW() - INTERVAL '14 days'
         ) as older FROM research_sessions WHERE user_id = $1 AND started_at > NOW() - INTERVAL '7 days'`,
-        [userId]
+        [userId],
       );
 
       const streakData = await this.db.query(
@@ -123,12 +139,12 @@ class BehavioralProfiler {
           SELECT (metadata->>'streak_days')::int as streak_days
           FROM behavioral_events WHERE user_id = $1 AND event_type IN ('streak_update', 'streak_break') AND timestamp > NOW() - INTERVAL '30 days'
         ) sub GROUP BY streak_days`,
-        [userId]
+        [userId],
       );
 
       const avgDur = parseFloat(sessionData.rows[0]?.avg_dur || "0");
       const stdDur = parseFloat(sessionData.rows[0]?.std_dur || "0");
-      const streakStability = stdDur > 0 && avgDur > 0 ? Math.max(0, 1 - (stdDur / avgDur)) : 1;
+      const streakStability = stdDur > 0 && avgDur > 0 ? Math.max(0, 1 - stdDur / avgDur) : 1;
       const earned = parseFloat(rewardData.rows[0]?.earned || "0");
       const spent = parseFloat(rewardData.rows[0]?.spent || "0");
       const rewardResponseRate = earned > 0 ? Math.min(1, spent / earned) : 0.5;
@@ -161,9 +177,16 @@ class BehavioralProfiler {
     } catch (e) {
       console.warn("[BehavioralProfiler] Failed to compute metrics:", (e as Error).message);
       return {
-        loginFrequency: 0, streakStability: 0, rewardResponseRate: 1,
-        avgSessionDuration: 0, featureDiversity: 0, leaderboardViews: 0,
-        gachaPullRate: 0, dailyChallengeRate: 0, engagementTrend: 0, quizCompletionRate: 0,
+        loginFrequency: 0,
+        streakStability: 0,
+        rewardResponseRate: 1,
+        avgSessionDuration: 0,
+        featureDiversity: 0,
+        leaderboardViews: 0,
+        gachaPullRate: 0,
+        dailyChallengeRate: 0,
+        engagementTrend: 0,
+        quizCompletionRate: 0,
       };
     }
   }
@@ -184,7 +207,10 @@ class BehavioralProfiler {
       const aiProfile = await this.classifyWithAI(metrics);
       if (aiProfile) return aiProfile;
     } catch (e) {
-      console.warn("[BehavioralProfiler] AI classification failed, using rule-based:", (e as Error).message);
+      console.warn(
+        "[BehavioralProfiler] AI classification failed, using rule-based:",
+        (e as Error).message,
+      );
     }
     return this.classifyWithRules(metrics);
   }
@@ -193,7 +219,9 @@ class BehavioralProfiler {
    * AI-powered classification using Gemini 2.5 Flash.
    * Only called when AI is available (GEMINI_API_KEY set).
    */
-  private async classifyWithAI(metrics: BehavioralMetrics): Promise<MultiDimensionalProfile | null> {
+  private async classifyWithAI(
+    metrics: BehavioralMetrics,
+  ): Promise<MultiDimensionalProfile | null> {
     if (!this.ai) return null;
 
     const prompt = `You are a behavioral psychologist analyzing user engagement data.
@@ -238,7 +266,13 @@ REASONING: <brief explanation in 1-2 sentences>`;
 
       if (!profileMatch) return null;
 
-      const validProfiles: BehavioralProfile[] = ["competitive", "collector", "casual", "streak_driven", "social"];
+      const validProfiles: BehavioralProfile[] = [
+        "competitive",
+        "collector",
+        "casual",
+        "streak_driven",
+        "social",
+      ];
       const rawProfile = profileMatch[1].toLowerCase();
       const dominantProfile = validProfiles.includes(rawProfile as BehavioralProfile)
         ? (rawProfile as BehavioralProfile)
@@ -257,9 +291,10 @@ REASONING: <brief explanation in 1-2 sentences>`;
       const blendWeight = aiConfidence * 0.7; // AI weight proportional to its confidence
       for (const p of validProfiles) {
         const ruleNorm = maxRuleScore > 0 ? ruleScores[p] / maxRuleScore : 0.25;
-        scores[p] = p === dominantProfile
-          ? blendWeight + (1 - blendWeight) * ruleNorm
-          : (1 - blendWeight) * ruleNorm;
+        scores[p] =
+          p === dominantProfile
+            ? blendWeight + (1 - blendWeight) * ruleNorm
+            : (1 - blendWeight) * ruleNorm;
       }
 
       // Renormalize to sum to 1
@@ -269,8 +304,10 @@ REASONING: <brief explanation in 1-2 sentences>`;
       }
 
       // Entropy-based confidence
-      const entropy = -Object.values(scores)
-        .reduce((sum, p) => sum + (p > 0 ? p * Math.log(p) : 0), 0);
+      const entropy = -Object.values(scores).reduce(
+        (sum, p) => sum + (p > 0 ? p * Math.log(p) : 0),
+        0,
+      );
       const maxEntropy = Math.log(5);
       const confidence = 1 - entropy / maxEntropy;
 
@@ -297,22 +334,25 @@ REASONING: <brief explanation in 1-2 sentences>`;
     // Softmax normalization
     const maxScore = Math.max(...Object.values(scores));
     const expScores = Object.fromEntries(
-      Object.entries(scores).map(([k, v]) => [k, Math.exp(v - maxScore)])
+      Object.entries(scores).map(([k, v]) => [k, Math.exp(v - maxScore)]),
     ) as Record<BehavioralProfile, number>;
     const total = Object.values(expScores).reduce((a, b) => a + b, 0);
     const normScores = Object.fromEntries(
-      Object.entries(expScores).map(([k, v]) => [k, v / total])
+      Object.entries(expScores).map(([k, v]) => [k, v / total]),
     ) as Record<BehavioralProfile, number>;
 
     // Entropy-based confidence
-    const entropy = -Object.values(normScores)
-      .reduce((sum, p) => sum + (p > 0 ? p * Math.log(p) : 0), 0);
+    const entropy = -Object.values(normScores).reduce(
+      (sum, p) => sum + (p > 0 ? p * Math.log(p) : 0),
+      0,
+    );
     const maxEntropy = Math.log(5);
     const confidence = 1 - entropy / maxEntropy;
 
-    const dominantProfile = Object.entries(normScores)
-      .reduce((best, [k, v]) => v > best.val ? { key: k as BehavioralProfile, val: v } : best,
-        { key: "casual" as BehavioralProfile, val: -1 }).key;
+    const dominantProfile = Object.entries(normScores).reduce(
+      (best, [k, v]) => (v > best.val ? { key: k as BehavioralProfile, val: v } : best),
+      { key: "casual" as BehavioralProfile, val: -1 },
+    ).key;
 
     return {
       scores: normScores,
@@ -329,7 +369,10 @@ REASONING: <brief explanation in 1-2 sentences>`;
       collector: metrics.gachaPullRate * 1.5 + metrics.featureDiversity * 2,
       casual: metrics.avgSessionDuration < 60 && metrics.loginFrequency < 3 ? 5 : 0,
       streak_driven: metrics.streakStability * 3 + metrics.dailyChallengeRate * 1.5,
-      social: metrics.dailyChallengeRate * 1.5 + metrics.featureDiversity + metrics.quizCompletionRate * 2,
+      social:
+        metrics.dailyChallengeRate * 1.5 +
+        metrics.featureDiversity +
+        metrics.quizCompletionRate * 2,
     };
   }
 
@@ -340,7 +383,13 @@ REASONING: <brief explanation in 1-2 sentences>`;
         `INSERT INTO user_behavioral_profiles (user_id, profile_type, confidence, scores, metrics, last_updated)
          VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (user_id) DO UPDATE SET profile_type = $2, confidence = $3, scores = $4, metrics = $5, last_updated = NOW()`,
-        [userId, profile.dominantProfile, profile.confidence, JSON.stringify(profile.scores), JSON.stringify(profile.metrics)]
+        [
+          userId,
+          profile.dominantProfile,
+          profile.confidence,
+          JSON.stringify(profile.scores),
+          JSON.stringify(profile.metrics),
+        ],
       );
     } catch (e) {
       console.warn("[BehavioralProfiler] Failed to save profile:", (e as Error).message);
@@ -352,7 +401,7 @@ REASONING: <brief explanation in 1-2 sentences>`;
     try {
       const { rows } = await this.db.query(
         `SELECT profile_type, confidence, scores, metrics, last_updated FROM user_behavioral_profiles WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       if (rows.length === 0) return null;
       const r = rows[0];
@@ -373,7 +422,7 @@ REASONING: <brief explanation in 1-2 sentences>`;
     try {
       const { rows } = await this.db.query(
         `SELECT last_updated FROM user_behavioral_profiles WHERE user_id = $1`,
-        [userId]
+        [userId],
       );
       if (rows.length === 0) return true;
       const lastUpdated = new Date(rows[0].last_updated);

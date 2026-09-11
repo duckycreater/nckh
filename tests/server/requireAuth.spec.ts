@@ -12,10 +12,7 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { setSessionPersistence, initSessionStore } from "../../server/services/sessionStore.ts";
-import {
-  createSessionToken,
-  requireAuth,
-} from "../../server/auth.ts";
+import { createSessionToken, requireAuth } from "../../server/auth.ts";
 import type { Request, Response, NextFunction } from "express";
 
 interface FakeReq extends Partial<Request> {

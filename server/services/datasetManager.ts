@@ -50,7 +50,7 @@ class DatasetManager {
           entry.confidenceScore,
           entry.predictedCategory,
           entry.groundTruthCategory || null,
-        ]
+        ],
       );
       return rows[0]?.id || null;
     } catch (e) {
@@ -68,7 +68,7 @@ class DatasetManager {
          SET ground_truth_category = $1,
              classification_correct = (predicted_category = $1)
          WHERE id = $2`,
-        [groundTruthCategory, id]
+        [groundTruthCategory, id],
       );
     } catch (e) {
       console.warn("[DatasetManager] Failed to set ground truth:", (e as Error).message);
@@ -78,31 +78,40 @@ class DatasetManager {
   // --- Get dataset statistics ---
   async getDatasetStats(): Promise<DatasetStats> {
     if (!this.db) {
-      return { totalSamples: 0, byCategory: {}, byModel: {}, balanceScore: 0, groundTruthCoverage: 0 };
+      return {
+        totalSamples: 0,
+        byCategory: {},
+        byModel: {},
+        balanceScore: 0,
+        groundTruthCoverage: 0,
+      };
     }
     try {
-      const { rows: totalRows } = await this.db.query(`SELECT COUNT(*)::int AS total FROM ai_scan_metrics`);
+      const { rows: totalRows } = await this.db.query(
+        `SELECT COUNT(*)::int AS total FROM ai_scan_metrics`,
+      );
       const totalSamples = parseInt(totalRows[0]?.total || "0");
 
       const { rows: catRows } = await this.db.query(
         `SELECT predicted_category, COUNT(*)::int AS count
-         FROM ai_scan_metrics GROUP BY predicted_category`
+         FROM ai_scan_metrics GROUP BY predicted_category`,
       );
       const byCategory: Record<string, number> = {};
       for (const r of catRows) byCategory[r.predicted_category] = r.count;
 
       const { rows: modelRows } = await this.db.query(
-        `SELECT model_type, COUNT(*)::int AS count FROM ai_scan_metrics GROUP BY model_type`
+        `SELECT model_type, COUNT(*)::int AS count FROM ai_scan_metrics GROUP BY model_type`,
       );
       const byModel: Record<string, number> = {};
       for (const r of modelRows) byModel[r.model_type] = r.count;
 
       const { rows: gtRows } = await this.db.query(
-        `SELECT COUNT(*)::int AS covered FROM ai_scan_metrics WHERE ground_truth_category IS NOT NULL`
+        `SELECT COUNT(*)::int AS covered FROM ai_scan_metrics WHERE ground_truth_category IS NOT NULL`,
       );
-      const groundTruthCoverage = totalSamples > 0
-        ? Math.round((parseInt(gtRows[0]?.covered || "0") / totalSamples) * 1000) / 10
-        : 0;
+      const groundTruthCoverage =
+        totalSamples > 0
+          ? Math.round((parseInt(gtRows[0]?.covered || "0") / totalSamples) * 1000) / 10
+          : 0;
 
       // Balance score: entropy-based (1 = perfectly balanced)
       const values = Object.values(byCategory);
@@ -114,7 +123,13 @@ class DatasetManager {
 
       return { totalSamples, byCategory, byModel, balanceScore, groundTruthCoverage };
     } catch {
-      return { totalSamples: 0, byCategory: {}, byModel: {}, balanceScore: 0, groundTruthCoverage: 0 };
+      return {
+        totalSamples: 0,
+        byCategory: {},
+        byModel: {},
+        balanceScore: 0,
+        groundTruthCoverage: 0,
+      };
     }
   }
 
@@ -128,11 +143,20 @@ class DatasetManager {
            predicted_category, ground_truth_category, classification_correct, timestamp
          FROM ai_scan_metrics
          ORDER BY timestamp DESC
-         LIMIT 10000`
+         LIMIT 10000`,
       );
 
-      const headers = ["id", "user_id", "model_type", "latency_ms", "confidence_score",
-                       "predicted_category", "ground_truth_category", "classification_correct", "timestamp"];
+      const headers = [
+        "id",
+        "user_id",
+        "model_type",
+        "latency_ms",
+        "confidence_score",
+        "predicted_category",
+        "ground_truth_category",
+        "classification_correct",
+        "timestamp",
+      ];
       const csvLines = [headers.join(",")];
       for (const row of rows) {
         const values = headers.map((h) => {
@@ -158,7 +182,7 @@ class DatasetManager {
          WHERE ground_truth_category IS NULL
          ORDER BY timestamp DESC
          LIMIT $1`,
-        [limit]
+        [limit],
       );
       return rows;
     } catch {

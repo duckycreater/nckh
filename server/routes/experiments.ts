@@ -10,30 +10,38 @@ import { getDb } from "../db.js";
 function requireAuth(req: Request, res: Response, next: () => void) {
   const result = validateToken(req.headers.authorization);
   if (!result) return res.status(401).json({ error: "Unauthorized" });
+  (req as any).userNick = result.nick;
+  (req as any).userId = result.accountId ?? result.nick;
+  (req as any).isAdmin = result.isAdmin;
   next();
 }
 
 function requireAdmin(req: Request, res: Response, next: () => void) {
   const result = validateToken(req.headers.authorization);
   if (!result) return res.status(401).json({ error: "Unauthorized" });
-  const db = getDb();
-  if (!db) return res.status(403).json({ error: "Forbidden: Admin access required" });
-  db.query(`SELECT role FROM users WHERE nick = $1`, [result.nick])
-    .then(({ rows }) => {
-      if (!rows[0] || rows[0].role !== "admin") {
-        res.status(403).json({ error: "Forbidden: Admin access required" });
-      } else {
-        next();
-      }
-    })
-    .catch(() => res.status(403).json({ error: "Forbidden: Admin access required" }));
+  if (!result.isAdmin) return res.status(403).json({ error: "Forbidden: Admin access required" });
+  (req as any).userNick = result.nick;
+  (req as any).userId = result.accountId ?? result.nick;
+  (req as any).isAdmin = true;
+  next();
+}
+
+function canAccessUser(req: Request, requestedId: string | string[]): boolean {
+  const id = Array.isArray(requestedId) ? requestedId[0] : requestedId;
+  return Boolean(
+    (req as any).isAdmin || id === (req as any).userId || id === (req as any).userNick,
+  );
+}
+
+function routeParam(value: string | string[]): string {
+  return Array.isArray(value) ? (value[0] ?? "") : value;
 }
 
 export function experimentsRouter(): Router {
   const router = Router();
 
   // GET /api/experiments - List all experiments
-  router.get("/", async (_req, res) => {
+  router.get("/", requireAdmin, async (_req, res) => {
     try {
       const experiments = await experimentEngine.getActiveExperiments();
       res.json(experiments);
@@ -43,12 +51,18 @@ export function experimentsRouter(): Router {
   });
 
   // POST /api/experiments/assign - Assign user to experiment
-  router.post("/assign", async (req, res) => {
+  router.post("/assign", requireAuth, async (req, res) => {
     try {
-      const { userId, experimentId } = req.body;
-      if (!userId || !experimentId) {
-        return res.status(400).json({ error: "Missing userId or experimentId" });
+      const { userId: requestedUserId, experimentId } = req.body;
+      const callerId = (req as any).userId as string;
+      if (!experimentId) {
+        return res.status(400).json({ error: "Missing experimentId" });
       }
+      if (requestedUserId && !canAccessUser(req, requestedUserId)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const userId =
+        (req as any).isAdmin && typeof requestedUserId === "string" ? requestedUserId : callerId;
       const result = await experimentEngine.assignToExperiment(userId, experimentId);
       if (!result) {
         return res.status(404).json({ error: "Experiment not found" });
@@ -60,9 +74,11 @@ export function experimentsRouter(): Router {
   });
 
   // GET /api/experiments/assignment/:userId/:experimentId - Get user's assignment
-  router.get("/assignment/:userId/:experimentId", async (req, res) => {
+  router.get("/assignment/:userId/:experimentId", requireAuth, async (req, res) => {
     try {
-      const { userId, experimentId } = req.params;
+      const userId = routeParam(req.params.userId);
+      const experimentId = routeParam(req.params.experimentId);
+      if (!canAccessUser(req, userId)) return res.status(403).json({ error: "Forbidden" });
       const result = await experimentEngine.getAssignment(userId, experimentId);
       res.json(result || { message: "Not assigned" });
     } catch (e) {
@@ -71,9 +87,12 @@ export function experimentsRouter(): Router {
   });
 
   // GET /api/experiments/user/:userId - Get all assignments for user
-  router.get("/user/:userId", async (req, res) => {
+  router.get("/user/:userId", requireAuth, async (req, res) => {
     try {
-      const results = await experimentEngine.getUserAssignments(req.params.userId);
+      if (!canAccessUser(req, req.params.userId)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const results = await experimentEngine.getUserAssignments(routeParam(req.params.userId));
       res.json(results);
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -81,9 +100,11 @@ export function experimentsRouter(): Router {
   });
 
   // GET /api/experiments/:experimentId/results - Get experiment results
-  router.get("/:experimentId/results", async (req, res) => {
+  router.get("/:experimentId/results", requireAdmin, async (req, res) => {
     try {
-      const results = await experimentEngine.getExperimentResults(req.params.experimentId);
+      const results = await experimentEngine.getExperimentResults(
+        routeParam(req.params.experimentId),
+      );
       res.json(results);
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -91,9 +112,11 @@ export function experimentsRouter(): Router {
   });
 
   // GET /api/experiments/feature/:userId/:feature - Check if user has feature
-  router.get("/feature/:userId/:feature", async (req, res) => {
+  router.get("/feature/:userId/:feature", requireAuth, async (req, res) => {
     try {
-      const { userId, feature } = req.params;
+      const userId = routeParam(req.params.userId);
+      const feature = routeParam(req.params.feature);
+      if (!canAccessUser(req, userId)) return res.status(403).json({ error: "Forbidden" });
       const hasFeature = await experimentEngine.hasFeature(userId, feature);
       res.json({ hasFeature });
     } catch (e) {
@@ -118,7 +141,7 @@ export function experimentsRouter(): Router {
          ON CONFLICT (experiment_id) DO UPDATE SET
            name = EXCLUDED.name, description = EXCLUDED.description,
            groups = EXCLUDED.groups, metrics = EXCLUDED.metrics, status = 'active'`,
-        [id, name, description || "", JSON.stringify(groups), JSON.stringify(metrics || [])]
+        [id, name, description || "", JSON.stringify(groups), JSON.stringify(metrics || [])],
       );
       res.json({ success: true, message: `Experiment "${name}" created/updated` });
     } catch (e) {
@@ -129,7 +152,7 @@ export function experimentsRouter(): Router {
   // PUT /api/experiments/:id - Update experiment
   router.put("/:id", requireAdmin, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { name, description, groups, metrics, status } = req.body;
       const db = getDb();
       if (!db) return res.status(503).json({ error: "Research DB unavailable" });
@@ -138,7 +161,14 @@ export function experimentsRouter(): Router {
          groups = COALESCE($3, groups), metrics = COALESCE($4, metrics),
          status = COALESCE($5, status)
          WHERE experiment_id = $6`,
-        [name, description, groups ? JSON.stringify(groups) : null, metrics ? JSON.stringify(metrics) : null, status, id]
+        [
+          name,
+          description,
+          groups ? JSON.stringify(groups) : null,
+          metrics ? JSON.stringify(metrics) : null,
+          status,
+          id,
+        ],
       );
       res.json({ success: true, message: `Experiment "${id}" updated` });
     } catch (e) {
@@ -152,7 +182,9 @@ export function experimentsRouter(): Router {
       const { id } = req.params;
       const db = getDb();
       if (!db) return res.status(503).json({ error: "Research DB unavailable" });
-      await db.query(`UPDATE experiment_configs SET status = 'paused' WHERE experiment_id = $1`, [id]);
+      await db.query(`UPDATE experiment_configs SET status = 'paused' WHERE experiment_id = $1`, [
+        id,
+      ]);
       res.json({ success: true, message: `Experiment "${id}" paused` });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -165,7 +197,9 @@ export function experimentsRouter(): Router {
       const { id } = req.params;
       const db = getDb();
       if (!db) return res.status(503).json({ error: "Research DB unavailable" });
-      await db.query(`UPDATE experiment_configs SET status = 'active' WHERE experiment_id = $1`, [id]);
+      await db.query(`UPDATE experiment_configs SET status = 'active' WHERE experiment_id = $1`, [
+        id,
+      ]);
       res.json({ success: true, message: `Experiment "${id}" activated` });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -197,7 +231,7 @@ export function experimentsRouter(): Router {
          JOIN research_users ru ON ea.user_id = ru.user_id
          WHERE ea.experiment_id = $1
          ORDER BY ea.group_name, ea.assigned_at DESC`,
-        [id]
+        [id],
       );
       res.json(rows);
     } catch (e) {
@@ -208,7 +242,7 @@ export function experimentsRouter(): Router {
   // POST /api/experiments/:id/assign-all - Re-assign all users to experiment
   router.post("/:id/assign-all", requireAdmin, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const db = getDb();
       if (!db) return res.status(503).json({ error: "Research DB unavailable" });
       const { rows } = await db.query(`SELECT user_id FROM research_users`);
@@ -217,9 +251,18 @@ export function experimentsRouter(): Router {
         try {
           const result = await experimentEngine.assignToExperiment(row.user_id, id);
           if (result) assigned++;
-        } catch {}
+        } catch (e) {
+          console.warn(
+            `[experiments] failed to assign ${row.user_id} to ${id}:`,
+            (e as Error).message,
+          );
+        }
       }
-      res.json({ success: true, assigned, message: `Assigned ${assigned} users to experiment "${id}"` });
+      res.json({
+        success: true,
+        assigned,
+        message: `Assigned ${assigned} users to experiment "${id}"`,
+      });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }

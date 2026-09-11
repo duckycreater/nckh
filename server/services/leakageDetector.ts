@@ -87,7 +87,7 @@ export function configureLeakageDetector(c: Partial<DetectorConfig>): DetectorCo
 function updateState(
   bin: EmulatedBinProfile,
   observed: { totalKg: number; weightsByCategory: Record<string, number>; isOnline: boolean },
-  forecastTotal: number
+  forecastTotal: number,
 ): BinDetectorState {
   const state = binState.get(bin.deviceId) ?? {
     deviceId: bin.deviceId,
@@ -113,7 +113,8 @@ function updateState(
   const total = obs || 1;
   for (const cat of Object.keys(state.categoryShares) as (keyof typeof state.categoryShares)[]) {
     const w = observed.weightsByCategory[cat] ?? 0;
-    state.categoryShares[cat] = (1 - config.ewmaAlpha) * state.categoryShares[cat] + config.ewmaAlpha * (w / total);
+    state.categoryShares[cat] =
+      (1 - config.ewmaAlpha) * state.categoryShares[cat] + config.ewmaAlpha * (w / total);
   }
   binState.set(bin.deviceId, state);
   return state;
@@ -134,12 +135,15 @@ function isolationScore(
   state: BinDetectorState,
   observed: { totalKg: number; weightsByCategory: Record<string, number> },
   numTrees = 100,
-  subSize = 32
+  subSize = 32,
 ): number {
   const features: Record<string, number> = {
     totalKg: observed.totalKg,
     ...Object.fromEntries(
-      Object.entries(observed.weightsByCategory).map(([k, v]) => [k, observed.totalKg ? v / observed.totalKg : 0])
+      Object.entries(observed.weightsByCategory).map(([k, v]) => [
+        k,
+        observed.totalKg ? v / observed.totalKg : 0,
+      ]),
     ),
   };
   // We'll use the historical EWMA distribution as the "universe" of features
@@ -163,7 +167,8 @@ function isolationScore(
   }
   avgPathLen /= numTrees;
   // Score is exponentially normalised: shorter path → higher score.
-  const c = subSize > 1 ? 2 * (Math.log(subSize - 1) + 0.5772156649) - 2 * (subSize - 1) / subSize : 0;
+  const c =
+    subSize > 1 ? 2 * (Math.log(subSize - 1) + 0.5772156649) - (2 * (subSize - 1)) / subSize : 0;
   return Math.pow(2, -avgPathLen / (c || 1));
 }
 
@@ -173,7 +178,7 @@ function isolationScore(
  */
 export function detectLeakage(
   bins: EmulatedBinProfile[],
-  options?: { lookbackHours?: number; config?: Partial<DetectorConfig> }
+  options?: { lookbackHours?: number; config?: Partial<DetectorConfig> },
 ): LeakageAlert[] {
   if (options?.config) configureLeakageDetector(options.config);
   const alerts: LeakageAlert[] = [];
@@ -189,7 +194,7 @@ export function detectLeakage(
         weightsByCategory: { ...reading.weightsByCategory } as Record<string, number>,
         isOnline: reading.isOnline,
       },
-      expected
+      expected,
     );
     const z = computeZScore(state, reading.totalKg);
 
@@ -214,7 +219,7 @@ export function detectLeakage(
     // Rule 2: category imbalance
     if (reading.totalKg > 0) {
       const max = Math.max(
-        ...Object.entries(reading.weightsByCategory).map(([, w]) => (w || 0) / reading.totalKg)
+        ...Object.entries(reading.weightsByCategory).map(([, w]) => (w || 0) / reading.totalKg),
       );
       if (max > config.categoryImbalancePct) {
         alerts.push({

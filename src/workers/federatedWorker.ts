@@ -34,10 +34,10 @@ interface ShutdownMessage {
 export type WorkerInbound = StartMessage | PingMessage | ShutdownMessage;
 
 export type WorkerOutbound =
-  | {type: "ready"}
-  | {type: "progress"; epoch: number; loss: number}
-  | {type: "done"; update: LocalUpdate}
-  | {type: "error"; message: string};
+  | { type: "ready" }
+  | { type: "progress"; epoch: number; loss: number }
+  | { type: "done"; update: LocalUpdate }
+  | { type: "error"; message: string };
 
 const ctx: DedicatedWorkerGlobalScope = self as unknown as DedicatedWorkerGlobalScope;
 
@@ -52,7 +52,7 @@ function train(
   epochs: number,
   clipNorm: number,
   sigma: number,
-): AsyncGenerator<{epoch: number; loss: number}, LocalUpdate> {
+): AsyncGenerator<{ epoch: number; loss: number }, LocalUpdate> {
   const accum: number[] = new Array(8).fill(0);
   let epochLoss = 0;
 
@@ -65,7 +65,7 @@ function train(
         }
         epochLoss += Math.abs(s.labelValue ?? 0);
       }
-      yield {epoch: e, loss: epochLoss / Math.max(1, samples.length)};
+      yield { epoch: e, loss: epochLoss / Math.max(1, samples.length) };
       // Yield to the event loop so `progress` messages flush.
       await new Promise((r) => setTimeout(r, 0));
     }
@@ -85,7 +85,7 @@ ctx.addEventListener("message", async (event: MessageEvent<WorkerInbound>) => {
   const msg = event.data;
   try {
     if (msg.type === "ping") {
-      ctx.postMessage({type: "ready"} as WorkerOutbound);
+      ctx.postMessage({ type: "ready" } as WorkerOutbound);
       return;
     }
     if (msg.type === "shutdown") {
@@ -96,14 +96,14 @@ ctx.addEventListener("message", async (event: MessageEvent<WorkerInbound>) => {
       const gen = train(msg.samples, msg.epochs, msg.clipNorm, msg.sigma);
       let step = await gen.next();
       while (!step.done) {
-        ctx.postMessage({type: "progress", ...step.value} as WorkerOutbound);
+        ctx.postMessage({ type: "progress", ...step.value } as WorkerOutbound);
         step = await gen.next();
       }
-      ctx.postMessage({type: "done", update: step.value} as WorkerOutbound);
+      ctx.postMessage({ type: "done", update: step.value } as WorkerOutbound);
     }
   } catch (e) {
-    ctx.postMessage({type: "error", message: (e as Error).message} as WorkerOutbound);
+    ctx.postMessage({ type: "error", message: (e as Error).message } as WorkerOutbound);
   }
 });
 
-ctx.postMessage({type: "ready"} as WorkerOutbound);
+ctx.postMessage({ type: "ready" } as WorkerOutbound);

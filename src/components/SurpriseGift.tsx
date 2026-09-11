@@ -4,7 +4,7 @@ import { Gift, Star, Zap } from "lucide-react";
 
 export interface SurpriseGiftDef {
   day: number;
-  streakDays?: number;
+  streakDays: number;
   reward: number;
   label: string;
   labelVi: string;
@@ -13,11 +13,51 @@ export interface SurpriseGiftDef {
 }
 
 export const STREAK_GIFT_TIERS: SurpriseGiftDef[] = [
-  { day: 7,   streakDays: 7,   reward: 30,   label: "Week Warrior",   labelVi: "Chiến Binh Tuần",     icon: "⚡", type: "exp" },
-  { day: 14,  streakDays: 14,  reward: 75,   label: "Fortnight Hero",  labelVi: "Anh Hùng Nửa Tháng", icon: "🛡️", type: "exp" },
-  { day: 30,  streakDays: 30,  reward: 200,  label: "Monthly Legend",  labelVi: "Huyền Thoại Tháng",   icon: "👑", type: "exp" },
-  { day: 60,  streakDays: 60,  reward: 500,  label: "Diamond Tier",    labelVi: "Hạng Kim Cương",     icon: "💎", type: "exp" },
-  { day: 100, streakDays: 100, reward: 1000, label: "Mythic Master",   labelVi: "Bậc Thầy Huyền Thoại", icon: "🏆", type: "badge" },
+  {
+    day: 7,
+    streakDays: 7,
+    reward: 30,
+    label: "Week Warrior",
+    labelVi: "Chiến Binh Tuần",
+    icon: "⚡",
+    type: "exp",
+  },
+  {
+    day: 14,
+    streakDays: 14,
+    reward: 75,
+    label: "Fortnight Hero",
+    labelVi: "Anh Hùng Nửa Tháng",
+    icon: "🛡️",
+    type: "exp",
+  },
+  {
+    day: 30,
+    streakDays: 30,
+    reward: 200,
+    label: "Monthly Legend",
+    labelVi: "Huyền Thoại Tháng",
+    icon: "👑",
+    type: "exp",
+  },
+  {
+    day: 60,
+    streakDays: 60,
+    reward: 500,
+    label: "Diamond Tier",
+    labelVi: "Hạng Kim Cương",
+    icon: "💎",
+    type: "exp",
+  },
+  {
+    day: 100,
+    streakDays: 100,
+    reward: 1000,
+    label: "Mythic Master",
+    labelVi: "Bậc Thầy Huyền Thoại",
+    icon: "🏆",
+    type: "badge",
+  },
 ];
 
 interface SurpriseGiftProps {
@@ -29,10 +69,10 @@ interface SurpriseGiftProps {
 export function SurpriseGift({ streakDays, onClaim, onClose }: SurpriseGiftProps) {
   const [phase, setPhase] = useState<"closed" | "reveal">("closed");
 
-  const tier = STREAK_GIFT_TIERS.find(t => t.day === streakDays) ?? null;
+  const tier = STREAK_GIFT_TIERS.find((t) => t.day === streakDays) ?? null;
 
   useEffect(() => {
-    if (!tier) { onClose(); return; }
+    if (!tier) return;
     const openTimer = setTimeout(() => setPhase("reveal"), 800);
     return () => clearTimeout(openTimer);
   }, [tier]);
@@ -40,17 +80,13 @@ export function SurpriseGift({ streakDays, onClaim, onClose }: SurpriseGiftProps
   if (!tier) return null;
 
   return (
-    <div
-      className="pointer-events-none fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/20 p-4"
-      onClick={onClose}
-    >
+    <div className="pointer-events-none fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/20 p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 8 }}
         transition={{ type: "spring", damping: 22, stiffness: 300 }}
         className="pointer-events-auto w-full max-w-xs bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden text-center"
-        onClick={(e) => e.stopPropagation()}
       >
         <AnimatePresence mode="wait">
           {phase === "closed" && (

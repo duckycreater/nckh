@@ -109,7 +109,7 @@ export const SmartBinTwin: React.FC<SmartBinTwinProps> = ({
 
   const sortedForecast = useMemo(
     () => [...data.forecast].sort((a, b) => a.hour - b.hour),
-    [data.forecast]
+    [data.forecast],
   );
 
   return (
@@ -147,10 +147,30 @@ export const SmartBinTwin: React.FC<SmartBinTwinProps> = ({
 const KpiStrip: React.FC<{ kpis: KpiData }> = ({ kpis }) => {
   const { t } = useTranslation();
   const tiles = [
-    { icon: <TrendingUp className="h-5 w-5" />, label: t("smartBin.kpis.binsOnline"), value: kpis.binsOnline, accent: "#0ea5e9" },
-    { icon: <AlertTriangle className="h-5 w-5" />, label: t("smartBin.kpis.offline"), value: kpis.binsOffline, accent: "#dc2626" },
-    { icon: <BarChart2 className="h-5 w-5" />, label: t("smartBin.kpis.totalKg"), value: kpis.totalKg.toFixed(1), accent: "#16a34a" },
-    { icon: <Truck className="h-5 w-5" />, label: t("smartBin.kpis.co2KgSaved"), value: kpis.co2KgSaved.toFixed(2), accent: "#a16207" },
+    {
+      icon: <TrendingUp className="h-5 w-5" />,
+      label: t("smartBin.kpis.binsOnline"),
+      value: kpis.binsOnline,
+      accent: "#0ea5e9",
+    },
+    {
+      icon: <AlertTriangle className="h-5 w-5" />,
+      label: t("smartBin.kpis.offline"),
+      value: kpis.binsOffline,
+      accent: "#dc2626",
+    },
+    {
+      icon: <BarChart2 className="h-5 w-5" />,
+      label: t("smartBin.kpis.totalKg"),
+      value: kpis.totalKg.toFixed(1),
+      accent: "#16a34a",
+    },
+    {
+      icon: <Truck className="h-5 w-5" />,
+      label: t("smartBin.kpis.co2KgSaved"),
+      value: kpis.co2KgSaved.toFixed(2),
+      accent: "#a16207",
+    },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -159,7 +179,10 @@ const KpiStrip: React.FC<{ kpis: KpiData }> = ({ kpis }) => {
           key={t.label}
           className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800"
         >
-          <div className="rounded-full bg-white p-2 shadow-sm dark:bg-slate-900" style={{ color: t.accent }}>
+          <div
+            className="rounded-full bg-white p-2 shadow-sm dark:bg-slate-900"
+            style={{ color: t.accent }}
+          >
             {t.icon}
           </div>
           <div>
@@ -179,14 +202,28 @@ const DemandForecast: React.FC<{ forecast: ForecastBucket[] }> = ({ forecast }) 
   const max = Math.max(1, ...forecast.map((b) => b.predictedKg));
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("smartBin.forecast")}</p>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        {t("smartBin.forecast")}
+      </p>
       <div className="mt-3 flex h-32 items-end gap-1">
         {forecast.map((bucket, i) => (
-          <div key={i} className="flex-1 rounded-t-sm" style={{ backgroundColor: ACCENT.plastic, height: `${(bucket.predictedKg / max) * 100}%` }} title={`${bucket.hour}:00 — ${bucket.predictedKg.toFixed(2)} kg`} />
+          <div
+            key={i}
+            className="flex-1 rounded-t-sm"
+            style={{
+              backgroundColor: ACCENT.plastic,
+              height: `${(bucket.predictedKg / max) * 100}%`,
+            }}
+            title={`${bucket.hour}:00 — ${bucket.predictedKg.toFixed(2)} kg`}
+          />
         ))}
       </div>
       <div className="mt-2 flex justify-between text-[10px] text-slate-500">
-        <span>{t("smartBin.hourLabels.0")}</span><span>{t("smartBin.hourLabels.6")}</span><span>{t("smartBin.hourLabels.12")}</span><span>{t("smartBin.hourLabels.18")}</span><span>{t("smartBin.hourLabels.24")}</span>
+        <span>{t("smartBin.hourLabels.0")}</span>
+        <span>{t("smartBin.hourLabels.6")}</span>
+        <span>{t("smartBin.hourLabels.12")}</span>
+        <span>{t("smartBin.hourLabels.18")}</span>
+        <span>{t("smartBin.hourLabels.24")}</span>
       </div>
     </div>
   );
@@ -198,7 +235,9 @@ const SchoolFootprintPanel: React.FC<{ footprint: SchoolFootprint[] }> = ({ foot
   const max = Math.max(1, ...footprint.map((f) => f.totalKg));
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Per-school footprint</p>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        Per-school footprint
+      </p>
       <div className="mt-3 space-y-2">
         {footprint.map((s) => (
           <div key={s.schoolId} className="flex items-center gap-3">
@@ -225,16 +264,21 @@ const SchoolFootprintPanel: React.FC<{ footprint: SchoolFootprint[] }> = ({ foot
 const CollectionRoute: React.FC<{ routes: RouteRow[] }> = ({ routes }) => {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Optimised Collection Routes</p>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        Optimised Collection Routes
+      </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {routes.map((r) => (
           <div key={r.vehicleId} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-            <p className="text-xs font-semibold uppercase tracking-widest text-cyan-700">{r.vehicleId}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-cyan-700">
+              {r.vehicleId}
+            </p>
             <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
               {r.loadKg.toFixed(1)} kg · {r.driveMinutes.toFixed(0)} min
             </p>
             <p className="mt-1 line-clamp-2 text-[10px] font-mono text-slate-500">
-              {r.binIds.slice(0, 6).join(", ")}{r.binIds.length > 6 ? ` +${r.binIds.length - 6} more` : ""}
+              {r.binIds.slice(0, 6).join(", ")}
+              {r.binIds.length > 6 ? ` +${r.binIds.length - 6} more` : ""}
             </p>
           </div>
         ))}
@@ -246,7 +290,10 @@ const CollectionRoute: React.FC<{ routes: RouteRow[] }> = ({ routes }) => {
 // ─── Bin table ──────────────────────────────────────────────────────────
 
 const BinTable: React.FC<{ bins: BinRow[] }> = ({ bins }) => {
-  const sorted = useMemo(() => [...bins].sort((a, b) => b.totalKg - a.totalKg).slice(0, 12), [bins]);
+  const sorted = useMemo(
+    () => [...bins].sort((a, b) => b.totalKg - a.totalKg).slice(0, 12),
+    [bins],
+  );
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Top bins by load</p>
@@ -266,7 +313,9 @@ const BinTable: React.FC<{ bins: BinRow[] }> = ({ bins }) => {
                 <td className="py-1 font-mono">{b.deviceId}</td>
                 <td>{b.kind}</td>
                 <td>
-                  <span className={`inline-block h-2 w-2 rounded-full ${b.isOnline ? "bg-emerald-500" : "bg-red-500"}`} />
+                  <span
+                    className={`inline-block h-2 w-2 rounded-full ${b.isOnline ? "bg-emerald-500" : "bg-red-500"}`}
+                  />
                 </td>
                 <td className="text-right font-mono">{b.totalKg.toFixed(2)}</td>
               </tr>

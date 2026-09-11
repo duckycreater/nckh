@@ -76,9 +76,27 @@ test("federated: aggregated scores are finite after a round", async () => {
 test("federated: buffer enforces capacity limit", async () => {
   const agg = new FederatedAggregator();
   agg.configure({ minClients: 100, bufferLimit: 2 });
-  await agg.submit("a", { round: 1, weights: [[0.1,0.1,0.1,0.1,0.1,0.1]], numSamples: 1, metrics: { loss: 0, accuracy: 0, durationMs: 0 }, privacy: { epsilon: 1, delta: 1e-5, noiseSigma: 0.5 } });
-  await agg.submit("b", { round: 1, weights: [[0.1,0.1,0.1,0.1,0.1,0.1]], numSamples: 1, metrics: { loss: 0, accuracy: 0, durationMs: 0 }, privacy: { epsilon: 1, delta: 1e-5, noiseSigma: 0.5 } });
-  const third = await agg.submit("c", { round: 1, weights: [[0.1,0.1,0.1,0.1,0.1,0.1]], numSamples: 1, metrics: { loss: 0, accuracy: 0, durationMs: 0 }, privacy: { epsilon: 1, delta: 1e-5, noiseSigma: 0.5 } });
+  await agg.submit("a", {
+    round: 1,
+    weights: [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]],
+    numSamples: 1,
+    metrics: { loss: 0, accuracy: 0, durationMs: 0 },
+    privacy: { epsilon: 1, delta: 1e-5, noiseSigma: 0.5 },
+  });
+  await agg.submit("b", {
+    round: 1,
+    weights: [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]],
+    numSamples: 1,
+    metrics: { loss: 0, accuracy: 0, durationMs: 0 },
+    privacy: { epsilon: 1, delta: 1e-5, noiseSigma: 0.5 },
+  });
+  const third = await agg.submit("c", {
+    round: 1,
+    weights: [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]],
+    numSamples: 1,
+    metrics: { loss: 0, accuracy: 0, durationMs: 0 },
+    privacy: { epsilon: 1, delta: 1e-5, noiseSigma: 0.5 },
+  });
   assert.equal(third.accepted, false);
   assert.equal(third.reason, "buffer_full");
 });

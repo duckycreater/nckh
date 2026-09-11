@@ -15,16 +15,21 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Users, Copy, Trophy, Leaf, TrendingUp, Plus, X,
-  Award, Calendar, Target, UserPlus, LogOut,
+  Users,
+  Copy,
+  Trophy,
+  Leaf,
+  TrendingUp,
+  Plus,
+  X,
+  Award,
+  Calendar,
+  Target,
+  UserPlus,
+  LogOut,
 } from "lucide-react";
 import { familyService } from "../services/familyService";
-import type {
-  Family,
-  FamilyMember,
-  FamilyChallenge,
-  FamilyCarbonStats,
-} from "../types/family";
+import type { Family, FamilyMember, FamilyChallenge, FamilyCarbonStats } from "../types/family";
 import type { User } from "../types";
 
 interface Props {
@@ -46,9 +51,7 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
   const [challenges, setChallenges] = useState<FamilyChallenge[]>([]);
   const [carbon, setCarbon] = useState<FamilyCarbonStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"overview" | "members" | "challenges" | "carbon">(
-    "overview",
-  );
+  const [view, setView] = useState<"overview" | "members" | "challenges" | "carbon">("overview");
   const [createMode, setCreateMode] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [newFamilyName, setNewFamilyName] = useState("");
@@ -91,8 +94,8 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
       setCreateMode(false);
       setNewFamilyName("");
       await refresh();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Lỗi không xác định");
     } finally {
       setSubmitting(false);
     }
@@ -106,8 +109,8 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
       setJoinMode(false);
       setInviteCode("");
       await refresh();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Lỗi không xác định");
     } finally {
       setSubmitting(false);
     }
@@ -120,8 +123,8 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
     try {
       await familyService.leaveFamily();
       await refresh();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Lỗi không xác định");
     }
   }
 
@@ -194,10 +197,14 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
 
                 {createMode && (
                   <div className="space-y-3">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="family-name"
+                      className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
+                    >
                       Tên gia đình
                     </label>
                     <input
+                      id="family-name"
                       type="text"
                       value={newFamilyName}
                       onChange={(e) => setNewFamilyName(e.target.value)}
@@ -224,10 +231,14 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
 
                 {joinMode && (
                   <div className="space-y-3">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="family-invite-code"
+                      className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
+                    >
                       Mã mời (6 ký tự)
                     </label>
                     <input
+                      id="family-invite-code"
                       type="text"
                       value={inviteCode}
                       onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
@@ -274,9 +285,7 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
                           {family.inviteCode} <Copy size={10} />
                         </button>
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {members.length} thành viên
-                      </div>
+                      <div className="mt-1 text-xs text-slate-500">{members.length} thành viên</div>
                     </div>
                     <button
                       onClick={handleLeave}
@@ -354,15 +363,18 @@ function OverviewTab({
   carbon: FamilyCarbonStats | null;
 }) {
   const activeMembers = members.filter((m) => m.isActive).length;
-  const topMember = [...members].sort(
-    (a, b) => b.contributionsWeekly - a.contributionsWeekly,
-  )[0];
+  const topMember = [...members].sort((a, b) => b.contributionsWeekly - a.contributionsWeekly)[0];
   const activeChallenges = challenges.filter((c) => !c.completed);
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <Stat icon={<Users size={14} />} label="Thành viên" value={`${members.length}`} sub={`${activeMembers} hoạt động`} />
+        <Stat
+          icon={<Users size={14} />}
+          label="Thành viên"
+          value={`${members.length}`}
+          sub={`${activeMembers} hoạt động`}
+        />
         <Stat
           icon={<Target size={14} />}
           label="Thử thách"
@@ -410,7 +422,9 @@ function MembersTab({ members }: { members: FamilyMember[] }) {
       {members
         .sort((a, b) => b.contributionsWeekly - a.contributionsWeekly)
         .map((m) => {
-          const pct = (m.contributionsWeekly / Math.max(...members.map((x) => x.contributionsWeekly), 1)) * 100;
+          const pct =
+            (m.contributionsWeekly / Math.max(...members.map((x) => x.contributionsWeekly), 1)) *
+            100;
           return (
             <div
               key={m.userId}
@@ -549,9 +563,7 @@ function CarbonTab({ carbon }: { carbon: FamilyCarbonStats | null }) {
             <div className="text-2xl font-bold text-cyan-900 dark:text-cyan-200">
               {carbon.treesEquivalent.toFixed(1)}
             </div>
-            <div className="text-xs text-cyan-700/80 dark:text-cyan-300/80">
-              cây xanh / năm
-            </div>
+            <div className="text-xs text-cyan-700/80 dark:text-cyan-300/80">cây xanh / năm</div>
           </div>
         </div>
         {carbon.comparedToLastWeek !== 0 && (
@@ -559,9 +571,7 @@ function CarbonTab({ carbon }: { carbon: FamilyCarbonStats | null }) {
             <TrendingUp
               size={12}
               className={
-                carbon.comparedToLastWeek > 0
-                  ? "text-emerald-600"
-                  : "rotate-180 text-rose-600"
+                carbon.comparedToLastWeek > 0 ? "text-emerald-600" : "rotate-180 text-rose-600"
               }
             />
             <span className={carbon.comparedToLastWeek > 0 ? "text-emerald-700" : "text-rose-700"}>
@@ -584,19 +594,29 @@ function CarbonTab({ carbon }: { carbon: FamilyCarbonStats | null }) {
             k === "plastic"
               ? "bg-blue-500"
               : k === "paper"
-              ? "bg-amber-500"
-              : k === "glass"
-              ? "bg-cyan-500"
-              : k === "metal"
-              ? "bg-slate-500"
-              : k === "organic"
-              ? "bg-emerald-500"
-              : "bg-rose-500";
+                ? "bg-amber-500"
+                : k === "glass"
+                  ? "bg-cyan-500"
+                  : k === "metal"
+                    ? "bg-slate-500"
+                    : k === "organic"
+                      ? "bg-emerald-500"
+                      : "bg-rose-500";
           return (
             <div key={k} className="mb-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="capitalize text-slate-700 dark:text-slate-300">
-                  {k === "plastic" ? "Nhựa" : k === "paper" ? "Giấy" : k === "glass" ? "Thủy tinh" : k === "metal" ? "Kim loại" : k === "organic" ? "Hữu cơ" : "Nguy hại"}
+                  {k === "plastic"
+                    ? "Nhựa"
+                    : k === "paper"
+                      ? "Giấy"
+                      : k === "glass"
+                        ? "Thủy tinh"
+                        : k === "metal"
+                          ? "Kim loại"
+                          : k === "organic"
+                            ? "Hữu cơ"
+                            : "Nguy hại"}
                 </span>
                 <span className="font-mono text-slate-600 dark:text-slate-400">
                   {val.toFixed(1)} kg
@@ -652,9 +672,7 @@ function Stat({
       <div className="flex items-center gap-1.5 text-xs text-slate-500">
         {icon} {label}
       </div>
-      <div className="mt-1 text-xl font-bold text-slate-800 dark:text-slate-100">
-        {value}
-      </div>
+      <div className="mt-1 text-xl font-bold text-slate-800 dark:text-slate-100">{value}</div>
       {sub && <div className="mt-0.5 text-[10px] text-slate-400">{sub}</div>}
     </div>
   );
@@ -671,7 +689,7 @@ function CreateChallengeForm({
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<typeof CHALLENGE_TYPES[number]["id"]>("total_scans");
+  const [type, setType] = useState<(typeof CHALLENGE_TYPES)[number]["id"]>("total_scans");
   const [target, setTarget] = useState(20);
   const [days, setDays] = useState(7);
   const [reward, setReward] = useState(50);
@@ -690,8 +708,8 @@ function CreateChallengeForm({
         reward,
       });
       onCreated();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Lỗi không xác định");
     } finally {
       setSubmitting(false);
     }
@@ -739,8 +757,14 @@ function CreateChallengeForm({
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-[10px] uppercase text-slate-500">Mục tiêu</label>
+              <label
+                htmlFor="family-challenge-target"
+                className="text-[10px] uppercase text-slate-500"
+              >
+                Mục tiêu
+              </label>
               <input
+                id="family-challenge-target"
                 type="number"
                 value={target}
                 onChange={(e) => setTarget(Number(e.target.value))}
@@ -749,8 +773,14 @@ function CreateChallengeForm({
               />
             </div>
             <div>
-              <label className="text-[10px] uppercase text-slate-500">Ngày</label>
+              <label
+                htmlFor="family-challenge-days"
+                className="text-[10px] uppercase text-slate-500"
+              >
+                Ngày
+              </label>
               <input
+                id="family-challenge-days"
                 type="number"
                 value={days}
                 onChange={(e) => setDays(Number(e.target.value))}
@@ -760,8 +790,14 @@ function CreateChallengeForm({
               />
             </div>
             <div>
-              <label className="text-[10px] uppercase text-slate-500">EXP/người</label>
+              <label
+                htmlFor="family-challenge-reward"
+                className="text-[10px] uppercase text-slate-500"
+              >
+                EXP/người
+              </label>
               <input
+                id="family-challenge-reward"
                 type="number"
                 value={reward}
                 onChange={(e) => setReward(Number(e.target.value))}

@@ -28,8 +28,8 @@ export interface DeviceProfile {
 }
 
 export const REFERENCE_DEVICES: DeviceProfile[] = [
-  { name: "Pixel-4a", sustainedGFLOPS: 600, energyPerMFLOP_mJ: 0.50 },
-  { name: "iPhone-12-mini", sustainedGFLOPS: 1200, energyPerMFLOP_mJ: 0.30 },
+  { name: "Pixel-4a", sustainedGFLOPS: 600, energyPerMFLOP_mJ: 0.5 },
+  { name: "iPhone-12-mini", sustainedGFLOPS: 1200, energyPerMFLOP_mJ: 0.3 },
   { name: "Galaxy-A13", sustainedGFLOPS: 150, energyPerMFLOP_mJ: 0.85 },
   { name: "$150-Android", sustainedGFLOPS: 150, energyPerMFLOP_mJ: 0.85 },
 ];
@@ -57,11 +57,8 @@ export interface BenchmarkResult {
   accuracyLossVsBaseline: number;
 }
 
-export function benchmark(
-  variant: ModelVariant,
-  device: DeviceProfile
-): BenchmarkResult {
-  const latencySeconds = variant.flopsM * 1e6 / (device.sustainedGFLOPS * 1e9);
+export function benchmark(variant: ModelVariant, device: DeviceProfile): BenchmarkResult {
+  const latencySeconds = (variant.flopsM * 1e6) / (device.sustainedGFLOPS * 1e9);
   const latencyMs = latencySeconds * 1000;
   const energy_mJ = variant.flopsM * device.energyPerMFLOP_mJ;
   const baselineAcc = VARIANTS[0].accuracy;
@@ -74,7 +71,10 @@ export function benchmark(
   };
 }
 
-export function benchmarkAcross(variantNames?: string[], deviceNames?: string[]): BenchmarkResult[] {
+export function benchmarkAcross(
+  variantNames?: string[],
+  deviceNames?: string[],
+): BenchmarkResult[] {
   const vs = VARIANTS.filter((v) => !variantNames || variantNames.includes(v.name));
   const ds = REFERENCE_DEVICES.filter((d) => !deviceNames || deviceNames.includes(d.name));
   const out: BenchmarkResult[] = [];
@@ -88,7 +88,7 @@ export function benchmarkAcross(variantNames?: string[], deviceNames?: string[])
  */
 export function selectEnergyOptimal(
   device: DeviceProfile,
-  minAccuracy: number
+  minAccuracy: number,
 ): { variant: ModelVariant; benchmark: BenchmarkResult } | null {
   let best: { variant: ModelVariant; benchmark: BenchmarkResult } | null = null;
   for (const v of VARIANTS) {
@@ -106,7 +106,7 @@ export function scansPerBatteryPercent(
   variant: ModelVariant,
   device: DeviceProfile,
   battery_mAh = 4000,
-  voltage_V = 4.0
+  voltage_V = 4.0,
 ): number {
   const b = benchmark(variant, device);
   const totalEnergy_mJ = battery_mAh * voltage_V * 3.6; // mAh·V → mJ
@@ -124,7 +124,7 @@ export interface RealBenchmark {
 }
 
 export const REAL_BENCHMARKS: RealBenchmark[] = [
-  { model: "DWaste YOLOv8n quantised", mAP: 0.80, latencyMs: 220, energyPerScan_mJ: 102 },
+  { model: "DWaste YOLOv8n quantised", mAP: 0.8, latencyMs: 220, energyPerScan_mJ: 102 },
   { model: "TrashNet (ResNet-50)", mAP: 0.92, latencyMs: 350, energyPerScan_mJ: 220 },
   { model: "BMO MobileNetV3-Small (ours)", mAP: 0.92, latencyMs: 80, energyPerScan_mJ: 28 },
   { model: "BMO Quantised (ours)", mAP: 0.91, latencyMs: 42, energyPerScan_mJ: 14 },

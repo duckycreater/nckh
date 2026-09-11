@@ -13,30 +13,37 @@ import {
   verifyPassword,
   isLikelyHash,
   revokeSessionToken,
+  revokeUserSessions,
   disableUser as disableUserInternal,
   enableUser as enableUserInternal,
   isUserDisabled as isUserDisabledInternal,
 } from "./services/sessionStore.js";
 
-export { hashPassword, verifyPassword, isLikelyHash, revokeSessionToken };
+export { hashPassword, verifyPassword, isLikelyHash, revokeSessionToken, revokeUserSessions };
 export const disableUser = disableUserInternal;
 export const enableUser = enableUserInternal;
 export const isUserDisabled = isUserDisabledInternal;
 
-export function createSessionToken(nick: string, isAdmin = false): string {
-  return createToken(nick, isAdmin);
+export function createSessionToken(nick: string, isAdmin = false, accountId?: string): string {
+  return createToken(nick, isAdmin, accountId);
 }
 
-export function validateToken(authHeader: string | undefined): { nick: string; isAdmin: boolean } | null {
+export function validateToken(
+  authHeader: string | undefined,
+): { nick: string; isAdmin: boolean; accountId?: string } | null {
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   const token = authHeader.replace("Bearer ", "");
   const rec = validateSessionToken(token);
   if (!rec) return null;
-  return { nick: rec.nick, isAdmin: rec.isAdmin };
+  return { nick: rec.nick, isAdmin: rec.isAdmin, accountId: rec.accountId };
 }
 
 /** Layer 2.3 — derive the caller's nick from the validated token. */
-export function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+export function requireAuth(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
   const result = validateToken(req.headers.authorization);
   if (!result) {
     res.status(401).json({ error: "Unauthorized" });
@@ -48,6 +55,7 @@ export function requireAuth(req: express.Request, res: express.Response, next: e
   // request with another user's nick and the server grants it.
   (req as any).userNick = result.nick;
   (req as any).isAdmin = result.isAdmin;
+  (req as any).userId = result.accountId ?? result.nick;
   next();
 }
 

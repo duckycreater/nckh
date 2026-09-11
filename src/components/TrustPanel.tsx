@@ -16,7 +16,9 @@
 import React, { useEffect, useState } from "react";
 
 const API_BASE =
-  (typeof import.meta !== "undefined" && (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) || "";
+  (typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) ||
+  "";
 
 interface FedStatus {
   bufferSize: number;
@@ -70,7 +72,9 @@ export function TrustPanel() {
       {/* Carbon ledger */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
         <div className="text-[10px] uppercase tracking-wider text-slate-500">Carbon Ledger</div>
-        <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-50">Provenance của số CO₂</h3>
+        <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-50">
+          Provenance của số CO₂
+        </h3>
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
           Mỗi con số CO₂ được gắn SHA-256 hash vào sổ cái chống giả mạo.
         </p>
@@ -92,8 +96,12 @@ export function TrustPanel() {
 
       {/* Federated live */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
-        <div className="text-[10px] uppercase tracking-wider text-slate-500">Federated Learning</div>
-        <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-50">Mô hình đang học</h3>
+        <div className="text-[10px] uppercase tracking-wider text-slate-500">
+          Federated Learning
+        </div>
+        <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-50">
+          Mô hình đang học
+        </h3>
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
           Ảnh không rời khỏi trình duyệt. Chỉ cập nhật trọng số (kèm nhiễu DP) được gửi về server.
         </p>
@@ -140,14 +148,24 @@ export function TrustPanel() {
       {/* RCT / pre-registration */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
         <div className="text-[10px] uppercase tracking-wider text-slate-500">RCT Engine</div>
-        <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-50">Nghiên cứu có đăng ký trước</h3>
+        <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-50">
+          Nghiên cứu có đăng ký trước
+        </h3>
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
           Hạt giống phân nhóm đã khoá và công bố; mọi phân tích chỉ chạy trên dữ liệu đồng ý.
         </p>
         <ul className="mt-3 space-y-1 text-xs text-slate-700 dark:text-slate-300">
-          <li>• Vòng gần nhất: <span className="font-mono">{latestRound?.round_number ?? "—"}</span></li>
-          <li>• Độ chính xác validation: <span className="font-mono">{latestRound?.validation_accuracy?.toFixed(3) ?? "—"}</span></li>
-          <li>• Model after: <span className="font-mono">{latestRound?.model_version_after ?? "—"}</span></li>
+          <li>
+            • Vòng gần nhất: <span className="font-mono">{latestRound?.round_number ?? "—"}</span>
+          </li>
+          <li>
+            • Độ chính xác validation:{" "}
+            <span className="font-mono">{latestRound?.validation_accuracy?.toFixed(3) ?? "—"}</span>
+          </li>
+          <li>
+            • Model after:{" "}
+            <span className="font-mono">{latestRound?.model_version_after ?? "—"}</span>
+          </li>
         </ul>
       </div>
     </section>

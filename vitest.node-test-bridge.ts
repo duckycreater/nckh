@@ -35,12 +35,7 @@ export const skip: undefined = undefined;
 export const todo: undefined = undefined;
 export const only: undefined = undefined;
 
-export default {
-  describe,
-  it,
-  test,
-  before,
-  after,
-  beforeEach,
-  afterEach,
-};
+// `node:test` also has a callable default export. A few suites use
+// `import test from "node:test"`, so forwarding an object here makes those
+// suites fail during collection with "default is not a function".
+export default vitest.test;

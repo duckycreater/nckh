@@ -59,7 +59,7 @@ export interface EmbeddingTensor {
  */
 export async function imageToFloat(
   source: ImageData | Blob | HTMLImageElement,
-  imageSize: number
+  imageSize: number,
 ): Promise<Float32Array> {
   // We rely on transformers.js preprocessing (resize + normalise). Here we
   // emit a stub tensor of the expected shape [3, imageSize, imageSize].
@@ -74,11 +74,11 @@ export async function imageToFloat(
 export function augmentImage(
   imageData: Float32Array,
   imageSize: number,
-  seed = Date.now()
+  seed = Date.now(),
 ): Float32Array {
   const rng = mulberry32(seed >>> 0);
   // Random crop: keep 0.8..1.0 of the image in the centre.
-  const cropFrac = 0.85 + rng() * 0.10;
+  const cropFrac = 0.85 + rng() * 0.1;
   const cropSize = Math.round(imageSize * cropFrac);
   // Random horizontal flip
   const flip = rng() < 0.5;
@@ -87,8 +87,8 @@ export function augmentImage(
   const out = new Float32Array(imageData.length);
   for (let y = 0; y < imageSize; y++) {
     for (let x = 0; x < imageSize; x++) {
-      const sx = Math.min(imageSize - 1, Math.max(0, Math.round(x / cropSize * imageSize)));
-      const sy = Math.min(imageSize - 1, Math.max(0, Math.round(y / cropSize * imageSize)));
+      const sx = Math.min(imageSize - 1, Math.max(0, Math.round((x / cropSize) * imageSize)));
+      const sy = Math.min(imageSize - 1, Math.max(0, Math.round((y / cropSize) * imageSize)));
       const xSrc = flip ? imageSize - 1 - sx : sx;
       for (let c = 0; c < 3; c++) {
         const idx = c * imageSize * imageSize + y * imageSize + x;
@@ -104,7 +104,7 @@ export function augmentImage(
 export function ntXentLoss(
   embeddings: Float32Array[],
   labels: number[],
-  temperature: number
+  temperature: number,
 ): number {
   const n = embeddings.length;
   if (n < 2) return 0;
@@ -126,13 +126,15 @@ export function ntXentLoss(
 
 /** Cosine similarity between two L2-normalised vectors. */
 export function cosineSimilarity(a: Float32Array, b: Float32Array, dim: number): number {
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < dim; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
     nb += b[i] * b[i];
   }
-  return dot / ((Math.sqrt(na) * Math.sqrt(nb)) || 1e-9);
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1e-9);
 }
 
 /** DINO student-teacher loss (centred + sharpened) — distilled version. */
@@ -142,7 +144,7 @@ export function dinoLoss(
   teacherCentre: Float32Array,
   studentTemp: number,
   teacherTemp: number,
-  dim: number
+  dim: number,
 ): number {
   let total = 0;
   for (let i = 0; i < student.length; i++) {
@@ -158,7 +160,12 @@ export function dinoLoss(
   return total / Math.max(1, student.length);
 }
 
-function softmaxWithTemp(x: Float32Array, temp: number, dim: number, centre?: Float32Array): Float32Array {
+function softmaxWithTemp(
+  x: Float32Array,
+  temp: number,
+  dim: number,
+  centre?: Float32Array,
+): Float32Array {
   const out = new Float32Array(dim);
   let max = -Infinity;
   for (let i = 0; i < dim; i++) {
@@ -206,7 +213,7 @@ export function transformersJsAvailable(): boolean {
  */
 export async function pretrainBrowser(
   imageBuffers: Float32Array[],
-  config: Partial<PretrainingConfig> = {}
+  config: Partial<PretrainingConfig> = {},
 ): Promise<{ loss: number; projected: EmbeddingTensor; usedDino: boolean; epochsRun: number }> {
   const cfg: PretrainingConfig = { ...DEFAULT_PRETRAIN_CONFIG, ...config };
   const useDino = transformersJsAvailable() && cfg.useDino;
@@ -233,7 +240,11 @@ export async function pretrainBrowser(
       const projected2 = emb2.map((e) => projectWithHead(e, head, dim));
       // Labels: a pair (i, i+batchSize) is positive.
       const labels = batch.map((_, i) => i);
-      const loss = ntXentLoss([...projected1, ...projected2], [...labels, ...labels], cfg.temperature);
+      const loss = ntXentLoss(
+        [...projected1, ...projected2],
+        [...labels, ...labels],
+        cfg.temperature,
+      );
       epochLoss += loss;
       batches++;
       // Step the head gradient (heuristic).

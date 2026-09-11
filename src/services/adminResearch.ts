@@ -1,12 +1,11 @@
 // Admin Research API service layer
 // Wraps /api/research/* and /api/admin/research/* endpoints
+// Note: Server validates user role from auth token - no admin key needed on client
 
 const token = () => localStorage.getItem("auth_token") || "";
-const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
 
 const headers = (): HeadersInit => ({
   Authorization: token() ? `Bearer ${token()}` : "",
-  "x-admin-key": adminApiKey,
 });
 
 async function request<T>(url: string, opts: RequestInit = {}): Promise<T> {

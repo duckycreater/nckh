@@ -30,23 +30,23 @@ describe("signManifest + verifyManifest", () => {
   });
   it("verify accepts its own signature", () => {
     const sig = signManifest(sample);
-    expect(verifyManifest({manifest: sample, signature: sig})).toBe(true);
+    expect(verifyManifest({ manifest: sample, signature: sig })).toBe(true);
   });
   it("verify rejects a tampered signature", () => {
     const sig = signManifest(sample);
     const tampered = sig.replace(/.$/, (c) => (c === "0" ? "1" : "0"));
-    expect(verifyManifest({manifest: sample, signature: tampered})).toBe(false);
+    expect(verifyManifest({ manifest: sample, signature: tampered })).toBe(false);
   });
   it("verify rejects a tampered manifest", () => {
     const sig = signManifest(sample);
-    const evil = {...sample, url: "https://attacker.example/x.onnx"};
-    expect(verifyManifest({manifest: evil, signature: sig})).toBe(false);
+    const evil = { ...sample, url: "https://attacker.example/x.onnx" };
+    expect(verifyManifest({ manifest: evil, signature: sig })).toBe(false);
   });
 });
 
 describe("modelRegistry", () => {
   it("registers and retrieves a manifest", () => {
-    const m = modelRegistry.register({...sample, name: "reg-test", version: "v9"});
+    const m = modelRegistry.register({ ...sample, name: "reg-test", version: "v9" });
     const got = modelRegistry.get("reg-test");
     expect(got?.version).toBe("v9");
     expect(got?.url).toBe(m.url);

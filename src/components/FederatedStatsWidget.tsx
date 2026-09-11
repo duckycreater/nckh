@@ -1,7 +1,7 @@
 /**
  * FederatedStatsWidget — "Trạng thái FL" mini panel.
  *
- * Polls /api/federated/stats every 15s. Shows:
+ * Polls /api/federated/status every 15s. Shows:
  *   - số client đang chờ để đủ round
  *   - phiên bản model toàn cầu mới nhất
  *   - (ε, δ, clipNorm) DP budget
@@ -13,7 +13,9 @@ import React, { useEffect, useState } from "react";
 import { Shield, Layers, Activity } from "lucide-react";
 
 const API_BASE =
-  (typeof import.meta !== "undefined" && (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) || "";
+  (typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) ||
+  "";
 
 interface Stats {
   bufferSize: number;
@@ -27,7 +29,7 @@ interface Props {
   className?: string;
 }
 
-export function FederatedStatsWidget({pollMs = 15000, className = ""}: Props) {
+export function FederatedStatsWidget({ pollMs = 15000, className = "" }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +57,9 @@ export function FederatedStatsWidget({pollMs = 15000, className = ""}: Props) {
 
   if (error && !stats) {
     return (
-      <div className={`rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 ${className}`}>
+      <div
+        className={`rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 ${className}`}
+      >
         FL offline.
       </div>
     );
@@ -66,7 +70,9 @@ export function FederatedStatsWidget({pollMs = 15000, className = ""}: Props) {
   const pct = Math.min(100, Math.round((stats.bufferSize / Math.max(1, stats.minClients)) * 100));
 
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800 ${className}`}>
+    <div
+      className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800 ${className}`}
+    >
       <div className="mb-3 flex items-center justify-between">
         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
           Trạng thái Federated Learning
@@ -99,7 +105,7 @@ export function FederatedStatsWidget({pollMs = 15000, className = ""}: Props) {
           <div className="mt-1 h-1.5 rounded bg-slate-100 dark:bg-slate-700">
             <div
               className={`h-1.5 rounded ${enough ? "bg-emerald-500" : "bg-amber-400"}`}
-              style={{width: `${pct}%`}}
+              style={{ width: `${pct}%` }}
             />
           </div>
           <div className="mt-0.5 text-[10px] text-slate-500">
@@ -109,7 +115,8 @@ export function FederatedStatsWidget({pollMs = 15000, className = ""}: Props) {
         <div className="col-span-2 mt-2 flex items-center gap-2 rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900/40">
           <Shield size={11} className="text-emerald-600" />
           <span className="font-mono text-[11px] text-slate-700 dark:text-slate-200">
-            ε = {stats.dp.epsilon.toFixed(2)} · δ = {stats.dp.delta.toExponential(1)} · clip = {stats.dp.clipNorm}
+            ε = {stats.dp.epsilon.toFixed(2)} · δ = {stats.dp.delta.toExponential(1)} · clip ={" "}
+            {stats.dp.clipNorm}
           </span>
         </div>
       </dl>

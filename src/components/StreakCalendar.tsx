@@ -12,7 +12,13 @@ export function StreakCalendar({ streakDays, lastUpdateDate }: Props) {
   today.setHours(0, 0, 0, 0);
 
   // Build last 7 days (today = last element)
-  const days: { date: Date; label: string; dayLabel: string; isToday: boolean; isActive: boolean }[] = [];
+  const days: {
+    date: Date;
+    label: string;
+    dayLabel: string;
+    isToday: boolean;
+    isActive: boolean;
+  }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
@@ -94,8 +100,8 @@ export function StreakCalendar({ streakDays, lastUpdateDate }: Props) {
                     ? "bg-blue-500 text-white shadow-md shadow-blue-500/40 ring-2 ring-blue-300"
                     : "bg-white text-blue-400 border-2 border-blue-300 shadow-sm"
                   : day.isActive
-                  ? "bg-emerald-400 text-white shadow-sm"
-                  : "bg-gray-200 text-gray-400"
+                    ? "bg-emerald-400 text-white shadow-sm"
+                    : "bg-gray-200 text-gray-400"
               }`}
             >
               {day.date.getDate()}
@@ -140,11 +146,19 @@ export function StreakCalendar({ streakDays, lastUpdateDate }: Props) {
           {/* Fire animation based on streak level */}
           {fireLevel > 0 && (
             <motion.div
-              animate={fireLevel === 3 ? {
-                scale: [1, 1.08, 1],
-                filter: ["brightness(1)", "brightness(1.3)", "brightness(1)"],
-              } : { scale: [1, 1.04, 1] }}
-              transition={fireLevel === 3 ? { duration: 0.8, repeat: Infinity } : { duration: 1.2, repeat: Infinity }}
+              animate={
+                fireLevel === 3
+                  ? {
+                      scale: [1, 1.08, 1],
+                      filter: ["brightness(1)", "brightness(1.3)", "brightness(1)"],
+                    }
+                  : { scale: [1, 1.04, 1] }
+              }
+              transition={
+                fireLevel === 3
+                  ? { duration: 0.8, repeat: Infinity }
+                  : { duration: 1.2, repeat: Infinity }
+              }
               className="inline-block mr-2 align-middle"
             >
               {fireLevel === 1 ? (
@@ -157,8 +171,7 @@ export function StreakCalendar({ streakDays, lastUpdateDate }: Props) {
             </motion.div>
           )}
           <span className="text-sm font-black text-blue-700">
-            Chuỗi hiện tại:{" "}
-            <span className="text-orange-500">{streakDays}</span> ngày liên tiếp
+            Chuỗi hiện tại: <span className="text-orange-500">{streakDays}</span> ngày liên tiếp
           </span>
           {fireLevel === 3 && (
             <motion.div

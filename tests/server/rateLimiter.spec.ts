@@ -43,7 +43,7 @@ test("tokenBucket: 5 tokens burst then a 6th is rejected", () => {
   }
   const r6 = consume("1.2.3.4", now);
   assert.equal(r6.ok, false);
-  assert.ok(r6.retryAfterMs > 10_000);
+  assert.ok((r6.retryAfterMs ?? 0) > 10_000);
 });
 
 test("tokenBucket: refills one token after the window", () => {

@@ -1,22 +1,80 @@
 import React, { useState, useEffect } from "react";
-import { RefreshCw, Upload, Download, Activity, AlertCircle, CheckCircle2, Clock, FileSpreadsheet, Zap, Loader2 } from "lucide-react";
+import {
+  RefreshCw,
+  Upload,
+  Download,
+  Activity,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileSpreadsheet,
+  Zap,
+  Loader2,
+} from "lucide-react";
 import { Button, Card, Badge, FieldLabel, Input, SectionHeading, EmptyState } from "../../lib/ui";
 import { showToast } from "../../lib/toast";
 
 const token = () => localStorage.getItem("auth_token") || "";
-const adminApiKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
 
+// Auth headers - server validates user role from token
 const authHeaders = (json = false): HeadersInit => ({
   ...(json ? { "Content-Type": "application/json" } : {}),
   Authorization: token() ? `Bearer ${token()}` : "",
-  "x-admin-key": adminApiKey,
 });
 
-const DEFAULT_SHEET_ID = "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
+// Spreadsheet ID - configurable via env var, falls back to default
+// Note: This is not a secret, but allows flexibility for different deployments
+const DEFAULT_SHEET_ID =
+  (import.meta as any).env?.VITE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
+
+// Sync status from /api/admin/sheets/status
+interface SyncStatus {
+  lastSyncTime: string | null;
+  lastSyncResult?: {
+    users: number;
+    quizQuestions: number;
+    quizConfig: number;
+    rewards: number;
+    behavioralEvents: number;
+    rewardTransactions: number;
+    userResearchProfiles: number;
+    noveltyDecayLog: number;
+    interventions: number;
+    errors: string[];
+    duration: number;
+  };
+  syncHistory?: SyncHistoryEntry[];
+  spreadsheetId: string;
+  autoSyncIntervalMs: number;
+  isConfigured: boolean;
+}
+
+interface SyncHistoryEntry {
+  timestamp: string;
+  type: "full" | "push" | "pull";
+  status: "success" | "error";
+  error?: string;
+  result?: {
+    users?: number;
+    quizQuestions?: number;
+    rewards?: number;
+    behavioralEvents?: number;
+    errors?: string[];
+  };
+}
+
+// Health status for connection indicators
+interface ConnectionHealth {
+  database?: string;
+  firebase?: string;
+  cloudinary?: string;
+  google_sheets?: string;
+  [key: string]: unknown;
+}
 
 export function SheetsSyncPanel() {
   const [spreadsheetId, setSpreadsheetId] = useState(DEFAULT_SHEET_ID);
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<SyncStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState<"full" | "push" | null>(null);
   const [health, setHealth] = useState<any>(null);
@@ -56,7 +114,12 @@ export function SheetsSyncPanel() {
   }, []);
 
   const runFullSync = async () => {
-    if (!confirm("Đồng bộ 2 chiều (Supabase + Firestore ↔ Google Sheets)? Quá trình có thể mất vài phút.")) return;
+    if (
+      !confirm(
+        "Đồng bộ 2 chiều (Supabase + Firestore ↔ Google Sheets)? Quá trình có thể mất vài phút.",
+      )
+    )
+      return;
     setSyncing("full");
     try {
       const res = await fetch("/api/admin/sheets/full-sync", {
@@ -103,7 +166,10 @@ export function SheetsSyncPanel() {
   };
 
   const runPullOnly = async () => {
-    if (!confirm("Kéo từ Google Sheets về DB? Hành động này sẽ ghi đè CauHinh và BoCauHoi trong DB.")) return;
+    if (
+      !confirm("Kéo từ Google Sheets về DB? Hành động này sẽ ghi đè CauHinh và BoCauHoi trong DB.")
+    )
+      return;
     setSyncing("full");
     try {
       const res = await fetch("/api/admin/sync-sheets", {
@@ -217,7 +283,7 @@ export function SheetsSyncPanel() {
         <Card className="rounded-[28px] p-6">
           <SectionHeading
             eyebrow="Last Sync"
-            title={`Lần đồng bộ gần nhất: ${new Date(status.lastSyncTime).toLocaleString("vi-VN")}`}
+            title={`Lần đồng bộ gần nhất: ${status.lastSyncTime ? new Date(status.lastSyncTime).toLocaleString("vi-VN") : "chưa xác định"}`}
           />
           <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <Metric label="Users" value={status.lastSyncResult.users} />
@@ -264,7 +330,7 @@ export function SheetsSyncPanel() {
                 </tr>
               </thead>
               <tbody>
-                {status.syncHistory.map((h: any, i: number) => (
+                {status.syncHistory.map((h: SyncHistoryEntry, i: number) => (
                   <tr key={i} className="border-b border-slate-100">
                     <td className="py-2 px-2 text-xs">
                       {new Date(h.timestamp).toLocaleString("vi-VN")}

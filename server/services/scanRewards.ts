@@ -27,7 +27,10 @@ const cache = new Map<string, number[]>(); // nick -> sorted [ts, ts, …]
  *   totalToday   — how many scans in the last 24h
  *   reason       — "ok" | "capped"
  */
-export function decideScanReward(nick: string | undefined, now = Date.now()): {
+export function decideScanReward(
+  nick: string | undefined,
+  now = Date.now(),
+): {
   awarded: number;
   totalToday: number;
   reason: "ok" | "capped" | "no_user";

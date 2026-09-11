@@ -13,8 +13,12 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Database, Globe, Shield, CheckCircle2, XCircle, Download, Users } from "lucide-react";
+import { getAuthToken } from "../lib/auth";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) ||
+  "";
 
 interface DatasetStatus {
   consentGiven: boolean;
@@ -57,7 +61,10 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
   async function fetchStatus() {
     setLoading(true);
     try {
-      const r = await fetch(`${API_BASE}/api/dataset/status?nickname=${encodeURIComponent(nickname)}`);
+      const token = getAuthToken();
+      const r = await fetch(`${API_BASE}/api/dataset/status`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (r.ok) setStatus(await r.json());
     } catch (e) {
       console.error(e);
@@ -78,7 +85,7 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
   async function grantConsent() {
     setSubmitting(true);
     try {
-      const token = localStorage.getItem("bmo_token") || "";
+      const token = getAuthToken();
       const r = await fetch(`${API_BASE}/api/dataset/consent`, {
         method: "POST",
         headers: {
@@ -95,12 +102,16 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
   }
 
   async function revokeConsent() {
-    if (!confirm("Bạn có chắc muốn thu hồi đồng ý? Ảnh của bạn sẽ bị ẩn khỏi các bản phát hành tương lai.")) {
+    if (
+      !confirm(
+        "Bạn có chắc muốn thu hồi đồng ý? Ảnh của bạn sẽ bị ẩn khỏi các bản phát hành tương lai.",
+      )
+    ) {
       return;
     }
     setSubmitting(true);
     try {
-      const token = localStorage.getItem("bmo_token") || "";
+      const token = getAuthToken();
       const r = await fetch(`${API_BASE}/api/dataset/revoke`, {
         method: "POST",
         headers: {
@@ -158,7 +169,10 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
                 {/* Status banner */}
                 {status?.consentGiven && !status.revokedAt ? (
                   <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800/40 dark:bg-emerald-900/20">
-                    <CheckCircle2 size={16} className="mt-0.5 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCircle2
+                      size={16}
+                      className="mt-0.5 text-emerald-600 dark:text-emerald-400"
+                    />
                     <div className="flex-1 text-xs text-emerald-800 dark:text-emerald-200">
                       <strong>Bạn đang đóng góp.</strong>
                       {status.consentDate && (
@@ -181,12 +195,20 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
                 {status && status.totalImages > 0 && (
                   <div className="mb-4 grid grid-cols-2 gap-2">
                     <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-800/50">
-                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{status.totalImages}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Ảnh đã đóng góp</div>
+                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {status.totalImages}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                        Ảnh đã đóng góp
+                      </div>
                     </div>
                     <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-800/50">
-                      <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{status.imagesInRelease}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Đã vào dataset thế giới</div>
+                      <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                        {status.imagesInRelease}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                        Đã vào dataset thế giới
+                      </div>
                     </div>
                   </div>
                 )}
@@ -199,15 +221,21 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div>
-                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.unique_contributors || 0}</div>
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {stats.unique_contributors || 0}
+                        </div>
                         <div className="text-[9px] text-slate-500">Người đóng góp</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.unique_countries || 0}</div>
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {stats.unique_countries || 0}
+                        </div>
                         <div className="text-[9px] text-slate-500">Quốc gia</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.released_scans || 0}</div>
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {stats.released_scans || 0}
+                        </div>
                         <div className="text-[9px] text-slate-500">Ảnh công khai</div>
                       </div>
                     </div>
@@ -216,13 +244,17 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
 
                 {/* What we collect */}
                 <div className="mb-4 space-y-2 text-xs text-slate-600 dark:text-slate-400">
-                  <p className="font-bold text-slate-800 dark:text-slate-200">Chúng tôi thu thập:</p>
+                  <p className="font-bold text-slate-800 dark:text-slate-200">
+                    Chúng tôi thu thập:
+                  </p>
                   <ul className="ml-4 space-y-1 list-disc">
                     <li>Ảnh rác (đã xóa EXIF: GPS, thông tin camera)</li>
                     <li>Phân loại dự đoán + điểm tin cậy</li>
                     <li>Điều kiện ánh sáng, mức che lấp (auto-detect)</li>
                   </ul>
-                  <p className="mt-3 font-bold text-slate-800 dark:text-slate-200">Chúng tôi KHÔNG thu thập:</p>
+                  <p className="mt-3 font-bold text-slate-800 dark:text-slate-200">
+                    Chúng tôi KHÔNG thu thập:
+                  </p>
                   <ul className="ml-4 space-y-1 list-disc">
                     <li>Tên thật, email, số điện thoại</li>
                     <li>Vị trí chính xác của bạn</li>
@@ -239,7 +271,9 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
                         disabled={submitting}
                         className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
                       >
-                        {submitting ? "Đang xử lý..." : "Thu hồi đồng ý (xóa khỏi dataset tương lai)"}
+                        {submitting
+                          ? "Đang xử lý..."
+                          : "Thu hồi đồng ý (xóa khỏi dataset tương lai)"}
                       </button>
                       <a
                         href="https://osf.io"
@@ -256,7 +290,9 @@ export function ContributeToDataset({ nickname, isOpen, onClose }: Props) {
                       disabled={submitting}
                       className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-emerald-700 disabled:opacity-50"
                     >
-                      {submitting ? "Đang xử lý..." : "Đồng ý đóng góp ảnh cho nghiên cứu khoa học mở"}
+                      {submitting
+                        ? "Đang xử lý..."
+                        : "Đồng ý đóng góp ảnh cho nghiên cứu khoa học mở"}
                     </button>
                   )}
                   <button

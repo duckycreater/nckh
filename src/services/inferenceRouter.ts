@@ -13,11 +13,7 @@
  * `inferenceRouter.run(image)` and ignore the extra fields.
  */
 
-import {
-  getWasteClassifier,
-  type WasteCategory,
-  type WastePrediction,
-} from "./wasteClassifier";
+import { getWasteClassifier, type WasteCategory, type WastePrediction } from "./wasteClassifier";
 import {
   resolveBackend,
   frameworkBackendName,
@@ -66,13 +62,13 @@ interface InferenceStats {
 /** Internal counters exposed for debugging. */
 const stats: InferenceStats = {
   totalCalls: 0,
-  byBackend: {webgpu: 0, webgl2: 0, "wasm-simd": 0, wasm: 0},
+  byBackend: { webgpu: 0, webgl2: 0, "wasm-simd": 0, wasm: 0 },
   avgLatencyMs: 0,
   totalEnergyJ: 0,
 };
 
 export function getInferenceStats(): InferenceStats {
-  return {...stats, byBackend: {...stats.byBackend}};
+  return { ...stats, byBackend: { ...stats.byBackend } };
 }
 
 /** Currently active backend (after first resolve). */
@@ -94,7 +90,7 @@ export async function runInference(
 
   const start = performance.now();
   const capability = opts.forceBackend
-    ? {backend: opts.forceBackend, energyMilliwatts: 1000, confirmed: true}
+    ? { backend: opts.forceBackend, energyMilliwatts: 1000, confirmed: true }
     : await ensureCapability();
 
   // Manifest resolution (best-effort; falls back to "v0.0.0").
@@ -131,8 +127,7 @@ export async function runInference(
   // stats
   stats.totalCalls++;
   stats.byBackend[capability.backend]++;
-  stats.avgLatencyMs =
-    (stats.avgLatencyMs * (stats.totalCalls - 1) + latencyMs) / stats.totalCalls;
+  stats.avgLatencyMs = (stats.avgLatencyMs * (stats.totalCalls - 1) + latencyMs) / stats.totalCalls;
   stats.totalEnergyJ += energyJ;
 
   if (opts.signal?.aborted) {

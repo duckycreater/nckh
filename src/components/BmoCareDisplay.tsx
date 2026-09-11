@@ -9,40 +9,66 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Heart, Sparkles, Star, Lock, ChevronRight, TrendingUp,
-  Smile, Frown, Meh, Zap,
+  Heart,
+  Sparkles,
+  Star,
+  Lock,
+  ChevronRight,
+  TrendingUp,
+  Smile,
+  Frown,
+  Meh,
+  Zap,
 } from "lucide-react";
 
 function getMoodEmoji(level: string): string {
   switch (level) {
-    case "excited": return "💖";
-    case "happy": return "😊";
-    case "neutral": return "😐";
-    case "sad": return "🥺";
-    case "critical": return "💔";
-    default: return "😐";
+    case "excited":
+      return "💖";
+    case "happy":
+      return "😊";
+    case "neutral":
+      return "😐";
+    case "sad":
+      return "🥺";
+    case "critical":
+      return "💔";
+    default:
+      return "😐";
   }
 }
 
 function getMoodColor(level: string): string {
   switch (level) {
-    case "excited": return "#f43f5e";
-    case "happy": return "#22c55e";
-    case "neutral": return "#eab308";
-    case "sad": return "#f97316";
-    case "critical": return "#ef4444";
-    default: return "#94a3b8";
+    case "excited":
+      return "#f43f5e";
+    case "happy":
+      return "#22c55e";
+    case "neutral":
+      return "#eab308";
+    case "sad":
+      return "#f97316";
+    case "critical":
+      return "#ef4444";
+    default:
+      return "#94a3b8";
   }
 }
 
 function getMoodLabel(level: string, t: (key: string) => string): string {
   switch (level) {
-    case "excited": return t("bmoCare.moodExcited");
-    case "happy": return t("bmoCare.moodHappy");
-    case "neutral": return t("bmoCare.moodNeutral");
-    case "sad": return t("bmoCare.moodSad");
-    case "critical": return t("bmoCare.moodCritical");
-    default: return t("bmoCare.moodNeutral");
+    case "excited":
+      return t("bmoCare.moodExcited");
+    case "happy":
+      return t("bmoCare.moodHappy");
+    case "neutral":
+      return t("bmoCare.moodNeutral");
+    case "sad":
+      return t("bmoCare.moodSad");
+    case "critical":
+      return t("bmoCare.moodCritical");
+    default:
+      return t("bmoCare.moodNeutral");
   }
 }
 
@@ -88,13 +114,18 @@ export function BmoCareDisplay({ userId, onClose }: BmoCareDisplayProps) {
 
   if (!data) {
     return (
-      <div className="p-4 text-center text-sm text-slate-500">
-        {t("bmoCare.errorLoading")}
-      </div>
+      <div className="p-4 text-center text-sm text-slate-500">{t("bmoCare.errorLoading")}</div>
     );
   }
 
-  const { moodLevel, moodScore, unlockedAccessories, availableAccessories, nextUnlock, moodHistory } = data;
+  const {
+    moodLevel,
+    moodScore,
+    unlockedAccessories,
+    availableAccessories,
+    nextUnlock,
+    moodHistory,
+  } = data;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -118,12 +149,18 @@ export function BmoCareDisplay({ userId, onClose }: BmoCareDisplayProps) {
       <div className="relative flex flex-col items-center">
         <motion.div
           animate={
-            moodLevel === "excited" ? { scale: [1, 1.1, 1], rotate: [-2, 2, 0] } :
-            moodLevel === "happy" ? { scale: [1, 1.05, 1] } :
-            moodLevel === "sad" ? { y: [0, 2, 0] } :
-            {}
+            moodLevel === "excited"
+              ? { scale: [1, 1.1, 1], rotate: [-2, 2, 0] }
+              : moodLevel === "happy"
+                ? { scale: [1, 1.05, 1] }
+                : moodLevel === "sad"
+                  ? { y: [0, 2, 0] }
+                  : {}
           }
-          transition={{ duration: 2, repeat: moodLevel === "excited" || moodLevel === "happy" ? Infinity : 0 }}
+          transition={{
+            duration: 2,
+            repeat: moodLevel === "excited" || moodLevel === "happy" ? Infinity : 0,
+          }}
           className="relative w-28 h-28 rounded-3xl flex items-center justify-center text-6xl shadow-lg"
           style={{
             background: `linear-gradient(135deg, ${getMoodColor(moodLevel)}30, ${getMoodColor(moodLevel)}10)`,
@@ -134,7 +171,9 @@ export function BmoCareDisplay({ userId, onClose }: BmoCareDisplayProps) {
           {getMoodEmoji(moodLevel)}
           {/* Accessories overlay */}
           {unlockedAccessories?.map((acc: string) => (
-            <span key={acc} className="absolute text-lg">{getAccessoryEmoji(acc)}</span>
+            <span key={acc} className="absolute text-lg">
+              {getAccessoryEmoji(acc)}
+            </span>
           ))}
         </motion.div>
 
@@ -157,7 +196,9 @@ export function BmoCareDisplay({ userId, onClose }: BmoCareDisplayProps) {
       <div>
         <div className="flex justify-between text-xs mb-1">
           <span className="font-bold text-[var(--text-muted)]">Mood Score</span>
-          <span className="font-black" style={{ color: getMoodColor(moodLevel) }}>{moodScore}/100</span>
+          <span className="font-black" style={{ color: getMoodColor(moodLevel) }}>
+            {moodScore}/100
+          </span>
         </div>
         <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
           <motion.div
@@ -214,7 +255,9 @@ export function BmoCareDisplay({ userId, onClose }: BmoCareDisplayProps) {
               <div className="flex items-center gap-2">
                 <span className="text-xl">{getAccessoryEmoji(nextUnlock.accessory.id)}</span>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-[var(--text-primary)]">{nextUnlock.accessory.nameVi}</p>
+                  <p className="text-sm font-bold text-[var(--text-primary)]">
+                    {nextUnlock.accessory.nameVi}
+                  </p>
                   <p className="text-[10px] text-[var(--text-muted)]">
                     {nextUnlock.daysAway === 0
                       ? t("bmoCare.unlockNow")
@@ -256,7 +299,9 @@ export function BmoCareDisplay({ userId, onClose }: BmoCareDisplayProps) {
                   {acc.nameVi}
                 </span>
                 {unlocked ? (
-                  <span className="text-[9px] font-bold text-amber-500">{t("bmoCare.unlocked")}</span>
+                  <span className="text-[9px] font-bold text-amber-500">
+                    {t("bmoCare.unlocked")}
+                  </span>
                 ) : (
                   <div className="flex items-center gap-1 text-[9px] text-slate-500">
                     <Lock size={8} />
@@ -285,7 +330,13 @@ export function BmoCareDisplay({ userId, onClose }: BmoCareDisplayProps) {
                 className="flex-1 rounded-t-sm"
                 style={{
                   background: getMoodColor(
-                    score >= 80 ? "excited" : score >= 60 ? "happy" : score >= 40 ? "neutral" : "sad"
+                    score >= 80
+                      ? "excited"
+                      : score >= 60
+                        ? "happy"
+                        : score >= 40
+                          ? "neutral"
+                          : "sad",
                   ),
                   opacity: 0.6 + (i / moodHistory?.length || 10) * 0.4,
                 }}

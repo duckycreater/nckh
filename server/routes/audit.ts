@@ -19,6 +19,7 @@ import { z } from "zod";
 import { getDb } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { zodValidate } from "../middleware/zodValidate.js";
+import { getAuditTrail } from "../services/auditTrail.js";
 
 const TimelineQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -42,17 +43,49 @@ interface Row {
 export function auditRouter(): Router {
   const router = Router();
 
-  router.get(
-    "/timeline",
-    requireAuth,
-    zodValidate({ query: TimelineQuery }),
-    async (req, res) => {
-      try {
-        const parsed = (res.locals.query ?? req.query) as z.infer<typeof TimelineQuery>;
-        const limit = parsed.limit;
-        const cursor = parsed.cursor ?? null;
-        const nick = (req as {userNick?: string}).userNick;
-        if (!nick) return res.status(401).json({ok: false, error: "auth required"});
+  // The root is public so a paper, dashboard, or external reviewer can
+  // independently pin the current audit state without seeing event payloads.
+  router.get("/merkle-root", (_req, res) => {
+    const snapshot = getAuditTrail().exportSnapshot();
+    res.json({ ok: true, rootHex: snapshot.rootHex, total: snapshot.total });
+  });
+
+  router.get("/verify", (req, res) => {
+    const verification = getAuditTrail().verifySnapshot();
+    const requestedRoot = typeof req.query.root === "string" ? req.query.root : null;
+    res.json({
+      ...verification,
+      matchesRequestedRoot:
+        requestedRoot === null ? null : requestedRoot === verification.actualRoot,
+    });
+  });
+
+  // Audit payloads remain private: users may inspect their own events and
+  // admins may inspect any pseudonymous user id.
+  router.get("/user/:userId", requireAuth, (req, res) => {
+    const callerId = String((req as { userId?: string }).userId ?? "");
+    const callerNick = String((req as { userNick?: string }).userNick ?? "");
+    const requestedId = req.params.userId;
+    const isAdmin = Boolean((req as { isAdmin?: boolean }).isAdmin);
+    if (!isAdmin && requestedId !== callerId && requestedId !== callerNick) {
+      return res.status(403).json({ ok: false, error: "Forbidden" });
+    }
+    const events = getAuditTrail()
+      .getAll()
+      .filter((event) => {
+        const eventUser = event.payload.userId ?? event.payload.user_id ?? event.payload.accountId;
+        return eventUser === requestedId;
+      });
+    return res.json({ ok: true, events });
+  });
+
+  router.get("/timeline", requireAuth, zodValidate({ query: TimelineQuery }), async (req, res) => {
+    try {
+      const parsed = (res.locals.query ?? req.query) as z.infer<typeof TimelineQuery>;
+      const limit = parsed.limit;
+      const cursor = parsed.cursor ?? null;
+      const nick = (req as { userNick?: string }).userNick;
+      if (!nick) return res.status(401).json({ ok: false, error: "auth required" });
 
       const db = getDb();
       if (!db) {
@@ -95,9 +128,14 @@ export function auditRouter(): Router {
           payload: r.event_data || {},
         }));
 
-      res.json({ok: true, events, cursor: nextCursor, locale: (req as any).locale?.locale ?? null});
+      res.json({
+        ok: true,
+        events,
+        cursor: nextCursor,
+        locale: (req as any).locale?.locale ?? null,
+      });
     } catch (e) {
-      res.status(500).json({ok: false, error: (e as Error).message});
+      res.status(500).json({ ok: false, error: (e as Error).message });
     }
   });
 
@@ -112,19 +150,19 @@ function exampleTimeline(nick: string): TimelineRow[] {
       id: "demo-1",
       ts: now - 1000 * 60 * 30,
       type: "scan",
-      payload: {image_hash: "a1b2c3d4e5f6a1b2"},
+      payload: { image_hash: "a1b2c3d4e5f6a1b2" },
     },
     {
       id: "demo-2",
       ts: now - 1000 * 60 * 12,
       type: "chat_message",
-      payload: {message_length: 42},
+      payload: { message_length: 42 },
     },
     {
       id: "demo-3",
       ts: now - 1000 * 60 * 5,
       type: "consent",
-      payload: {consent: true},
+      payload: { consent: true },
     },
   ];
 }

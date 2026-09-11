@@ -19,7 +19,7 @@ export interface AchievementUnlock {
 let unlockQueue: AchievementUnlock[] = [];
 let dispatchEvent = (a: AchievementUnlock) => {
   window.dispatchEvent(
-    new CustomEvent<AchievementUnlock>("ecoquest:achievement-unlock", { detail: a })
+    new CustomEvent<AchievementUnlock>("ecoquest:achievement-unlock", { detail: a }),
   );
 };
 
@@ -63,7 +63,8 @@ export function AchievementPopup() {
   if (!active) return null;
 
   const cfg = RARITY_CONFIG[active.achievement.rarity];
-  const isEpicOrHigher = active.achievement.rarity === "epic" || active.achievement.rarity === "legendary";
+  const isEpicOrHigher =
+    active.achievement.rarity === "epic" || active.achievement.rarity === "legendary";
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[200] flex items-start justify-center pt-16 px-4">
@@ -112,11 +113,16 @@ export function AchievementPopup() {
                 {/* Label */}
                 <div className="mb-1 flex items-center gap-2">
                   <Trophy size={12} className={cfg.labelColor} />
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${cfg.labelColor}`}>
-                    {active.achievement.rarity === "legendary" ? t("achievement.rarityLegendary") :
-                     active.achievement.rarity === "epic" ? t("achievement.rarityEpic") :
-                     active.achievement.rarity === "rare" ? t("achievement.rarityRare") :
-                     t("achievement.rarityCommon")}
+                  <span
+                    className={`text-[10px] font-black uppercase tracking-widest ${cfg.labelColor}`}
+                  >
+                    {active.achievement.rarity === "legendary"
+                      ? t("achievement.rarityLegendary")
+                      : active.achievement.rarity === "epic"
+                        ? t("achievement.rarityEpic")
+                        : active.achievement.rarity === "rare"
+                          ? t("achievement.rarityRare")
+                          : t("achievement.rarityCommon")}
                   </span>
                 </div>
 
@@ -222,25 +228,28 @@ export function AchievementBadgeGrid({
 export function useAchievements(user: User) {
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
 
-  const checkAndUnlock = useCallback((ctx: Parameters<typeof buildAchievementContext>[0]) => {
-    const newCtx = buildAchievementContext(ctx);
-    const newlyUnlocked: Achievement[] = [];
+  const checkAndUnlock = useCallback(
+    (ctx: Parameters<typeof buildAchievementContext>[0]) => {
+      const newCtx = buildAchievementContext(ctx);
+      const newlyUnlocked: Achievement[] = [];
 
-    ALL_ACHIEVEMENTS.forEach((ach) => {
-      if (!unlockedIds.has(ach.id) && ach.condition(newCtx)) {
-        newlyUnlocked.push(ach);
-        setUnlockedIds((prev) => new Set([...prev, ach.id]));
-        // Fire popup
-        window.dispatchEvent(
-          new CustomEvent("ecoquest:achievement-unlock", {
-            detail: { achievement: ach, timestamp: Date.now() },
-          })
-        );
-      }
-    });
+      ALL_ACHIEVEMENTS.forEach((ach) => {
+        if (!unlockedIds.has(ach.id) && ach.condition(newCtx)) {
+          newlyUnlocked.push(ach);
+          setUnlockedIds((prev) => new Set([...prev, ach.id]));
+          // Fire popup
+          window.dispatchEvent(
+            new CustomEvent("ecoquest:achievement-unlock", {
+              detail: { achievement: ach, timestamp: Date.now() },
+            }),
+          );
+        }
+      });
 
-    return newlyUnlocked;
-  }, [unlockedIds]);
+      return newlyUnlocked;
+    },
+    [unlockedIds],
+  );
 
   return { unlockedIds, checkAndUnlock };
 }
