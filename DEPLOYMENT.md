@@ -131,7 +131,8 @@ NODE_ENV=production node dist/server.cjs
 # 2. Connect GitHub repo on Railway/Render
 # 3. Build command: npm run build
 # 4. Start command: npm start (or `node dist/server.cjs`)
-# 5. Add environment variables (see .env above)
+# 5. Add environment variables (see `.env.example`), including the required
+#    production-only `BMO_MODEL_HMAC_SECRET` generated with `openssl rand -hex 32`
 # 6. Provision Postgres or use Supabase external
 ```
 
