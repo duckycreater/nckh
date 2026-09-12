@@ -89,12 +89,11 @@ export function auditRouter(): Router {
 
       const db = getDb();
       if (!db) {
-        // Offline / dev mode: return a small synthetic example so the UI
-        // still has something to render.
         return res.json({
           ok: true,
-          events: exampleTimeline(nick),
+          events: [],
           cursor: null,
+          provenance: "unavailable",
         });
       }
 
@@ -140,29 +139,4 @@ export function auditRouter(): Router {
   });
 
   return router;
-}
-
-/* Offline fallback shown when the research DB is not configured. */
-function exampleTimeline(nick: string): TimelineRow[] {
-  const now = Date.now();
-  return [
-    {
-      id: "demo-1",
-      ts: now - 1000 * 60 * 30,
-      type: "scan",
-      payload: { image_hash: "a1b2c3d4e5f6a1b2" },
-    },
-    {
-      id: "demo-2",
-      ts: now - 1000 * 60 * 12,
-      type: "chat_message",
-      payload: { message_length: 42 },
-    },
-    {
-      id: "demo-3",
-      ts: now - 1000 * 60 * 5,
-      type: "consent",
-      payload: { consent: true },
-    },
-  ];
 }

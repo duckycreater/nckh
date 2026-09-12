@@ -42,6 +42,7 @@ import {
   Users,
   Crown,
   ChevronRight,
+  Gift,
   Star,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -91,6 +92,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     newLevel: number;
   } | null>(null);
   const [showDailyWheel, setShowDailyWheel] = useState(false);
+  const [dailyWheelAvailable, setDailyWheelAvailable] = useState(false);
   const [showSurpriseGift, setShowSurpriseGift] = useState<
     import("./SurpriseGift").SurpriseGiftDef | null
   >(null);
@@ -115,6 +117,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
           const data = await res.json();
           onUpdateUser({
             points: data.points,
+            totalExpEarned: data.totalExpEarned,
             name: data.name,
             progress: data.progress,
             hasPlayed: data.hasPlayed,
@@ -153,7 +156,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   useEffect(() => {
     const today = getVietnamDayKey();
     const lastSpin = user.lastWheelClaimDate || localStorage.getItem("bmo:wheel:lastSpin");
-    setShowDailyWheel(lastSpin !== today);
+    setDailyWheelAvailable(lastSpin !== today);
     setLastWheelDate(lastSpin || "");
     const localGift = parseInt(localStorage.getItem("bmo:gift:lastMilestone") || "0", 10);
     const serverGift = Math.max(0, ...(user.claimedStreakGifts ?? []));
@@ -191,7 +194,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
   const { level, currentExpInLevel, expToNextLevel, progress, tier, tierData, isMaxLevel } =
     calculateLevel(highWaterRef.current);
-  const streakDays = user.progress?.streakDays || 1;
+  const streakDays = user.progress?.streakDays ?? 0;
 
   const handleWheelSpin = async (): Promise<WheelSpinResult> => {
     const response = await fetch("/api/daily-wheel", {
@@ -204,7 +207,12 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     }
     localStorage.setItem("bmo:wheel:lastSpin", data.claimDate);
     setLastWheelDate(data.claimDate);
-    onUpdateUser({ points: data.points, lastWheelClaimDate: data.claimDate });
+    setDailyWheelAvailable(false);
+    onUpdateUser({
+      points: data.points,
+      totalExpEarned: data.totalExpEarned,
+      lastWheelClaimDate: data.claimDate,
+    });
     showPointsToast(data.earnedPoints, 1, t("dashboard.wheelResult", { label: "Daily Wheel" }));
     return data as WheelSpinResult;
   };
@@ -225,6 +233,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
       setShowSurpriseGift(null);
       onUpdateUser({
         points: data.points,
+        totalExpEarned: data.totalExpEarned,
         claimedStreakGifts: [...(user.claimedStreakGifts ?? []), gift.streakDays],
       });
     } catch (error) {
@@ -272,16 +281,20 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
     label,
     color,
     onClick,
+    disabled = false,
   }: {
     icon: React.ReactNode;
     label: string;
     color: string;
     onClick: () => void;
+    disabled?: boolean;
   }) {
     return (
       <button
+        type="button"
         onClick={onClick}
-        className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all active:scale-95 hover:scale-105 ${color}`}
+        disabled={disabled}
+        className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all enabled:active:scale-95 enabled:hover:scale-105 disabled:cursor-not-allowed ${color}`}
       >
         <div>{icon}</div>
         <span className="text-[10px] font-bold leading-tight text-[var(--text-muted)] text-center">
@@ -292,13 +305,15 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   }
 
   return (
-    <div className="flex h-screen bg-[var(--background)] items-center justify-center sm:p-3">
-      <div className="w-full h-full sm:h-[92vh] sm:max-w-md bg-[var(--surface)] sm:rounded-3xl border border-[var(--border-subtle)] shadow-[var(--shadow-medium)] flex flex-col relative overflow-hidden">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--background)] sm:p-4 lg:p-6">
+      <div className="relative flex h-screen w-full max-w-7xl flex-col overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface)] shadow-[var(--shadow-medium)] sm:h-[calc(100vh-2rem)] sm:rounded-3xl lg:h-[calc(100vh-3rem)]">
         {/* ── TOP BAR ── */}
         <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <button
+              type="button"
               onClick={() => setViewingProfile(user.account_id)}
+              aria-label={loc.startsWith("vi") ? "Mở hồ sơ cá nhân" : "Open profile"}
               className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity"
             >
               <div className="w-11 h-11 rounded-2xl bg-[var(--primary-soft)] border border-[var(--primary-soft-strong)] flex items-center justify-center text-lg font-black text-[var(--primary)] shrink-0">
@@ -320,7 +335,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               </div>
             </button>
 
-            <div className="flex-1 max-w-[120px] hidden sm:block">
+            <div className="hidden max-w-[260px] flex-1 sm:block">
               <div className="flex justify-between text-[10px] text-[var(--text-muted)] mb-1">
                 <span>EXP</span>
                 <span>{progress.toFixed(0)}%</span>
@@ -337,13 +352,17 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
             <div className="flex items-center gap-1 shrink-0">
               <button
+                type="button"
                 onClick={() => setShowSettings(true)}
+                aria-label={loc.startsWith("vi") ? "Mở cài đặt" : "Open settings"}
                 className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-soft)] transition-colors"
               >
                 <SettingsIcon size={18} />
               </button>
               <button
+                type="button"
                 onClick={onLogout}
+                aria-label={loc.startsWith("vi") ? "Đăng xuất" : "Log out"}
                 className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-red-50 hover:text-red-500 transition-colors"
               >
                 <LogOut size={18} />
@@ -354,14 +373,14 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
         {/* ── SCROLLABLE CONTENT ── */}
         <div className="flex-1 overflow-y-auto thin-scrollbar">
-          <div className="p-4 space-y-4">
+          <div className="space-y-4 p-4 sm:p-6">
             {/* HOME */}
             {activeTab === "home" && (
-              <div className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
                 {/* AI Scanner hero */}
                 <button
                   onClick={() => setShowScanner(true)}
-                  className="w-full flex items-center gap-4 rounded-2xl bg-gradient-to-r from-[var(--primary)] to-emerald-400 p-4 text-white shadow-[var(--shadow-glow)] active:scale-[0.98] transition-transform"
+                  className="flex w-full items-center gap-4 rounded-2xl bg-gradient-to-r from-[var(--primary)] to-emerald-400 p-4 text-white shadow-[var(--shadow-glow)] transition-transform active:scale-[0.98] lg:col-span-7 lg:min-h-24"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 shrink-0">
                     <Camera size={24} />
@@ -374,7 +393,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 </button>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2 lg:col-span-5 lg:h-full">
                   <StatCard
                     label={t("dashboard.levelLabel")}
                     value={`Lv.${level}`}
@@ -395,11 +414,11 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 </div>
 
                 {/* Quick actions */}
-                <div>
+                <div className="lg:col-span-12">
                   <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">
                     {t("dashboard.toolsLabel")}
                   </p>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     <ActionBtn
                       icon={<Trophy size={20} className="text-orange-500" />}
                       label={t("dashboard.leaderboard")}
@@ -424,17 +443,42 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                       color="bg-emerald-50 border-emerald-100"
                       onClick={() => setShowClanLobby(true)}
                     />
+                    <ActionBtn
+                      icon={<Gift size={20} className="text-amber-500" />}
+                      label={
+                        dailyWheelAvailable
+                          ? loc.startsWith("vi")
+                            ? "Vòng quay"
+                            : "Daily reward"
+                          : loc.startsWith("vi")
+                            ? "Đã nhận"
+                            : "Claimed"
+                      }
+                      color={
+                        dailyWheelAvailable
+                          ? "bg-amber-50 border-amber-200"
+                          : "bg-slate-50 border-slate-100 opacity-60"
+                      }
+                      disabled={!dailyWheelAvailable}
+                      onClick={() => {
+                        if (dailyWheelAvailable) setShowDailyWheel(true);
+                      }}
+                    />
                   </div>
                 </div>
 
-                <DailyChallenges
-                  userId={user.account_id}
-                  progress={user.progress}
-                  onRefresh={triggerRefresh}
-                />
-                <Minigame user={user} onComplete={handleMinigameComplete} />
-                <AdaptiveRewardBanner userId={user.account_id} />
-                <VirtualGarden points={user.points} onReward={handleEarnPoints} />
+                <div className="space-y-4 lg:col-span-7">
+                  <DailyChallenges
+                    userId={user.account_id}
+                    progress={user.progress}
+                    onRefresh={triggerRefresh}
+                  />
+                  <AdaptiveRewardBanner userId={user.account_id} />
+                </div>
+                <div className="space-y-4 lg:col-span-5">
+                  <Minigame user={user} onComplete={handleMinigameComplete} />
+                  <VirtualGarden points={user.points} onReward={handleEarnPoints} />
+                </div>
               </div>
             )}
 
@@ -489,7 +533,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
         {/* ── BOTTOM NAV ── */}
         <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface)]">
-          <div className="flex">
+          <div className="mx-auto flex w-full max-w-2xl">
             <button
               onClick={() => navigate("/home")}
               className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "home" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}

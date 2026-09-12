@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
-import { ShieldCheck } from "lucide-react";
+import { Leaf, LockKeyhole, ScanLine, ShieldCheck, Sparkles } from "lucide-react";
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -42,7 +42,35 @@ export function Auth({ onLogin }: AuthProps) {
   const [resetPassword, setResetPassword] = useState("");
   const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isVietnamese = i18n.resolvedLanguage?.startsWith("vi") ?? true;
+  const productCopy = isVietnamese
+    ? {
+        eyebrow: "NỀN TẢNG GIÁO DỤC MÔI TRƯỜNG",
+        title: "Biến mỗi lần phân loại rác thành một dữ liệu có ích.",
+        description:
+          "BMO kết nối nhận diện bằng AI, hành vi xanh và hệ thống điểm trong một trải nghiệm có thể đo lường.",
+        features: [
+          "Nhận diện và hướng dẫn phân loại rác",
+          "Điểm thưởng được máy chủ xác minh",
+          "Theo dõi tiến bộ và dữ liệu nghiên cứu",
+        ],
+        privacy: "Quyền riêng tư và tính minh bạch được thiết kế ngay từ đầu.",
+        prototype: "Research prototype · ISEF 2026",
+      }
+    : {
+        eyebrow: "ENVIRONMENTAL LEARNING PLATFORM",
+        title: "Turn every waste-sorting action into useful evidence.",
+        description:
+          "BMO brings AI-assisted recognition, green habits and verified rewards into one measurable experience.",
+        features: [
+          "Waste recognition and sorting guidance",
+          "Server-verified reward points",
+          "Progress tracking and research data",
+        ],
+        privacy: "Privacy and transparency are designed in from the start.",
+        prototype: "Research prototype · ISEF 2026",
+      };
 
   // Check for remember token on mount
   React.useEffect(() => {
@@ -67,7 +95,7 @@ export function Auth({ onLogin }: AuthProps) {
 
   const getPasswordStrength = (pass: string, t: (key: string) => string) => {
     if (pass.length === 0) return { color: "bg-gray-200", label: "", width: "0%" };
-    if (pass.length < 6)
+    if (pass.length < 8)
       return { color: "bg-red-500", label: t("auth.strengthWeak"), width: "33%" };
     if (pass.length < 10 || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass))
       return { color: "bg-yellow-500", label: t("auth.strengthMedium"), width: "66%" };
@@ -112,6 +140,7 @@ export function Auth({ onLogin }: AuthProps) {
             name: data.nickname,
             account_id: data.account_id,
             points: data.points,
+            totalExpEarned: progressData.totalExpEarned ?? data.totalExpEarned ?? data.points,
             role: data.role,
             email: data.email ?? progressData.email,
             fullName: data.full_name ?? progressData.full_name ?? progressData.fullName,
@@ -131,6 +160,7 @@ export function Auth({ onLogin }: AuthProps) {
             name: data.nickname,
             account_id: data.account_id,
             points: data.points,
+            totalExpEarned: data.totalExpEarned ?? data.points,
             role: data.role,
             email: data.email,
             fullName: data.full_name,
@@ -153,7 +183,7 @@ export function Auth({ onLogin }: AuthProps) {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (regPass.length < 6) {
+    if (regPass.length < 8) {
       setMessage({ text: t("auth.passwordMinChars"), type: "error" });
       return;
     }
@@ -317,520 +347,540 @@ export function Auth({ onLogin }: AuthProps) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-[420px] bg-white/95 p-[30px] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.6)] border-t-[6px] border-[var(--text-muted)] text-center relative max-h-[90vh] overflow-y-auto">
-        {view === "login" && (
-          <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              {t("auth.lookupScore")}
-            </h2>
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,#062e28_0%,#0b5b48_48%,#0e7c5b_100%)] px-4 py-6 sm:px-8 lg:py-10">
+      <div className="pointer-events-none absolute -left-24 top-12 h-72 w-72 rounded-full bg-emerald-300/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 right-0 h-96 w-96 rounded-full bg-cyan-200/10 blur-3xl" />
 
-            {showWelcomeBack && (
-              <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 font-medium">
-                <ShieldCheck size={16} className="shrink-0" />
-                <span>{t("auth.welcomeBack")}</span>
-              </div>
-            )}
+      <div className="relative mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center gap-10 lg:min-h-[calc(100vh-5rem)] lg:grid-cols-[minmax(0,1.1fr)_minmax(390px,0.72fr)]">
+        <section className="hidden max-w-2xl text-white lg:flex lg:flex-col lg:justify-center">
+          <div className="mb-8 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
+              <Leaf size={26} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-xl font-black tracking-tight">BMO EcoQuest</p>
+              <p className="text-[11px] font-bold tracking-[0.18em] text-emerald-100">
+                {productCopy.eyebrow}
+              </p>
+            </div>
+          </div>
 
-            <form onSubmit={handleLogin} className="text-left space-y-[15px]">
-              <div>
-                <label
-                  htmlFor="login-nick"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.account")}
-                </label>
-                <input
-                  id="login-nick"
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={loginNick}
-                  onChange={(e) => setLoginNick(e.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="login-pass"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.password")}
-                </label>
-                <input
-                  id="login-pass"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={loginPass}
-                  onChange={(e) => setLoginPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-              </div>
+          <span className="mb-5 w-fit rounded-full border border-emerald-100/30 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 backdrop-blur">
+            {productCopy.prototype}
+          </span>
+          <h1 className="max-w-xl text-4xl font-black leading-[1.08] tracking-[-0.035em] xl:text-5xl">
+            {productCopy.title}
+          </h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-emerald-50/85">
+            {productCopy.description}
+          </p>
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer">
+          <div className="mt-8 grid gap-3">
+            {productCopy.features.map((feature, index) => {
+              const FeatureIcon = [ScanLine, ShieldCheck, Sparkles][index];
+              return (
+                <div key={feature} className="flex items-center gap-3 text-sm font-semibold">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
+                    <FeatureIcon size={18} aria-hidden="true" />
+                  </span>
+                  <span>{feature}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-9 flex items-center gap-2 text-xs text-emerald-100/80">
+            <LockKeyhole size={15} aria-hidden="true" />
+            <span>{productCopy.privacy}</span>
+          </div>
+        </section>
+
+        <section className="relative mx-auto max-h-[calc(100vh-3rem)] w-full max-w-[440px] overflow-y-auto rounded-[28px] border border-white/70 bg-white/95 p-6 text-center shadow-[0_30px_80px_rgba(0,25,20,0.35)] backdrop-blur-xl sm:p-8">
+          <div className="mb-6 flex items-center justify-center gap-3 lg:hidden">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+              <Leaf size={22} aria-hidden="true" />
+            </div>
+            <div className="text-left">
+              <p className="font-black leading-tight text-emerald-950">BMO EcoQuest</p>
+              <p className="text-[10px] font-bold tracking-[0.12em] text-emerald-700">
+                {productCopy.prototype}
+              </p>
+            </div>
+          </div>
+          {view === "login" && (
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              <h2 className="mt-0 text-2xl font-black tracking-tight text-emerald-950">
+                {t("auth.lookupScore")}
+              </h2>
+              <p className="mb-6 mt-2 text-sm leading-6 text-slate-500">
+                {isVietnamese
+                  ? "Tiếp tục hành trình phân loại rác và theo dõi tác động của bạn."
+                  : "Continue your waste-sorting journey and track your impact."}
+              </p>
+
+              {showWelcomeBack && (
+                <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 font-medium">
+                  <ShieldCheck size={16} className="shrink-0" />
+                  <span>{t("auth.welcomeBack")}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} className="text-left space-y-[15px]">
+                <div>
+                  <label
+                    htmlFor="login-nick"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.account")}
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 accent-[var(--text-muted)] cursor-pointer"
+                    id="login-nick"
+                    type="text"
+                    required
+                    autoComplete="username"
+                    value={loginNick}
+                    onChange={(e) => setLoginNick(e.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                   />
-                  {t("auth.rememberLogin")}
-                </label>
+                </div>
+                <div>
+                  <label
+                    htmlFor="login-pass"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.password")}
+                  </label>
+                  <input
+                    id="login-pass"
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    value={loginPass}
+                    onChange={(e) => setLoginPass(e.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 accent-[var(--text-muted)] cursor-pointer"
+                    />
+                    {t("auth.rememberLogin")}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => switchView("forgot")}
+                    className="text-sm text-[var(--text-muted)] font-semibold hover:underline cursor-pointer"
+                  >
+                    {t("auth.forgotPassword")}
+                  </button>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => switchView("forgot")}
-                  className="text-sm text-[var(--text-muted)] font-semibold hover:underline cursor-pointer"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                 >
-                  {t("auth.forgotPassword")}
+                  {t("auth.login")}
+                </button>
+              </form>
+              <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
+                {t("auth.noAccount")}{" "}
+                <button
+                  onClick={() => switchView("register")}
+                  className="text-[var(--primary-strong)] font-bold underline-offset-2 hover:underline cursor-pointer"
+                >
+                  {t("auth.registerNow")}
+                </button>
+                <br />
+                <button
+                  onClick={() => switchView("changepass")}
+                  className="text-[12px] text-[var(--text-muted)] block mt-[8px] mx-auto hover:underline cursor-pointer"
+                >
+                  {t("auth.changePassword")}
                 </button>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-              >
-                {t("auth.login")}
-              </button>
-            </form>
-            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
-              {t("auth.noAccount")}{" "}
-              <button
-                onClick={() => switchView("register")}
-                className="text-[var(--primary-strong)] font-bold underline-offset-2 hover:underline cursor-pointer"
-              >
-                {t("auth.registerNow")}
-              </button>
-              <br />
-              <button
-                onClick={() => switchView("changepass")}
-                className="text-[12px] text-[var(--text-muted)] block mt-[8px] mx-auto hover:underline cursor-pointer"
-              >
-                {t("auth.changePassword")}
-              </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {view === "register" && (
-          <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              {t("auth.registerTitle")}
-            </h2>
-            <form onSubmit={handleRegister} className="text-left space-y-[15px]">
-              <div>
-                <label
-                  htmlFor="reg-name"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.displayName")}
-                </label>
-                <input
-                  id="reg-name"
-                  type="text"
-                  required
-                  aria-required="true"
-                  aria-describedby="reg-name-hint"
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  placeholder={t("auth.displayNamePlaceholder")}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-                <p id="reg-name-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
-                  {t("auth.displayNameHint")}
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="reg-full-name"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.fullName")}
-                </label>
-                <input
-                  id="reg-full-name"
-                  type="text"
-                  aria-required="false"
-                  aria-describedby="reg-full-name-hint"
-                  value={regFullName}
-                  onChange={(e) => setRegFullName(e.target.value)}
-                  placeholder={t("auth.fullNamePlaceholder")}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-                <p id="reg-full-name-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
-                  {t("auth.fullNameHint")}
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="reg-class"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.classGrade")}
-                </label>
-                <select
-                  id="reg-class"
-                  aria-required="false"
-                  aria-describedby="reg-class-hint"
-                  value={regClassGrade}
-                  onChange={(e) => setRegClassGrade(e.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none appearance-none cursor-pointer"
-                >
-                  <option value="">{t("auth.classGradePlaceholder")}</option>
-                  {[...Array(12)].map((_, i) => (
-                    <option key={i + 1} value={String(i + 1)}>
-                      Lớp {i + 1}
-                    </option>
-                  ))}
-                </select>
-                <p id="reg-class-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
-                  {t("auth.classGradeHint")}
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="reg-nick"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.username")}
-                </label>
-                <input
-                  id="reg-nick"
-                  type="text"
-                  required
-                  aria-required="true"
-                  aria-describedby="reg-nick-hint"
-                  value={regNick}
-                  onChange={(e) => setRegNick(e.target.value)}
-                  placeholder={t("auth.usernamePlaceholder")}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-                <p id="reg-nick-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
-                  {t("auth.usernameHint")}
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="reg-email"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.emailOptional")}
-                </label>
-                <input
-                  id="reg-email"
-                  type="email"
-                  aria-required="false"
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder={t("auth.emailPlaceholder")}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-                <p className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.emailHint")}</p>
-              </div>
-              <div>
-                <label
-                  htmlFor="reg-pass"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("auth.password")}
-                </label>
-                <input
-                  id="reg-pass"
-                  type="password"
-                  required
-                  aria-required="true"
-                  aria-describedby="reg-pass-strength"
-                  value={regPass}
-                  onChange={(e) => setRegPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-                {regPass.length > 0 && (
-                  <div id="reg-pass-strength" className="mt-1.5">
-                    <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${strength.color} transition-all duration-300`}
-                        style={{ width: strength.width }}
-                      />
+          {view === "register" && (
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+                {t("auth.registerTitle")}
+              </h2>
+              <form onSubmit={handleRegister} className="text-left space-y-[15px]">
+                <div>
+                  <label
+                    htmlFor="reg-name"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.displayName")}
+                  </label>
+                  <input
+                    id="reg-name"
+                    type="text"
+                    required
+                    aria-required="true"
+                    aria-describedby="reg-name-hint"
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder={t("auth.displayNamePlaceholder")}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                  <p id="reg-name-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
+                    {t("auth.displayNameHint")}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="reg-full-name"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.fullName")}
+                  </label>
+                  <input
+                    id="reg-full-name"
+                    type="text"
+                    aria-required="false"
+                    aria-describedby="reg-full-name-hint"
+                    value={regFullName}
+                    onChange={(e) => setRegFullName(e.target.value)}
+                    placeholder={t("auth.fullNamePlaceholder")}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                  <p id="reg-full-name-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
+                    {t("auth.fullNameHint")}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="reg-class"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.classGrade")}
+                  </label>
+                  <select
+                    id="reg-class"
+                    aria-required="false"
+                    aria-describedby="reg-class-hint"
+                    value={regClassGrade}
+                    onChange={(e) => setRegClassGrade(e.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">{t("auth.classGradePlaceholder")}</option>
+                    {[...Array(12)].map((_, i) => (
+                      <option key={i + 1} value={String(i + 1)}>
+                        Lớp {i + 1}
+                      </option>
+                    ))}
+                  </select>
+                  <p id="reg-class-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
+                    {t("auth.classGradeHint")}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="reg-nick"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.username")}
+                  </label>
+                  <input
+                    id="reg-nick"
+                    type="text"
+                    required
+                    aria-required="true"
+                    aria-describedby="reg-nick-hint"
+                    value={regNick}
+                    onChange={(e) => setRegNick(e.target.value)}
+                    placeholder={t("auth.usernamePlaceholder")}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                  <p id="reg-nick-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
+                    {t("auth.usernameHint")}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="reg-email"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.emailOptional")}
+                  </label>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    aria-required="false"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder={t("auth.emailPlaceholder")}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1">{t("auth.emailHint")}</p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="reg-pass"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.password")}
+                  </label>
+                  <input
+                    id="reg-pass"
+                    type="password"
+                    required
+                    minLength={8}
+                    maxLength={128}
+                    aria-required="true"
+                    aria-describedby="reg-pass-strength"
+                    value={regPass}
+                    onChange={(e) => setRegPass(e.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                  {regPass.length > 0 && (
+                    <div id="reg-pass-strength" className="mt-1.5">
+                      <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${strength.color} transition-all duration-300`}
+                          style={{ width: strength.width }}
+                        />
+                      </div>
+                      <p
+                        className={`text-xs mt-0.5 ${
+                          strength.label === t("auth.strengthStrong")
+                            ? "text-green-600"
+                            : strength.label === t("auth.strengthMedium")
+                              ? "text-yellow-600"
+                              : "text-red-500"
+                        }`}
+                      >
+                        {strength.label}
+                      </p>
                     </div>
-                    <p
-                      className={`text-xs mt-0.5 ${
-                        strength.label === t("auth.strengthStrong")
-                          ? "text-green-600"
-                          : strength.label === t("auth.strengthMedium")
-                            ? "text-yellow-600"
-                            : "text-red-500"
-                      }`}
-                    >
-                      {strength.label}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2 border-t border-gray-100 space-y-3">
-                <div className="text-center text-xs text-[var(--text-muted)] font-medium">
-                  {t("auth.orRegisterWith")}
+                  )}
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    disabled={loading}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-[var(--border-subtle)] rounded-lg bg-white text-[var(--text-secondary)] text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full p-3 bg-[var(--primary)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                >
+                  {t("auth.register")}
+                </button>
+              </form>
+              <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
+                {t("auth.hasAccount")}{" "}
+                <button
+                  onClick={() => switchView("login")}
+                  className="text-[var(--primary-strong)] font-bold underline-offset-2 hover:underline cursor-pointer"
+                >
+                  {t("auth.backToLogin")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {view === "changepass" && (
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+                {t("auth.changePassword")}
+              </h2>
+              <form onSubmit={handleChangePass} className="text-left space-y-[15px]">
+                <div>
+                  <label
+                    htmlFor="cp-nick"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
                   >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      />
-                    </svg>
-                    {t("auth.google")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-[var(--border-subtle)] rounded-lg bg-white text-[var(--text-secondary)] text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path
-                        fill="#1877F2"
-                        d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-                      />
-                    </svg>
-                    {t("auth.facebook")}
-                  </button>
+                    {t("auth.account")}
+                  </label>
+                  <input
+                    id="cp-nick"
+                    type="text"
+                    required
+                    autoComplete="username"
+                    value={cpNick}
+                    onChange={(e) => setCpNick(e.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
                 </div>
+                <div>
+                  <label
+                    htmlFor="cp-old-pass"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("settings.oldPassword")}
+                  </label>
+                  <input
+                    id="cp-old-pass"
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    value={cpOldPass}
+                    onChange={(e) => setCpOldPass(e.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="cp-new-pass"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("settings.newPassword")}
+                  </label>
+                  <input
+                    id="cp-new-pass"
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    value={cpNewPass}
+                    onChange={(e) => setCpNewPass(e.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full p-3 bg-[var(--accent)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                >
+                  {t("common.save")}
+                </button>
+              </form>
+              <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
+                <button
+                  onClick={() => switchView("login")}
+                  className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
+                >
+                  {t("common.back")}
+                </button>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full p-3 bg-[var(--primary)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-              >
-                {t("auth.register")}
-              </button>
-            </form>
-            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
-              {t("auth.hasAccount")}{" "}
-              <button
-                onClick={() => switchView("login")}
-                className="text-[var(--primary-strong)] font-bold underline-offset-2 hover:underline cursor-pointer"
-              >
-                {t("auth.backToLogin")}
-              </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {view === "changepass" && (
-          <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              {t("auth.changePassword")}
-            </h2>
-            <form onSubmit={handleChangePass} className="text-left space-y-[15px]">
-              <div>
-                <label
-                  htmlFor="cp-nick"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+          {view === "forgot" && (
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+                {t("auth.resetTitle")}
+              </h2>
+              <p className="text-sm text-[var(--text-muted)] mb-6 text-left">
+                {t("auth.resetSubtitle")}
+              </p>
+              <form onSubmit={handleForgotPassword} className="text-left space-y-[15px]">
+                <div>
+                  <label
+                    htmlFor="fp-email"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("auth.emailOrUsername")}
+                  </label>
+                  <input
+                    id="fp-email"
+                    type="text"
+                    required
+                    aria-required="true"
+                    value={fpEmail}
+                    onChange={(e) => setFpEmail(e.target.value)}
+                    placeholder={t("auth.emailOrUsernamePlaceholder")}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                 >
-                  {t("auth.account")}
-                </label>
-                <input
-                  id="cp-nick"
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={cpNick}
-                  onChange={(e) => setCpNick(e.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="cp-old-pass"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  {t("auth.sendResetLink")}
+                </button>
+              </form>
+              <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
+                <button
+                  onClick={() => switchView("login")}
+                  className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
                 >
-                  {t("settings.oldPassword")}
-                </label>
-                <input
-                  id="cp-old-pass"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={cpOldPass}
-                  onChange={(e) => setCpOldPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
+                  {t("auth.backToLogin2")}
+                </button>
               </div>
-              <div>
-                <label
-                  htmlFor="cp-new-pass"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("settings.newPassword")}
-                </label>
-                <input
-                  id="cp-new-pass"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={cpNewPass}
-                  onChange={(e) => setCpNewPass(e.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full p-3 bg-[var(--accent)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer mt-[10px] shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-              >
-                {t("common.save")}
-              </button>
-            </form>
-            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
-              <button
-                onClick={() => switchView("login")}
-                className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
-              >
-                {t("common.back")}
-              </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {view === "forgot" && (
-          <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              {t("auth.resetTitle")}
-            </h2>
-            <p className="text-sm text-[var(--text-muted)] mb-6 text-left">
-              {t("auth.resetSubtitle")}
-            </p>
-            <form onSubmit={handleForgotPassword} className="text-left space-y-[15px]">
-              <div>
-                <label
-                  htmlFor="fp-email"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+          {view === "reset" && (
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
+                {t("auth.resetTitle")}
+              </h2>
+              <form onSubmit={handleResetPassword} className="text-left space-y-[15px]">
+                <div>
+                  <label
+                    htmlFor="reset-new-password"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("settings.newPassword")}
+                  </label>
+                  <input
+                    id="reset-new-password"
+                    type="password"
+                    required
+                    minLength={8}
+                    maxLength={128}
+                    autoComplete="new-password"
+                    value={resetPassword}
+                    onChange={(event) => setResetPassword(event.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="reset-confirm-password"
+                    className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
+                  >
+                    {t("settings.confirmPassword")}
+                  </label>
+                  <input
+                    id="reset-confirm-password"
+                    type="password"
+                    required
+                    minLength={8}
+                    maxLength={128}
+                    autoComplete="new-password"
+                    value={resetPasswordConfirm}
+                    onChange={(event) => setResetPasswordConfirm(event.target.value)}
+                    className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading || !resetToken}
+                  className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                 >
-                  {t("auth.emailOrUsername")}
-                </label>
-                <input
-                  id="fp-email"
-                  type="text"
-                  required
-                  aria-required="true"
-                  value={fpEmail}
-                  onChange={(e) => setFpEmail(e.target.value)}
-                  placeholder={t("auth.emailOrUsernamePlaceholder")}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
+                  {t("common.save")}
+                </button>
+              </form>
+              <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
+                <button
+                  onClick={() => switchView("login")}
+                  className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
+                >
+                  {t("auth.backToLogin2")}
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-              >
-                {t("auth.sendResetLink")}
-              </button>
-            </form>
-            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
-              <button
-                onClick={() => switchView("login")}
-                className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
-              >
-                {t("auth.backToLogin2")}
-              </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {view === "reset" && (
-          <div className="animate-[fadeIn_0.4s_ease-out]">
-            <h2 className="text-[var(--primary-strong)] mt-0 mb-6 uppercase tracking-[1px] text-2xl font-bold">
-              {t("auth.resetTitle")}
-            </h2>
-            <form onSubmit={handleResetPassword} className="text-left space-y-[15px]">
-              <div>
-                <label
-                  htmlFor="reset-new-password"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("settings.newPassword")}
-                </label>
-                <input
-                  id="reset-new-password"
-                  type="password"
-                  required
-                  minLength={8}
-                  maxLength={128}
-                  autoComplete="new-password"
-                  value={resetPassword}
-                  onChange={(event) => setResetPassword(event.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="reset-confirm-password"
-                  className="font-bold text-[var(--text-secondary)] text-[13px] block mb-[5px]"
-                >
-                  {t("settings.confirmPassword")}
-                </label>
-                <input
-                  id="reset-confirm-password"
-                  type="password"
-                  required
-                  minLength={8}
-                  maxLength={128}
-                  autoComplete="new-password"
-                  value={resetPasswordConfirm}
-                  onChange={(event) => setResetPasswordConfirm(event.target.value)}
-                  className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading || !resetToken}
-                className="w-full p-3 bg-[var(--text-muted)] text-white border-none rounded-lg font-bold text-[16px] cursor-pointer shadow-[0_4px_6px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[2px] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-              >
-                {t("common.save")}
-              </button>
-            </form>
-            <div className="mt-[15px] text-[14px] text-[var(--text-secondary)]">
-              <button
-                onClick={() => switchView("login")}
-                className="text-[var(--primary-strong)] font-bold cursor-pointer hover:underline"
-              >
-                {t("auth.backToLogin2")}
-              </button>
+          {loading && (
+            <div className="mt-[15px] mx-auto w-[30px] h-[30px] border-[4px] border-[var(--surface-soft)] border-t-[var(--text-muted)] rounded-full animate-spin"></div>
+          )}
+
+          {message && !loading && (
+            <div
+              className={`mt-[15px] font-bold ${message.type === "success" ? "text-[var(--primary-strong)]" : "text-[var(--danger)]"}`}
+            >
+              {message.text}
             </div>
-          </div>
-        )}
-
-        {loading && (
-          <div className="mt-[15px] mx-auto w-[30px] h-[30px] border-[4px] border-[var(--surface-soft)] border-t-[var(--text-muted)] rounded-full animate-spin"></div>
-        )}
-
-        {message && !loading && (
-          <div
-            className={`mt-[15px] font-bold ${message.type === "success" ? "text-[var(--primary-strong)]" : "text-[var(--danger)]"}`}
-          >
-            {message.text}
-          </div>
-        )}
+          )}
+        </section>
       </div>
     </div>
   );

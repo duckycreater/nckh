@@ -19,7 +19,31 @@ export { app };
 // When launched as `npx tsx server.ts` (production or `npm run dev`),
 // start the HTTP listener. When this file is bundled into dist/server.cjs
 // by esbuild the same module is the entry point so we self-invoke once.
-startServer().catch((e) => {
-  console.error("[server] Fatal startup error:", e);
-  process.exit(1);
-});
+startServer()
+  .then((server) => {
+    let shuttingDown = false;
+    const shutdown = (signal: NodeJS.Signals) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.info(`[server] ${signal} received; draining active connections...`);
+      const forceExit = setTimeout(() => {
+        console.error("[server] graceful shutdown timed out");
+        process.exit(1);
+      }, 25_000);
+      forceExit.unref();
+      server.close((error) => {
+        clearTimeout(forceExit);
+        if (error) {
+          console.error("[server] shutdown failed:", error);
+          process.exit(1);
+        }
+        process.exit(0);
+      });
+    };
+    process.once("SIGTERM", () => shutdown("SIGTERM"));
+    process.once("SIGINT", () => shutdown("SIGINT"));
+  })
+  .catch((e) => {
+    console.error("[server] Fatal startup error:", e);
+    process.exit(1);
+  });

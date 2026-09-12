@@ -212,7 +212,9 @@ async function main() {
   try {
     modelJson = JSON.parse(model.body);
   } catch {}
-  logStep(`/api/models/waste-classifier 200 OK, sha256=${(modelJson.manifest?.sha256 ?? "?").slice(0, 16)}…`);
+  logStep(
+    `/api/models/waste-classifier 200 OK, sha256=${(modelJson.manifest?.sha256 ?? "?").slice(0, 16)}…`,
+  );
 
   // 6. /api/models/missing should 404
   const missing = await fetchOk(`${BASE}/api/models/does-not-exist`);
@@ -255,6 +257,26 @@ async function main() {
     fail(`/api/health with POST returned ${wrongMethod.status} (expected 404 or 405)`);
   }
   logStep(`/api/health with POST → ${wrongMethod.status} (method gating OK)`);
+
+  // 6d. Client routes must receive the SPA, while missing assets must stay
+  // real 404s. Returning index.html for an icon breaks PWA installation.
+  const clientRoute = await fetchOk(`${BASE}/home`);
+  if (clientRoute.status !== 200 || !clientRoute.body.toLowerCase().includes("<!doctype html")) {
+    cleanup();
+    fail(
+      `/home did not return the SPA (status=${clientRoute.status})`,
+      clientRoute.body.slice(0, 200),
+    );
+  }
+  const missingAsset = await fetchOk(`${BASE}/icons/does-not-exist.png`);
+  if (missingAsset.status !== 404 || missingAsset.body.trim().startsWith("<")) {
+    cleanup();
+    fail(
+      `/icons/does-not-exist.png returned ${missingAsset.status} or an HTML fallback (expected plain 404)`,
+      missingAsset.body.slice(0, 200),
+    );
+  }
+  logStep("SPA route 200 and missing asset 404 OK");
 
   // 7. Tear down
   cleanup();

@@ -262,6 +262,7 @@ describe("E2E: login → scan garbage", () => {
     const profile = await fetch(url(`/api/user/${nick}`), { headers: auth });
     const profileBody = await profile.json();
     expect(profileBody.points).toBe(0);
+    expect(profileBody.totalExpEarned).toBe(50);
 
     const challengeId = getDailyChallengeIds(getVietnamDayKey())[0]!;
     const challengeReward = getDailyChallengeReward(challengeId)!;
@@ -351,6 +352,7 @@ describe("E2E: login → scan garbage", () => {
     expect(firstRedemption.status).toBe(200);
     const firstRedemptionBody = await firstRedemption.json();
     expect(firstRedemptionBody.points).toBe(challengeReward + 510);
+    expect(firstRedemptionBody.totalExpEarned).toBe(challengeReward + 2110);
     expect(firstRedemptionBody.progress.crafted.includes("1")).toBe(true);
     expect(typeof firstRedemptionBody.redemptionId).toBe("string");
     expect(firstRedemptionBody.status).toBe("pending");

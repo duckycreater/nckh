@@ -259,9 +259,10 @@ app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 // tighter limit (e.g., /api/federated/submit uses 30/min).
 app.use("/api/scan-garbage", buildScanRateLimiter());
 
-// Default limiter catches everything else — generous so legitimate clients
-// never hit it, tight enough to make abuse expensive.
-app.use(buildDefaultRateLimiter());
+// Rate-limit API traffic only. Applying this middleware at the app root also
+// counts every JS chunk, font and icon loaded by the SPA. A fresh dashboard can
+// exceed the burst budget before its first data request and receive false 429s.
+app.use("/api", buildDefaultRateLimiter());
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const notificationEmail = process.env.PURCHASE_NOTIFICATION_EMAIL?.trim();
@@ -507,6 +508,8 @@ interface User {
   fullName?: string;
   classGrade?: string;
   points: number;
+  /** Lifetime progression currency. Spending points must never reduce this. */
+  totalExpEarned?: number;
   hasPlayed: boolean;
   account_id: string;
   role?: string;
@@ -522,6 +525,23 @@ interface User {
   gameplayRewardDates?: Record<string, string>;
   redemptionRequests?: RedemptionRequest[];
   passwordResetNonce?: string;
+}
+
+function normalizeUserEconomy(user: User): User {
+  const points = Math.max(0, Math.trunc(Number(user.points) || 0));
+  const storedLifetime = Math.max(0, Math.trunc(Number(user.totalExpEarned) || 0));
+  user.points = points;
+  // Existing accounts predate this field. Their current balance is the safest
+  // non-destructive migration floor; future spends no longer lower progression.
+  user.totalExpEarned = Math.max(points, storedLifetime);
+  return user;
+}
+
+function applyPointDelta(user: User, rawDelta: number): void {
+  normalizeUserEconomy(user);
+  const delta = Math.trunc(Number(rawDelta) || 0);
+  user.points = Math.max(0, user.points + delta);
+  if (delta > 0) user.totalExpEarned = (user.totalExpEarned || 0) + delta;
 }
 
 interface RedemptionRequest {
@@ -719,10 +739,11 @@ async function getUser(nick: string): Promise<User | undefined> {
         }
         user.progress.flashcardCounts = normalized;
       }
-      return user;
+      return normalizeUserEconomy(user);
     }
   }
-  return users.find((u) => u.nick.toLowerCase() === normNick);
+  const user = users.find((u) => u.nick.toLowerCase() === normNick);
+  return user ? normalizeUserEconomy(user) : undefined;
 }
 
 async function getUserFromToken(token: string): Promise<User | undefined> {
@@ -845,6 +866,7 @@ function generateBracket(participants: TournamentParticipant[]): {
 }
 
 async function saveUser(user: User, isNew: boolean = false): Promise<void> {
+  normalizeUserEconomy(user);
   const normNick = user.nick.toLowerCase();
   if (db) {
     try {
@@ -868,9 +890,9 @@ async function saveUser(user: User, isNew: boolean = false): Promise<void> {
 async function getAllUsers(): Promise<User[]> {
   if (db) {
     const snap = await db.collection("users").get();
-    return snap.docs.map((d) => d.data() as User);
+    return snap.docs.map((d) => normalizeUserEconomy(d.data() as User));
   }
-  return users;
+  return users.map(normalizeUserEconomy);
 }
 
 async function findUserByIdentifier(identifier: string): Promise<User | undefined> {
@@ -887,9 +909,10 @@ async function findUserByEmail(email: string): Promise<User | undefined> {
   if (!normalized) return undefined;
   if (db) {
     const snapshot = await db.collection("users").where("email", "==", normalized).limit(1).get();
-    if (!snapshot.empty) return snapshot.docs[0].data() as User;
+    if (!snapshot.empty) return normalizeUserEconomy(snapshot.docs[0].data() as User);
   }
-  return users.find((user) => user.email?.trim().toLowerCase() === normalized);
+  const user = users.find((user) => user.email?.trim().toLowerCase() === normalized);
+  return user ? normalizeUserEconomy(user) : undefined;
 }
 
 function passwordResetBaseUrl(): string | null {
@@ -991,7 +1014,7 @@ app.post("/api/robot", async (req, res) => {
 
     const user = await getUser(nickname);
     if (user) {
-      user.points += 10;
+      applyPointDelta(user, 10);
       await saveUser(user);
       writeGoogleSheetsLog(
         "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q",
@@ -1126,6 +1149,7 @@ app.post("/api/login", async (req, res) => {
         token,
         nickname: user.name,
         points: user.points,
+        totalExpEarned: user.totalExpEarned,
         account_id: user.nick,
         user_id: user.account_id,
         role: role,
@@ -1227,6 +1251,7 @@ app.post("/api/register", async (req, res) => {
     classGrade,
     fullName,
     points: 0,
+    totalExpEarned: 0,
     hasPlayed: false,
     account_id: accountId,
     role,
@@ -1461,7 +1486,7 @@ app.post("/api/daily-wheel", requireAuth, async (req, res) => {
 
     const segmentIndex = selectDailyWheelIndex();
     const earnedPoints = DAILY_WHEEL_REWARDS[segmentIndex];
-    user.points = Math.max(0, Math.trunc(user.points || 0) + earnedPoints);
+    applyPointDelta(user, earnedPoints);
     user.lastWheelClaimDate = today;
     await saveUser(user);
 
@@ -1479,6 +1504,7 @@ app.post("/api/daily-wheel", requireAuth, async (req, res) => {
       segmentIndex,
       earnedPoints,
       points: user.points,
+      totalExpEarned: user.totalExpEarned,
       claimDate: today,
     });
   } catch (error) {
@@ -1508,10 +1534,16 @@ app.post("/api/streak-gift", requireAuth, async (req, res) => {
 
     const claimed = user.claimedStreakGifts ?? [];
     if (claimed.includes(milestone)) {
-      return res.json({ success: true, duplicate: true, earnedPoints: 0, points: user.points });
+      return res.json({
+        success: true,
+        duplicate: true,
+        earnedPoints: 0,
+        points: user.points,
+        totalExpEarned: user.totalExpEarned,
+      });
     }
 
-    user.points = Math.max(0, Math.trunc(user.points || 0) + earnedPoints);
+    applyPointDelta(user, earnedPoints);
     user.claimedStreakGifts = [...claimed, milestone].sort((a, b) => a - b);
     await saveUser(user);
 
@@ -1524,7 +1556,12 @@ app.post("/api/streak-gift", requireAuth, async (req, res) => {
       }),
     ]);
 
-    return res.json({ success: true, earnedPoints, points: user.points });
+    return res.json({
+      success: true,
+      earnedPoints,
+      points: user.points,
+      totalExpEarned: user.totalExpEarned,
+    });
   } catch (error) {
     console.error("[streak-gift] claim failed:", error);
     return err(res, 500, "error.internal", req as any);
@@ -1603,7 +1640,7 @@ app.post("/api/reward", requireAuth, async (req, res) => {
         reservation = null;
         return res.status(409).json({ success: false, message: "Không đủ điểm." });
       }
-      user.points = Math.max(0, Math.trunc(user.points || 0) + effectivePoints);
+      applyPointDelta(user, effectivePoints);
       user.gameplayRewardDates = {
         ...(user.gameplayRewardDates ?? {}),
         [claim.dailyScope]: today,
@@ -1657,6 +1694,7 @@ app.post("/api/reward", requireAuth, async (req, res) => {
       res.json({
         success: true,
         points: user.points,
+        totalExpEarned: user.totalExpEarned,
         earnedPoints: effectivePoints,
         multiplier: effectiveMultiplier,
         adaptiveMessage: adaptiveMessage || undefined,
@@ -2501,6 +2539,7 @@ app.get("/api/user/:nick", requireAuth, async (req, res) => {
     res.json({
       name: user.name,
       points: user.points,
+      totalExpEarned: user.totalExpEarned,
       hasPlayed: user.hasPlayed,
       progress: progress || user.progress || null,
       selectedAvatar: user.selectedAvatar,
@@ -2616,7 +2655,7 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         progress.challengesCompleted.push(challengeId);
         progressReward = challengeReward;
         if (progress.challengesCompleted.length === 3) progressReward += 25;
-        user.points = Math.max(0, Math.trunc(user.points || 0) + progressReward);
+        applyPointDelta(user, progressReward);
       }
     } else if (type === "craft") {
       progress.crafted = progress.crafted || [];
@@ -2677,6 +2716,7 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         success: true,
         progress,
         points: user.points,
+        totalExpEarned: user.totalExpEarned,
         redemptionId: redemptionRequest.id,
         status: redemptionRequest.status,
       });
@@ -2720,7 +2760,12 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         }),
         sendPurchaseEmail(user, purchaseId),
       ]);
-      return res.json({ success: true, progress, points: user.points });
+      return res.json({
+        success: true,
+        progress,
+        points: user.points,
+        totalExpEarned: user.totalExpEarned,
+      });
     } else if (type === "guild_donated") {
       progress.guildDonated = true;
       try {
@@ -2747,7 +2792,13 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
       `[user-progress] Saved to user_progress/${nickname.toLowerCase()}, flashcardCounts:`,
       JSON.stringify(progress.flashcardCounts || {}),
     );
-    res.json({ success: true, progress, points: user.points, earnedPoints: progressReward });
+    res.json({
+      success: true,
+      progress,
+      points: user.points,
+      totalExpEarned: user.totalExpEarned,
+      earnedPoints: progressReward,
+    });
   } catch (error) {
     console.error(`[user-progress] Error:`, error);
     res.status(500).json({ success: false, error: "Failed to update progress" });
@@ -2948,7 +2999,7 @@ app.post("/api/exam/submit", requireAuth, async (req, res) => {
     }
   }
 
-  user.points += totalScore;
+  applyPointDelta(user, totalScore);
   user.hasPlayed = true;
   await saveUser(user);
 
@@ -3252,7 +3303,7 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
       try {
         const user = await getUser(nickname);
         if (user) {
-          user.points = (user.points || 0) + reward.awarded;
+          applyPointDelta(user, reward.awarded);
           await saveUser(user);
           newPointsBalance = user.points;
           writeGoogleSheetsLog(
@@ -3627,7 +3678,7 @@ app.put("/api/admin/users/:nick/points", requireAdmin, async (req, res) => {
     const user = await getUser(nick);
     if (!user) return err(res, 404, "error.notFound", req as any);
     const oldPoints = user.points;
-    user.points = Math.max(0, points);
+    applyPointDelta(user, Math.max(0, points) - oldPoints);
     await saveUser(user);
     await logRewardTransaction(user.account_id, "adjustment", points - oldPoints, {
       reason: reason || "Admin adjustment",
@@ -3651,7 +3702,7 @@ app.post("/api/admin/users/:nick/adjust-points", requireAdmin, async (req, res) 
     const user = await getUser(nick);
     if (!user) return err(res, 404, "error.notFound", req as any);
     const oldPoints = user.points;
-    user.points = Math.max(0, user.points + delta);
+    applyPointDelta(user, delta);
     await saveUser(user);
     await logRewardTransaction(user.account_id, "adjustment", delta, {
       reason: reason || "Admin adjustment",
@@ -3739,6 +3790,7 @@ app.post("/api/admin/users/:nick/reset-progress", requireAdmin, async (req, res)
     const user = await getUser(nick);
     if (!user) return err(res, 404, "error.notFound", req as any);
     user.points = 0;
+    user.totalExpEarned = 0;
     user.hasPlayed = false;
     user.progress = undefined;
     await saveUser(user);
@@ -5428,11 +5480,33 @@ async function startServer(): Promise<Server> {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(
+      express.static(distPath, {
+        etag: true,
+        setHeaders(res, filePath) {
+          const normalized = filePath.replace(/\\/g, "/");
+          if (normalized.includes("/assets/")) {
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          } else if (
+            /\/(?:index\.html|sw\.js|sw-legacy-cleanup\.js|manifest\.webmanifest)$/.test(normalized)
+          ) {
+            res.setHeader("Cache-Control", "no-cache");
+          } else {
+            res.setHeader("Cache-Control", "public, max-age=86400");
+          }
+        },
+      }),
+    );
     // SPA fallback: any non-/api GET that didn't match a router above
-    // gets the index.html so client-side routing works on refresh.
+    // gets index.html so client-side routing works on refresh. Requests for
+    // missing files must remain 404; returning HTML with status 200 makes PWA
+    // installation fail with a misleading "invalid image" error.
     app.get(/^\/(?!api\/).*/, (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      if (path.extname(req.path)) {
+        return res.status(404).type("text/plain").send("Not Found");
+      }
+      res.setHeader("Cache-Control", "no-cache");
+      return res.sendFile(path.join(distPath, "index.html"));
     });
   }
 

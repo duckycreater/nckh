@@ -42,7 +42,7 @@ interface ComponentStatus {
 }
 
 const START = Date.now();
-const VERSION = process.env.BMO_VERSION || "0.1.0-dev";
+const VERSION = process.env.BMO_VERSION || "0.1.0";
 
 async function probeDb(): Promise<ComponentStatus> {
   const t0 = Date.now();

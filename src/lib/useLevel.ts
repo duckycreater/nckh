@@ -25,7 +25,8 @@ export const MAX_LEVEL = 30;
  * Level 15 = 4500, Level 20 = 8000, Level 25 = 12500, Level 30 = 18000
  */
 export function getExpForLevel(level: number): number {
-  return Math.floor(level * level * 20);
+  const normalizedLevel = Math.max(1, Math.trunc(level));
+  return normalizedLevel === 1 ? 0 : Math.floor(normalizedLevel * normalizedLevel * 20);
 }
 
 /** ── Level → tier key (every 3 levels = 1 tier) ─────────────────── */
@@ -45,15 +46,20 @@ export function calculateLevel(totalExpEarned: number): {
   nextTier: string | null;
   nextTierData: (typeof TIER_NAMES)[string] | null;
 } {
+  const numericTotalExp = Number(totalExpEarned);
+  const safeTotalExp = Number.isFinite(numericTotalExp)
+    ? Math.max(0, Math.trunc(numericTotalExp))
+    : 0;
   let level = 1;
-  while (level < MAX_LEVEL && totalExpEarned >= getExpForLevel(level + 1)) {
+  while (level < MAX_LEVEL && safeTotalExp >= getExpForLevel(level + 1)) {
     level++;
   }
 
   const tier = levelToTier(level);
-  const currentExpInLevel = totalExpEarned - getExpForLevel(level);
+  const currentExpInLevel = Math.max(0, safeTotalExp - getExpForLevel(level));
   const expToNextLevel = getExpForLevel(level + 1) - getExpForLevel(level);
-  const progress = expToNextLevel > 0 ? (currentExpInLevel / expToNextLevel) * 100 : 100;
+  const progress =
+    expToNextLevel > 0 ? Math.min(100, (currentExpInLevel / expToNextLevel) * 100) : 100;
   const isMaxLevel = level >= MAX_LEVEL;
 
   const nextTierNum = Math.ceil((level + 1) / 3);

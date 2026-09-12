@@ -1,5 +1,16 @@
-{
-  "rootDirectory": ".",
-  "buildCommand": "npm install && npm run build",
-  "startCommand": "node dist/server.cjs"
-}
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+services:
+  - type: web
+    name: nckh
+    runtime: node
+    branch: master
+    buildCommand: npm ci --legacy-peer-deps && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BMO_MODEL_HMAC_SECRET
+        generateValue: true

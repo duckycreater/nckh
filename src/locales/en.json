@@ -77,14 +77,14 @@
     "sendResetLink": "SEND RECOVERY LINK",
     "backToLogin2": "Back to login",
     "accountOrEmail": "Account",
-    "passwordMinChars": "Password must be at least 6 characters.",
+    "passwordMinChars": "Password must be at least 8 characters.",
     "invalidEmail": "Invalid email.",
     "invalidClass": "Please pick a grade between 1 and 12.",
     "fillAccount": "Please enter email or account.",
     "resetLinkSent": "Recovery link sent to your email.",
     "accountNotFound": "No account found with this email.",
     "connectionError": "Connection error.",
-    "lookupScore": "LOOK UP SCORE",
+    "lookupScore": "Sign in to BMO",
     "oldPassword": "Old password",
     "newPassword": "New password",
     "completeProfileTitle": "Complete your profile",
@@ -425,15 +425,7 @@
   "streakCalendar": {
     "history": "Check-in History",
     "last7Days": "Last 7 days",
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ]
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "surpriseGift": {
     "openning": "Opening gift...",

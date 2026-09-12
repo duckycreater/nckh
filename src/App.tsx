@@ -22,6 +22,7 @@ import {
 } from "./lib/i18n";
 import { Globe } from "lucide-react";
 import { calculateLevel } from "./lib/useLevel";
+import { clearAuthToken, getAuthHeaders, getAuthToken } from "./lib/auth";
 
 // Phase 4: public global impact dashboard (no login required)
 const GlobalImpactDashboard = lazy(() =>
@@ -58,8 +59,8 @@ const LazyFlashcards = lazy(() =>
 function LoadingFallback({ message }: { message?: string }) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center justify-center py-20">
-      <div className="flex flex-col items-center gap-3">
+    <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(135deg,#062e28,#0e7c5b)] px-4 py-20">
+      <div className="flex min-w-64 flex-col items-center gap-3 rounded-3xl border border-white/60 bg-white/95 p-8 shadow-2xl">
         <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
         <p className="text-sm text-gray-500 dark:text-gray-400">{message ?? t("common.loading")}</p>
       </div>
@@ -280,8 +281,8 @@ function LanguageSwitcher() {
 function RestoringScreen() {
   const { t } = useTranslation();
   return (
-    <div className="flex h-screen items-center justify-center bg-[var(--background)]">
-      <Card className="w-full max-w-sm mx-4 rounded-3xl p-8 text-center">
+    <div className="flex h-screen items-center justify-center bg-[linear-gradient(135deg,#062e28,#0e7c5b)]">
+      <Card className="mx-4 w-full max-w-sm rounded-3xl border-white/60 bg-white/95 p-8 text-center shadow-2xl">
         <LoadingSpinner message={t("app.syncingLogin")} subtitle={t("app.syncingHint")} />
       </Card>
     </div>
@@ -295,20 +296,57 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (token) {
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      const token = getAuthToken();
+      const storedUser = localStorage.getItem("user_session");
+      if (!token || !storedUser) {
+        clearAuthToken();
+        localStorage.removeItem("user_session");
+        if (!cancelled) setRestoring(false);
+        return;
+      }
+
+      let parsed: User;
       try {
-        const storedUser = localStorage.getItem("user_session");
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser) as User;
+        parsed = JSON.parse(storedUser) as User;
+        if (!parsed?.account_id) throw new Error("Invalid cached session");
+      } catch {
+        clearAuthToken();
+        localStorage.removeItem("user_session");
+        if (!cancelled) setRestoring(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/user/${encodeURIComponent(parsed.account_id)}`, {
+          headers: getAuthHeaders(),
+        });
+        if (response.ok) {
+          const fresh = await response.json();
+          const restored = { ...parsed, ...fresh } as User;
+          localStorage.setItem("user_session", JSON.stringify(restored));
+          if (!cancelled) setUser(restored);
+        } else if ([401, 403, 404].includes(response.status)) {
+          clearAuthToken();
+          localStorage.removeItem("user_session");
+        } else if (!cancelled) {
+          // Preserve offline PWA access when the server is temporarily
+          // unavailable, but never do this for an explicitly rejected token.
           setUser(parsed);
         }
       } catch {
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("user_session");
+        if (!cancelled) setUser(parsed);
+      } finally {
+        if (!cancelled) setRestoring(false);
       }
-    }
-    setRestoring(false);
+    };
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Phase 2: bootstrap on-device trainer + auto-pull global model updates.
@@ -374,9 +412,11 @@ export default function App() {
     localStorage.getItem("profile_meta_skipped") !== user.account_id;
 
   const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("bmo_token");
-    localStorage.removeItem("sessionToken");
+    const headers = getAuthHeaders();
+    if (getAuthToken()) {
+      void fetch("/api/logout", { method: "POST", headers }).catch(() => {});
+    }
+    clearAuthToken();
     localStorage.removeItem("user_session");
     localStorage.removeItem("profile_meta_skipped");
     setUser(null);

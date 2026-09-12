@@ -8,17 +8,15 @@ export interface ValidatedSurveyProps {
   onSubmit?: (payload: {
     responses: number[];
     eidScore: number;
-    cronbachAlpha: number;
+    cronbachAlpha: number | null;
     n: number;
   }) => void;
 }
 
 /**
- * Validated survey for EID-4 (Whitmarsh & O'Neill, 2010). Includes
- * Cronbach's α computation for internal consistency reliability.
- *
- * Cronbach's α = (k / (k-1)) · (1 − sum(σ²_i) / σ²_t)
- *   where k = items, σ²_i = variance of item i, σ²_t = variance of total.
+ * Validated survey for EID-4 (Whitmarsh & O'Neill, 2010).
+ * Reliability statistics such as Cronbach's alpha require a cohort of
+ * respondents and are deliberately not estimated from a single response.
  */
 export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({ language = "vi", onSubmit }) => {
   const { t } = useTranslation();
@@ -28,35 +26,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({ language = "vi
 
   const stats = useMemo(() => {
     const valid = responses.filter((v) => v >= 1);
-    if (valid.length < 2) return { alpha: NaN, eid: NaN };
-    const k = items.length;
-    // Per-item variance: σ²_i computed assuming all 4 items answered.
-    const itemVariances: number[] = [];
-    for (let i = 0; i < k; i++) {
-      const vals = [responses[i]];
-      // Placeholder — we treat the single response as zero variance (single shot).
-      // For demo we draw synthetic multi-item responses from the same Likert.
-      const extended = vals.concat([
-        Math.max(1, Math.min(7, (vals[0] ?? 4) + (Math.random() - 0.5))),
-        Math.max(1, Math.min(7, (vals[0] ?? 4) + (Math.random() - 0.5))),
-      ]);
-      const mean = extended.reduce((a, b) => a + b, 0) / extended.length;
-      const variance =
-        extended.reduce((acc, v) => acc + (v - mean) ** 2, 0) / Math.max(1, extended.length - 1);
-      itemVariances.push(variance);
-    }
-    const totalVariance = (() => {
-      const totals = responses.map((r, i) => {
-        if (r < 1) return 0;
-        // Approximate the per-user total by replicating the response across items.
-        return r * items.length;
-      });
-      const mean = totals.reduce((a, b) => a + b, 0) / Math.max(1, totals.length);
-      return totals.reduce((acc, v) => acc + (v - mean) ** 2, 0) / Math.max(1, totals.length - 1);
-    })();
-    const sumItem = itemVariances.reduce((a, b) => a + b, 0);
-    const alpha = totalVariance > 0 ? (k / (k - 1)) * (1 - sumItem / totalVariance) : 0;
-    return { alpha, eid: computeEID4Score(valid) };
+    return { alpha: null, eid: valid.length === items.length ? computeEID4Score(valid) : NaN };
   }, [responses, items.length]);
 
   const handleSelect = (idx: number, value: number) => {
@@ -77,7 +47,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({ language = "vi
       responses,
       eidScore: stats.eid,
       cronbachAlpha: stats.alpha,
-      n: responses.filter((v) => v >= 1).length,
+      n: 1,
     });
   };
 
@@ -94,7 +64,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({ language = "vi
         </div>
         {submitted && (
           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-mono text-emerald-700">
-            Submitted · α={Number.isFinite(stats.alpha) ? stats.alpha.toFixed(2) : "—"}
+            Submitted
           </span>
         )}
       </div>
@@ -137,10 +107,7 @@ export const ValidatedSurvey: React.FC<ValidatedSurveyProps> = ({ language = "vi
             Items answered: {responses.filter((v) => v >= 1).length} / {items.length}
           </p>
           <p>EID score (0..1): {Number.isFinite(stats.eid) ? stats.eid.toFixed(3) : "—"}</p>
-          <p>
-            Internal consistency (Cronbach&apos;s α):{" "}
-            {Number.isFinite(stats.alpha) ? stats.alpha.toFixed(2) : "—"}
-          </p>
+          <p>Internal consistency (Cronbach&apos;s α): cohort-level analysis only</p>
         </div>
         <motion.button
           whileTap={{ scale: 0.96 }}

@@ -21,10 +21,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: [
-      "tests/**/*.spec.ts",
-      "tests/**/*.spec.tsx",
-    ],
+    include: ["tests/**/*.spec.ts", "tests/**/*.spec.tsx"],
     // E2E suites boot an in-process Express server. They still work under
     // vitest but they take 5–15s each, so we set generous timeouts and let
     // them run sequentially (the default `pool: 'threads'` does that for us).
@@ -35,14 +32,8 @@ export default defineConfig({
     teardownTimeout: 10_000,
     reporters: ["default"],
     pool: "forks",
-    poolOptions: {
-      forks: {
-        // E2E suites boot an HTTP listener on a port. We must NOT share
-        // workers across files because the listener would leak between
-        // suites, but vitest forks already isolate by default.
-        singleFork: false,
-      },
-    },
+    // E2E suites boot an HTTP listener on a port. Fork workers isolate each
+    // file by default; `singleFork: false` is the Vitest 5 default.
     sequence: {
       // E2E suites open ports; we want them to run one at a time to
       // avoid port clashes even on different ports.

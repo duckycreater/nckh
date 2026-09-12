@@ -237,9 +237,9 @@ class LongitudinalAnalytics {
           hazardRate,
         };
       });
-    } catch {
-      // Return synthetic Kaplan-Meier curve if table not ready
-      return this.getSyntheticSurvivalCurve();
+    } catch (error) {
+      console.warn("[LongitudinalAnalytics] survival data unavailable:", (error as Error).message);
+      return [];
     }
   }
 
@@ -308,24 +308,6 @@ class LongitudinalAnalytics {
     } catch {
       return [];
     }
-  }
-
-  private getSyntheticSurvivalCurve(): SurvivalAnalysis[] {
-    // ISEF 8-week typical decay curve (from literature)
-    // Based on typical gamified app retention patterns
-    const decayCurve = [100, 72, 54, 41, 32, 26, 22, 19];
-    return decayCurve.map((rate, i) => ({
-      week: i + 1,
-      weekLabel: `Tuan ${i + 1}`,
-      survivalRate: rate,
-      atRisk: Math.round(100 * Math.pow(0.85, i)),
-      events: Math.round(28 * Math.pow(0.85, i)),
-      censored: Math.round(2 * Math.pow(0.9, i)),
-      hazardRate:
-        i > 0
-          ? Math.round(((decayCurve[i - 1] - decayCurve[i]) / decayCurve[i - 1]) * 1000) / 10
-          : 0,
-    }));
   }
 }
 
