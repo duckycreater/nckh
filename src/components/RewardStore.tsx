@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { UserCircle2, Hexagon, Sparkles, Check, Lock } from "lucide-react";
 import { UserProgress } from "../types";
-import { Badge, Button, Card, SectionHeading, TabButton } from "../lib/ui";
+import { Badge, Button, Card, TabButton } from "../lib/ui";
 import { getAuthHeaders } from "../lib/auth";
 import { PROFILE_AVATARS, PROFILE_FRAMES } from "../lib/bmoAssets";
 
@@ -59,16 +59,20 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
     <Card className="overflow-hidden rounded-[28px] border-emerald-950/10 p-0 shadow-[0_24px_60px_rgba(4,47,36,0.12)]">
       <div className="relative overflow-hidden border-b border-emerald-200/20 bg-[radial-gradient(circle_at_80%_0%,rgba(251,191,36,0.2),transparent_34%),linear-gradient(135deg,#052e28,#0b5b48)] px-5 py-5 text-white">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
-        <SectionHeading
-          eyebrow="Eco vault"
-          title="Cửa hàng điểm thưởng"
-          subtitle="Mở khóa avatar và khung hồ sơ để cá nhân hóa tài khoản của bạn."
-          action={
-            <Badge tone="accent">
-              <Sparkles className="h-3.5 w-3.5" /> {points} EXP
-            </Badge>
-          }
-        />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-300">
+              Eco Vault
+            </p>
+            <h2 className="text-xl font-black tracking-tight text-white">Cửa hàng điểm thưởng</h2>
+            <p className="mt-1 text-sm text-emerald-50/75">
+              Mở khóa avatar và khung hồ sơ để cá nhân hóa tài khoản của bạn.
+            </p>
+          </div>
+          <Badge tone="accent">
+            <Sparkles className="h-3.5 w-3.5" /> {points} EXP
+          </Badge>
+        </div>
       </div>
 
       <div className="p-4 sm:p-5">

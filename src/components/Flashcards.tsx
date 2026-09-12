@@ -7,30 +7,19 @@ import {
   Lock,
   Swords,
   X,
-  Wand2,
   ArrowUp,
   GitMerge,
   Zap,
   Trophy,
   Star,
-  Shield,
-  Heart,
-  ChevronDown,
   Info,
   Plus,
   Check,
-  RefreshCw,
   Activity,
-  Award,
   Cpu,
   Skull,
-  Eye,
   Search,
   ChevronRight,
-  Battery,
-  Gauge,
-  Filter,
-  SortAsc,
   Sparkle,
   Brain,
   Coffee,
@@ -39,31 +28,43 @@ import {
 import { UserProgress } from "../types";
 import {
   ALL_CARDS,
-  RARITIES,
-  getElementIcon,
   ELEMENTS,
   calcPower,
   getXpForLevel,
   getFusedXp,
   getCardAbility,
-  getCardById,
   getCardArt,
   getAvatarEmoji,
   tCardName,
+  type Card,
 } from "../lib/cards";
 import { CardBattle } from "./CardBattle";
 import { RoguelikeRun } from "./RoguelikeRun";
 import CollectionReveal from "./CollectionReveal";
-import { Badge, Button, Card, EmptyState } from "../lib/ui";
+import { Badge, Button } from "../lib/ui";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 import { BMO_ASSETS } from "../lib/bmoAssets";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type Section =
   "collection" | "fusion" | "levelup" | "gacha" | "battle" | "shards" | "practice" | "roguelike";
+type SortBy = "power" | "atk" | "hp" | "level" | "rarity" | "name";
+type LeveledCard = Card & { level: number };
+type GachaResult = Card & { isNew?: boolean; shardsAwarded?: number };
+interface GachaPullCard {
+  id: number | string;
+  isNew?: boolean;
+  shardsAwarded?: number;
+}
+interface StoredNewCard {
+  id: number;
+  timestamp: number;
+}
 
 const PULL_QUANTITY = 10;
 const RARITY_SCORE: Readonly<Record<string, number>> = {
+  event: 7,
+  mythical: 6,
   legendary: 5,
   epic: 4,
   rare: 3,
@@ -160,8 +161,42 @@ const RARITY: Record<
     shimmer: false,
     starCount: 4,
   },
+  mythical: {
+    name: "cards.rarity.mythical",
+    shortName: "TT",
+    accent: "#db2777",
+    bgLight: "#fce7f3",
+    bgDark: "#831843",
+    border: "border-pink-300",
+    glow: "shadow-pink-500/30",
+    badgeBg: "bg-pink-50",
+    badgeText: "text-pink-700",
+    shimmer: true,
+    starCount: 5,
+  },
+  event: {
+    name: "cards.rarity.event",
+    shortName: "SK",
+    accent: "#0d9488",
+    bgLight: "#ccfbf1",
+    bgDark: "#134e4a",
+    border: "border-teal-300",
+    glow: "shadow-teal-500/30",
+    badgeBg: "bg-teal-50",
+    badgeText: "text-teal-700",
+    shimmer: true,
+    starCount: 5,
+  },
 };
-const RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
+const RARITY_ORDER = ["event", "mythical", "legendary", "epic", "rare", "uncommon", "common"];
+const GACHA_RARITY_ORDER = ["mythical", "legendary", "epic", "rare", "common"] as const;
+const GACHA_RATE: Readonly<Record<(typeof GACHA_RARITY_ORDER)[number], string>> = {
+  mythical: "0.1%",
+  legendary: "0.4%",
+  epic: "8.5%",
+  rare: "26%",
+  common: "65%",
+};
 const PULL_COST = 50;
 const DECK_SIZE = 5;
 const PITY_EPIC = 30; // guaranteed epic every 30 pulls
@@ -232,13 +267,6 @@ function RarityStars({ rarityId, size = 10 }: { rarityId: string; size?: number 
   );
 }
 
-// ─── Rarity Label (with i18n) ──────────────────────────────────────────
-function RarityLabel({ rarityId }: { rarityId: string }) {
-  const { t } = useTranslation();
-  const key = RARITY[rarityId]?.name || "cards.rarity.common";
-  return <>{t(key)}</>;
-}
-
 // ─── Level Badge ────────────────────────────────────────────────────────────
 function LevelBadge({ level }: { level: number }) {
   if (level <= 1) return null;
@@ -262,6 +290,11 @@ function PowerBadge({ power, size = "sm" }: { power: number; size?: "sm" | "lg" 
       {power.toLocaleString()}
     </div>
   );
+}
+
+function cardDisplayName(card: { name: string; subtitle?: string }): string {
+  const translated = tCardName(card.name);
+  return translated === card.name && card.subtitle ? card.subtitle : translated;
 }
 
 // ─── Stat Bar ─────────────────────────────────────────────────────────
@@ -308,7 +341,7 @@ function CardTile({
   isNew = false,
   onClick,
 }: {
-  card: any;
+  card: Card;
   level?: number;
   count?: number;
   selected?: boolean;
@@ -319,20 +352,17 @@ function CardTile({
 }) {
   const { t } = useTranslation();
   const rs = RARITY[card.rarity.id] || RARITY.common;
-  const ability = getCardAbility(card);
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
-  const isEpic = card.rarity.id === "epic" || card.rarity.id === "legendary";
-  const isLegendary = card.rarity.id === "legendary";
   const power = calcPower(card, level);
-
-  const [flipped, setFlipped] = useState(false);
 
   if (locked) {
     return (
       <motion.button
         whileHover={{ opacity: 0.85 }}
         onClick={onClick}
-        className="relative w-full cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left dark:border-slate-700 dark:bg-slate-800/50"
+        disabled
+        aria-label={`${cardDisplayName(card)} — ${t("flashcards.locked")}`}
+        className="relative w-full cursor-not-allowed overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/70 text-left opacity-75"
         style={{ aspectRatio: "2/3" }}
       >
         <div className="absolute inset-0 flex items-center justify-center opacity-10">
@@ -356,22 +386,20 @@ function CardTile({
       style={{ perspective: "800px", aspectRatio: "2/3" }}
     >
       <motion.button
-        animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-        onClick={() => {
-          setFlipped((f) => !f);
-          if (onClick) onClick();
-        }}
-        onMouseLeave={() => setFlipped(false)}
+        whileHover={{ y: -4, scale: 1.015 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 360, damping: 24 }}
+        onClick={onClick}
+        aria-label={cardDisplayName(card)}
         className={`
-          absolute inset-0 w-full h-full cursor-pointer overflow-hidden rounded-xl border text-left
+          absolute inset-0 h-full w-full cursor-pointer overflow-hidden rounded-2xl border text-left
           ${rs.border}
           ${selected ? "ring-2 ring-amber-500 ring-offset-1" : ""}
           ${inDeck ? "ring-2 ring-emerald-500 ring-offset-1" : ""}
         `}
         style={{
-          background: `linear-gradient(180deg, ${rs.bgLight} 0%, #ffffff 50%, ${elemColor}08 100%)`,
-          boxShadow: `0 1px 3px rgba(0,0,0,0.08)`,
+          background: `linear-gradient(165deg, ${rs.bgDark} 0%, #0b1220 72%, ${elemColor}28 100%)`,
+          boxShadow: `0 14px 32px ${elemColor}22, inset 0 1px 0 rgba(255,255,255,0.12)`,
         }}
       >
         {/* ── FRONT ── */}
@@ -401,12 +429,12 @@ function CardTile({
           )}
 
           {/* Card art area */}
-          <div className="absolute inset-0 flex items-center justify-center pt-4 pb-12 px-2">
+          <div className="absolute inset-0 flex items-center justify-center px-3 pb-14 pt-4">
             {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
           </div>
 
-          {/* Clean bottom panel */}
-          <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-xl border-t border-slate-200/60 bg-white/95 px-2 pt-2 pb-1.5 dark:border-slate-700/60 dark:bg-slate-900/95">
+          {/* Readable bottom panel */}
+          <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-2xl border-t border-white/10 bg-slate-950/95 px-3 pb-2.5 pt-2">
             {/* Rarity stars + count row */}
             <div className="flex items-center justify-between mb-0.5">
               <RarityStars rarityId={card.rarity.id} size={7} />
@@ -424,81 +452,19 @@ function CardTile({
               </div>
             </div>
             {/* Name */}
-            <p className="line-clamp-1 text-center text-[9px] sm:text-[10px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
-              {tCardName(card.name)}
+            <p className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-white">
+              {cardDisplayName(card)}
             </p>
             {/* Power */}
             <div className="flex items-center justify-center mt-0.5 gap-0.5">
-              <Zap size={8} className="text-slate-500" />
+              <Zap size={8} className="text-amber-400" />
               <span
-                className="text-[9px] sm:text-[10px] font-bold text-slate-600 dark:text-slate-300"
+                className="text-[10px] font-black text-amber-300"
                 style={{ fontFamily: "monospace" }}
               >
                 {power}
               </span>
             </div>
-          </div>
-        </div>
-
-        {/* ── BACK (flipped) ── */}
-        <div
-          className="absolute inset-0 overflow-hidden rounded-xl border"
-          style={{
-            background: `linear-gradient(180deg, #ffffff, ${elemColor}0A)`,
-            borderColor: `${elemColor}40`,
-            transform: "rotateY(180deg)",
-          }}
-        >
-          {/* Subtle top bar */}
-          <div
-            className="absolute inset-x-0 top-0 h-0.5"
-            style={{ background: elemColor, opacity: 0.5 }}
-          />
-
-          {/* Stats panel */}
-          <div className="flex flex-col h-full p-2 pt-3">
-            <p className="text-[9px] sm:text-[10px] font-semibold text-center text-slate-800 dark:text-slate-100 mb-1 leading-tight">
-              {tCardName(card.name)}
-            </p>
-            {ability && (
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <span className="text-sm">{ability.icon}</span>
-                <span className="text-[8px] sm:text-[9px] font-medium text-slate-500">
-                  {ability.name}
-                </span>
-              </div>
-            )}
-            <div className="flex-1 space-y-0.5 overflow-hidden">
-              {(["atk", "hp", "def", "spd"] as const).map((stat) => {
-                const cfg2 = STAT_CONFIG[stat];
-                const val = card[stat] * (stat === "atk" || stat === "hp" ? level : 1);
-                const barPct = Math.min(100, (val / (stat === "hp" ? 100 : 50)) * 100);
-                return (
-                  <div key={stat} className="flex items-center gap-1.5">
-                    <div
-                      className="w-5 text-center text-[8px] sm:text-[9px] font-bold"
-                      style={{ color: cfg2.color }}
-                    >
-                      {cfg2.icon}
-                    </div>
-                    <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden dark:bg-slate-700">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: cfg2.color, opacity: 0.7, width: `${barPct}%` }}
-                      />
-                    </div>
-                    <span className="text-[8px] sm:text-[9px] font-bold tabular-nums w-6 text-right text-slate-700 dark:text-slate-200">
-                      {val}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            {ability && (
-              <p className="text-[7px] sm:text-[8px] text-center text-slate-500 leading-tight mt-1 line-clamp-2">
-                {ability.desc}
-              </p>
-            )}
           </div>
         </div>
       </motion.button>
@@ -514,7 +480,7 @@ function CardDetail({
   onClose,
   onAddDeck,
 }: {
-  card: any;
+  card: Card;
   level: number;
   count: number;
   onClose: () => void;
@@ -526,7 +492,6 @@ function CardDetail({
   const power = calcPower(card, level);
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
   const elem = ELEMENTS.find((e) => e.id === card.element.id);
-  const isEpic = card.rarity.id === "epic" || card.rarity.id === "legendary";
 
   return (
     <motion.div
@@ -544,7 +509,7 @@ function CardDetail({
         exit={{ scale: 0.92, y: 20 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm sm:max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        className="relative max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-md"
       >
         {/* ── Hero Header ── */}
         <div
@@ -597,7 +562,7 @@ function CardDetail({
 
               {/* Name */}
               <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight truncate">
-                {tCardName(card.name)}
+                {cardDisplayName(card)}
               </h3>
               {card.subtitle && (
                 <p className="text-xs sm:text-sm text-slate-500 font-medium truncate">
@@ -642,7 +607,7 @@ function CardDetail({
         <div className="px-4 sm:px-6 py-4 bg-slate-50 dark:bg-slate-800/30">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              {t("flashcards.stats")}
+              {t("flashcards.statsTitle")}
             </span>
             <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
               Level {level}
@@ -728,7 +693,7 @@ function GachaReveal({
   onClose,
   pullCount = 0,
 }: {
-  result: any;
+  result: GachaResult;
   onClose: () => void;
   pullCount?: number;
 }) {
@@ -765,7 +730,7 @@ function GachaReveal({
           const colors = ["#94a3b8", "#cbd5e1", "#94a3b8", "#e2e8f0"];
           const c = colors[i % colors.length];
           const a = (i / 24) * 360;
-          const d = 80 + Math.random() * 120;
+          const d = 80 + ((i * 37) % 120);
           return (
             <motion.div
               key={i}
@@ -776,7 +741,7 @@ function GachaReveal({
                 scale: [0, 1, 0],
                 opacity: [0.4, 0.4, 0],
               }}
-              transition={{ duration: 2.5, delay: Math.random() * 0.4, ease: "easeOut" }}
+              transition={{ duration: 2.5, delay: (i % 5) * 0.08, ease: "easeOut" }}
               className="absolute h-1.5 w-1.5 rounded-full"
               style={{ background: c }}
             />
@@ -847,7 +812,7 @@ function GachaReveal({
             <div className="text-center">
               <RarityStars rarityId={result.rarity?.id ?? "common"} size={12} />
               <h3 className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-50">
-                {tCardName(result.name)}
+                {cardDisplayName(result)}
               </h3>
               {result.subtitle && <p className="text-xs text-slate-500">{result.subtitle}</p>}
             </div>
@@ -906,7 +871,7 @@ function GachaReveal({
         </motion.p>
 
         {/* Shards awarded for duplicate */}
-        {result.shardsAwarded > 0 && (
+        {(result.shardsAwarded ?? 0) > 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -944,96 +909,22 @@ interface Props {
   points?: number;
   userId: string;
   progress?: UserProgress;
-  onRefresh?: (progress?: any) => void;
+  onRefresh?: (progress?: UserProgress) => void;
 }
 
 export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }: Props) {
   const { t } = useTranslation();
 
-  // ─── Rarity & stat labels (computed from translations) ──────────────────
-  const rarityLabels = {
-    common: {
-      name: t("cards.rarity.common"),
-      shortName: "PT",
-      accent: "#94a3b8",
-      bgLight: "#f8fafc",
-      bgDark: "#1e293b",
-      border: "border-slate-400/50",
-      glow: "shadow-slate-400/30",
-      badgeBg: "bg-slate-700",
-      badgeText: "text-slate-300",
-      shimmer: false,
-      starCount: 1,
-    },
-    rare: {
-      name: t("cards.rarity.rare"),
-      shortName: "HM",
-      accent: "#3b82f6",
-      bgLight: "#1e3a8a",
-      bgDark: "#1e3a8a",
-      border: "border-blue-500/60",
-      glow: "shadow-blue-400/40",
-      badgeBg: "bg-blue-600",
-      badgeText: "text-blue-100",
-      shimmer: false,
-      starCount: 2,
-    },
-    uncommon: {
-      name: t("cards.rarity.uncommon"),
-      shortName: "T",
-      accent: "#64748b",
-      bgLight: "#1e293b",
-      bgDark: "#1e293b",
-      border: "border-slate-500/50",
-      glow: "shadow-slate-400/30",
-      badgeBg: "bg-slate-600",
-      badgeText: "text-slate-200",
-      shimmer: false,
-      starCount: 1,
-    },
-    epic: {
-      name: t("cards.rarity.epic"),
-      shortName: "SH",
-      accent: "#a855f7",
-      bgLight: "#581c87",
-      bgDark: "#581c87",
-      border: "border-purple-500/70",
-      glow: "shadow-purple-400/50",
-      badgeBg: "bg-purple-600",
-      badgeText: "text-purple-100",
-      shimmer: true,
-      starCount: 3,
-    },
-    legendary: {
-      name: t("cards.rarity.legendary"),
-      shortName: "HT",
-      accent: "#f59e0b",
-      bgLight: "#78350f",
-      bgDark: "#78350f",
-      border: "border-amber-400/80",
-      glow: "shadow-amber-400/60",
-      badgeBg: "bg-amber-600",
-      badgeText: "text-amber-100",
-      shimmer: true,
-      starCount: 4,
-    },
-  };
-
-  const statLabels = {
-    atk: { icon: "ATK", label: t("cards.stat.atk"), color: "#ef4444" },
-    hp: { icon: "HP", label: t("cards.stat.hp"), color: "#22c55e" },
-    def: { icon: "DEF", label: t("cards.stat.def"), color: "#3b82f6" },
-    spd: { icon: "SPD", label: t("cards.stat.spd"), color: "#06b6d6" },
-    crt: { icon: "CRT", label: t("cards.stat.crt"), color: "#f59e0b" },
-    int: { icon: "INT", label: t("cards.stat.int"), color: "#a855f7" },
-  };
-
   // ─── State ───────────────────────────────────────────────────────────
   const [unlockedCards, setUnlockedCards] = useState<number[]>([]);
-  const [gachaResult, setGachaResult] = useState<any>(null);
+  const [gachaResult, setGachaResult] = useState<GachaResult | null>(null);
   const [revealQueue, setRevealQueue] = useState<number[]>([]);
+  const [revealResults, setRevealResults] = useState<
+    Array<{ id: number; isNew?: boolean; shardsAwarded?: number }>
+  >([]);
   const [revealOpen, setRevealOpen] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
+  const [gachaError, setGachaError] = useState<string | null>(null);
   const [pullCount, setPullCount] = useState(() => {
     try {
       return parseInt(localStorage.getItem("bmo:gacha:pullCount") || "0", 10);
@@ -1044,12 +935,9 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const [showPullCount, setShowPullCount] = useState(false);
   const [filterRarity, setFilterRarity] = useState<string>("all");
   const [filterElement, setFilterElement] = useState<string>("all");
-  const [viewingCard, setViewingCard] = useState<any>(null);
+  const [viewingCard, setViewingCard] = useState<LeveledCard | null>(null);
   const [activeSection, setActiveSection] = useState<Section>("collection");
-  const [sortBy, setSortBy] = useState<"power" | "atk" | "hp" | "level" | "rarity" | "name">(
-    "power",
-  );
-  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>("power");
   const [showLocked, setShowLocked] = useState(false);
   const [cardLevels, setCardLevels] = useState<Record<string, number>>({});
   const [deck, setDeck] = useState<number[]>([]);
@@ -1060,13 +948,16 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const [fusing, setFusing] = useState(false);
   const [levelingUp, setLevelingUp] = useState(false);
   const [levelupMsg, setLevelupMsg] = useState<string | null>(null);
-  const [fuseAnimCard, setFuseAnimCard] = useState<{ card: any; xpGained: number } | null>(null);
+  const [fuseAnimCard, setFuseAnimCard] = useState<{
+    card: LeveledCard;
+    xpGained: number;
+  } | null>(null);
   const [newCardIds, setNewCardIds] = useState<Set<number>>(new Set());
   const [shardCount, setShardCount] = useState(0);
   const [shardMsg, setShardMsg] = useState<string | null>(null);
 
   // ─── Practice / Zen Mode ───────────────────────────────────────────
-  const [practiceCards, setPracticeCards] = useState<any[]>([]);
+  const [practiceCards, setPracticeCards] = useState<Card[]>([]);
   const [practiceIndex, setPracticeIndex] = useState(0);
   const [practiceFlipped, setPracticeFlipped] = useState(false);
   const [practiceCount, setPracticeCount] = useState(0);
@@ -1093,7 +984,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     if (unlockedCards.length === 0) return;
     const shuffled = [...unlockedCards]
       .map((id) => ALL_CARDS.find((c) => c.id === id))
-      .filter(Boolean) as any[];
+      .filter((card): card is Card => Boolean(card));
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -1111,6 +1002,8 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     if (!practiceFlipped) {
       const elapsed = Date.now() - practiceStartTime;
       const isQuick = elapsed < 2000;
+      const practiceCardId = practiceCards[practiceIndex]?.id;
+      if (practiceCardId) setBestTime(practiceCardId, elapsed);
       setPracticeSpeedLabel(isQuick ? "Nhanh!" : null);
       setPracticeCount((c) => c + 1);
     }
@@ -1147,74 +1040,46 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const challengeTypes = [
     {
       id: "multi_element",
-      label: t("flashcards.challenge.multiElement"),
-      desc: t("flashcards.challenge.multiElementDesc"),
+      label: t("flashcards.challenge.multiElement", { defaultValue: "Đa nguyên tố" }),
+      desc: t("flashcards.challenge.multiElementDesc", {
+        defaultValue: "Thắng bằng đội hình có từ 3 nguyên tố khác nhau.",
+      }),
       reward: 150,
       icon: "🎨",
     },
     {
       id: "speed_win",
-      label: t("flashcards.challenge.speedWin"),
-      desc: t("flashcards.challenge.speedWinDesc"),
+      label: t("flashcards.challenge.speedWin", { defaultValue: "Tốc độ ánh sáng" }),
+      desc: t("flashcards.challenge.speedWinDesc", {
+        defaultValue: "Hoàn thành trận đấu trong thời gian kỷ lục.",
+      }),
       reward: 100,
       icon: "⚡",
     },
     {
       id: "no_damage",
-      label: t("flashcards.challenge.noDamage"),
-      desc: t("flashcards.challenge.noDamageDesc"),
+      label: t("flashcards.challenge.noDamage", { defaultValue: "Không một vết xước" }),
+      desc: t("flashcards.challenge.noDamageDesc", {
+        defaultValue: "Chiến thắng mà không mất HP.",
+      }),
       reward: 200,
       icon: "🛡️",
     },
     {
       id: "ko_all",
-      label: t("flashcards.challenge.koAll"),
-      desc: t("flashcards.challenge.koAllDesc"),
+      label: t("flashcards.challenge.koAll", { defaultValue: "Quét sạch" }),
+      desc: t("flashcards.challenge.koAllDesc", {
+        defaultValue: "Hạ gục toàn bộ đối thủ trong một lượt.",
+      }),
       reward: 180,
       icon: "💀",
     },
     {
       id: "epic_win",
-      label: t("flashcards.challenge.epicWin"),
-      desc: t("flashcards.challenge.epicWinDesc"),
-      reward: 250,
-      icon: "🌟",
-    },
-  ];
-
-  const achievements = [
-    {
-      id: "multi_element",
-      label: t("flashcards.challenge.multiElement"),
-      desc: t("flashcards.challenge.multiElementDesc"),
-      reward: 150,
-      icon: "🎨",
-    },
-    {
-      id: "speed_win",
-      label: t("flashcards.challenge.speedWin"),
-      desc: t("flashcards.challenge.speedWinDesc"),
-      reward: 100,
-      icon: "⚡",
-    },
-    {
-      id: "no_damage",
-      label: t("flashcards.challenge.noDamage"),
-      desc: t("flashcards.challenge.noDamageDesc"),
-      reward: 200,
-      icon: "🛡️",
-    },
-    {
-      id: "ko_all",
-      label: t("flashcards.challenge.koAll"),
-      desc: t("flashcards.challenge.koAllDesc"),
-      reward: 180,
-      icon: "💀",
-    },
-    {
-      id: "epic_win",
-      label: t("flashcards.challenge.epicWin"),
-      desc: t("flashcards.challenge.epicWinDesc"),
+      label: t("flashcards.challenge.epicWin", { defaultValue: "Khoảnh khắc huyền thoại" }),
+      desc: t("flashcards.challenge.epicWinDesc", {
+        defaultValue: "Dùng một thẻ Siêu Hiếm để giành chiến thắng.",
+      }),
       reward: 250,
       icon: "🌟",
     },
@@ -1252,8 +1117,6 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     : null;
 
   // ─── Rarity name helper ───────────────────────────────────────────
-  const getRarityName = (rid: string) =>
-    rarityLabels[rid as keyof typeof rarityLabels]?.name || rid;
   const getRarityKey = (rid: string) => `cards.rarity.${rid}`;
 
   // ─── Helpers ───────────────────────────────────────────────────────
@@ -1270,31 +1133,12 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   );
   const getCardLevel = useCallback((id: number) => cardLevels[String(id)] ?? 1, [cardLevels]);
 
-  const resolveCard = (card: any) => {
-    const level = getCardLevel(card.id);
-    // Normalize server card format → component format
-    const normalized = {
-      ...card,
-      level,
-      element: { id: card.element?.id ?? card.elementId ?? "plastic" },
-      rarity: { id: card.rarity?.id ?? card.rarityId ?? "common" },
-      abilityId: card.abilityId ?? "def_01",
-    };
-    return normalized;
-  };
-
-  const countByRarity = (rarityId: string) => {
-    const total = ALL_CARDS.filter((c) => c.rarity.id === rarityId).length;
-    const unlocked = ALL_CARDS.filter(
-      (c) => c.rarity.id === rarityId && unlockedCards.includes(c.id),
-    ).length;
-    return `${unlocked}/${total}`;
-  };
+  const resolveCard = (card: Card): LeveledCard => ({ ...card, level: getCardLevel(card.id) });
 
   // ─── Load data ───────────────────────────────────────────────────
   const fetchCardLevels = useCallback(async () => {
     try {
-      const res = await fetch(`/api/cards/levels/${userId}`, getAuthHeaders());
+      const res = await fetch(`/api/cards/levels/${userId}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (data.levels) setCardLevels(data.levels);
@@ -1312,7 +1156,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     (Array.isArray(read) ? read : []).map(Number).forEach((n) => owned.add(n));
     Object.keys(counts).forEach((k) => owned.add(Number(k)));
     setUnlockedCards(Array.from(owned));
-    setShardCount((progress as any)?.shards ?? 0);
+    setShardCount(progress?.shards ?? 0);
   }, [progress, userId, fetchCardLevels]);
 
   // ─── Filter & sort cards ────────────────────────────────────────────
@@ -1321,7 +1165,6 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
       (c) =>
         (filterRarity === "all" || c.rarity.id === filterRarity) &&
         (filterElement === "all" || c.element.id === filterElement) &&
-        (selectedElement === null || c.element.id === selectedElement) &&
         (searchQuery === "" ||
           c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (c.subtitle && c.subtitle.toLowerCase().includes(searchQuery.toLowerCase()))),
@@ -1338,19 +1181,18 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
       if (sortBy === "name") return a.name.localeCompare(b.name);
       return calcPower(b, lb) - calcPower(a, la);
     });
-  }, [
-    filterRarity,
-    filterElement,
-    selectedElement,
-    searchQuery,
-    showLocked,
-    unlockedCards,
-    sortBy,
-    getCardLevel,
-  ]);
+  }, [filterRarity, filterElement, searchQuery, showLocked, unlockedCards, sortBy, getCardLevel]);
 
   const collectedCount = useMemo(() => unlockedCards.length, [unlockedCards]);
   const totalCards = ALL_CARDS.length;
+  const collectionStars = useMemo(
+    () =>
+      unlockedCards.reduce((total, id) => {
+        const card = ALL_CARDS.find((candidate) => candidate.id === id);
+        return total + (card ? (RARITY[card.rarity.id] ?? RARITY.common).starCount : 0);
+      }, 0),
+    [unlockedCards],
+  );
   const collectionPower = useMemo(
     () =>
       unlockedCards.reduce((s, id) => {
@@ -1375,10 +1217,13 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
   const refreshProgress = useCallback(async () => {
     try {
-      const res = await fetch("/api/user-progress", getAuthHeaders());
+      const res = await fetch("/api/user-progress", { headers: getAuthHeaders() });
       const result = await res.json();
       if (result.success && result.progress) {
-        const readSet = new Set<number>((result.progress.flashcardsRead as any)?.map(Number) || []);
+        const cardIds = Array.isArray(result.progress.flashcardsRead)
+          ? result.progress.flashcardsRead.map(Number)
+          : [];
+        const readSet = new Set<number>(cardIds);
         if (result.progress.flashcardCounts) {
           Object.keys(result.progress.flashcardCounts as Record<string, number>).forEach((k) =>
             readSet.add(Number(k)),
@@ -1400,6 +1245,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     setShowPullCount(true);
     setTimeout(() => setShowPullCount(false), 2000);
     setIsPulling(true);
+    setGachaError(null);
     setGachaResult(null);
     setRevealOpen(false);
     fetch("/api/cards/gacha-pull", {
@@ -1407,21 +1253,27 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ nickname: userId, count: PULL_QUANTITY }),
     })
-      .then((r) => r.json())
+      .then(async (response) => {
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success || !Array.isArray(result.cards)) {
+          throw new Error(result?.error || result?.message || "Không thể mở gói thẻ lúc này.");
+        }
+        return result;
+      })
       .then((result) => {
-        if (result.success && Array.isArray(result.cards) && result.cards.length > 0) {
+        if (result.cards.length > 0) {
           const nextPull = Number(result.progress?.gachaPullCount) || pullCount + PULL_QUANTITY;
           setPullCount(nextPull);
           localStorage.setItem("bmo:gacha:pullCount", String(nextPull));
           let totalShards = 0;
           const newIds: number[] = [];
-          result.cards.forEach((c: any) => {
+          result.cards.forEach((c: GachaPullCard) => {
             if (c.isNew) {
               newIds.push(Number(c.id));
               try {
                 const stored = localStorage.getItem("newCardIds");
-                const current = stored ? JSON.parse(stored) : [];
-                const updated = current.filter((e: any) => e.id !== c.id);
+                const current = (stored ? JSON.parse(stored) : []) as StoredNewCard[];
+                const updated = current.filter((entry) => entry.id !== Number(c.id));
                 updated.push({ id: Number(c.id), timestamp: Date.now() });
                 localStorage.setItem("newCardIds", JSON.stringify(updated));
               } catch {
@@ -1439,13 +1291,23 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
               return next;
             });
           }
-          setRevealQueue(result.cards.map((c: any) => Number(c.id)));
+          setRevealQueue(result.cards.map((card: GachaPullCard) => Number(card.id)));
+          setRevealResults(
+            result.cards.map((card: GachaPullCard) => ({
+              id: Number(card.id),
+              isNew: Boolean(card.isNew),
+              shardsAwarded: Number(card.shardsAwarded) || 0,
+            })),
+          );
           setRevealOpen(true);
         }
-        if (result.success && onRefresh) onRefresh(result.progress);
+        if (onRefresh) onRefresh(result.progress);
         setIsPulling(false);
       })
-      .catch(() => setIsPulling(false));
+      .catch((error: unknown) => {
+        setGachaError(error instanceof Error ? error.message : "Không thể mở gói thẻ lúc này.");
+        setIsPulling(false);
+      });
   };
 
   const handleFuse = async (cardId: number) => {
@@ -1548,7 +1410,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-xs font-black text-white">{tCardName(card.name)}</p>
+            <p className="truncate text-xs font-black text-white">{cardDisplayName(card)}</p>
             {level > 1 && <LevelBadge level={level} />}
           </div>
           <div className="flex items-center gap-2">
@@ -1687,7 +1549,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const duplicateCount = (() => {
     const counts = progress?.flashcardCounts || {};
     let total = 0;
-    Object.entries(counts).forEach(([id, count]) => {
+    Object.entries(counts).forEach(([, count]) => {
       if (Number(count) > 1) total += Number(count) - 1;
     });
     return total;
@@ -1751,32 +1613,6 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
           </div>
         </div>
 
-        {/* Element Filter Buttons */}
-        <div className="flex gap-1.5 mt-2 flex-wrap">
-          <button
-            onClick={() => setSelectedElement(null)}
-            className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === null ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}
-          >
-            {t("flashcards.categories.all")}
-          </button>
-          {Array.isArray(ELEMENTS) &&
-            ELEMENTS.map((el) => (
-              <button
-                key={el.id}
-                onClick={() => setSelectedElement(el.id === selectedElement ? null : el.id)}
-                className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all ${selectedElement === el.id ? "ring-2 ring-offset-1 ring-offset-slate-900" : "opacity-70 hover:opacity-100"}`}
-                style={{
-                  backgroundColor: selectedElement === el.id ? el.accent : `${el.accent}22`,
-                  color: selectedElement === el.id ? "white" : el.accent,
-                  borderColor: el.accent,
-                  ...(selectedElement !== el.id ? { border: `1px solid ${el.accent}44` } : {}),
-                }}
-              >
-                {getAvatarEmoji(el.id)} {el.name}
-              </button>
-            ))}
-        </div>
-
         {/* Search & Sort Row */}
         <div className="relative mt-2 flex gap-2">
           <div className="relative flex-1">
@@ -1791,7 +1627,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
           </div>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
             className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500 cursor-pointer"
           >
             <option value="power">Power</option>
@@ -1802,7 +1638,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
         </div>
 
         {/* Collection Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-4 gap-2 mt-3">
           {[
             {
               label: t("collection.totalCards") || "Total Cards",
@@ -1815,7 +1651,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
               color: "text-emerald-400",
             },
             {
-              label: t("collection.shinyCards") || "Shiny Cards",
+              label: t("cards.rarity.legendary"),
               value: String(
                 unlockedCards.filter((id: number) => {
                   const card = ALL_CARDS.find((c) => c.id === id);
@@ -1825,20 +1661,25 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
               color: "text-amber-400",
             },
             {
-              label: t("campaign.totalStars") || "Total Stars",
-              value: String(progress?.totalStars || 0),
+              label: t("flashcards.collectionStars", { defaultValue: "Sao bộ sưu tập" }),
+              value: String(collectionStars),
               color: "text-blue-400",
             },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-xl bg-white/5 p-3 text-center">
-              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-              <p className="text-xs text-white/50 mt-1">{stat.label}</p>
+            <div
+              key={stat.label}
+              className="min-w-0 rounded-xl border border-white/5 bg-white/[0.04] px-2 py-2 text-center"
+            >
+              <p className={`text-lg sm:text-2xl font-black tabular-nums ${stat.color}`}>
+                {stat.value}
+              </p>
+              <p className="mt-0.5 truncate text-[9px] text-white/50">{stat.label}</p>
             </div>
           ))}
         </div>
 
         {/* Collection progress map */}
-        <div className="mt-2 p-3 rounded-2xl bg-black/60 border border-slate-700">
+        <div className="mt-2 rounded-2xl border border-slate-700 bg-black/45 px-3 py-2">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
               {t("flashcards.collection.title")}
@@ -1847,7 +1688,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
               {collectedCount}/{totalCards}
             </span>
           </div>
-          <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden">
+          <div className="relative h-2.5 overflow-hidden rounded-full bg-slate-800">
             <motion.div
               initial={{ width: 0 }}
               animate={{
@@ -1876,7 +1717,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
             })}
           </div>
           {/* Milestone labels */}
-          <div className="flex justify-between mt-0.5 px-0.5">
+          <div className="mt-0.5 flex justify-between px-0.5">
             {[25, 50, 75, 100].map((m) => (
               <span
                 key={m}
@@ -1900,7 +1741,6 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
           (() => {
             const challengeCard = ALL_CARDS.find((c) => c.id === dailyChallenge.cardId);
             if (!challengeCard) return null;
-            const elemColor2 = ELEM_COLOR[challengeCard.element.id] || "#94a3b8";
             return (
               <div
                 className="mt-2 rounded-xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-950/80 to-orange-950/80 overflow-hidden"
@@ -1936,7 +1776,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                     <div className="text-right hidden sm:block">
                       <p className="text-[10px] font-bold text-white/60">Thẻ nền</p>
                       <p className="text-[10px] font-black text-white leading-tight">
-                        {tCardName(challengeCard.name)}
+                        {cardDisplayName(challengeCard)}
                       </p>
                     </div>
                   </div>
@@ -1986,7 +1826,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
           <div className="space-y-3 p-4">
             {/* Filters */}
             <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-950/40 p-2">
                 <button
                   onClick={() => setFilterRarity("all")}
                   className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${filterRarity === "all" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"}`}
@@ -2020,7 +1860,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                 </button>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as SortBy)}
                   className="ml-auto rounded-xl border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500 cursor-pointer"
                 >
                   <option value="power">PWR</option>
@@ -2056,13 +1896,33 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
             </p>
 
             {displayCards.length === 0 ? (
-              <EmptyState
-                icon={<Layers size={40} className="text-slate-600" />}
-                title={t("flashcards.noCards")}
-                subtitle={t("flashcards.tryChangingFilter")}
-              />
+              <div className="flex min-h-[280px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-700 bg-gradient-to-b from-slate-900/80 to-slate-950/80 px-6 py-12 text-center">
+                <div className="mb-4 rounded-2xl border border-indigo-400/20 bg-indigo-400/10 p-4 text-indigo-300">
+                  <Layers size={32} />
+                </div>
+                <p className="font-black text-white">
+                  {collectedCount === 0
+                    ? t("flashcards.collection.empty")
+                    : t("flashcards.noCards")}
+                </p>
+                <p className="mt-1 max-w-sm text-sm text-slate-400">
+                  {collectedCount === 0
+                    ? "Mở gói đầu tiên để bắt đầu hành trình sưu tập."
+                    : t("flashcards.tryChangingFilter")}
+                </p>
+                {collectedCount === 0 && (
+                  <Button
+                    onClick={() => setActiveSection("gacha")}
+                    variant="soft"
+                    className="mt-5 border border-indigo-400/30 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25"
+                  >
+                    <Sparkles size={15} />
+                    {t("campaign.openPack", { defaultValue: "Mở gói đầu tiên" })}
+                  </Button>
+                )}
+              </div>
             ) : (
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 overflow-x-auto pb-3 thin-scrollbar">
+              <div className="grid grid-cols-2 gap-3 pb-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {displayCards.map((card) => {
                   const isLocked = !unlockedCards.includes(card.id);
                   const inDeck = deck.includes(card.id);
@@ -2161,7 +2021,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                   </div>
                   <div className="text-center z-10">
                     <p className="text-2xl font-black text-white">
-                      {tCardName(fuseAnimCard.card.name)}
+                      {cardDisplayName(fuseAnimCard.card)}
                     </p>
                     <p className="text-amber-300 font-bold">Hợp nhất thành công!</p>
                   </div>
@@ -2379,7 +2239,6 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                   const ability = getCardAbility(card);
                   const power = calcPower(card, level);
                   const elemColor2 = ELEM_COLOR[card.element.id] || "#94a3b8";
-                  const nextPower = calcPower(card, level + 1);
                   const atkNow = card.atk * level;
                   const atkNext = card.atk * (level + 1);
                   const hpNow = card.hp * level;
@@ -2693,7 +2552,10 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                               </div>
                             ) : (
                               /* Back — full card info */
-                              <div className="flex h-full flex-col p-4">
+                              <div
+                                className="flex h-full flex-col p-4"
+                                style={{ transform: "rotateY(180deg)" }}
+                              >
                                 {/* Element bar */}
                                 <div
                                   className="h-1.5 w-full rounded-full"
@@ -2720,7 +2582,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                                         Tấn công
                                       </span>
                                       <span className="text-xs font-black text-red-400">
-                                        {card.attack}
+                                        {card.atk}
                                       </span>
                                     </div>
                                     <div className="flex items-center justify-between">
@@ -2757,7 +2619,9 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
                         {/* Action buttons */}
                         <div className="flex w-full max-w-sm items-center justify-between">
-                          <span className="text-[10px] text-slate-500">Tap to flip</span>
+                          <span className="text-[10px] text-slate-500">
+                            {t("flashcards.tapToFlip", { defaultValue: "Chạm để lật" })}
+                          </span>
                           {practiceFlipped && (
                             <Button
                               onClick={handleNextCard}
@@ -2794,7 +2658,13 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
         {/* GACHA */}
         {activeSection === "gacha" && (
-          <div className="flex flex-col items-center gap-5 p-4 text-center">
+          <div className="relative isolate flex min-h-[680px] flex-col items-center gap-5 overflow-hidden p-4 text-center sm:p-6">
+            <img
+              src={BMO_ASSETS.gachaVault}
+              alt=""
+              className="absolute inset-0 -z-20 h-full w-full object-cover opacity-25"
+            />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-slate-950/70 via-slate-950/80 to-slate-950" />
             {/* Pull counter badge */}
             <AnimatePresence>
               {showPullCount && (
@@ -2867,11 +2737,12 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                   className="absolute rounded-full animate-pulse"
                 />
               ))}
-              <div
-                className="relative flex h-28 w-28 items-center justify-center rounded-3xl border border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl"
-                style={{ boxShadow: "0 0 40px rgba(99,102,241,0.3)" }}
-              >
-                <Wand2 size={48} className="text-indigo-400" />
+              <div className="relative h-36 w-24 overflow-hidden rounded-2xl border border-cyan-200/25 bg-slate-900 shadow-[0_0_45px_rgba(34,211,238,0.28)]">
+                <img
+                  src={BMO_ASSETS.cardBack}
+                  alt="Gói thẻ BMO"
+                  className="h-full w-full object-cover"
+                />
               </div>
               <div className="absolute -right-3 -top-3 z-10 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
                 {PULL_COST} EXP
@@ -2885,6 +2756,15 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                 ngẫu nhiên
               </p>
             </div>
+
+            {gachaError && (
+              <p
+                role="alert"
+                className="w-full max-w-xs rounded-xl border border-red-400/25 bg-red-950/70 px-4 py-3 text-sm font-semibold text-red-200"
+              >
+                {gachaError}
+              </p>
+            )}
 
             {/* Pull panel */}
             <div className="w-full max-w-xs space-y-3 rounded-2xl border border-slate-700 bg-slate-800/80 p-5">
@@ -2921,10 +2801,10 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
             {/* Rarity rates */}
             <div className="w-full max-w-xs space-y-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                Tỉ lệ rơi
+                Tỉ lệ gacha
               </p>
-              <div className="grid grid-cols-4 gap-2">
-                {RARITY_ORDER.map((rid) => (
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                {GACHA_RARITY_ORDER.map((rid) => (
                   <div
                     key={rid}
                     className="flex flex-col items-center rounded-2xl border p-2.5"
@@ -2943,8 +2823,8 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                     >
                       {RARITY[rid].shortName}
                     </span>
-                    <p className="mt-1 text-sm font-black" style={{ color: RARITY[rid].accent }}>
-                      {countByRarity(rid)}
+                    <p className="mt-1 text-xs font-black" style={{ color: RARITY[rid].accent }}>
+                      {GACHA_RATE[rid]}
                     </p>
                   </div>
                 ))}
@@ -3107,7 +2987,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                     >
                       <CardAvatar elementId={card.element.id} size={36} />
                       <p className="mt-1 line-clamp-1 text-center text-[8px] font-bold text-white leading-tight">
-                        {tCardName(card.name)}
+                        {cardDisplayName(card)}
                       </p>
                       <RarityStars rarityId={card.rarity.id} size={6} />
                       {inDeck && (
@@ -3239,10 +3119,12 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
         {revealOpen && revealQueue.length > 0 && (
           <CollectionReveal
             cardIds={revealQueue}
+            results={revealResults}
             isOpen={revealOpen}
             onClose={() => {
               setRevealOpen(false);
               setRevealQueue([]);
+              setRevealResults([]);
             }}
           />
         )}

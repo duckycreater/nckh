@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Leaf, Droplets, TreePine, Sprout, Sun, Sparkles } from "lucide-react";
+import { Leaf, Sun, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 
@@ -16,16 +16,16 @@ export function VirtualGarden({ points, onReward }: Props) {
   const [factHistory, setFactHistory] = useState<string[]>([]);
 
   const PET_FACTS = [
-    "Nhong nhựa mất 400+ năm để phân hủy trong đại dương!",
-    "1 con rùa biển có thể nuốt 1.000 miếng nhựa trong 1 tuần.",
-    "80% rác nhựa trên biển đến từ đất liền.",
-    "Rùa biển ăn nhựa vì nó có mùi như tảo biển.",
-    "Mỗi năm có 1,3 tỷ tấn nhựa được thải ra môi trường.",
-    "Đại dương hấp thụ 30% CO2 do con người tạo ra.",
-    "1 triệu chim biển chết mỗi năm vì nuốt nhựa.",
-    "Đến năm 2050, có thể sẽ có nhiều nhựa hơn cá trong đại dương.",
-    "Tái chế 1 tấn nhựa tiết kiệm 2.000$ năng lượng.",
-    "Rùa biển có thể sống hơn 100 tuổi!",
+    "Nhiều loại nhựa có thể tồn tại hàng trăm năm trong môi trường biển.",
+    "Rùa biển có thể nhầm túi nhựa trôi nổi với thức ăn.",
+    "Lưới và dây nhựa bị bỏ đi có thể làm động vật biển mắc kẹt.",
+    "Vi nhựa hình thành khi những vật dụng nhựa lớn vỡ thành các mảnh rất nhỏ.",
+    "Mang bình nước cá nhân giúp giảm nhu cầu dùng chai nhựa một lần.",
+    "Phân loại rác tại nguồn giúp vật liệu sạch dễ được tái chế hơn.",
+    "Không phải mọi loại nhựa đều có thể tái chế trong cùng một quy trình.",
+    "Rác nhựa có thể di chuyển rất xa theo gió và dòng chảy.",
+    "Giảm sử dụng và tái dùng giúp ngăn rác phát sinh ngay từ đầu.",
+    "Rùa biển giữ vai trò quan trọng trong hệ sinh thái đại dương.",
   ];
 
   useEffect(() => {
@@ -222,7 +222,7 @@ export function VirtualGarden({ points, onReward }: Props) {
               }}
               className="relative z-10 pb-4 cursor-pointer select-none"
               onClick={tapPet}
-              title="Chạm để nhận kỳ diệm!"
+              title="Chạm để xem một sự thật thú vị"
             >
               {stage.icon}
 
@@ -285,7 +285,7 @@ export function VirtualGarden({ points, onReward }: Props) {
               className="w-full bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white px-6 py-3 rounded-2xl font-black shadow-[0_4px_15px_-3px_rgba(16,185,129,0.4)] disabled:opacity-70 flex items-center justify-center gap-2 transition-all"
             >
               <Sparkles size={18} className="fill-emerald-200" />
-              {cleaned ? "Bien Da Sach!" : `Don Rac Dai Duong (+5-15 EXP)`}
+              {cleaned ? "Biển đã sạch!" : "Dọn rác đại dương (+5–15 EXP)"}
             </motion.button>
           </motion.div>
         </>

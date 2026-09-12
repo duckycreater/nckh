@@ -759,7 +759,9 @@
       "uncommon": "Thường",
       "epic": "Siêu hiếm",
       "superRare": "Siêu hiếm",
-      "legendary": "Huyền thoại"
+      "legendary": "Huyền thoại",
+      "mythical": "Thần thoại",
+      "event": "Sự kiện"
     },
     "stat": {
       "atk": "Tấn công",
@@ -863,6 +865,8 @@
       "organic": "Hữu cơ",
       "hazard": "Nguy hại"
     },
+    "statsTitle": "Chỉ số chiến đấu",
+    "tapToFlip": "Chạm để lật",
     "stats": {
       "atk": "Tấn công",
       "hp": "Máu",
@@ -883,6 +887,7 @@
       "close": "Đóng",
       "spinning": "Đang mở...",
       "result": "Kết quả",
+      "newBadge": "Thẻ mới",
       "newCard": "Thẻ mới! Đã thêm vào bộ sưu tập",
       "duplicate": "Bạn đã có thẻ này",
       "collect": "Thu thập"
@@ -905,8 +910,8 @@
       "total": "Tổng số thẻ"
     },
     "pity": {
-      "epic": "Cần {n} lượt để guaranteed Siêu Hiếm",
-      "legendary": "Cần {n} lượt để guaranteed Huyền Thoại"
+      "epic": "Còn {n} lượt để chắc chắn nhận thẻ Siêu hiếm",
+      "legendary": "Còn {n} lượt để chắc chắn nhận thẻ Huyền thoại"
     },
     "searchPlaceholder": "Tìm thẻ theo tên...",
     "levelup": {

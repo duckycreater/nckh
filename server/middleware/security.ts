@@ -21,7 +21,6 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import helmet from "helmet";
 import cors from "cors";
-import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 
 /**
@@ -258,7 +257,7 @@ export function buildCsp(): RequestHandler {
       // inline <style> blocks at runtime. Tighten with hashed-style
       // strategy once the build pipeline supports it.
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://res.cloudinary.com",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com",
       "font-src 'self' data:",
       "connect-src 'self' https://*.supabase.co wss:",
       "worker-src 'self' blob:",

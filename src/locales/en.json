@@ -947,7 +947,9 @@
       "uncommon": "Uncommon",
       "epic": "Epic",
       "superRare": "Super Rare",
-      "legendary": "Legendary"
+      "legendary": "Legendary",
+      "mythical": "Mythical",
+      "event": "Event"
     },
     "stat": {
       "atk": "Attack",
@@ -1051,6 +1053,8 @@
       "organic": "Organic",
       "hazard": "Hazard"
     },
+    "statsTitle": "Battle stats",
+    "tapToFlip": "Tap to flip",
     "stats": {
       "atk": "Attack",
       "hp": "HP",
@@ -1071,6 +1075,7 @@
       "close": "Close",
       "spinning": "Opening...",
       "result": "Result",
+      "newBadge": "New card",
       "newCard": "New card! Added to collection",
       "duplicate": "You already have this card",
       "collect": "Collect"

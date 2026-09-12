@@ -9652,11 +9652,14 @@ export function calcDamage(atk: number, attackerEl: string, defenderEl: string):
 export function calcPower(card: Card | CardStats, level = 1): number {
   const rarityMult: Record<string, number> = {
     common: 1.0,
+    uncommon: 1.08,
     rare: 1.15,
     epic: 1.35,
     legendary: 1.6,
+    mythical: 1.85,
+    event: 2.0,
   };
-  const rmult = rarityMult[(card as Card).rarity?.id ?? "common"];
+  const rmult = rarityMult[(card as Card).rarity?.id ?? "common"] ?? 1;
   const s = "atk" in card ? card : getCardStats(card as Card);
   return Math.floor(
     (s.atk * 2 + s.hp + s.def * 1.5 + s.spd + s.crt * 2 + s.int * 2) * level * rmult,

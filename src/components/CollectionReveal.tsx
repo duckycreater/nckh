@@ -1,395 +1,362 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ChevronRight, Layers3, Sparkles, X, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getCardById, CARD_DEFINITIONS, ELEMENTS, getAvatarEmoji } from "../lib/cards";
+import { BMO_ASSETS } from "../lib/bmoAssets";
+import { CARD_DEFINITIONS, ELEMENTS, getCardArt, getCardById, tCardName } from "../lib/cards";
+
+export interface PullResult {
+  id: number;
+  isNew?: boolean;
+  shardsAwarded?: number;
+}
 
 interface CollectionRevealProps {
   cardIds: number[];
+  results?: PullResult[];
   isOpen: boolean;
   onClose: () => void;
   onCardCollected?: (cardId: number) => void;
 }
 
-const ELEMENT_FALLBACK_ICON = "🃏";
+const RARITY_THEME: Record<string, { accent: string; glow: string; frame: string; stars: number }> =
+  {
+    common: {
+      accent: "#cbd5e1",
+      glow: "rgba(148,163,184,.32)",
+      frame: "from-slate-400 to-slate-700",
+      stars: 1,
+    },
+    uncommon: {
+      accent: "#6ee7b7",
+      glow: "rgba(16,185,129,.34)",
+      frame: "from-emerald-400 to-emerald-800",
+      stars: 2,
+    },
+    rare: {
+      accent: "#7dd3fc",
+      glow: "rgba(14,165,233,.38)",
+      frame: "from-sky-400 to-blue-900",
+      stars: 3,
+    },
+    epic: {
+      accent: "#c4b5fd",
+      glow: "rgba(139,92,246,.42)",
+      frame: "from-violet-400 to-purple-950",
+      stars: 4,
+    },
+    legendary: {
+      accent: "#fde68a",
+      glow: "rgba(245,158,11,.48)",
+      frame: "from-amber-300 via-orange-500 to-amber-950",
+      stars: 5,
+    },
+    mythical: {
+      accent: "#f9a8d4",
+      glow: "rgba(236,72,153,.5)",
+      frame: "from-fuchsia-300 via-rose-500 to-purple-950",
+      stars: 6,
+    },
+    event: {
+      accent: "#5eead4",
+      glow: "rgba(45,212,191,.48)",
+      frame: "from-teal-300 via-cyan-500 to-indigo-950",
+      stars: 6,
+    },
+  };
 
 export default function CollectionReveal({
   cardIds,
+  results = [],
   isOpen,
   onClose,
   onCardCollected,
 }: CollectionRevealProps) {
   const { t } = useTranslation();
+  const reduceMotion = useReducedMotion();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [revealPhase, setRevealPhase] = useState<
-    "anticipation" | "flip" | "rarity" | "stats" | "done"
-  >("anticipation");
-  const [showDuplicate, setShowDuplicate] = useState(false);
-
+  const [revealed, setRevealed] = useState(false);
   const validCardIds = useMemo(
-    () => (cardIds ?? []).filter((id) => Number.isFinite(id)),
+    () => cardIds.filter((id) => Number.isInteger(id) && id > 0),
     [cardIds],
   );
-  const currentCardId = validCardIds[currentIndex];
-  const card =
-    currentCardId !== undefined
-      ? (getCardById(currentCardId) ?? CARD_DEFINITIONS.find((c) => c.id === currentCardId))
-      : null;
+  const cardId = validCardIds[currentIndex];
+  const card = cardId
+    ? (getCardById(cardId) ?? CARD_DEFINITIONS.find((candidate) => candidate.id === cardId))
+    : undefined;
+  const result = results[currentIndex];
   const rarityId = card?.rarityId ?? "common";
+  const theme = RARITY_THEME[rarityId] ?? RARITY_THEME.common;
+  const element = ELEMENTS.find((candidate) => candidate.id === card?.elementId);
+  const isLast = currentIndex >= validCardIds.length - 1;
+  const displayName = useMemo(() => {
+    if (!card) return t("cards.unknown", { defaultValue: "Thẻ bí ẩn" });
+    const translated = tCardName(card.name);
+    return translated === card.name && card.subtitle ? card.subtitle : translated;
+  }, [card, t]);
 
-  const element = useMemo(
-    () => (card?.elementId ? ELEMENTS.find((e) => e.id === card.elementId) : undefined),
-    [card],
-  );
-  const elementIcon = card?.elementId ? getAvatarEmoji(card.elementId) : ELEMENT_FALLBACK_ICON;
+  const reveal = useCallback(() => {
+    if (!cardId || revealed) return;
+    setRevealed(true);
+    onCardCollected?.(cardId);
+  }, [cardId, onCardCollected, revealed]);
 
-  const handleCollected = useCallback((id: number) => onCardCollected?.(id), [onCardCollected]);
+  const next = useCallback(() => {
+    if (!revealed) return reveal();
+    if (isLast) return onClose();
+    setCurrentIndex((index) => index + 1);
+    setRevealed(false);
+  }, [isLast, onClose, reveal, revealed]);
 
   useEffect(() => {
-    if (!isOpen || !validCardIds.length) return;
+    if (!isOpen) return;
     setCurrentIndex(0);
-    setRevealPhase("anticipation");
-    setShowDuplicate(false);
-
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    timers.push(
-      setTimeout(() => {
-        setRevealPhase("flip");
-      }, 800),
-    );
-
-    timers.push(
-      setTimeout(() => {
-        setRevealPhase("rarity");
-      }, 1700),
-    );
-
-    timers.push(
-      setTimeout(() => {
-        setRevealPhase("stats");
-      }, 3000),
-    );
-
-    timers.push(
-      setTimeout(() => {
-        if (currentIndex < validCardIds.length - 1) {
-          setCurrentIndex((prev) => prev + 1);
-          setRevealPhase("anticipation");
-        } else {
-          setRevealPhase("done");
-        }
-      }, 4000),
-    );
-
-    return () => timers.forEach(clearTimeout);
-  }, [isOpen, validCardIds, currentIndex]);
+    setRevealed(false);
+  }, [isOpen, cardIds]);
 
   useEffect(() => {
-    if (revealPhase === "done" && currentCardId !== undefined) {
-      handleCollected(currentCardId);
-    }
-  }, [revealPhase, currentCardId, handleCollected]);
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if ([" ", "Enter", "ArrowRight"].includes(event.key)) {
+        event.preventDefault();
+        next();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, next, onClose]);
 
-  // Refined palette — one accent per rarity, muted tones, no rainbow/glitch.
-  // Each rarity signals rarity through a single restrained accent color, a
-  // subtle 1px foil border, and a soft inner shadow. No screen-wide flashes,
-  // no hue-rotation, no rainbow gradients.
-  const rarityConfig: Record<
-    string,
-    {
-      accent: string;
-      accentSoft: string;
-      particles: number;
-      bgFrom: string;
-      bgTo: string;
-      borderGlow: string;
-    }
-  > = {
-    common: {
-      accent: "#94a3b8",
-      accentSoft: "rgba(148,163,184,0.18)",
-      particles: 4,
-      bgFrom: "#fafaf9",
-      bgTo: "#f1f5f9",
-      borderGlow: "rgba(148,163,184,0.25)",
-    },
-    uncommon: {
-      accent: "#10b981",
-      accentSoft: "rgba(16,185,129,0.16)",
-      particles: 6,
-      bgFrom: "#fafaf9",
-      bgTo: "#ecfdf5",
-      borderGlow: "rgba(16,185,129,0.28)",
-    },
-    rare: {
-      accent: "#3b82f6",
-      accentSoft: "rgba(59,130,246,0.16)",
-      particles: 8,
-      bgFrom: "#fafaf9",
-      bgTo: "#eff6ff",
-      borderGlow: "rgba(59,130,246,0.3)",
-    },
-    epic: {
-      accent: "#7c3aed",
-      accentSoft: "rgba(124,58,237,0.18)",
-      particles: 10,
-      bgFrom: "#fafaf9",
-      bgTo: "#f5f3ff",
-      borderGlow: "rgba(124,58,237,0.32)",
-    },
-    legendary: {
-      accent: "#b45309",
-      accentSoft: "rgba(180,83,9,0.20)",
-      particles: 12,
-      bgFrom: "#fbf7ee",
-      bgTo: "#fef3c7",
-      borderGlow: "rgba(180,83,9,0.35)",
-    },
-    mythical: {
-      accent: "#be123c",
-      accentSoft: "rgba(190,18,60,0.18)",
-      particles: 14,
-      bgFrom: "#fafaf9",
-      bgTo: "#fff1f2",
-      borderGlow: "rgba(190,18,60,0.35)",
-    },
-    event: {
-      accent: "#0f766e",
-      accentSoft: "rgba(15,118,110,0.18)",
-      particles: 14,
-      bgFrom: "#fafaf9",
-      bgTo: "#f0fdfa",
-      borderGlow: "rgba(15,118,110,0.35)",
-    },
-  };
+  if (!validCardIds.length || !card) return null;
 
-  const config = rarityConfig[rarityId] ?? rarityConfig.common;
+  const stats: Array<{ label: string; value: number }> = [
+    { label: "ATK", value: card.atk },
+    { label: "HP", value: card.hp },
+    { label: "DEF", value: card.def },
+  ];
+  const particleCount = reduceMotion ? 0 : Math.min(18, 5 + theme.stars * 2);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("flashcards.gacha.revealTitle", { defaultValue: "Mở thẻ" })}
+          className="fixed inset-0 z-[100] flex min-h-dvh items-center justify-center overflow-hidden bg-slate-950 px-4 py-6 text-white"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Soft ambient particles — small, slow, single color per rarity */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
-            {Array.from({ length: config.particles }).map((_, i) => (
-              <motion.div
-                key={`particle-${currentIndex}-${i}`}
-                className="absolute w-1.5 h-1.5 rounded-full"
-                style={{ background: config.accent, left: "50%", top: "50%", opacity: 0.5 }}
-                initial={{ x: 0, y: 0, opacity: 0.5, scale: 1 }}
+          <img
+            src={BMO_ASSETS.gachaVault}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-25"
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,transparent_0%,rgba(2,6,23,.2)_34%,rgba(2,6,23,.96)_82%)]" />
+          <div
+            className="absolute left-1/2 top-[42%] h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+            style={{ background: theme.glow }}
+          />
+
+          {Array.from({ length: particleCount }, (_, index) => {
+            const angle = ((index * 137.5 + cardId * 17) * Math.PI) / 180;
+            const distance = 135 + ((index * 41 + cardId) % 180);
+            return (
+              <motion.span
+                key={`${cardId}-${index}`}
+                className="pointer-events-none absolute left-1/2 top-[43%] h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: theme.accent, boxShadow: `0 0 12px ${theme.accent}` }}
+                initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
                 animate={{
-                  x: (Math.random() - 0.5) * 320,
-                  y: (Math.random() - 0.5) * 320,
-                  opacity: 0,
-                  scale: 0.4,
+                  x: Math.cos(angle) * distance,
+                  y: Math.sin(angle) * distance,
+                  opacity: [0, 0.85, 0],
+                  scale: [0, 1, 0.25],
                 }}
-                transition={{ duration: 1.6, delay: 0.2, ease: "easeOut" }}
+                transition={{ duration: 2.4, delay: index * 0.035, repeat: Infinity }}
               />
-            ))}
-          </div>
+            );
+          })}
 
-          {/* Card reveal */}
-          <motion.div
-            className="relative z-10"
-            initial={{ scale: 0.94, opacity: 0, y: 8 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ type: "spring", damping: 22, stiffness: 180, delay: 0.15 }}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("common.close", { defaultValue: "Đóng" })}
+            className="absolute right-4 top-4 z-30 grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-slate-950/70 text-slate-300 backdrop-blur hover:border-white/30 hover:text-white"
           >
-            {/* Card */}
-            <motion.div
-              className="relative w-64 h-96 rounded-2xl overflow-hidden ring-1 ring-black/5"
-              style={{
-                background:
-                  config.bgFrom && config.bgTo
-                    ? "linear-gradient(160deg, " + config.bgFrom + " 0%, " + config.bgTo + " 100%)"
-                    : undefined,
-                boxShadow: config.borderGlow
-                  ? "0 1px 2px rgba(15,23,42,0.06), 0 12px 32px -8px " +
-                    config.borderGlow +
-                    ", inset 0 1px 0 rgba(255,255,255,0.6)"
-                  : "0 1px 2px rgba(15,23,42,0.06)",
-              }}
-            >
-              {/* Element accent strip — subtle vertical line on the left edge */}
-              <div
-                className="absolute left-0 top-0 bottom-0 w-1"
-                style={{
-                  background:
-                    "linear-gradient(180deg, transparent, " +
-                    config.accent +
-                    " 20%, " +
-                    config.accent +
-                    " 80%, transparent)",
-                }}
-              />
+            <X size={20} />
+          </button>
 
-              {/* Card content */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 py-5 text-slate-900">
-                {/* Rarity badge */}
-                <motion.div
-                  className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: config.accent, background: config.accentSoft }}
-                  initial={{ y: -8, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.4, duration: 0.4 }}
-                >
-                  {t(rarityId)}
-                </motion.div>
+          <div className="relative z-10 flex w-full max-w-lg flex-col items-center">
+            <div className="mb-4 flex w-full items-center justify-between gap-4 px-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+              <span className="flex items-center gap-2">
+                <Layers3 size={15} />
+                {t("flashcards.gacha.pack", { defaultValue: "BMO Eco Vault" })}
+              </span>
+              <span className="tabular-nums text-slate-200">
+                {currentIndex + 1} / {validCardIds.length}
+              </span>
+            </div>
 
-                {/* Element icon — small, slight desaturation */}
-                <motion.div
-                  className="text-4xl mt-6 mb-2"
-                  style={{ filter: "grayscale(0.15)" }}
-                  initial={{ scale: 0.7, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.5, type: "spring", stiffness: 180, damping: 18 }}
-                >
-                  {elementIcon}
-                </motion.div>
-
-                {/* Card name */}
-                <motion.h3
-                  className="text-lg font-bold text-center leading-tight tracking-tight text-slate-900"
-                  initial={{ y: 8, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.6, duration: 0.4 }}
-                >
-                  {card?.name ?? t("cards.unknown")}
-                </motion.h3>
-
-                {/* Element name flanked by accent dots */}
-                <motion.div
-                  className="mt-1 mb-3 flex items-center gap-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.7, duration: 0.4 }}
-                >
-                  <span className="w-1 h-1 rounded-full" style={{ background: config.accent }} />
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 font-medium">
-                    {element?.nameShort ?? card?.elementId ?? ""}
-                  </p>
-                  <span className="w-1 h-1 rounded-full" style={{ background: config.accent }} />
-                </motion.div>
-
-                {/* Card subtitle */}
-                {card?.subtitle ? (
-                  <motion.p
-                    className="text-xs text-slate-500 text-center px-2 leading-relaxed"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.8, duration: 0.4 }}
-                  >
-                    {card.subtitle}
-                  </motion.p>
-                ) : null}
-
-                {/* Stats — clean row, accent color on numbers */}
-                <motion.div
-                  className="mt-auto grid grid-cols-3 gap-2 w-full pt-4"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.9, duration: 0.4 }}
-                >
-                  {[
-                    { label: "ATK", value: card?.atk ?? 0 },
-                    { label: "HP", value: card?.hp ?? 0 },
-                    { label: "DEF", value: card?.def ?? 0 },
-                  ].map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="rounded-lg py-1.5 text-center bg-white/60 backdrop-blur-sm"
-                      style={{ boxShadow: "inset 0 0 0 1px " + config.accentSoft }}
+            <div className="relative h-[450px] w-[286px] max-w-[78vw] [perspective:1200px] sm:h-[486px] sm:w-[310px]">
+              <motion.button
+                key={`${cardId}-${revealed ? "open" : "closed"}`}
+                type="button"
+                onClick={reveal}
+                aria-label={
+                  revealed
+                    ? displayName
+                    : t("flashcards.gacha.tapReveal", { defaultValue: "Chạm để mở thẻ" })
+                }
+                className="absolute inset-0 w-full rounded-[26px] focus:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/70"
+                initial={reduceMotion ? false : { scale: 0.88, y: 26 }}
+                animate={{ scale: 1, y: 0 }}
+                transition={{ type: "spring", damping: 19, stiffness: 170 }}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {!revealed ? (
+                    <motion.div
+                      key="back"
+                      className="absolute inset-0 overflow-hidden rounded-[26px] border border-white/20 bg-slate-900 shadow-2xl"
+                      exit={reduceMotion ? { opacity: 0 } : { rotateY: 90, opacity: 0 }}
+                      transition={{ duration: 0.22 }}
                     >
-                      <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold">
-                        {stat.label}
-                      </p>
-                      <p
-                        className="text-sm font-bold tabular-nums"
-                        style={{ color: config.accent }}
-                      >
-                        {stat.value}
-                      </p>
-                    </div>
-                  ))}
-                </motion.div>
-              </div>
+                      <img
+                        src={BMO_ASSETS.cardBack}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-x-5 bottom-5 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 backdrop-blur">
+                        <span className="flex items-center justify-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-cyan-100">
+                          <Sparkles size={16} className="text-cyan-300" />
+                          {t("flashcards.gacha.tapReveal", { defaultValue: "Chạm để mở thẻ" })}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="front"
+                      className={`absolute inset-0 overflow-hidden rounded-[26px] bg-gradient-to-br p-[3px] ${theme.frame}`}
+                      initial={reduceMotion ? { opacity: 0 } : { rotateY: -90, opacity: 0 }}
+                      animate={{ rotateY: 0, opacity: 1 }}
+                      transition={{ duration: 0.34 }}
+                      style={{ boxShadow: `0 25px 80px ${theme.glow}, 0 0 0 1px ${theme.accent}` }}
+                    >
+                      <div className="relative flex h-full flex-col overflow-hidden rounded-[23px] bg-slate-950 text-left">
+                        <div className="relative min-h-0 flex-1 overflow-hidden bg-slate-900">
+                          {getCardArt(card.id, card.elementId, card.artVariant, card.rarityId)}
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
+                          <div className="absolute left-4 top-4 rounded-full border border-white/15 bg-slate-950/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] backdrop-blur">
+                            {element?.name ?? card.elementId}
+                          </div>
+                          <div
+                            className="absolute right-4 top-4 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] backdrop-blur"
+                            style={{
+                              color: theme.accent,
+                              borderColor: `${theme.accent}55`,
+                              background: "rgba(2,6,23,.78)",
+                            }}
+                          >
+                            {t(`cards.rarity.${rarityId}`, { defaultValue: rarityId })}
+                          </div>
+                        </div>
+                        <div className="relative p-4 sm:p-5">
+                          <div
+                            className="mb-1 flex items-center gap-1 text-amber-300"
+                            aria-hidden="true"
+                          >
+                            {Array.from({ length: theme.stars }, (_, index) => (
+                              <span key={index} className="text-[10px]">
+                                ★
+                              </span>
+                            ))}
+                          </div>
+                          <h2 className="line-clamp-2 text-xl font-black leading-tight text-white sm:text-2xl">
+                            {displayName}
+                          </h2>
+                          <p className="mt-1 line-clamp-1 text-xs text-slate-400">
+                            #{String(card.id).padStart(3, "0")} · {card.subtitle}
+                          </p>
+                          <div className="mt-4 grid grid-cols-3 gap-2">
+                            {stats.map((stat) => (
+                              <div
+                                key={stat.label}
+                                className="rounded-xl border border-white/10 bg-white/[.045] px-2 py-2 text-center"
+                              >
+                                <div className="text-[9px] font-bold tracking-widest text-slate-500">
+                                  {stat.label}
+                                </div>
+                                <div
+                                  className="mt-0.5 text-lg font-black tabular-nums"
+                                  style={{ color: theme.accent }}
+                                >
+                                  {stat.value}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
 
-              {/* Subtle foil highlight — only for rare+, slow sweep with soft-light blend */}
-              {(rarityId === "rare" ||
-                rarityId === "epic" ||
-                rarityId === "legendary" ||
-                rarityId === "mythical" ||
-                rarityId === "event") && (
-                <div
-                  className="absolute inset-0 pointer-events-none"
+              {revealed && result && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.75, y: 6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className={`absolute -right-3 -top-3 z-20 rounded-full border px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-xl ${result.isNew ? "border-cyan-200/50 bg-cyan-300 text-slate-950" : "border-violet-300/40 bg-violet-950 text-violet-100"}`}
+                >
+                  {result.isNew
+                    ? t("flashcards.gacha.newBadge", { defaultValue: "Thẻ mới" })
+                    : `+${result.shardsAwarded ?? 0} ${t("flashcards.shards", { defaultValue: "mảnh" })}`}
+                </motion.div>
+              )}
+            </div>
+
+            <div className="mt-5 flex w-full gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-12 flex-1 rounded-2xl border border-white/15 bg-white/[.06] px-4 text-sm font-bold text-slate-200 backdrop-blur transition hover:bg-white/10"
+              >
+                {t("flashcards.gacha.skipAll", { defaultValue: "Bỏ qua tất cả" })}
+              </button>
+              <button
+                type="button"
+                onClick={next}
+                className="flex min-h-12 flex-[1.55] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 to-emerald-300 px-5 text-sm font-black text-slate-950 shadow-[0_12px_35px_rgba(45,212,191,.22)] transition hover:brightness-110 active:scale-[.98]"
+              >
+                {!revealed ? (
+                  <>
+                    <Zap size={17} />
+                    {t("flashcards.gacha.reveal", { defaultValue: "Mở thẻ" })}
+                  </>
+                ) : (
+                  <>
+                    {isLast
+                      ? t("collection.viewCollection", { defaultValue: "Xem bộ sưu tập" })
+                      : t("common.next", { defaultValue: "Thẻ tiếp theo" })}
+                    <ChevronRight size={17} />
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="mt-4 flex max-w-full gap-1.5 overflow-hidden" aria-hidden="true">
+              {validCardIds.map((id, index) => (
+                <span
+                  key={`${id}-${index}`}
+                  className={`h-1.5 rounded-full transition-all ${index === currentIndex ? "w-7" : "w-2"}`}
                   style={{
-                    background:
-                      "linear-gradient(115deg, transparent 40%, " +
-                      config.accentSoft +
-                      " 50%, transparent 60%)",
-                    backgroundSize: "220% 220%",
-                    animation: "card-shimmer 4s linear infinite",
-                    mixBlendMode: "soft-light",
+                    backgroundColor: index <= currentIndex ? theme.accent : "rgba(148,163,184,.24)",
                   }}
                 />
-              )}
-            </motion.div>
-
-            {/* NEW CARD badge — minimal, monochrome */}
-            {revealPhase === "flip" && (
-              <motion.div
-                className="absolute -top-3 -right-3 px-3 py-1 rounded-full bg-white text-[10px] font-bold uppercase tracking-wider shadow-md ring-1 ring-black/5"
-                style={{ color: config.accent }}
-                initial={{ scale: 0.6, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 220, damping: 18, delay: 0.3 }}
-              >
-                {t("collection.newCard")}
-              </motion.div>
-            )}
-          </motion.div>
-
-          {/* Progress indicator */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
-            {validCardIds.map((_, i) => (
-              <div
-                key={i}
-                className="w-1.5 h-1.5 rounded-full transition-all"
-                style={{
-                  background:
-                    i < currentIndex
-                      ? config.accent
-                      : i === currentIndex
-                        ? config.accent
-                        : "rgba(148,163,184,0.3)",
-                  transform: i === currentIndex ? "scale(1.6)" : "scale(1)",
-                  opacity: i <= currentIndex ? 1 : 0.35,
-                }}
-              />
-            ))}
+              ))}
+            </div>
           </div>
-
-          {/* Done state */}
-          {revealPhase === "done" && (
-            <motion.div
-              className="absolute bottom-8 left-1/2 -translate-x-1/2"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              <button
-                onClick={onClose}
-                className="px-7 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-md hover:bg-slate-800 transition-colors"
-              >
-                {t("collection.viewCollection")}
-              </button>
-            </motion.div>
-          )}
         </motion.div>
       )}
     </AnimatePresence>

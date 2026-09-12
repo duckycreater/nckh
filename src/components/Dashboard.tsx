@@ -508,7 +508,11 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   progress={user.progress}
                   onRefresh={triggerRefresh}
                 />
-                <RewardHistory userId={user.account_id} currentBalance={user.points} />
+                <RewardHistory
+                  userId={user.account_id}
+                  currentBalance={user.points}
+                  refreshKey={refreshTrigger}
+                />
               </div>
             )}
 

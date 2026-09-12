@@ -60,9 +60,10 @@ function formatRelativeTime(dateStr: string): string {
 interface RewardHistoryProps {
   userId: string;
   currentBalance: number;
+  refreshKey?: number;
 }
 
-export function RewardHistory({ userId, currentBalance }: RewardHistoryProps) {
+export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: RewardHistoryProps) {
   const [transactions, setTransactions] = useState<RewardTransaction[]>([]);
   const [summary, setSummary] = useState<RewardSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +102,7 @@ export function RewardHistory({ userId, currentBalance }: RewardHistoryProps) {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, refreshKey]);
 
   const filtered = transactions.filter((tx) => {
     if (filter === "all") return true;

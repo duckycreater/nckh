@@ -22,7 +22,7 @@ import { parseRedeemInfo } from "../lib/redemption";
 interface Props {
   points: number;
   progress?: UserProgress;
-  onRefresh?: (progress?: any) => void;
+  onRefresh?: (progress?: UserProgress) => void;
 }
 
 export function CraftingStation({ points, progress, onRefresh }: Props) {

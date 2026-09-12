@@ -2320,10 +2320,11 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
     if (cardDef) {
       const cardId = cardDef.cardId;
       const serverCard = generateServerCard(cardId);
+      const isNew = !progress.flashcardsRead.includes(cardId);
       progress.flashcardCounts = progress.flashcardCounts || {};
       progress.flashcardCounts[String(cardId)] =
         (progress.flashcardCounts[String(cardId)] || 0) + 1;
-      if (!progress.flashcardsRead.includes(cardId)) {
+      if (isNew) {
         progress.flashcardsRead.push(cardId);
       }
       await saveGameProgress(nickname, progress);
@@ -2332,7 +2333,7 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
         success: true,
         shardsRemaining: progress.shards,
         card: serverCard,
-        isNew: !progress.flashcardsRead.includes(cardId),
+        isNew,
       });
     }
 
