@@ -58,8 +58,7 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
                     className="w-full bg-gradient-to-t from-blue-600 to-blue-300 rounded-t-sm transition-all hover:from-blue-700 hover:to-blue-400 cursor-pointer relative group"
                     style={{ height: `${Math.max(heightPct, 2)}%` }}
                     title={`${b.displayName}: ${b.avgLatencyMs}ms`}
-                  >
-                  </div>
+                  ></div>
                   <span className="text-xs font-bold text-gray-700 mt-1 text-center leading-tight">
                     {b.displayName?.split(" ")[0]}
                   </span>

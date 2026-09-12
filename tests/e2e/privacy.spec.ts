@@ -14,6 +14,9 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   composeRenyi,
@@ -34,6 +37,7 @@ const expect = (v: unknown) => ({
 
 let testServer: Server | null = null;
 let booted: boolean = false;
+let testDataDir = "";
 
 before(async () => {
   process.env.PORT = process.env.BMO_TEST_PORT || String(41000 + Math.floor(Math.random() * 9000));
@@ -44,6 +48,8 @@ before(async () => {
   process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 = "";
   process.env.SUPABASE_URL = "";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "";
+  testDataDir = mkdtempSync(join(tmpdir(), "bmo-privacy-e2e-"));
+  process.env.BMO_DATA_FILE = join(testDataDir, "data.json");
   let mod: typeof import("../../server/bootstrap.ts");
   try {
     mod = await import("../../server/bootstrap.ts");
@@ -65,10 +71,12 @@ before(async () => {
 });
 
 after(async () => {
-  if (!testServer) return;
-  await new Promise<void>((resolve, reject) => {
-    testServer!.close((error) => (error ? reject(error) : resolve()));
-  });
+  if (testServer) {
+    await new Promise<void>((resolve, reject) => {
+      testServer!.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+  if (testDataDir) rmSync(testDataDir, { recursive: true, force: true });
 });
 
 function url(path: string): string {

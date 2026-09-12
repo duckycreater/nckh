@@ -342,7 +342,9 @@ export default function CampaignStage({
                 <motion.button
                   onClick={resetBattle}
                   disabled={!encounters.length}
-                  whileHover={reduceMotion || !encounters.length ? undefined : { y: -3, scale: 1.01 }}
+                  whileHover={
+                    reduceMotion || !encounters.length ? undefined : { y: -3, scale: 1.01 }
+                  }
                   whileTap={reduceMotion || !encounters.length ? undefined : { scale: 0.98 }}
                   className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-400 px-6 py-4 text-lg font-black text-emerald-950 shadow-[0_12px_34px_rgba(251,191,36,0.2)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -374,9 +376,7 @@ export default function CampaignStage({
                     <motion.div
                       key={index}
                       animate={
-                        reduceMotion || index >= energy
-                          ? { scale: 1 }
-                          : { scale: [1, 1.14, 1] }
+                        reduceMotion || index >= energy ? { scale: 1 } : { scale: [1, 1.14, 1] }
                       }
                       transition={
                         reduceMotion || index >= energy
@@ -385,13 +385,16 @@ export default function CampaignStage({
                       }
                     >
                       <Heart
-                      className={`h-6 w-6 ${index < energy ? "fill-rose-400 text-rose-400" : "text-white/15"}`}
+                        className={`h-6 w-6 ${index < energy ? "fill-rose-400 text-rose-400" : "text-white/15"}`}
                       />
                     </motion.div>
                   ))}
                 </div>
               </div>
-              <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-white/10" aria-label={`${c.round} ${round + 1}/${encounters.length}`}>
+              <div
+                className="mb-5 h-1.5 overflow-hidden rounded-full bg-white/10"
+                aria-label={`${c.round} ${round + 1}/${encounters.length}`}
+              >
                 <motion.div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-cyan-300 to-amber-300"
                   initial={{ width: 0 }}
@@ -439,8 +442,12 @@ export default function CampaignStage({
                           key={element.id}
                           onClick={() => chooseAnswer(element.id)}
                           disabled={Boolean(selectedElement)}
-                          whileHover={reduceMotion || Boolean(selectedElement) ? undefined : { x: 3 }}
-                          whileTap={reduceMotion || Boolean(selectedElement) ? undefined : { scale: 0.98 }}
+                          whileHover={
+                            reduceMotion || Boolean(selectedElement) ? undefined : { x: 3 }
+                          }
+                          whileTap={
+                            reduceMotion || Boolean(selectedElement) ? undefined : { scale: 0.98 }
+                          }
                           className={`relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left font-bold transition ${
                             revealCorrect
                               ? "border-emerald-300 bg-emerald-400/20 text-emerald-100"

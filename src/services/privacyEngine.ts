@@ -36,7 +36,8 @@ class DPAccountant {
 
   setBudget(epsilon: number, delta: number): void {
     if (!Number.isFinite(epsilon) || epsilon <= 0) throw new Error("epsilon must be positive");
-    if (!Number.isFinite(delta) || delta <= 0 || delta >= 1) throw new Error("delta must be in (0, 1)");
+    if (!Number.isFinite(delta) || delta <= 0 || delta >= 1)
+      throw new Error("delta must be in (0, 1)");
     this.totalEpsilon = 0;
     this.delta = delta;
     this.maxBudget = epsilon;
@@ -48,7 +49,8 @@ class DPAccountant {
    * Standard formula: σ ≥ sqrt(2 ln(1.25/δ)) · Δ/ε
    */
   computeSigma(sensitivity: number, epsilon: number): number {
-    if (!Number.isFinite(sensitivity) || sensitivity < 0) throw new Error("sensitivity must be non-negative");
+    if (!Number.isFinite(sensitivity) || sensitivity < 0)
+      throw new Error("sensitivity must be non-negative");
     if (!Number.isFinite(epsilon) || epsilon <= 0) throw new Error("epsilon must be positive");
     return (sensitivity * Math.sqrt(2 * Math.log(1.25 / this.delta))) / epsilon;
   }
@@ -186,8 +188,7 @@ class SecureAggregator {
     return (
       aggregated.length === sum.length &&
       aggregated.every(
-        (value, index) =>
-          Math.abs(value - sum[index]) <= 1e-8 * Math.max(1, Math.abs(sum[index])),
+        (value, index) => Math.abs(value - sum[index]) <= 1e-8 * Math.max(1, Math.abs(sum[index])),
       )
     );
   }

@@ -15,6 +15,9 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getVietnamDayKey } from "../../src/lib/dayKey.ts";
 import { getDailyChallengeIds, getDailyChallengeReward } from "../../src/lib/dailyChallenges.ts";
 
@@ -29,6 +32,7 @@ const expect = (v: unknown) => ({
 
 let testServer: Server | null = null;
 let booted: boolean = false;
+let testDataDir = "";
 
 before(async () => {
   // PORT for the in-process server. Set to a unique value to avoid clashes
@@ -42,6 +46,41 @@ before(async () => {
   process.env.SUPABASE_URL = "";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "";
   process.env.ADMIN_API_KEY = "bmo-e2e-admin-key";
+  testDataDir = mkdtempSync(join(tmpdir(), "bmo-login-e2e-"));
+  process.env.BMO_DATA_FILE = join(testDataDir, "data.json");
+  writeFileSync(
+    process.env.BMO_DATA_FILE,
+    JSON.stringify({
+      users: [
+        {
+          name: "Legacy Cards",
+          nick: "legacy_cards",
+          pass: "LegacyPass1!",
+          points: 500,
+          totalExpEarned: 500,
+          hasPlayed: false,
+          account_id: "legacy-card-account",
+          role: "user",
+          progress: {
+            flashcardsRead: [1],
+            flashcardCounts: { "1": 2 },
+            flashcardNames: {},
+            cardLevels: { "1": 7 },
+            gachaPullCount: 42,
+            checkins: [],
+            traded: [],
+            crafted: [],
+            purchased: [],
+            challengesCompleted: [],
+            guildDonated: false,
+            lastUpdateDate: "2020-01-01",
+            shards: 9,
+          },
+        },
+      ],
+    }),
+    "utf8",
+  );
   let mod: typeof import("../../server/bootstrap.ts");
   try {
     mod = await import("../../server/bootstrap.ts");
@@ -66,10 +105,12 @@ before(async () => {
 });
 
 after(async () => {
-  if (!testServer) return;
-  await new Promise<void>((resolve, reject) => {
-    testServer!.close((error) => (error ? reject(error) : resolve()));
-  });
+  if (testServer) {
+    await new Promise<void>((resolve, reject) => {
+      testServer!.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+  if (testDataDir) rmSync(testDataDir, { recursive: true, force: true });
 });
 
 function url(path: string): string {
@@ -133,6 +174,19 @@ describe("E2E: login → scan garbage", () => {
     ).toBeTruthy();
   });
 
+  it("does not expose the retired full-card unlock endpoint", async (t) => {
+    if (!booted) return t.skip();
+    const response = await fetch(url("/api/admin/unlock-all-cards"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-key": "bmo-e2e-admin-key",
+      },
+      body: JSON.stringify({ nickname: "any_user" }),
+    });
+    expect(response.status).toBe(404);
+  });
+
   it("POST /api/forgot-password does not reveal whether an account exists", async (t) => {
     if (!booted) return t.skip();
     const r = await fetch(url("/api/forgot-password"), {
@@ -183,6 +237,35 @@ describe("E2E: login → scan garbage", () => {
     for (const response of responses) expect(response.status).toBe(401);
   });
 
+  it("preserves card levels, ownership, and gacha pity across a daily rollover", async (t) => {
+    if (!booted) return t.skip();
+    const login = await fetch(url("/api/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        login_nickname: "legacy_cards",
+        login_password: "LegacyPass1!",
+      }),
+    });
+    expect(login.status).toBe(200);
+    const loggedIn = await login.json();
+    expect(loggedIn.success).toBe(true);
+    const auth = { Authorization: `Bearer ${loggedIn.token}` };
+
+    const update = await fetch(url("/api/user-progress"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ type: "checkin", data: 1 }),
+    });
+    expect(update.status).toBe(200);
+    const updated = await update.json();
+    expect(updated.progress.flashcardsRead).toEqual([1]);
+    expect(updated.progress.flashcardCounts).toEqual({ "1": 2 });
+    expect(updated.progress.cardLevels).toEqual({ "1": 7 });
+    expect(updated.progress.gachaPullCount).toBe(42);
+    expect(updated.progress.shards).toBe(9);
+  });
+
   it("keeps reward, gacha, challenge, and store balances authoritative", async (t) => {
     if (!booted) return t.skip();
     const nick = `gacha_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -207,6 +290,17 @@ describe("E2E: login → scan garbage", () => {
     const loggedIn = await login.json();
     expect(loggedIn.success).toBe(true);
     const auth = { Authorization: `Bearer ${loggedIn.token}` };
+
+    const initialProgress = await fetch(url("/api/user-progress"), { headers: auth });
+    expect(initialProgress.status).toBe(200);
+    expect((await initialProgress.json()).progress).toBe(null);
+
+    const invalidCardUpgrade = await fetch(url("/api/cards/levelup"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ cardId: "not-a-card" }),
+    });
+    expect(invalidCardUpgrade.status).toBe(400);
 
     const privacy = await fetch(url("/api/federated/privacy"), { headers: auth });
     expect(privacy.status).toBe(200);
@@ -253,6 +347,24 @@ describe("E2E: login → scan garbage", () => {
     expect(pullBody.cards.length).toBe(10);
     expect(pullBody.pullCost).toBe(50);
     expect(pullBody.remainingPoints).toBe(0);
+    assert.ok(pullBody.progress.flashcardsRead.length > 0);
+    assert.ok(pullBody.progress.flashcardsRead.length <= 10);
+    assert.notEqual(pullBody.progress.flashcardsRead.length, 420);
+
+    const ownedCardId = pullBody.progress.flashcardsRead[0];
+    const insufficientFuse = await fetch(url("/api/cards/fuse"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ cardId: ownedCardId }),
+    });
+    expect(insufficientFuse.status).toBe(400);
+
+    const insufficientLevelUp = await fetch(url("/api/cards/levelup"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ cardId: ownedCardId }),
+    });
+    expect(insufficientLevelUp.status).toBe(400);
 
     const levels = await fetch(url(`/api/cards/levels/${nick}`), { headers: auth });
     expect(levels.status).toBe(200);

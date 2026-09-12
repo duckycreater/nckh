@@ -623,8 +623,8 @@ function PrivacyTabContent({ user }: { user: User }) {
           <li>Mọi dataset phát hành đều dùng license CC-BY-4.0 (mã nguồn mở, ghi công)</li>
           <li>Người dùng dưới 13 tuổi: phải được phụ huynh đồng ý trước khi bật tính năng này</li>
           <li>
-            <strong>Federated Learning:</strong> ảnh KHÔNG BAO GIỜ rời khỏi thiết bị của
-            bạn. Chỉ model updates (đã mã hóa + thêm nhiễu) mới được gửi về server.
+            <strong>Federated Learning:</strong> ảnh KHÔNG BAO GIỜ rời khỏi thiết bị của bạn. Chỉ
+            model updates (đã mã hóa + thêm nhiễu) mới được gửi về server.
           </li>
         </ul>
       </div>

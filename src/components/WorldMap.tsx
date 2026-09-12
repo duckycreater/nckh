@@ -11,7 +11,7 @@ const STAR_FIELD = Array.from({ length: 80 }, (_, index) => {
   return {
     size: 1 + ((index * 17) % 20) / 20,
     left: (unit * 100 + index * 7.31) % 100,
-    top: ((unit * 73 + index * 11.17) % 100),
+    top: (unit * 73 + index * 11.17) % 100,
     delay: ((index * 13) % 30) / 10,
     duration: 2 + ((index * 19) % 30) / 10,
   };

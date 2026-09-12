@@ -247,7 +247,8 @@ class CardFusion {
     if (success) {
       // Success: consume fusion materials, create result card
       const consumed = await this.consumeFusionMaterials(userId, cardId, card.odRarity);
-      if (!consumed) return this.failureResult("Fusion materials could not be reserved", card.odRarity);
+      if (!consumed)
+        return this.failureResult("Fusion materials could not be reserved", card.odRarity);
       const resultCardId = await this.createResultCard(userId, card, resultRarity);
 
       // Log
@@ -274,7 +275,8 @@ class CardFusion {
     } else {
       // Failure: consume materials, give consolation
       const consumed = await this.consumeFusionMaterials(userId, cardId, card.odRarity);
-      if (!consumed) return this.failureResult("Fusion materials could not be reserved", card.odRarity);
+      if (!consumed)
+        return this.failureResult("Fusion materials could not be reserved", card.odRarity);
       const consolation = CONSOLATION_POINTS[card.odRarity];
       const lore = `Lần này chưa thành công, nhưng đừng nản lòng! Xác suất thành công là ${Math.round(successRate * 100)}%. Thử lại vào tuần sau nhé!`;
 
@@ -344,7 +346,10 @@ class CardFusion {
     return null;
   }
 
-  private async getCardInfo(userId: string, cardId: string): Promise<{
+  private async getCardInfo(
+    userId: string,
+    cardId: string,
+  ): Promise<{
     odCardName: string;
     odElement: string;
     odRarity: CardRarity;

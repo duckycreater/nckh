@@ -24,6 +24,7 @@ import {
   Brain,
   Coffee,
   Timer,
+  RefreshCw,
 } from "lucide-react";
 import { UserProgress } from "../types";
 import {
@@ -44,6 +45,8 @@ import CollectionReveal from "./CollectionReveal";
 import { Badge, Button } from "../lib/ui";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 import { BMO_ASSETS } from "../lib/bmoAssets";
+import { normalizeCardOwnership } from "../lib/cardOwnership";
+import { SHARD_CARD_REWARDS, SHARD_XP_REWARDS } from "../lib/shardShop";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type Section =
@@ -62,6 +65,8 @@ interface StoredNewCard {
 }
 
 const PULL_QUANTITY = 10;
+const CARD_PAGE_SIZE = 24;
+const CARD_BY_ID = new Map(ALL_CARDS.map((card) => [card.id, card]));
 const RARITY_SCORE: Readonly<Record<string, number>> = {
   event: 7,
   mythical: 6,
@@ -925,6 +930,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const [revealOpen, setRevealOpen] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [gachaError, setGachaError] = useState<string | null>(null);
+  const [cardDataError, setCardDataError] = useState<string | null>(null);
   const [pullCount, setPullCount] = useState(() => {
     try {
       return parseInt(localStorage.getItem("bmo:gacha:pullCount") || "0", 10);
@@ -939,6 +945,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const [activeSection, setActiveSection] = useState<Section>("collection");
   const [sortBy, setSortBy] = useState<SortBy>("power");
   const [showLocked, setShowLocked] = useState(false);
+  const [visibleCardLimit, setVisibleCardLimit] = useState(CARD_PAGE_SIZE);
   const [cardLevels, setCardLevels] = useState<Record<string, number>>({});
   const [deck, setDeck] = useState<number[]>([]);
   const [showBattle, setShowBattle] = useState(false);
@@ -983,7 +990,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const startPractice = () => {
     if (unlockedCards.length === 0) return;
     const shuffled = [...unlockedCards]
-      .map((id) => ALL_CARDS.find((c) => c.id === id))
+      .map((id) => CARD_BY_ID.get(id))
       .filter((card): card is Card => Boolean(card));
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -1120,16 +1127,13 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const getRarityKey = (rid: string) => `cards.rarity.${rid}`;
 
   // ─── Helpers ───────────────────────────────────────────────────────
+  const normalizedOwnership = useMemo(
+    () => normalizeCardOwnership(progress?.flashcardsRead, progress?.flashcardCounts),
+    [progress?.flashcardsRead, progress?.flashcardCounts],
+  );
   const getCardCount = useCallback(
-    (id: number) => {
-      const read = progress?.flashcardsRead || [];
-      const counts = progress?.flashcardCounts || {};
-      const owned = new Set<number>();
-      (Array.isArray(read) ? read : []).map(Number).forEach((n) => owned.add(n));
-      Object.keys(counts).forEach((k) => owned.add(Number(k)));
-      return owned.has(id) ? counts[String(id)] || 1 : 0;
-    },
-    [progress],
+    (id: number) => normalizedOwnership.counts[String(id)] || 0,
+    [normalizedOwnership.counts],
   );
   const getCardLevel = useCallback((id: number) => cardLevels[String(id)] ?? 1, [cardLevels]);
 
@@ -1137,27 +1141,26 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
   // ─── Load data ───────────────────────────────────────────────────
   const fetchCardLevels = useCallback(async () => {
+    if (!userId) return;
     try {
       const res = await fetch(`/api/cards/levels/${userId}`, { headers: getAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.levels) setCardLevels(data.levels);
-      }
-    } catch {
-      /* silent */
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.levels && typeof data.levels === "object") setCardLevels(data.levels);
+      setCardDataError(null);
+    } catch (error) {
+      console.warn("[cards] Failed to load card levels:", error);
+      setCardDataError("Không thể đồng bộ dữ liệu thẻ. Hãy thử lại.");
     }
   }, [userId]);
 
   useEffect(() => {
     fetchCardLevels();
-    const read = progress?.flashcardsRead || [];
-    const counts = progress?.flashcardCounts || {};
-    const owned = new Set<number>();
-    (Array.isArray(read) ? read : []).map(Number).forEach((n) => owned.add(n));
-    Object.keys(counts).forEach((k) => owned.add(Number(k)));
-    setUnlockedCards(Array.from(owned));
+    setUnlockedCards(normalizedOwnership.ids);
     setShardCount(progress?.shards ?? 0);
-  }, [progress, userId, fetchCardLevels]);
+  }, [progress?.shards, userId, fetchCardLevels, normalizedOwnership.ids]);
+
+  const ownedCardIds = useMemo(() => new Set(unlockedCards), [unlockedCards]);
 
   // ─── Filter & sort cards ────────────────────────────────────────────
   const displayCards = useMemo(() => {
@@ -1169,7 +1172,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
           c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (c.subtitle && c.subtitle.toLowerCase().includes(searchQuery.toLowerCase()))),
     );
-    const base = !showLocked ? filtered.filter((c) => unlockedCards.includes(c.id)) : filtered;
+    const base = !showLocked ? filtered.filter((card) => ownedCardIds.has(card.id)) : filtered;
     return [...base].sort((a, b) => {
       const la = getCardLevel(a.id),
         lb = getCardLevel(b.id);
@@ -1181,14 +1184,23 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
       if (sortBy === "name") return a.name.localeCompare(b.name);
       return calcPower(b, lb) - calcPower(a, la);
     });
-  }, [filterRarity, filterElement, searchQuery, showLocked, unlockedCards, sortBy, getCardLevel]);
+  }, [filterRarity, filterElement, searchQuery, showLocked, ownedCardIds, sortBy, getCardLevel]);
+
+  useEffect(() => {
+    setVisibleCardLimit(CARD_PAGE_SIZE);
+  }, [filterRarity, filterElement, searchQuery, showLocked, sortBy]);
+
+  const visibleCards = useMemo(
+    () => displayCards.slice(0, visibleCardLimit),
+    [displayCards, visibleCardLimit],
+  );
 
   const collectedCount = useMemo(() => unlockedCards.length, [unlockedCards]);
   const totalCards = ALL_CARDS.length;
   const collectionStars = useMemo(
     () =>
       unlockedCards.reduce((total, id) => {
-        const card = ALL_CARDS.find((candidate) => candidate.id === id);
+        const card = CARD_BY_ID.get(id);
         return total + (card ? (RARITY[card.rarity.id] ?? RARITY.common).starCount : 0);
       }, 0),
     [unlockedCards],
@@ -1196,7 +1208,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const collectionPower = useMemo(
     () =>
       unlockedCards.reduce((s, id) => {
-        const card = ALL_CARDS.find((c) => c.id === id);
+        const card = CARD_BY_ID.get(id);
         return s + (card ? calcPower(card, getCardLevel(id)) : 0);
       }, 0),
     [unlockedCards, getCardLevel],
@@ -1206,7 +1218,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     [unlockedCards, getCardCount],
   );
   const deckCards = useMemo(
-    () => deck.map((id) => ALL_CARDS.find((c) => c.id === id)!).filter(Boolean),
+    () => deck.map((id) => CARD_BY_ID.get(id)).filter((card): card is Card => Boolean(card)),
     [deck],
   );
   const deckPower = useMemo(
@@ -1218,25 +1230,28 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const refreshProgress = useCallback(async () => {
     try {
       const res = await fetch("/api/user-progress", { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
-      if (result.success && result.progress) {
-        const cardIds = Array.isArray(result.progress.flashcardsRead)
-          ? result.progress.flashcardsRead.map(Number)
-          : [];
-        const readSet = new Set<number>(cardIds);
-        if (result.progress.flashcardCounts) {
-          Object.keys(result.progress.flashcardCounts as Record<string, number>).forEach((k) =>
-            readSet.add(Number(k)),
-          );
-        }
-        setUnlockedCards(Array.from(readSet));
+      if (!result.success) throw new Error(result.error || result.message || "Invalid response");
+      if (result.progress) {
+        const nextOwnership = normalizeCardOwnership(
+          result.progress.flashcardsRead,
+          result.progress.flashcardCounts,
+        );
+        setUnlockedCards(nextOwnership.ids);
         if (result.progress.shards !== undefined) {
           setShardCount(result.progress.shards);
         }
         if (onRefresh) onRefresh(result.progress);
+      } else {
+        setUnlockedCards([]);
+        setShardCount(0);
+        if (onRefresh) onRefresh(undefined);
       }
-    } catch {
-      /* silent */
+      setCardDataError(null);
+    } catch (error) {
+      console.warn("[cards] Failed to refresh progress:", error);
+      setCardDataError("Không thể đồng bộ dữ liệu thẻ. Hãy thử lại.");
     }
   }, [onRefresh]);
 
@@ -1313,7 +1328,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const handleFuse = async (cardId: number) => {
     setFusing(true);
     setFuseMsg(null);
-    const card = ALL_CARDS.find((c) => c.id === cardId) || ALL_CARDS[0];
+    const card = CARD_BY_ID.get(cardId) || ALL_CARDS[0];
     try {
       const res = await fetch("/api/cards/fuse", {
         method: "POST",
@@ -1344,7 +1359,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const handleLevelUp = async (cardId: number) => {
     setLevelingUp(true);
     setLevelupMsg(null);
-    const card = ALL_CARDS.find((c) => c.id === cardId);
+    const card = CARD_BY_ID.get(cardId);
     if (!card) {
       setLevelingUp(false);
       return;
@@ -1378,7 +1393,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
   // ─── Deck Slot ──────────────────────────────────────────────────────────
   function DeckSlot({ cardId, index }: { cardId: number; index: number }) {
-    const card = ALL_CARDS.find((c) => c.id === cardId)!;
+    const card = CARD_BY_ID.get(cardId);
     if (!card) return null;
     const rs = RARITY[card.rarity.id] || RARITY.common;
     const level = getCardLevel(cardId);
@@ -1465,27 +1480,27 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     {
       id: "xp_50",
       name: "Bùa EXP nhỏ",
-      desc: "+50 EXP cho thẻ bất kỳ",
+      desc: "+50 EXP vào số dư tài khoản",
       type: "EXP",
-      cost: 5,
+      cost: SHARD_XP_REWARDS.xp_50.cost,
       elementColor: "#22c55e",
       icon: <Zap size={16} className="text-emerald-400" />,
     },
     {
       id: "xp_200",
       name: "Bùa EXP lớn",
-      desc: "+200 EXP cho thẻ bất kỳ",
+      desc: "+200 EXP vào số dư tài khoản",
       type: "EXP",
-      cost: 15,
+      cost: SHARD_XP_REWARDS.xp_200.cost,
       elementColor: "#3b82f6",
       icon: <Zap size={16} className="text-blue-400" />,
     },
     {
       id: "xp_1000",
       name: "Bùa EXP khổng lồ",
-      desc: "+1000 EXP cho thẻ bất kỳ",
+      desc: "+1.000 EXP vào số dư tài khoản",
       type: "EXP",
-      cost: 60,
+      cost: SHARD_XP_REWARDS.xp_1000.cost,
       elementColor: "#a855f7",
       icon: <Zap size={16} className="text-purple-400" />,
     },
@@ -1494,55 +1509,55 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
       name: "Thẻ Hiếm: Nhựa",
       desc: "Mua thẻ hiếm theo nguyên tố",
       type: "Thẻ Hiếm",
-      cost: 20,
+      cost: SHARD_CARD_REWARDS.shard_rare_1.cost,
       elementColor: "#06b6d4",
       elementId: "plastic",
       rarity: "rare",
-      cardId: 11,
+      cardId: SHARD_CARD_REWARDS.shard_rare_1.cardId,
     },
     {
       id: "shard_rare_2",
       name: "Thẻ Hiếm: Hữu Cơ",
       desc: "Mua thẻ hiếm theo nguyên tố",
       type: "Thẻ Hiếm",
-      cost: 20,
+      cost: SHARD_CARD_REWARDS.shard_rare_2.cost,
       elementColor: "#22c55e",
       elementId: "organic",
       rarity: "rare",
-      cardId: 151,
+      cardId: SHARD_CARD_REWARDS.shard_rare_2.cardId,
     },
     {
       id: "shard_epic_1",
       name: "Thẻ Siêu Hiếm: Nguy Hại",
       desc: "Mua thẻ siêu hiếm theo nguyên tố",
       type: "Thẻ Siêu Hiếm",
-      cost: 50,
+      cost: SHARD_CARD_REWARDS.shard_epic_1.cost,
       elementColor: "#ef4444",
       elementId: "hazard",
       rarity: "epic",
-      cardId: 201,
+      cardId: SHARD_CARD_REWARDS.shard_epic_1.cardId,
     },
     {
       id: "shard_epic_2",
       name: "Thẻ Siêu Hiếm: Kim Loại",
       desc: "Mua thẻ siêu hiếm theo nguyên tố",
       type: "Thẻ Siêu Hiếm",
-      cost: 50,
+      cost: SHARD_CARD_REWARDS.shard_epic_2.cost,
       elementColor: "#64748b",
       elementId: "metal",
       rarity: "epic",
-      cardId: 251,
+      cardId: SHARD_CARD_REWARDS.shard_epic_2.cardId,
     },
     {
       id: "shard_legendary",
       name: "Thẻ Huyền Thoại",
       desc: "Mua thẻ huyền thoại cực hiếm",
       type: "Thẻ Huyền Thoại",
-      cost: 120,
+      cost: SHARD_CARD_REWARDS.shard_legendary.cost,
       elementColor: "#f59e0b",
-      elementId: "hazard",
+      elementId: "organic",
       rarity: "legendary",
-      cardId: 301,
+      cardId: SHARD_CARD_REWARDS.shard_legendary.cardId,
     },
   ];
 
@@ -1641,20 +1656,20 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
         <div className="grid grid-cols-4 gap-2 mt-3">
           {[
             {
-              label: t("collection.totalCards") || "Total Cards",
-              value: "420",
-              color: "text-white",
+              label: t("collection.ownedCards", { defaultValue: "Đã sở hữu" }),
+              value: String(collectedCount),
+              color: "text-emerald-400",
             },
             {
-              label: t("collection.uniqueCards") || "Unique Cards",
-              value: String(unlockedCards.length),
-              color: "text-emerald-400",
+              label: t("collection.progress", { defaultValue: "Tiến độ" }),
+              value: `${((collectedCount / Math.max(totalCards, 1)) * 100).toFixed(1)}%`,
+              color: "text-cyan-300",
             },
             {
               label: t("cards.rarity.legendary"),
               value: String(
                 unlockedCards.filter((id: number) => {
-                  const card = ALL_CARDS.find((c) => c.id === id);
+                  const card = CARD_BY_ID.get(id);
                   return card && card.rarity.id === "legendary";
                 }).length,
               ),
@@ -1739,7 +1754,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
         {dailyChallenge &&
           activeChallengeInfo &&
           (() => {
-            const challengeCard = ALL_CARDS.find((c) => c.id === dailyChallenge.cardId);
+            const challengeCard = CARD_BY_ID.get(dailyChallenge.cardId);
             if (!challengeCard) return null;
             return (
               <div
@@ -1821,6 +1836,25 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
       {/* ─── Content ─── */}
       <div className="flex-1 overflow-y-auto thin-scrollbar">
+        {cardDataError && (
+          <div
+            role="alert"
+            className="mx-4 mt-4 flex items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200"
+          >
+            <span>{cardDataError}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCardDataError(null);
+                void Promise.all([fetchCardLevels(), refreshProgress()]);
+              }}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-amber-100 transition hover:bg-amber-400/20"
+            >
+              <RefreshCw size={12} />
+              Thử lại
+            </button>
+          </div>
+        )}
         {/* COLLECTION */}
         {activeSection === "collection" && (
           <div className="space-y-3 p-4">
@@ -1922,25 +1956,42 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 pb-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {displayCards.map((card) => {
-                  const isLocked = !unlockedCards.includes(card.id);
-                  const inDeck = deck.includes(card.id);
-                  return (
-                    <div key={card.id} className="card-grid-item">
-                      <CardTile
-                        card={card}
-                        count={getCardCount(card.id)}
-                        level={getCardLevel(card.id)}
-                        locked={isLocked && showLocked}
-                        inDeck={inDeck}
-                        isNew={newCardIds.has(card.id)}
-                        onClick={() => !isLocked && setViewingCard(resolveCard(card))}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-3 pb-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {visibleCards.map((card) => {
+                    const isLocked = !ownedCardIds.has(card.id);
+                    const inDeck = deck.includes(card.id);
+                    return (
+                      <div key={card.id} className="card-grid-item">
+                        <CardTile
+                          card={card}
+                          count={getCardCount(card.id)}
+                          level={getCardLevel(card.id)}
+                          locked={isLocked}
+                          inDeck={inDeck}
+                          isNew={newCardIds.has(card.id)}
+                          onClick={() => !isLocked && setViewingCard(resolveCard(card))}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                {visibleCards.length < displayCards.length && (
+                  <div className="flex justify-center pb-4">
+                    <Button
+                      type="button"
+                      variant="soft"
+                      onClick={() => setVisibleCardLimit((limit) => limit + CARD_PAGE_SIZE)}
+                      className="border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                    >
+                      {t("flashcards.loadMore", { defaultValue: "Hiển thị thêm" })}
+                      <span className="text-slate-400">
+                        {visibleCards.length}/{displayCards.length}
+                      </span>
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -2056,7 +2107,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
                   {unlockedCards
                     .filter((id) => getCardCount(id) >= 3)
                     .map((id) => {
-                      const card = ALL_CARDS.find((c) => c.id === id)!;
+                      const card = CARD_BY_ID.get(id)!;
                       const count = getCardCount(id);
                       const xpGain = getFusedXp(card.atk + card.hp);
                       const rs = RARITY[card.rarity.id] || RARITY.common;
@@ -2230,7 +2281,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {unlockedCards.map((id) => {
-                  const card = ALL_CARDS.find((c) => c.id === id)!;
+                  const card = CARD_BY_ID.get(id)!;
                   const level = getCardLevel(id);
                   const isMax = level >= 20;
                   const xpCost = getXpForLevel(level + 1);
@@ -2962,7 +3013,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
               <h4 className="mb-3 font-black text-base text-white">Chọn thẻ vào đội hình</h4>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-1 sm:gap-2">
                 {unlockedCards.map((id) => {
-                  const card = ALL_CARDS.find((c) => c.id === id)!;
+                  const card = CARD_BY_ID.get(id)!;
                   if (!card) return null;
                   const inDeck = deck.includes(id);
                   const rs = RARITY[card.rarity.id] || RARITY.common;

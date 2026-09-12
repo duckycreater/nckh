@@ -9,6 +9,7 @@ import {
   resolveGacha,
 } from "../../server/lib/cards.ts";
 import { ALL_CARDS, CARD_DEFINITIONS, calcPower } from "../../src/lib/cards.tsx";
+import { SHARD_CARD_REWARDS } from "../../src/lib/shardShop.ts";
 
 describe("server card catalog", () => {
   it("matches the client rarity and element for every card", () => {
@@ -43,6 +44,14 @@ describe("server card catalog", () => {
   it("rejects invalid card ids instead of silently inventing a card", () => {
     assert.throws(() => generateServerCard(0), RangeError);
     assert.throws(() => generateServerCard(CARD_TOTAL + 1), RangeError);
+  });
+
+  it("keeps every shard-shop reward aligned with its advertised rarity and element", () => {
+    for (const [itemId, reward] of Object.entries(SHARD_CARD_REWARDS)) {
+      const card = generateServerCard(reward.cardId);
+      assert.equal(card.rarityId, reward.rarity, `${itemId} has the wrong rarity`);
+      assert.equal(card.elementId, reward.element, `${itemId} has the wrong element`);
+    }
   });
 
   it("calculates finite power for every supported rarity", () => {

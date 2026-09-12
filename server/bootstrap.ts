@@ -12,7 +12,7 @@ import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
-import { resolveGacha, generateServerCard, CARD_TOTAL } from "../server/lib/cards.js";
+import { resolveGacha, generateServerCard } from "../server/lib/cards.js";
 import { GoogleGenAI } from "@google/genai";
 import {
   datasetCurator,
@@ -99,6 +99,8 @@ import { getVietnamDayKey } from "../src/lib/dayKey.js";
 import { getDailyChallengeIds, getDailyChallengeReward } from "../src/lib/dailyChallenges.js";
 import { resolveGameplayRewardClaim } from "../src/lib/gameplayRewards.js";
 import { parseRedeemInfo, type RedeemInfo } from "../src/lib/redemption.js";
+import { normalizeCardOwnership } from "../src/lib/cardOwnership.js";
+import { SHARD_CARD_REWARDS, SHARD_ITEM_COSTS, SHARD_XP_REWARDS } from "../src/lib/shardShop.js";
 import {
   deliverEmail,
   getConfiguredEmailProvider,
@@ -123,10 +125,26 @@ const upload = multer({
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+const NICKNAME_PATTERN = /^[a-zA-Z0-9_]{4,100}$/;
+
+function isValidNickname(value: unknown): value is string {
+  return typeof value === "string" && NICKNAME_PATTERN.test(value.trim());
+}
+
+function runInBackground(label: string, task: () => Promise<void>): void {
+  setImmediate(() => {
+    void task().catch((error) => console.warn(`[${label}]`, error));
+  });
+}
 
 function getRouteParam(value: unknown): string {
   if (Array.isArray(value)) return String(value[0] ?? "");
   return typeof value === "string" ? value : "";
+}
+
+function parseCardId(value: unknown): number | null {
+  const cardId = Number(value);
+  return Number.isInteger(cardId) && cardId >= 1 && cardId <= 420 ? cardId : null;
 }
 
 // Trust proxy for correct IP detection behind reverse proxies (nginx, load balancers)
@@ -440,7 +458,10 @@ async function sendCraftEmail(
 }
 
 // In-memory Database (Fallback)
-const DB_FILE = path.join(process.cwd(), "data.json");
+const configuredDataFile = process.env.BMO_DATA_FILE?.trim();
+const DB_FILE = configuredDataFile
+  ? path.resolve(configuredDataFile)
+  : path.join(process.cwd(), "data.json");
 let users: User[] = [];
 
 // Initialize Firebase Admin if available
@@ -488,8 +509,13 @@ if (secretRaw) {
     }
     console.log("Firebase Admin Initialized successfully!");
 
-    // Auto sync from data.json to Firebase if it has users
-    if (fs.existsSync(DB_FILE)) {
+    // Local data is never a production migration source. Historical builds
+    // pushed every test fixture in data.json into Firestore during boot,
+    // which polluted accounts and could overwrite credentials on redeploy.
+    // Development migrations now require an explicit opt-in.
+    const localUserSyncEnabled =
+      process.env.NODE_ENV !== "production" && process.env.SYNC_LOCAL_USERS_TO_FIREBASE === "true";
+    if (localUserSyncEnabled && fs.existsSync(DB_FILE)) {
       const data = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
       if (data.users && data.users.length > 0) {
         console.log(`Syncing ${data.users.length} users to Firebase...`);
@@ -509,7 +535,7 @@ if (secretRaw) {
                   await docRef.set(u);
                 }
               } catch (e) {
-                // Silently skip individual failures to avoid quota errors
+                console.warn(`[firebase-sync] Failed to sync ${u.nick}:`, (e as Error).message);
               }
             });
             await Promise.all(promises);
@@ -528,8 +554,10 @@ if (secretRaw) {
 
 interface UserProgress {
   flashcardsRead: number[];
-  flashcardCounts: Record<number, number>;
+  flashcardCounts: Record<string, number>;
   flashcardNames?: Record<number, string>;
+  cardLevels?: Record<string, number>;
+  gachaPullCount?: number;
   checkins: number[];
   traded: (string | number)[];
   crafted: (string | number)[];
@@ -568,6 +596,37 @@ interface User {
   passwordResetNonce?: string;
 }
 
+function normalizeProgressCards(progress: UserProgress): boolean {
+  const ownership = normalizeCardOwnership(progress.flashcardsRead, progress.flashcardCounts);
+  progress.flashcardsRead = ownership.ids;
+  progress.flashcardCounts = ownership.counts;
+  progress.checkins = Array.isArray(progress.checkins) ? progress.checkins : [];
+  progress.traded = Array.isArray(progress.traded) ? progress.traded : [];
+  progress.crafted = Array.isArray(progress.crafted) ? progress.crafted : [];
+  progress.purchased = Array.isArray(progress.purchased) ? progress.purchased : [];
+  progress.challengesCompleted = Array.isArray(progress.challengesCompleted)
+    ? progress.challengesCompleted
+    : [];
+  progress.guildDonated = progress.guildDonated === true;
+  progress.lastUpdateDate =
+    typeof progress.lastUpdateDate === "string" && progress.lastUpdateDate.trim()
+      ? progress.lastUpdateDate
+      : getVietnamDayKey();
+  progress.shards = Math.max(0, Math.trunc(Number(progress.shards) || 0));
+  progress.gachaPullCount = Math.max(0, Math.trunc(Number(progress.gachaPullCount) || 0));
+  if (progress.cardLevels && typeof progress.cardLevels === "object") {
+    progress.cardLevels = Object.fromEntries(
+      Object.entries(progress.cardLevels)
+        .map(([id, level]) => [String(Math.trunc(Number(id))), Math.trunc(Number(level))] as const)
+        .filter(([id, level]) => Number(id) >= 1 && Number(id) <= 420 && level >= 1 && level <= 20),
+    );
+  } else {
+    progress.cardLevels = {};
+  }
+  if (ownership.debugUnlockRemoved) progress.cardLevels = {};
+  return ownership.debugUnlockRemoved;
+}
+
 function normalizeUserEconomy(user: User): User {
   const points = Math.max(0, Math.trunc(Number(user.points) || 0));
   const storedLifetime = Math.max(0, Math.trunc(Number(user.totalExpEarned) || 0));
@@ -575,6 +634,7 @@ function normalizeUserEconomy(user: User): User {
   // Existing accounts predate this field. Their current balance is the safest
   // non-destructive migration floor; future spends no longer lower progression.
   user.totalExpEarned = Math.max(points, storedLifetime);
+  if (user.progress) normalizeProgressCards(user.progress);
   return user;
 }
 
@@ -599,6 +659,8 @@ interface GameProgress {
   flashcardsRead: number[];
   flashcardCounts: Record<string, number>;
   flashcardNames?: Record<number, string>;
+  cardLevels?: Record<string, number>;
+  gachaPullCount?: number;
   checkins: number[];
   traded: (string | number)[];
   crafted: (string | number)[];
@@ -611,39 +673,47 @@ interface GameProgress {
 }
 
 async function getGameProgress(nick: string): Promise<GameProgress | null> {
-  if (!db) return null;
-  const doc = await db.collection("user_progress").doc(nick.toLowerCase()).get();
-  if (!doc.exists) return null;
-  const progress = doc.data() as GameProgress;
-  if (progress.flashcardCounts) {
-    const normalized: Record<number, number> = {};
-    for (const [k, v] of Object.entries(progress.flashcardCounts)) {
-      normalized[Number(k)] = v;
+  const normalizedNick = nick.toLowerCase();
+  if (!db) {
+    const localUser = users.find((user) => user.nick.toLowerCase() === normalizedNick);
+    if (!localUser?.progress) return null;
+    normalizeProgressCards(localUser.progress);
+    return localUser.progress;
+  }
+  const docRef = db.collection("user_progress").doc(normalizedNick);
+  const doc = await docRef.get();
+  let progress: GameProgress;
+  let migratedFromEmbeddedProgress = false;
+
+  if (doc.exists) {
+    progress = doc.data() as GameProgress;
+  } else {
+    // Older accounts stored gameplay state inside users/{nick}. Migrate it on
+    // first read so opening gacha cannot accidentally start a blank collection.
+    const userRef = db.collection("users").doc(normalizedNick);
+    const userDoc = await userRef.get();
+    const legacyProgress = userDoc.exists ? (userDoc.data() as User).progress : undefined;
+    if (!legacyProgress) return null;
+    progress = legacyProgress;
+    migratedFromEmbeddedProgress = true;
+  }
+
+  const removedDebugUnlock = normalizeProgressCards(progress);
+  if (migratedFromEmbeddedProgress || removedDebugUnlock) {
+    const batch = db.batch();
+    batch.set(docRef, progress, { merge: true });
+    if (migratedFromEmbeddedProgress && removedDebugUnlock) {
+      batch.set(db.collection("users").doc(normalizedNick), { progress }, { merge: true });
     }
-    progress.flashcardCounts = normalized as Record<string, number>;
+    await batch.commit();
+  }
+  if (migratedFromEmbeddedProgress) {
+    console.info(`[card-progress] Migrated embedded progress for ${nick}`);
+  }
+  if (removedDebugUnlock) {
+    console.warn(`[card-progress] Removed development full-unlock state for ${nick}`);
   }
   return progress;
-}
-
-async function saveGameProgress(nick: string, progress: GameProgress) {
-  if (!db) {
-    const localUser = users.find((user) => user.nick.toLowerCase() === nick.toLowerCase());
-    if (localUser) {
-      localUser.progress = progress;
-      saveData();
-    }
-    return;
-  }
-  try {
-    await db.collection("user_progress").doc(nick.toLowerCase()).set(progress, { merge: true });
-    console.log(
-      `[saveGameProgress] Saved to user_progress/${nick.toLowerCase()}:`,
-      JSON.stringify(progress.flashcardCounts || {}),
-    );
-  } catch (e) {
-    console.error(`[saveGameProgress] Failed to save progress for ${nick}:`, e?.message || e);
-    // Don't throw — the in-memory state is already updated; the caller should still return success
-  }
 }
 
 interface Question {
@@ -727,7 +797,15 @@ let dynamicConfig: any = {
 if (fs.existsSync(DB_FILE)) {
   try {
     const data = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-    users = data.users || [];
+    const storedUsers = Array.isArray(data.users) ? data.users : [];
+    users = storedUsers.filter((user: unknown) => {
+      if (!user || typeof user !== "object") return false;
+      return isValidNickname((user as { nick?: unknown }).nick);
+    });
+    const rejected = storedUsers.length - users.length;
+    if (rejected > 0) {
+      console.warn(`[local-db] Ignored ${rejected} malformed user records from ${DB_FILE}`);
+    }
   } catch (e) {
     console.error("Failed to load db", e);
   }
@@ -769,17 +847,11 @@ async function logRewardTransaction(
 
 async function getUser(nick: string): Promise<User | undefined> {
   const normNick = (nick || "").trim().toLowerCase();
+  if (!isValidNickname(normNick)) return undefined;
   if (db) {
     const doc = await db.collection("users").doc(normNick).get();
     if (doc.exists) {
       const user = doc.data() as User;
-      if (user.progress?.flashcardCounts) {
-        const normalized: Record<number, number> = {};
-        for (const [k, v] of Object.entries(user.progress.flashcardCounts)) {
-          normalized[Number(k)] = v;
-        }
-        user.progress.flashcardCounts = normalized;
-      }
       return normalizeUserEconomy(user);
     }
   }
@@ -915,23 +987,51 @@ async function saveUser(user: User, isNew: boolean = false): Promise<void> {
       await db.collection("users").doc(normNick).set(user, { merge: true });
     } catch (e) {
       console.error(`[saveUser] Failed to save ${normNick} to Firestore:`, e?.message || e);
-      // Fallback to in-memory storage if Firestore is unavailable
-      if (isNew) {
-        const exists = users.some((u) => u.nick.toLowerCase() === normNick);
-        if (!exists) users.push(user);
-      }
-      saveData();
+      throw e;
     }
   } else {
-    if (isNew) users.push(user);
+    if (isNew) {
+      const exists = users.some((candidate) => candidate.nick.toLowerCase() === normNick);
+      if (!exists) users.push(user);
+    }
     saveData();
   }
+}
+
+async function saveUserAndProgress(
+  nickname: string,
+  user: User,
+  progress: GameProgress,
+): Promise<void> {
+  normalizeUserEconomy(user);
+  normalizeProgressCards(progress);
+  const normalizedNickname = nickname.toLowerCase();
+  if (db) {
+    const batch = db.batch();
+    batch.set(db.collection("users").doc(normalizedNickname), user, { merge: true });
+    batch.set(db.collection("user_progress").doc(normalizedNickname), progress, { merge: true });
+    try {
+      await batch.commit();
+      return;
+    } catch (error) {
+      console.error(`[saveUserAndProgress] Atomic write failed for ${normalizedNickname}:`, error);
+      throw error;
+    }
+  }
+
+  const localUser = users.find((candidate) => candidate.nick.toLowerCase() === normalizedNickname);
+  if (!localUser) throw new Error(`Cannot save progress: user ${nickname} was not found`);
+  Object.assign(localUser, user, { progress });
+  saveData();
 }
 
 async function getAllUsers(): Promise<User[]> {
   if (db) {
     const snap = await db.collection("users").get();
-    return snap.docs.map((d) => normalizeUserEconomy(d.data() as User));
+    return snap.docs
+      .map((document) => document.data() as User)
+      .filter((user) => isValidNickname(user.nick))
+      .map(normalizeUserEconomy);
   }
   return users.map(normalizeUserEconomy);
 }
@@ -1083,12 +1183,7 @@ app.post("/api/login", async (req, res) => {
   const login_password =
     typeof req.body?.login_password === "string" ? req.body.login_password : "";
 
-  if (
-    !login_nickname ||
-    !login_password ||
-    login_nickname.length > 100 ||
-    login_password.length > 256
-  ) {
+  if (!isValidNickname(login_nickname) || !login_password || login_password.length > 256) {
     return res.status(400).json({ success: false, message: "Thông tin đăng nhập không hợp lệ." });
   }
 
@@ -1125,10 +1220,10 @@ app.post("/api/login", async (req, res) => {
 
       const token = createSessionToken(user.nick, role === "admin", user.account_id);
 
-      // Research: Register in research DB if not exists, assign personality
       const accountId = user.account_id;
-      if (isDbConnected()) {
-        try {
+      // Research enrichment must never delay the authentication response.
+      runInBackground("login-research", async () => {
+        if (isDbConnected()) {
           const { getDb } = await import("../server/db.js");
           const db = getDb();
           if (db) {
@@ -1146,44 +1241,21 @@ app.post("/api/login", async (req, res) => {
             }
             const currentProfile = await behavioralProfiler.getProfile(accountId);
             if (!currentProfile) {
-              setTimeout(async () => {
-                try {
-                  await behavioralProfiler.profileUser(accountId);
-                } catch (e) {
-                  console.warn("[BehavioralProfiler] Failed:", e);
-                }
-              }, 1000);
+              await behavioralProfiler.profileUser(accountId);
             }
           }
-        } catch (e) {
-          console.warn("[Login] Research registration failed:", e);
         }
-      }
-
-      // Research: Log login event
-      try {
         await eventLogger.logLogin(accountId);
-      } catch (e) {
-        console.error("[login] logLogin failed:", e?.message || e);
-      }
-
-      // Research: Check for novelty decay and trigger intervention if needed
-      if (isDbConnected()) {
-        setTimeout(async () => {
-          try {
-            const shouldIntervene = await noveltyDecayDetector.shouldTriggerIntervention(accountId);
-            if (shouldIntervene) {
-              const interventions =
-                await noveltyDecayDetector.getRecommendedInterventions(accountId);
-              if (interventions.length > 0) {
-                await noveltyDecayDetector.triggerIntervention(accountId, interventions[0]);
-              }
+        if (isDbConnected()) {
+          const shouldIntervene = await noveltyDecayDetector.shouldTriggerIntervention(accountId);
+          if (shouldIntervene) {
+            const interventions = await noveltyDecayDetector.getRecommendedInterventions(accountId);
+            if (interventions.length > 0) {
+              await noveltyDecayDetector.triggerIntervention(accountId, interventions[0]);
             }
-          } catch (e) {
-            console.warn("[NoveltyDecay] Intervention check failed:", e);
           }
-        }, 5000);
-      }
+        }
+      });
 
       res.json({
         success: true,
@@ -1222,14 +1294,14 @@ app.post("/api/register", async (req, res) => {
   const fullName = (reg_full_name || "").trim();
 
   if (nick.length < 4) {
-    res.json({ success: false, message: "Tài khoản phải trên 4 ký tự!" });
+    res.json({ success: false, message: "Tài khoản phải có ít nhất 4 ký tự!" });
     return;
   }
   if (pass.length < 8 || pass.length > 128) {
     res.json({ success: false, message: "Mật khẩu phải dài từ 8 đến 128 ký tự!" });
     return;
   }
-  if (!/^[a-zA-Z0-9_]+$/.test(nick)) {
+  if (!isValidNickname(nick)) {
     res.json({
       success: false,
       message: "Nickname không được chứa dấu cách/ký tự lạ!",
@@ -1304,11 +1376,9 @@ app.post("/api/register", async (req, res) => {
     return res.status(500).json({ success: false, message: "Không thể tạo tài khoản lúc này." });
   }
 
-  // Research: Register in research DB and assign personality.
-  // The username column persists the original "Tên hiển thị" so existing
-  // dashboards keep working; full_name and class_grade are stored alongside.
-  if (isDbConnected()) {
-    try {
+  // Research enrichment is best-effort and runs after the account is durable.
+  runInBackground("register-research", async () => {
+    if (isDbConnected()) {
       const { getDb } = await import("../server/db.js");
       const db = getDb();
       if (db) {
@@ -1328,10 +1398,8 @@ app.post("/api/register", async (req, res) => {
           full_name: fullName || null,
         });
       }
-    } catch (e) {
-      console.warn("[Auth] Registration research tasks failed:", e);
     }
-  }
+  });
 
   res.json({
     success: true,
@@ -2136,12 +2204,13 @@ app.post("/api/rewards", requireAdmin, async (req, res) => {
 
 // ─── Card Fusion: combine 3 copies → upgraded version ────────────────────────
 app.post("/api/cards/fuse", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
   try {
     // Layer 2.3 — you can only fuse cards you own.
-    const nickname = (req as any).userNick as string;
-    const { cardId } = req.body ?? {};
-    if (!cardId) {
-      return res.status(400).json({ success: false, error: "Missing fields" });
+    const cardId = parseCardId(req.body?.cardId);
+    if (cardId === null) {
+      return res.status(400).json({ success: false, error: "Invalid card ID" });
     }
 
     const progress = await getGameProgress(nickname);
@@ -2167,10 +2236,9 @@ app.post("/api/cards/fuse", requireAuth, async (req, res) => {
     // Award bonus XP equivalent
     const serverCard = generateServerCard(cardId);
     const xpReward = Math.floor((serverCard.atk + serverCard.hp) * 2);
-    user.points = (user.points || 0) + xpReward;
+    applyPointDelta(user, xpReward);
 
-    await saveGameProgress(nickname, progress);
-    await saveUser(user);
+    await saveUserAndProgress(nickname, user, progress);
 
     res.json({
       success: true,
@@ -2182,17 +2250,20 @@ app.post("/api/cards/fuse", requireAuth, async (req, res) => {
   } catch (e) {
     console.error("[cards:fuse] Error:", e);
     res.status(500).json({ success: false, error: "Fusion failed" });
+  } finally {
+    releaseLock();
   }
 });
 
 // ─── Card Level Up: spend XP to level up owned cards ─────────────────────────
 app.post("/api/cards/levelup", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
   try {
     // Layer 2.3 — you can only level up cards you own.
-    const nickname = (req as any).userNick as string;
-    const { cardId } = req.body ?? {};
-    if (!cardId) {
-      return res.status(400).json({ success: false, error: "Missing fields" });
+    const cardId = parseCardId(req.body?.cardId);
+    if (cardId === null) {
+      return res.status(400).json({ success: false, error: "Invalid card ID" });
     }
 
     const progress = await getGameProgress(nickname);
@@ -2207,8 +2278,11 @@ app.post("/api/cards/levelup", requireAuth, async (req, res) => {
     }
 
     // Get or init card levels
-    const cardLevels: Record<string, number> = (progress as any).cardLevels || {};
+    const cardLevels: Record<string, number> = progress.cardLevels || {};
     const currentLevel = cardLevels[String(cardId)] || 1;
+    if (currentLevel >= 20) {
+      return res.status(409).json({ success: false, error: "Thẻ đã đạt cấp tối đa." });
+    }
     const nextLevel = currentLevel + 1;
     const xpCost = nextLevel * nextLevel * 30; // 120, 270, 480, 750...
 
@@ -2221,10 +2295,9 @@ app.post("/api/cards/levelup", requireAuth, async (req, res) => {
 
     user.points -= xpCost;
     cardLevels[String(cardId)] = nextLevel;
-    (progress as any).cardLevels = cardLevels;
+    progress.cardLevels = cardLevels;
 
-    await saveGameProgress(nickname, progress);
-    await saveUser(user);
+    await saveUserAndProgress(nickname, user, progress);
 
     const serverCard = generateServerCard(cardId);
     const newAtk = Math.floor(serverCard.atk * (1 + (nextLevel - 1) * 0.15));
@@ -2242,29 +2315,17 @@ app.post("/api/cards/levelup", requireAuth, async (req, res) => {
   } catch (e) {
     console.error("[cards:levelup] Error:", e);
     res.status(500).json({ success: false, error: "Level up failed" });
+  } finally {
+    releaseLock();
   }
 });
 
 // ─── Shard purchase ───────────────────────────────────────────────────────────
-// Shard shop items (synchronized with client-side SHARD_SHOP_ITEMS)
-// type: "card" | "xp_boost" | "frame"
-const SHARD_SHOP_DEFINITIONS = [
-  { id: "xp_50", type: "xp_boost", cost: 5, xpBonus: 50 },
-  { id: "xp_200", type: "xp_boost", cost: 15, xpBonus: 200 },
-  { id: "xp_1000", type: "xp_boost", cost: 60, xpBonus: 1000 },
-];
-const CARD_SHOP_ITEMS: Record<string, { rarity: string; element: string; cardId: number }> = {
-  shard_rare_1: { rarity: "rare", element: "plastic", cardId: 11 },
-  shard_rare_2: { rarity: "rare", element: "organic", cardId: 151 },
-  shard_epic_1: { rarity: "epic", element: "hazard", cardId: 201 },
-  shard_epic_2: { rarity: "epic", element: "metal", cardId: 251 },
-  shard_legendary: { rarity: "legendary", element: "hazard", cardId: 301 },
-};
-
 app.post("/api/shards/purchase", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
   try {
     // Layer 2.3 — purchases are debited to the authenticated user.
-    const nickname = (req as any).userNick as string;
     const { itemId } = req.body ?? {};
     if (!itemId) {
       return res.status(400).json({ success: false, error: "Missing fields" });
@@ -2276,17 +2337,7 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    const shardCosts: Record<string, number> = {
-      xp_50: 5,
-      xp_200: 15,
-      xp_1000: 60,
-      shard_rare_1: 20,
-      shard_rare_2: 20,
-      shard_epic_1: 50,
-      shard_epic_2: 50,
-      shard_legendary: 120,
-    };
-    const cost = shardCosts[itemId];
+    const cost = SHARD_ITEM_COSTS[itemId];
     if (!cost) {
       return res.status(400).json({ success: false, error: "Item not found" });
     }
@@ -2302,11 +2353,10 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
 
     // Handle XP boost — add directly to user points
     if (itemId.startsWith("xp_")) {
-      const def = SHARD_SHOP_DEFINITIONS.find((d) => d.id === itemId);
-      const xpBonus = def ? def.xpBonus : 0;
-      user.points = (user.points || 0) + xpBonus;
-      await saveGameProgress(nickname, progress);
-      await saveUser(user);
+      const def = SHARD_XP_REWARDS[itemId as keyof typeof SHARD_XP_REWARDS];
+      const xpBonus = def?.xpBonus || 0;
+      applyPointDelta(user, xpBonus);
+      await saveUserAndProgress(nickname, user, progress);
       return res.json({
         success: true,
         shardsRemaining: progress.shards,
@@ -2316,7 +2366,7 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
     }
 
     // Handle card purchase
-    const cardDef = CARD_SHOP_ITEMS[itemId];
+    const cardDef = SHARD_CARD_REWARDS[itemId as keyof typeof SHARD_CARD_REWARDS];
     if (cardDef) {
       const cardId = cardDef.cardId;
       const serverCard = generateServerCard(cardId);
@@ -2327,8 +2377,7 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
       if (isNew) {
         progress.flashcardsRead.push(cardId);
       }
-      await saveGameProgress(nickname, progress);
-      await saveUser(user);
+      await saveUserAndProgress(nickname, user, progress);
       return res.json({
         success: true,
         shardsRemaining: progress.shards,
@@ -2341,6 +2390,8 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
   } catch (e) {
     console.error("[shards:purchase] Error:", e);
     res.status(500).json({ success: false, error: "Purchase failed" });
+  } finally {
+    releaseLock();
   }
 });
 
@@ -2348,9 +2399,10 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
 app.get("/api/cards/levels/:nickname", requireAuth, async (req, res) => {
   try {
     const progress = await getGameProgress((req as any).userNick as string);
-    const levels: Record<string, number> = (progress as any)?.cardLevels || {};
+    const levels: Record<string, number> = progress?.cardLevels || {};
     res.json({ levels });
   } catch (e) {
+    console.error("[cards:levels] Error:", e);
     res.status(500).json({ levels: {} });
   }
 });
@@ -2391,7 +2443,7 @@ app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
     progress.flashcardNames = progress.flashcardNames || {};
     if (!Array.isArray(progress.flashcardsRead)) progress.flashcardsRead = [];
 
-    const currentPullCount = (progress as any).gachaPullCount ?? 0;
+    const currentPullCount = progress.gachaPullCount ?? 0;
     const cards: Array<{
       id: number;
       name: string;
@@ -2427,16 +2479,16 @@ app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
       cards.push({ ...pulledCard, isNew, shardsAwarded });
     }
 
-    (progress as any).gachaPullCount = currentPullCount + count;
+    progress.gachaPullCount = currentPullCount + count;
     user.points = Math.max(0, Math.trunc(user.points || 0) - pullCost);
-    await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+    await saveUserAndProgress(nickname, user, progress);
     await logRewardTransaction(user.account_id, "spend", -pullCost, {
       reason: `Mở gói ${count} thẻ bài`,
       source: "gacha",
       pointsBalance: user.points,
     }).catch((error) => console.warn("[gacha-pull] transaction log failed:", error));
 
-    const cardLevels: Record<string, number> = (progress as any).cardLevels || {};
+    const cardLevels: Record<string, number> = progress.cardLevels || {};
     const enrichedCards = cards.map((c) => ({ ...c, cardLevel: cardLevels[String(c.id)] || 1 }));
 
     res.json({
@@ -2452,32 +2504,6 @@ app.post("/api/cards/gacha-pull", requireAuth, async (req, res) => {
     res.status(500).json({ success: false, error: "Gacha pull failed" });
   } finally {
     releaseLock();
-  }
-});
-
-app.post("/api/admin/unlock-all-cards", requireAdmin, async (req, res) => {
-  try {
-    const { nickname } = req.body;
-    if (!nickname) return res.status(400).json({ success: false, error: "Missing nickname" });
-
-    const CARD_TOTAL_USED = CARD_TOTAL;
-    const flashcardCounts: Record<string, number> = {};
-    for (let i = 1; i <= CARD_TOTAL_USED; i++) {
-      flashcardCounts[String(i)] = 3;
-    }
-
-    const progress = await getGameProgress(nickname);
-    const updated = {
-      ...(progress || {}),
-      flashcardsRead: Array.from({ length: CARD_TOTAL_USED }, (_, i) => i + 1),
-      flashcardCounts,
-    } as GameProgress;
-
-    await saveGameProgress(nickname, updated);
-    console.log(`[unlock-all-cards] Unlocked ${CARD_TOTAL_USED} cards for ${nickname}`);
-    res.json({ success: true, message: `Đã mở khóa ${CARD_TOTAL_USED} thẻ cho ${nickname}` });
-  } catch (e: any) {
-    res.status(500).json({ success: false, error: e?.message || "Lỗi" });
   }
 });
 
@@ -2675,6 +2701,8 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         streakDays: newStreak,
         lastUpdateDate: todayStr,
         shards: progress?.shards ?? 0,
+        cardLevels: progress?.cardLevels || {},
+        gachaPullCount: progress?.gachaPullCount ?? 0,
       };
     }
 
@@ -2742,7 +2770,7 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         createdAt: new Date().toISOString(),
       };
       user.redemptionRequests = [...(user.redemptionRequests ?? []), redemptionRequest];
-      await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+      await saveUserAndProgress(nickname, user, progress);
       const craftHistoryWrite = db
         ? db.collection("users").doc(nickname.toLowerCase()).collection("craft_history").add({
             timestamp: new Date().toISOString(),
@@ -2794,7 +2822,7 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
       }
       user.points -= purchaseCost;
       progress.purchased.push(purchaseId);
-      await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+      await saveUserAndProgress(nickname, user, progress);
       const purchaseHistoryWrite = db
         ? db
             .collection("users")
@@ -2838,7 +2866,7 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
     }
 
     // Save to dedicated user_progress collection (not users/{nick})
-    await Promise.all([saveGameProgress(nickname, progress), saveUser(user)]);
+    await saveUserAndProgress(nickname, user, progress);
     console.log(
       `[user-progress] Saved to user_progress/${nickname.toLowerCase()}, flashcardCounts:`,
       JSON.stringify(progress.flashcardCounts || {}),
