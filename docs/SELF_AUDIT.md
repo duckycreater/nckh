@@ -15,7 +15,7 @@ verify they hold.
 | `.env.example` documents all vars | one-per-service | `.env.example` (78 LOC) | ✅ |
 | Duplicate-path guard (`scripts/check-duplicate-paths.mjs`) | CI green | `npm run check:paths` exits 0 | ✅ |
 | `README.md` (root, 200-word intro, 5-min quick start) | present | `README.md` (1.2 KB) | ✅ |
-| `.github/workflows/ci.yml` matrix Node 20 + 22 | present | `.github/workflows/ci.yml` (lint + test + build) | ✅ |
+| `.github/workflows/ci.yml` matrix Node 22 + 24 | present | `.github/workflows/ci.yml` (lint + test + build) | ✅ |
 | `.github/workflows/codeql.yml` | present | `.github/workflows/codeql.yml` | ✅ |
 
 ## B. AI / model reality
@@ -72,7 +72,7 @@ verify they hold.
 
 | Criterion | Target | Evidence | Status |
 | --- | --- | --- | --- |
-| `npm test` | green | 176 / 176 in ~7 s on Windows; CI runs matrix on Node 20 + 22 | ✅ |
+| `npm test` | green | 285 / 285 in ~7 s on Windows; CI runs matrix on Node 22 + 24 | ✅ |
 | `npm run check:paths` | green | no duplicate paths | ✅ |
 | `npm run check:secrets` | green | no hardcoded secrets | ✅ |
 | Server boots with helmet + CORS + rate-limit + CSP + secure cookies | yes | `node server.ts` (smoke-validated in E1) | ✅ |
