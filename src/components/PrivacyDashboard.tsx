@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { DEFAULT_ALPHA_GRID, RenyiDpAccountant, type DpState } from "../services/dpAccountant";
+import { DEFAULT_ALPHA_GRID } from "../services/dpAccountant";
 import { getAuthHeaders } from "../lib/auth";
 
 export interface PrivacyDashboardProps {
@@ -47,27 +47,7 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
 }) => {
   const [feed, setFeed] = useState<PrivacyFeed>(DEFAULT_FEED);
   const [loading, setLoading] = useState(true);
-  const [snapshot, setSnapshot] = useState<DpState | null>(null);
-
-  // Local accountant for offline / browser-only demo.
-  const local = useMemo(() => new RenyiDpAccountant(), []);
-
-  const recordLocal = (sigma = 0.6) => {
-    local.setConfig({ clipNorm: 1.0, sigma });
-    local.recordRound();
-    const state = local.computeState();
-    setSnapshot(state);
-    setFeed((prev) => ({
-      ...prev,
-      provenance: "offline",
-      rounds: state.rounds,
-      renyiCurve: state.renyiCurve,
-      epsilonAtDelta: state.epsilonAtDelta,
-      deltaAtEpsilon: state.deltaAtEpsilon,
-      withinBudget: state.withinBudget,
-      recommendedSigma: state.recommendedSigma,
-    }));
-  };
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,21 +56,14 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
         const r = await fetch(endpoint, { headers: getAuthHeaders() });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const json = (await r.json()) as PrivacyFeed;
-        if (!cancelled) setFeed(json);
+        if (!cancelled) {
+          setFeed({ ...json, provenance: "live" });
+          setLoadError(false);
+        }
       } catch {
         if (!cancelled) {
-          const state = local.computeState();
-          setSnapshot(state);
-          setFeed((prev) => ({
-            ...prev,
-            provenance: "offline",
-            rounds: state.rounds,
-            renyiCurve: state.renyiCurve,
-            epsilonAtDelta: state.epsilonAtDelta,
-            deltaAtEpsilon: state.deltaAtEpsilon,
-            withinBudget: state.withinBudget,
-            recommendedSigma: state.recommendedSigma,
-          }));
+          setFeed(DEFAULT_FEED);
+          setLoadError(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -102,7 +75,7 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
       cancelled = true;
       clearInterval(id);
     };
-  }, [endpoint, refreshSeconds, local]);
+  }, [endpoint, refreshSeconds]);
 
   const epsPct = Math.min(100, (feed.epsilonAtDelta / MAX_EPSILON) * 100);
 
@@ -125,66 +98,47 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
                 : "bg-amber-100 text-amber-800"
             }`}
           >
-            {feed.provenance === "live" ? "LIVE · SERVER SESSION" : "OFFLINE PREVIEW"}
+            {feed.provenance === "live" ? "LIVE · SERVER SESSION" : "UNAVAILABLE · NO LIVE DATA"}
           </span>
-          {feed.provenance !== "live" && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => recordLocal(0.6)}
-                className="rounded-full bg-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-700"
-              >
-                +1 simulated round
-              </button>
-              <button
-                onClick={() => {
-                  local.reset();
-                  const state = local.computeState();
-                  setSnapshot(state);
-                  setFeed({
-                    ...DEFAULT_FEED,
-                    rounds: state.rounds,
-                    renyiCurve: state.renyiCurve,
-                    epsilonAtDelta: state.epsilonAtDelta,
-                    deltaAtEpsilon: state.deltaAtEpsilon,
-                    withinBudget: state.withinBudget,
-                    recommendedSigma: state.recommendedSigma,
-                  });
-                }}
-                className="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                reset preview
-              </button>
-            </div>
-          )}
         </div>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <BudgetCard
-          label={`ε at δ=${TARGET_DELTA.toExponential(0)}`}
-          value={feed.epsilonAtDelta.toFixed(4)}
-          pct={epsPct}
-          accent={feed.withinBudget ? "#0ea5e9" : "#dc2626"}
-        />
-        <BudgetCard
-          label="δ at ε=1.0"
-          value={feed.deltaAtEpsilon.toExponential(2)}
-          pct={Math.min(100, (feed.deltaAtEpsilon / TARGET_DELTA) * 100)}
-          accent={feed.deltaAtEpsilon <= TARGET_DELTA ? "#0ea5e9" : "#dc2626"}
-        />
-        <BudgetCard
-          label="Recommended σ (next round)"
-          value={feed.recommendedSigma !== null ? feed.recommendedSigma.toFixed(4) : "—"}
-          pct={0}
-          accent="#16a34a"
-        />
-      </div>
+      {feed.provenance === "live" ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <BudgetCard
+              label={`ε at δ=${TARGET_DELTA.toExponential(0)}`}
+              value={feed.epsilonAtDelta.toFixed(4)}
+              pct={epsPct}
+              accent={feed.withinBudget ? "#0ea5e9" : "#dc2626"}
+            />
+            <BudgetCard
+              label="δ at ε=1.0"
+              value={feed.deltaAtEpsilon.toExponential(2)}
+              pct={Math.min(100, (feed.deltaAtEpsilon / TARGET_DELTA) * 100)}
+              accent={feed.deltaAtEpsilon <= TARGET_DELTA ? "#0ea5e9" : "#dc2626"}
+            />
+            <BudgetCard
+              label="Recommended σ (next round)"
+              value={feed.recommendedSigma !== null ? feed.recommendedSigma.toFixed(4) : "—"}
+              pct={0}
+              accent="#16a34a"
+            />
+          </div>
 
-      <BudgetBar epsilon={feed.epsilonAtDelta} max={MAX_EPSILON} rounds={feed.rounds} />
-
-      <RenyiCurvePlot curve={feed.renyiCurve} />
-
-      <AuditCard audit={feed.audit} />
+          <BudgetBar epsilon={feed.epsilonAtDelta} max={MAX_EPSILON} rounds={feed.rounds} />
+          <RenyiCurvePlot curve={feed.renyiCurve} />
+          <AuditCard audit={feed.audit} />
+        </>
+      ) : (
+        !loading && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            {loadError
+              ? "Không thể tải phiên federated-learning đang hoạt động. Không có số liệu mô phỏng nào được hiển thị thay cho dữ liệu thật."
+              : "Chưa có phiên federated-learning đang hoạt động."}
+          </div>
+        )
+      )}
 
       {feed.accountingScope === "server_process" && (
         <p className="text-[10px] text-slate-500">
@@ -194,19 +148,6 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
       )}
 
       {loading && <p className="text-xs text-slate-400">Loading…</p>}
-      {snapshot && (
-        <pre className="overflow-x-auto rounded-2xl bg-slate-900 px-3 py-2 text-[10px] text-slate-100">
-          {JSON.stringify(
-            {
-              rounds: snapshot.rounds,
-              withinBudget: snapshot.withinBudget,
-              recommendedSigma: snapshot.recommendedSigma,
-            },
-            null,
-            2,
-          )}
-        </pre>
-      )}
     </div>
   );
 };

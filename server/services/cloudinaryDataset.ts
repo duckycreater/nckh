@@ -48,7 +48,8 @@ export async function uploadToDataset(
   base64Data: string,
   metadata: {
     userId: string;
-    scanId: number;
+    /** Correlation id for the async upload; the research DB row may be written later. */
+    scanId: string;
     category: string;
     confidence: number;
   },

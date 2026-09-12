@@ -24,13 +24,9 @@ function getServerAdminKey(): string {
   return process.env.ADMIN_API_KEY || "";
 }
 
-/** Legacy endpoint retained for compatibility until a real sync job is wired. */
+/** Legacy aliases preserve request bodies while forwarding to production handlers. */
 adminRouter.post("/sheets/sync", requireAdmin, async (req, res) => {
-  return res.status(501).json({
-    success: false,
-    error: "not_implemented",
-    message: "Use the configured Sheets sync job endpoint.",
-  });
+  return res.redirect(307, "/api/admin/sheets/full-sync");
 });
 
 /**
@@ -38,23 +34,7 @@ adminRouter.post("/sheets/sync", requireAdmin, async (req, res) => {
  * Export data to Google Sheets (admin only)
  */
 adminRouter.post("/sheets/export", requireAdmin, async (req, res) => {
-  return res.status(501).json({
-    success: false,
-    error: "not_implemented",
-    message: "Use the configured Sheets export job endpoint.",
-  });
-});
-
-/**
- * GET /api/admin/stats
- * Get admin dashboard statistics
- */
-adminRouter.get("/stats", requireAdmin, async (req, res) => {
-  return res.status(501).json({
-    success: false,
-    error: "not_implemented",
-    message: "Use the research and user statistics endpoints.",
-  });
+  return res.redirect(307, "/api/admin/sheets/push-to-sheets");
 });
 
 /**
@@ -62,11 +42,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
  * Reorder quiz questions (admin only)
  */
 adminRouter.post("/quiz/reorder", requireAdmin, async (req, res) => {
-  return res.status(501).json({
-    success: false,
-    error: "not_implemented",
-    message: "Use /api/admin/quiz/questions/reorder.",
-  });
+  return res.redirect(307, "/api/admin/quiz/questions/reorder");
 });
 
 /**
@@ -74,11 +50,7 @@ adminRouter.post("/quiz/reorder", requireAdmin, async (req, res) => {
  * Bulk import quiz questions (admin only)
  */
 adminRouter.post("/quiz/bulk-import", requireAdmin, async (req, res) => {
-  return res.status(501).json({
-    success: false,
-    error: "not_implemented",
-    message: "Use /api/admin/quiz/questions/import.",
-  });
+  return res.redirect(307, "/api/admin/quiz/questions/import");
 });
 
 /**

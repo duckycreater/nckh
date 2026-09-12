@@ -3,6 +3,20 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { REGIONS } from "../data/worldMap";
 
+// Keep the star field stable across state updates. Randomising during render
+// made the map visibly jump every time a node was hovered or selected.
+const STAR_FIELD = Array.from({ length: 80 }, (_, index) => {
+  const seed = (index * 9301 + 49297) % 233280;
+  const unit = seed / 233280;
+  return {
+    size: 1 + ((index * 17) % 20) / 20,
+    left: (unit * 100 + index * 7.31) % 100,
+    top: ((unit * 73 + index * 11.17) % 100),
+    delay: ((index * 13) % 30) / 10,
+    duration: 2 + ((index * 19) % 30) / 10,
+  };
+});
+
 // ─── World Map Component ─────────────────────────────────────────────────────────
 // Massive open-world style campaign map with 10 regions
 
@@ -69,17 +83,17 @@ export default function WorldMap({
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
         {/* Star field */}
         <div className="absolute inset-0 opacity-30">
-          {Array.from({ length: 80 }).map((_, i) => (
+          {STAR_FIELD.map((star, i) => (
             <div
               key={i}
               className="absolute rounded-full bg-white animate-pulse"
               style={{
-                width: Math.random() * 2 + 1 + "px",
-                height: Math.random() * 2 + 1 + "px",
-                left: Math.random() * 100 + "%",
-                top: Math.random() * 100 + "%",
-                animationDelay: Math.random() * 3 + "s",
-                animationDuration: Math.random() * 3 + 2 + "s",
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                left: `${star.left}%`,
+                top: `${star.top}%`,
+                animationDelay: `${star.delay}s`,
+                animationDuration: `${star.duration}s`,
               }}
             />
           ))}

@@ -2,7 +2,8 @@
  * Card Fusion System
  *
  * Ghép 2 cards thường cùng loại → 1 card hiếm (30% success)
- * Ghép 3 cards hiếm cùng loại → 1 card legendary (20% success)
+ * Ghép 2 cards hiếm cùng loại → 1 card epic (20% success)
+ * Ghép 3 cards epic cùng loại → 1 card legendary (15% success)
  *
  * Fusion events: scheduled 1x/tuần (weekend)
  * - Tăng engagement spike khi fusion opens
@@ -208,8 +209,11 @@ class CardFusion {
     cardId: string,
     fusionEventId?: string,
   ): Promise<FusionResult> {
+    if (!this.db) {
+      return this.failureResult("Card fusion is temporarily unavailable", "common");
+    }
     // Get card info
-    const card = await this.getCardInfo(cardId);
+    const card = await this.getCardInfo(userId, cardId);
     if (!card) {
       return this.failureResult("Card not found", "common");
     }
@@ -218,7 +222,7 @@ class CardFusion {
       return this.failureResult("Legendary cards cannot be fused", "legendary");
     }
 
-    if (card.odDuplicates < FUSION_CARDS_REQUIRED[card.odRarity]) {
+    if (card.odCount < FUSION_CARDS_REQUIRED[card.odRarity]) {
       return this.failureResult(
         `Need ${FUSION_CARDS_REQUIRED[card.odRarity]} copies to fuse`,
         card.odRarity,
@@ -242,7 +246,8 @@ class CardFusion {
 
     if (success) {
       // Success: consume fusion materials, create result card
-      await this.consumeFusionMaterials(userId, cardId, card.odRarity);
+      const consumed = await this.consumeFusionMaterials(userId, cardId, card.odRarity);
+      if (!consumed) return this.failureResult("Fusion materials could not be reserved", card.odRarity);
       const resultCardId = await this.createResultCard(userId, card, resultRarity);
 
       // Log
@@ -268,7 +273,8 @@ class CardFusion {
       };
     } else {
       // Failure: consume materials, give consolation
-      await this.consumeFusionMaterials(userId, cardId, card.odRarity);
+      const consumed = await this.consumeFusionMaterials(userId, cardId, card.odRarity);
+      if (!consumed) return this.failureResult("Fusion materials could not be reserved", card.odRarity);
       const consolation = CONSOLATION_POINTS[card.odRarity];
       const lore = `Lần này chưa thành công, nhưng đừng nản lòng! Xác suất thành công là ${Math.round(successRate * 100)}%. Thử lại vào tuần sau nhé!`;
 
@@ -338,34 +344,69 @@ class CardFusion {
     return null;
   }
 
-  private async getCardInfo(cardId: string): Promise<{
+  private async getCardInfo(userId: string, cardId: string): Promise<{
     odCardName: string;
     odElement: string;
     odRarity: CardRarity;
+    odCount: number;
     odDuplicates: number;
   } | null> {
-    // This would normally query user_cards table
-    // For now, return a placeholder that the integration layer can fill
-    return null;
+    if (!this.db) return null;
+    try {
+      const { rows } = await this.db.query(
+        `SELECT card_name, element, rarity, COUNT(*)::int AS copies
+         FROM user_cards
+         WHERE user_id = $1 AND card_id = $2
+         GROUP BY card_name, element, rarity`,
+        [userId, cardId],
+      );
+      const row = rows[0];
+      if (!row) return null;
+      if (!Object.prototype.hasOwnProperty.call(FUSION_CARDS_REQUIRED, row.rarity)) return null;
+      const copies = Number(row.copies) || 0;
+      return {
+        odCardName: String(row.card_name || cardId),
+        odElement: String(row.element || "unknown"),
+        odRarity: row.rarity as CardRarity,
+        odCount: copies,
+        odDuplicates: Math.max(0, copies - 1),
+      };
+    } catch (error) {
+      console.warn("[CardFusion] Failed to load card info:", (error as Error).message);
+      return null;
+    }
   }
 
   private async consumeFusionMaterials(
     userId: string,
     cardId: string,
     rarity: CardRarity,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const count = FUSION_CARDS_REQUIRED[rarity];
-    if (!this.db) return;
+    if (!this.db || count <= 0) return false;
     try {
-      await this.db.query(
-        `DELETE FROM user_cards
-         WHERE user_id = $1 AND card_id = $2
-         ORDER BY created_at DESC
-         LIMIT $3`,
+      const result = await this.db.query(
+        `WITH materials AS (
+           SELECT ctid
+           FROM user_cards
+           WHERE user_id = $1 AND card_id = $2
+           ORDER BY created_at DESC
+           LIMIT $3
+         ), enough AS (
+           SELECT COUNT(*) = $3::int AS ready FROM materials
+         ), deleted AS (
+           DELETE FROM user_cards cards
+           USING materials, enough
+           WHERE enough.ready AND cards.ctid = materials.ctid
+           RETURNING cards.ctid
+         )
+         SELECT COUNT(*)::int AS consumed FROM deleted`,
         [userId, cardId, count],
       );
+      return Number(result.rows[0]?.consumed || 0) === count;
     } catch (e) {
       console.warn("[CardFusion] Failed to consume materials:", (e as Error).message);
+      return false;
     }
   }
 
@@ -396,7 +437,7 @@ class CardFusion {
     rarity: CardRarity,
     success: boolean,
     resultCardId: string | null,
-    eventId: string | undefined,
+    _eventId: string | undefined,
   ): Promise<void> {
     if (!this.db) return;
     try {
@@ -405,14 +446,14 @@ class CardFusion {
         rarity,
         success,
         resultCardId,
-        eventId,
+        eventId: _eventId,
       });
     } catch (e) {
       console.warn("[CardFusion] Failed to log:", (e as Error).message);
     }
   }
 
-  private async getEventBonus(eventId: string): Promise<number> {
+  private async getEventBonus(_eventId: string): Promise<number> {
     // Check if event exists and return bonus
     const event = await this.getActiveEvent();
     return event?.odBonus || 0;

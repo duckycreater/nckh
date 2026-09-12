@@ -108,7 +108,7 @@
     "updateName": "Update Name",
     "changePassword": "Changer le mot de passe",
     "oldPassword": "Old password",
-    "newPassword": "New password (at least 6 characters)",
+    "newPassword": "New password (at least 8 characters)",
     "confirmNewPassword": "Confirm new password",
     "passwordMismatch": "Les mots de passe ne correspondent pas",
     "changePasswordSuccess": "Mot de passe modifié.",

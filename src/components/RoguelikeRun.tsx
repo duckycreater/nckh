@@ -28,7 +28,7 @@ import {
   RefreshCw,
   Lock,
 } from "lucide-react";
-import { getCardById, getElementIcon, ALL_ABILITIES, RARITIES } from "../lib/cards";
+import { CARDS, getCardById, getElementIcon, ALL_ABILITIES, RARITIES } from "../lib/cards";
 import { Button } from "../lib/ui";
 import type { CardDef } from "../lib/cards";
 import {
@@ -521,7 +521,7 @@ function generateMoves(
 
 function buildCard(id: number, level = 1, hpMult = 1, atkMult = 1, defMult = 1): BattleCard {
   const base = getCardById(id);
-  if (!base) return buildDummyCard(id);
+  if (!base) throw new Error(`Unknown card id: ${id}`);
   const hp = Math.floor(base.hp * (1 + (level - 1) * 0.15) * hpMult);
   const atk = Math.floor(base.atk * (1 + (level - 1) * 0.15) * atkMult);
   const def = Math.floor((base.def || 5) * (1 + (level - 1) * 0.1) * defMult);
@@ -548,49 +548,6 @@ function buildCard(id: number, level = 1, hpMult = 1, atkMult = 1, defMult = 1):
     maxEnergy: 100,
     ultimateCharge: 0,
     evasionChance: evasion,
-    dodgeActive: false,
-    dodgeCooldown: 0,
-    poisonStacks: 0,
-    shieldActive: false,
-    shieldTurns: 0,
-    shieldValue: 0,
-    burnStacks: 0,
-    speedBoost: false,
-    regenStacks: 0,
-    stunned: 0,
-    silenced: 0,
-    defDownStacks: 0,
-    spSpeedDown: 0,
-    atkBuff: 0,
-    poisonImmune: false,
-    burnImmune: false,
-    comboStreak: 0,
-    totalDamage: 0,
-    reflects: false,
-  };
-}
-
-function buildDummyCard(id: number): BattleCard {
-  return {
-    id,
-    name: `Boss #${id}`,
-    subtitle: "",
-    elementId: "hazard",
-    rarityId: "epic",
-    atk: 30,
-    hp: 200,
-    maxHp: 200,
-    def: 5,
-    spd: 5,
-    crt: 5,
-    int: 5,
-    level: 1,
-    isAlive: true,
-    moves: [],
-    energy: 100,
-    maxEnergy: 100,
-    ultimateCharge: 0,
-    evasionChance: 50,
     dodgeActive: false,
     dodgeCooldown: 0,
     poisonStacks: 0,
@@ -884,9 +841,9 @@ export function RoguelikeRun({
 
   // ─── Apply power-ups to a card ─────────────────────────
   const applyPowerUps = useCallback(
-    (cards: BattleCard[]): BattleCard[] => {
+    (cards: BattleCard[], activePowerUps = powerUps): BattleCard[] => {
       let result = [...cards];
-      for (const pu of powerUps) {
+      for (const pu of activePowerUps) {
         if (pu === "hp+")
           result = result.map((c) => ({
             ...c,
@@ -911,7 +868,11 @@ export function RoguelikeRun({
 
   // ─── Deck building ─────────────────────────────────────
   const buildDeck = useCallback(() => {
-    const pool = shuffle(userCards).slice(0, Math.min(20, userCards.length));
+    // A new account can still play the roguelike. Use real starter cards from
+    // the canonical catalogue; never create fake/dummy battle cards.
+    const validUserCards = userCards.filter((id) => Boolean(getCardById(id)));
+    if (validUserCards.length === 0) return CARDS.slice(0, 5).map((card) => card.id);
+    const pool = shuffle(validUserCards).slice(0, Math.min(20, validUserCards.length));
     return pool.slice(0, 5);
   }, [userCards]);
 
@@ -919,7 +880,7 @@ export function RoguelikeRun({
   const handleStart = () => {
     const selectedDeck = buildDeck();
     const cards = selectedDeck.map((id) => buildCard(id, 1));
-    const applied = applyPowerUps(cards);
+    const applied = applyPowerUps(cards, []);
     setDeck(selectedDeck);
     setPlayerTeam(applied);
     setFloor(1);
@@ -1817,7 +1778,7 @@ export function RoguelikeRun({
 
               {userCards.length === 0 && (
                 <div className="mb-4 rounded-xl border border-amber-800 bg-amber-950/40 p-3 text-center text-xs text-amber-400">
-                  Chưa có bài? Hệ thống sẽ tạo deck demo.
+                  Chưa có thẻ? Bạn sẽ được cấp một deck khởi đầu cho run này.
                 </div>
               )}
 

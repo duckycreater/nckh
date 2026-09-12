@@ -30,7 +30,7 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
 
   return (
     <div className="space-y-8">
-      {/* Latency Bar Chart with error bars */}
+      {/* Latency Bar Chart */}
       <div>
         <h3 className="font-bold text-gray-800 mb-2">Inference Latency (ms)</h3>
         <p className="text-xs text-gray-500 mb-4">
@@ -48,7 +48,6 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
             {benchmark.map((b: any) => {
               const heightPct = (b.avgLatencyMs / maxLatency) * 100;
               const widthPct = 100 / benchmark.length - 2;
-              const bubbleSize = Math.max(20, Math.min(60, Math.sqrt(b.totalInferences || 1) * 2));
               return (
                 <div
                   key={b.model}
@@ -60,11 +59,6 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
                     style={{ height: `${Math.max(heightPct, 2)}%` }}
                     title={`${b.displayName}: ${b.avgLatencyMs}ms`}
                   >
-                    {/* Error bar (simulated as +/- 10%) */}
-                    <div
-                      className="absolute left-1/2 -top-3 w-0.5 bg-gray-400"
-                      style={{ height: 6 }}
-                    />
                   </div>
                   <span className="text-xs font-bold text-gray-700 mt-1 text-center leading-tight">
                     {b.displayName?.split(" ")[0]}
@@ -226,13 +220,13 @@ export function ModelBenchmarkCharts({ benchmark, confusionMatrix }: AIModelBenc
         <h3 className="font-bold text-gray-800 mb-3">Dataset Quality Metrics</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-gray-50 rounded-lg p-3 text-center">
-            <p className="text-xs text-gray-500">Total Labeled</p>
+            <p className="text-xs text-gray-500">Total inferences</p>
             <p className="text-2xl font-black text-gray-800">
               {(benchmark[0]?.totalInferences || 0).toLocaleString()}
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3 text-center">
-            <p className="text-xs text-gray-500">Best F1 Score</p>
+            <p className="text-xs text-gray-500">Best accuracy</p>
             <p className="text-2xl font-black text-emerald-600">
               {benchmark.length > 0
                 ? `${Math.max(...benchmark.map((b: any) => b.accuracy || 0)).toFixed(1)}%`

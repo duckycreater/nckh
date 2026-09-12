@@ -38,6 +38,7 @@ export interface AchievementContext {
   comboMax: number;
   gemsOwned: number;
   clanId?: string;
+  guildDonated: boolean;
   lastUpdated: string;
 }
 
@@ -355,13 +356,13 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     id: "social_clan_donor",
     title: "Generous Member",
     titleVi: "Thành Viên Hào Phóng",
-    desc: "Donated 500 EXP to your clan.",
-    descVi: "Đóng góp 500 EXP cho clan.",
+    desc: "Made a contribution to your clan.",
+    descVi: "Đã đóng góp EXP cho clan.",
     icon: "💝",
     expReward: 100,
     rarity: "rare",
     category: "social",
-    condition: (c) => false, // TODO: track clanDonated separately
+    condition: (c) => c.guildDonated,
   },
 ];
 
@@ -373,6 +374,7 @@ export function buildAchievementContext(user: {
     crafted?: (string | number)[];
     shards?: number;
     streakDays?: number;
+    guildDonated?: boolean;
   };
   createdAt?: string;
 }): AchievementContext {
@@ -398,6 +400,7 @@ export function buildAchievementContext(user: {
     comboMax: 0,
     gemsOwned: 0,
     clanId: undefined,
+    guildDonated: user.progress?.guildDonated === true,
     lastUpdated: new Date().toISOString(),
   };
 }

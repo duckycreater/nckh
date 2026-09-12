@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { Leaf, LockKeyhole, ScanLine, ShieldCheck, Sparkles } from "lucide-react";
+import { BMO_ASSETS } from "../lib/bmoAssets";
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -56,7 +57,7 @@ export function Auth({ onLogin }: AuthProps) {
           "Theo dõi tiến bộ và dữ liệu nghiên cứu",
         ],
         privacy: "Quyền riêng tư và tính minh bạch được thiết kế ngay từ đầu.",
-        prototype: "Research prototype · ISEF 2026",
+        badge: "ISEF 2026 · Evidence-ready platform",
       }
     : {
         eyebrow: "ENVIRONMENTAL LEARNING PLATFORM",
@@ -69,7 +70,7 @@ export function Auth({ onLogin }: AuthProps) {
           "Progress tracking and research data",
         ],
         privacy: "Privacy and transparency are designed in from the start.",
-        prototype: "Research prototype · ISEF 2026",
+        badge: "ISEF 2026 · Evidence-ready platform",
       };
 
   // Check for remember token on mount
@@ -352,46 +353,58 @@ export function Auth({ onLogin }: AuthProps) {
       <div className="pointer-events-none absolute -bottom-24 right-0 h-96 w-96 rounded-full bg-cyan-200/10 blur-3xl" />
 
       <div className="relative mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center gap-10 lg:min-h-[calc(100vh-5rem)] lg:grid-cols-[minmax(0,1.1fr)_minmax(390px,0.72fr)]">
-        <section className="hidden max-w-2xl text-white lg:flex lg:flex-col lg:justify-center">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
-              <Leaf size={26} aria-hidden="true" />
+        <section className="relative hidden min-h-[690px] max-w-2xl overflow-hidden rounded-[36px] border border-emerald-100/20 px-10 py-12 text-white shadow-[0_30px_90px_rgba(0,20,15,0.32)] lg:flex lg:flex-col lg:justify-center">
+          <img
+            src={BMO_ASSETS.authHero}
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+            decoding="async"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(3,35,29,0.96)_0%,rgba(4,67,53,0.84)_52%,rgba(4,47,36,0.28)_100%)]" />
+          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
+          <div className="relative z-10 flex h-full flex-col justify-center">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
+                <Leaf size={26} aria-hidden="true" />
+              </div>
+              <div>
+                <p className="text-xl font-black tracking-tight">BMO EcoQuest</p>
+                <p className="text-[11px] font-bold tracking-[0.18em] text-emerald-100">
+                  {productCopy.eyebrow}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xl font-black tracking-tight">BMO EcoQuest</p>
-              <p className="text-[11px] font-bold tracking-[0.18em] text-emerald-100">
-                {productCopy.eyebrow}
-              </p>
+
+            <span className="mb-5 w-fit rounded-full border border-emerald-100/30 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 backdrop-blur">
+              {productCopy.badge}
+            </span>
+            <h1 className="max-w-xl text-4xl font-black leading-[1.08] tracking-[-0.035em] xl:text-5xl">
+              {productCopy.title}
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-7 text-emerald-50/85">
+              {productCopy.description}
+            </p>
+
+            <div className="mt-8 grid max-w-lg gap-3">
+              {productCopy.features.map((feature, index) => {
+                const FeatureIcon = [ScanLine, ShieldCheck, Sparkles][index];
+                return (
+                  <div key={feature} className="flex items-center gap-3 text-sm font-semibold">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
+                      <FeatureIcon size={18} aria-hidden="true" />
+                    </span>
+                    <span>{feature}</span>
+                  </div>
+                );
+              })}
             </div>
-          </div>
 
-          <span className="mb-5 w-fit rounded-full border border-emerald-100/30 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 backdrop-blur">
-            {productCopy.prototype}
-          </span>
-          <h1 className="max-w-xl text-4xl font-black leading-[1.08] tracking-[-0.035em] xl:text-5xl">
-            {productCopy.title}
-          </h1>
-          <p className="mt-5 max-w-xl text-base leading-7 text-emerald-50/85">
-            {productCopy.description}
-          </p>
-
-          <div className="mt-8 grid gap-3">
-            {productCopy.features.map((feature, index) => {
-              const FeatureIcon = [ScanLine, ShieldCheck, Sparkles][index];
-              return (
-                <div key={feature} className="flex items-center gap-3 text-sm font-semibold">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
-                    <FeatureIcon size={18} aria-hidden="true" />
-                  </span>
-                  <span>{feature}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-9 flex items-center gap-2 text-xs text-emerald-100/80">
-            <LockKeyhole size={15} aria-hidden="true" />
-            <span>{productCopy.privacy}</span>
+            <div className="mt-9 flex items-center gap-2 text-xs text-emerald-100/80">
+              <LockKeyhole size={15} aria-hidden="true" />
+              <span>{productCopy.privacy}</span>
+            </div>
           </div>
         </section>
 
@@ -403,7 +416,7 @@ export function Auth({ onLogin }: AuthProps) {
             <div className="text-left">
               <p className="font-black leading-tight text-emerald-950">BMO EcoQuest</p>
               <p className="text-[10px] font-bold tracking-[0.12em] text-emerald-700">
-                {productCopy.prototype}
+                {productCopy.badge}
               </p>
             </div>
           </div>

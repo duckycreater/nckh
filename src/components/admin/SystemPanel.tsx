@@ -6,9 +6,9 @@ import {
   Cloud,
   Server,
   FileText,
-  Shield,
-  Activity,
   Loader2,
+  Mail,
+  Send,
 } from "lucide-react";
 import { Button, Card, Badge, SectionHeading } from "../../lib/ui";
 import { showToast } from "../../lib/toast";
@@ -53,23 +53,36 @@ interface HealthStatus {
   [key: string]: unknown;
 }
 
+interface EmailStatus {
+  provider: "resend" | "smtp" | "none";
+  configured: boolean;
+  fromConfigured: boolean;
+  notificationRecipientConfigured: boolean;
+  publicAppUrlConfigured: boolean;
+}
+
 export function SystemPanel() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
+  const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [testingEmail, setTestingEmail] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [healthRes, auditRes] = await Promise.all([
+      const [healthRes, auditRes, emailRes] = await Promise.all([
         fetch("/api/admin/system/health", { headers: authHeaders() }),
         fetch("/api/admin/audit-log?limit=50", { headers: authHeaders() }),
+        fetch("/api/admin/email/status", { headers: authHeaders() }),
       ]);
       if (healthRes.ok) setHealth(await healthRes.json());
       if (auditRes.ok) {
         const data = await auditRes.json();
         setAudit(data.actions || []);
       }
+      if (emailRes.ok) setEmailStatus(await emailRes.json());
     } catch (e) {
       showToast("Lỗi", (e as Error).message, "error");
     } finally {
@@ -80,6 +93,31 @@ export function SystemPanel() {
   useEffect(() => {
     load();
   }, []);
+
+  const sendTestEmail = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setTestingEmail(true);
+    try {
+      const response = await fetch("/api/admin/email/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ to: testEmail }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.reason || result?.message || "Không thể gửi email kiểm thử.");
+      }
+      showToast(
+        "Email hoạt động",
+        `${emailStatus?.provider?.toUpperCase() || "Provider"} đã chấp nhận email ${result.id || ""}.`,
+        "success",
+      );
+    } catch (error) {
+      showToast("Email chưa gửi được", (error as Error).message, "error");
+    } finally {
+      setTestingEmail(false);
+    }
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -198,6 +236,59 @@ export function SystemPanel() {
         )}
       </Card>
 
+      {/* Transactional email diagnostics */}
+      <Card className="rounded-[28px] p-6">
+        <SectionHeading
+          eyebrow="Transactional Email"
+          title="Kiểm tra gửi email end-to-end"
+          subtitle="Trạng thái chỉ hiển thị cấu hình có/không, không bao giờ trả API key về trình duyệt."
+          action={
+            <Badge tone={emailStatus?.configured ? "success" : "warning"}>
+              <Mail className="h-3.5 w-3.5" />
+              {emailStatus?.configured
+                ? `${emailStatus.provider.toUpperCase()} configured`
+                : "Email provider not configured"}
+            </Badge>
+          }
+        />
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <EmailConfigFlag label="API provider" enabled={Boolean(emailStatus?.configured)} />
+          <EmailConfigFlag label="Địa chỉ gửi" enabled={Boolean(emailStatus?.fromConfigured)} />
+          <EmailConfigFlag
+            label="Email nhận đơn"
+            enabled={Boolean(emailStatus?.notificationRecipientConfigured)}
+          />
+          <EmailConfigFlag
+            label="URL khôi phục"
+            enabled={Boolean(emailStatus?.publicAppUrlConfigured)}
+          />
+        </div>
+
+        <form onSubmit={sendTestEmail} className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <label className="sr-only" htmlFor="email-diagnostic-recipient">
+            Email nhận thư kiểm thử
+          </label>
+          <input
+            id="email-diagnostic-recipient"
+            type="email"
+            required
+            value={testEmail}
+            onChange={(event) => setTestEmail(event.target.value)}
+            placeholder="Email nhận thư kiểm thử"
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:bg-white"
+          />
+          <Button type="submit" loading={testingEmail} disabled={!emailStatus?.configured}>
+            <Send className="h-4 w-4" /> Gửi email kiểm thử
+          </Button>
+        </form>
+        {!emailStatus?.configured && (
+          <p className="mt-3 text-xs text-amber-700">
+            Cần cấu hình Resend hoặc SMTP trên môi trường deploy trước khi gửi thử.
+          </p>
+        )}
+      </Card>
+
       {/* Audit log */}
       <Card className="rounded-[28px] p-6">
         <SectionHeading eyebrow="Audit Log" title="Nhật ký hành động admin (50 gần nhất)" />
@@ -238,6 +329,15 @@ export function SystemPanel() {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+function EmailConfigFlag({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <Badge tone={enabled ? "success" : "warning"}>{enabled ? "OK" : "Missing"}</Badge>
     </div>
   );
 }

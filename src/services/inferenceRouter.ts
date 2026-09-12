@@ -24,6 +24,17 @@ import { getModelManifest } from "./modelRegistry";
 
 export type InferenceTask = "waste-classify" | "ocr" | "xai";
 
+/** Raised when a caller asks for a pipeline that is not wired to a real model yet. */
+export class UnsupportedInferenceTaskError extends Error {
+  readonly task: InferenceTask;
+
+  constructor(task: InferenceTask) {
+    super(`inferenceRouter: unsupported task "${task}"`);
+    this.name = "UnsupportedInferenceTaskError";
+    this.task = task;
+  }
+}
+
 export interface InferenceOptions {
   task: InferenceTask;
   /** Abort signal so callers can cancel. */
@@ -79,14 +90,16 @@ async function ensureCapability(): Promise<BackendCapability> {
 }
 
 /**
- * Run a single inference.  For `waste-classify` returns the rich
- * prediction; other tasks return only metadata + generic category.
+ * Run a single inference. The waste-classify pipeline is currently the only
+ * production-backed task. Unsupported tasks fail loudly instead of returning
+ * a fabricated category that could be mistaken for model output.
  */
 export async function runInference(
   image: HTMLImageElement | HTMLCanvasElement | ImageBitmap | Blob | string,
   opts: InferenceOptions,
 ): Promise<InferenceResult> {
   if (!opts.task) throw new Error("inferenceRouter: task required");
+  if (opts.task !== "waste-classify") throw new UnsupportedInferenceTaskError(opts.task);
 
   const start = performance.now();
   const capability = opts.forceBackend
@@ -102,24 +115,16 @@ export async function runInference(
     // registry not yet wired — fine, use sentinel version.
   }
 
-  // Dispatch per task.  Today only waste-classify is wired up to a real
-  // runner; OCR / XAI return placeholder data so callers can be built.
+  // Dispatch to the real on-device waste classifier.
   let prediction: WastePrediction | undefined;
   let category: WasteCategory | undefined;
   let confidence: number | undefined;
 
-  if (opts.task === "waste-classify") {
-    const classifier = await getWasteClassifier();
-    const img = await normaliseImage(image);
-    prediction = await classifier.classify(img);
-    category = prediction.category;
-    confidence = prediction.confidence;
-  } else {
-    // OCR / XAI not implemented in this iteration — return deterministic
-    // placeholder so callers can iterate without crashes.
-    category = "hazard";
-    confidence = 0;
-  }
+  const classifier = await getWasteClassifier();
+  const img = await normaliseImage(image);
+  prediction = await classifier.classify(img);
+  category = prediction.category;
+  confidence = prediction.confidence;
 
   const latencyMs = performance.now() - start;
   const energyJ = (capability.energyMilliwatts / 1000) * (latencyMs / 1000);

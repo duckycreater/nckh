@@ -2,44 +2,19 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../lib/i18n";
-import { Globe, Shield } from "lucide-react";
+import { Globe, Shield, X } from "lucide-react";
 import { useTheme } from "../App";
 import { ContributeToDataset } from "./ContributeToDataset";
 import { PrivacyBudgetMeter } from "./PrivacyBudgetMeter";
 import { AuditTimeline } from "./AuditTimeline";
 import { getAuthHeaders, getAuthToken } from "../lib/auth";
+import { PROFILE_AVATARS, PROFILE_FRAMES } from "../lib/bmoAssets";
+import type { PrivacyDashboardProps } from "./PrivacyDashboard";
 
 interface SettingsProps {
   user: User;
   onUpdate: (user: Partial<User>) => void;
 }
-
-const AVATARS = [
-  { id: "av1", name: "Mầm Xanh", emoji: "🌱" },
-  { id: "av2", name: "Chiến Binh Nước", emoji: "💧" },
-  { id: "av3", name: "Thủ Lĩnh Rừng", emoji: "🦁" },
-];
-
-const FRAMES = [
-  { id: "fr1", name: "Khung Gỗ", borderClass: "border-4 border-amber-700", shadowClass: "" },
-  { id: "fr2", name: "Khung Băng", borderClass: "border-4 border-cyan-400", shadowClass: "" },
-  {
-    id: "fr3",
-    name: "Hào Quang Đất",
-    borderClass: "border-4 border-emerald-500",
-    shadowClass: "shadow-[0_0_12px_#10b981]",
-  },
-];
-
-const ALL_PURCHASE_IDS = ["av1", "av2", "av3", "fr1", "fr2", "fr3"];
-
-const SETTINGS_TABS = [
-  { id: "appearance", label: "Giao diện" },
-  { id: "name", label: "Tên hiển thị" },
-  { id: "password", label: "Mật khẩu" },
-  { id: "language", label: "Ngôn ngữ" },
-  { id: "privacy", label: "Dữ liệu & Quyền riêng tư" },
-] as const;
 
 export function Settings({ user, onUpdate }: SettingsProps) {
   const { t } = useTranslation();
@@ -107,7 +82,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
   const getPasswordStrength = (pass: string) => {
     if (pass.length === 0) return { color: "bg-gray-200", label: "", width: "0%" };
-    if (pass.length < 6) return { color: "bg-red-500", label: "Yếu", width: "33%" };
+    if (pass.length < 8) return { color: "bg-red-500", label: "Yếu", width: "33%" };
     if (pass.length < 10 || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass))
       return { color: "bg-yellow-500", label: "Trung bình", width: "66%" };
     return { color: "bg-green-500", label: "Mạnh", width: "100%" };
@@ -248,7 +223,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
               Chọn avatar để hiển thị trên hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.
             </p>
             <div className="grid grid-cols-3 gap-3">
-              {AVATARS.map((av) => {
+              {PROFILE_AVATARS.map((av) => {
                 const owned = hasPurchased(av.id);
                 const active = selectedAvatar === av.id;
                 return (
@@ -274,7 +249,15 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                         ✓
                       </span>
                     )}
-                    <span className="text-3xl">{av.emoji}</span>
+                    <span className="h-16 w-16 overflow-hidden rounded-full bg-emerald-50 ring-1 ring-emerald-200">
+                      <img
+                        src={av.imageSrc}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-contain"
+                      />
+                    </span>
                     <span className="text-xs font-bold text-gray-700 text-center">{av.name}</span>
                   </button>
                 );
@@ -288,7 +271,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
               Chọn khung để trang trí hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.
             </p>
             <div className="grid grid-cols-3 gap-3">
-              {FRAMES.map((fr) => {
+              {PROFILE_FRAMES.map((fr) => {
                 const owned = hasPurchased(fr.id);
                 const active = selectedFrame === fr.id;
                 return (
@@ -315,7 +298,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                       </span>
                     )}
                     <div
-                      className={`w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl ${fr.borderClass} ${fr.shadowClass}`}
+                      className={`w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center text-2xl ${fr.previewClass}`}
                     >
                       <span className="font-black text-gray-600">{user.name[0]}</span>
                     </div>
@@ -443,7 +426,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                 required
                 value={newPass}
                 onChange={(e) => setNewPass(e.target.value)}
-                placeholder="Mật khẩu mới (ít nhất 6 ký tự)"
+                placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
                 className="w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
               />
               {newPass.length > 0 && (
@@ -531,7 +514,6 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 }
 
 function PrivacyTabContent({ user }: { user: User }) {
-  const { t } = useTranslation();
   const [consent, setConsent] = useState<boolean>(false);
   const [stats, setStats] = useState<{ totalImages: number; imagesInRelease: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -556,7 +538,7 @@ function PrivacyTabContent({ user }: { user: User }) {
           localStorage.setItem("bmo_dataset_consent", data.consentGiven ? "true" : "false");
         } catch (e) {
           // localStorage may be full or disabled - non-critical
-          console.debug("[Settings] Could not persist dataset consent:", e);
+          console.info("[Settings] Could not persist dataset consent:", e);
         }
       })
       .catch(() => {})
@@ -641,13 +623,13 @@ function PrivacyTabContent({ user }: { user: User }) {
           <li>Mọi dataset phát hành đều dùng license CC-BY-4.0 (mã nguồn mở, ghi công)</li>
           <li>Người dùng dưới 13 tuổi: phải được phụ huynh đồng ý trước khi bật tính năng này</li>
           <li>
-            <strong>Federated Learning (Phase 2):</strong> ảnh KHÔNG BAO GIỜ rời khỏi thiết bị của
+            <strong>Federated Learning:</strong> ảnh KHÔNG BAO GIỜ rời khỏi thiết bị của
             bạn. Chỉ model updates (đã mã hóa + thêm nhiễu) mới được gửi về server.
           </li>
         </ul>
       </div>
 
-      {/* Phase 2: Federated Learning transparency */}
+      {/* Federated Learning transparency */}
       <button
         onClick={() => setShowPrivacyDashboard(true)}
         className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-left text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
@@ -676,26 +658,14 @@ function PrivacyTabContent({ user }: { user: User }) {
       )}
 
       {showPrivacyDashboard && (
-        <PrivacyDashboardWrapper
-          userId={user.account_id}
-          isOpen={showPrivacyDashboard}
-          onClose={() => setShowPrivacyDashboard(false)}
-        />
+        <PrivacyDashboardWrapper onClose={() => setShowPrivacyDashboard(false)} />
       )}
     </>
   );
 }
 
-function PrivacyDashboardWrapper({
-  userId,
-  isOpen,
-  onClose,
-}: {
-  userId: string;
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  const [Comp, setComp] = useState<React.ComponentType<any> | null>(null);
+function PrivacyDashboardWrapper({ onClose }: { onClose: () => void }) {
+  const [Comp, setComp] = useState<React.ComponentType<PrivacyDashboardProps> | null>(null);
   useEffect(() => {
     let mounted = true;
     import("./PrivacyDashboard").then((m) => {
@@ -706,5 +676,25 @@ function PrivacyDashboardWrapper({
     };
   }, []);
   if (!Comp) return null;
-  return <Comp userId={userId} isOpen={isOpen} onClose={onClose} />;
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Trung tâm quyền riêng tư"
+      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm"
+    >
+      <div className="mx-auto max-w-5xl pt-8 sm:pt-14">
+        <div className="mb-3 flex justify-end">
+          <button
+            onClick={onClose}
+            aria-label="Đóng trung tâm quyền riêng tư"
+            className="rounded-full bg-white p-2 text-slate-700 shadow-lg transition hover:bg-slate-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <Comp />
+      </div>
+    </div>
+  );
 }

@@ -56,6 +56,7 @@ import { RoguelikeRun } from "./RoguelikeRun";
 import CollectionReveal from "./CollectionReveal";
 import { Badge, Button, Card, EmptyState } from "../lib/ui";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
+import { BMO_ASSETS } from "../lib/bmoAssets";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type Section =
@@ -751,6 +752,13 @@ function GachaReveal({
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
+      <img
+        src={BMO_ASSETS.gachaVault}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-55"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(5,46,40,0.08),rgba(2,6,23,0.92)_75%)]" />
       {/* Subtle particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {Array.from({ length: 24 }).map((_, i) => {
@@ -816,6 +824,14 @@ function GachaReveal({
             boxShadow: `0 10px 30px rgba(0,0,0,0.15)`,
           }}
         >
+          {!flipped && (
+            <img
+              src={BMO_ASSETS.cardBack}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 z-20 h-full w-full object-cover"
+            />
+          )}
           {/* Subtle top bar */}
           <div className="h-1 w-full" style={{ background: elemColor, opacity: 0.6 }} />
 

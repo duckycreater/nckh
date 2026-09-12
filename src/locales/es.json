@@ -77,7 +77,7 @@
     "sendResetLink": "ENVIAR ENLACE",
     "backToLogin2": "Volver a inicio de sesión",
     "accountOrEmail": "Cuenta",
-    "passwordMinChars": "Password must be at least 6 characters.",
+    "passwordMinChars": "Password must be at least 8 characters.",
     "invalidEmail": "Invalid email.",
     "invalidClass": "Please pick a grade between 1 and 12.",
     "fillAccount": "Please enter email or account.",

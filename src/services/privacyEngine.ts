@@ -35,8 +35,11 @@ class DPAccountant {
   private maxBudget = 10; // hard cap
 
   setBudget(epsilon: number, delta: number): void {
+    if (!Number.isFinite(epsilon) || epsilon <= 0) throw new Error("epsilon must be positive");
+    if (!Number.isFinite(delta) || delta <= 0 || delta >= 1) throw new Error("delta must be in (0, 1)");
     this.totalEpsilon = 0;
     this.delta = delta;
+    this.maxBudget = epsilon;
     this.history = [];
   }
 
@@ -45,6 +48,8 @@ class DPAccountant {
    * Standard formula: σ ≥ sqrt(2 ln(1.25/δ)) · Δ/ε
    */
   computeSigma(sensitivity: number, epsilon: number): number {
+    if (!Number.isFinite(sensitivity) || sensitivity < 0) throw new Error("sensitivity must be non-negative");
+    if (!Number.isFinite(epsilon) || epsilon <= 0) throw new Error("epsilon must be positive");
     return (sensitivity * Math.sqrt(2 * Math.log(1.25 / this.delta))) / epsilon;
   }
 
@@ -56,12 +61,13 @@ class DPAccountant {
     sensitivity: number,
     epsilon: number,
   ): Float32Array {
+    if (!this.canSpend(epsilon)) throw new Error("privacy budget exhausted");
     const sigma = this.computeSigma(sensitivity, epsilon);
     const out = new Float32Array(data.length);
     for (let i = 0; i < data.length; i++) {
-      const u1 = Math.random();
-      const u2 = Math.random();
-      const z = Math.sqrt(-2 * Math.log(u1 || 1e-10)) * Math.cos(2 * Math.PI * u2);
+      const u1 = secureRandomUnit();
+      const u2 = secureRandomUnit();
+      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       out[i] = data[i] + z * sigma;
     }
 
@@ -101,46 +107,75 @@ class DPAccountant {
 }
 
 /**
- * Secure aggregation via simple secret sharing.
- * Production: use a proper protocol (e.g., SecAgg from Bonawitz et al.)
- * This is a teaching/lightweight version.
+ * Secure aggregation via additive n-of-n secret sharing.
+ *
+ * This utility intentionally does not pretend to implement threshold Shamir
+ * sharing. Every participant is required for reconstruction; deployments that
+ * need dropout tolerance should use the server-side SecAgg implementation.
  */
 class SecureAggregator {
   /**
-   * Split a value into n shares, any t of which can reconstruct.
-   * Uses Shamir's secret sharing over GF(256) for byte arrays.
+   * Split a numeric vector into n additive shares. All n shares are required.
    */
   static splitSecret(value: number[], threshold: number, total: number): SecureShare[] {
+    if (!Number.isInteger(total) || total < 2) throw new Error("total must be at least 2");
+    if (threshold !== total) {
+      throw new Error("additive sharing requires threshold === total");
+    }
     const shares: SecureShare[] = [];
-    for (let i = 1; i <= total; i++) {
+    const running = new Array(value.length).fill(0);
+    for (let i = 1; i < total; i++) {
+      const mask = value.map(() => (secureRandomUnit() - 0.5) * 2);
+      mask.forEach((part, index) => {
+        running[index] += part;
+      });
       shares.push({
         index: i,
-        value: value.map((v) => v * Math.random() + (i === 1 ? v : 0)), // simplified
+        value: mask,
         threshold,
         total,
       });
     }
+    shares.push({
+      index: total,
+      value: value.map((v, index) => v - running[index]),
+      threshold,
+      total,
+    });
     return shares;
   }
 
-  /**
-   * Reconstruct (simplified: average instead of Lagrange interpolation)
-   */
+  /** Reconstruct a vector by summing every additive share. */
   static reconstruct(shares: SecureShare[]): number[] {
-    if (shares.length < shares[0]?.threshold) {
+    const first = shares[0];
+    const vectorLength = first?.value.length ?? 0;
+    const indices = new Set(shares.map((share) => share.index));
+    if (
+      !first ||
+      shares.length !== first.total ||
+      first.threshold !== first.total ||
+      indices.size !== shares.length ||
+      shares.some(
+        (share) =>
+          share.total !== first.total ||
+          share.threshold !== first.threshold ||
+          share.value.length !== vectorLength ||
+          share.index < 1 ||
+          share.index > first.total,
+      )
+    ) {
       throw new Error("Not enough shares to reconstruct");
     }
-    const len = shares[0].value.length;
-    const out = new Array(len).fill(0);
+    const out = new Array(vectorLength).fill(0);
     for (const s of shares) {
-      for (let i = 0; i < len; i++) out[i] += s.value[i];
+      for (let i = 0; i < vectorLength; i++) out[i] += s.value[i];
     }
-    return out.map((v) => v / shares.length);
+    return out;
   }
 
   /**
-   * Verify that aggregated result matches sum of individual contributions
-   * (cryptographic commitment check, simplified)
+   * Check that the aggregate numerically matches the individual contributions.
+   * This is an integrity sanity check, not a cryptographic commitment.
    */
   static verify(aggregated: number[], individual: number[][]): boolean {
     if (individual.length === 0) return true;
@@ -148,11 +183,22 @@ class SecureAggregator {
     for (const v of individual) {
       for (let i = 0; i < v.length; i++) sum[i] += v[i];
     }
-    const avg = sum.map((v) => v / individual.length);
-    // Tolerance for DP noise
-    const tol = 0.5;
-    return aggregated.every((v, i) => Math.abs(v - avg[i]) < tol);
+    return (
+      aggregated.length === sum.length &&
+      aggregated.every(
+        (value, index) =>
+          Math.abs(value - sum[index]) <= 1e-8 * Math.max(1, Math.abs(sum[index])),
+      )
+    );
   }
+}
+
+function secureRandomUnit(): number {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) throw new Error("Secure randomness is unavailable");
+  const bytes = new Uint32Array(1);
+  cryptoApi.getRandomValues(bytes);
+  return (bytes[0] + 1) / 4294967297;
 }
 
 export const dpAccountant = new DPAccountant();

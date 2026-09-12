@@ -18,46 +18,7 @@ import {
 import { Skeleton, ErrorRetry } from "../lib/ui";
 import { RewardHistory } from "./RewardHistory";
 import { useTranslation } from "react-i18next";
-
-const EMOJI_AVATARS = [
-  {
-    id: "av1",
-    emoji: "🌱",
-    nameKey: "seedling",
-    color: "bg-emerald-100 text-emerald-600",
-    bg: "from-emerald-400 to-teal-500",
-  },
-  {
-    id: "av2",
-    emoji: "💧",
-    nameKey: "guardian",
-    color: "bg-blue-100 text-blue-600",
-    bg: "from-blue-400 to-cyan-500",
-  },
-  {
-    id: "av3",
-    emoji: "🦁",
-    nameKey: "knight",
-    color: "bg-amber-100 text-amber-600",
-    bg: "from-amber-400 to-orange-500",
-  },
-];
-
-const FRAMES = [
-  {
-    id: "fr1",
-    nameKey: "wooden",
-    style: "ring-4 ring-amber-700",
-    desc: "profile.frames.woodenDesc",
-  },
-  { id: "fr2", nameKey: "ice", style: "ring-4 ring-cyan-400", desc: "profile.frames.iceDesc" },
-  {
-    id: "fr3",
-    nameKey: "glow",
-    style: "ring-4 ring-emerald-500 shadow-[0_0_16px_#10b981]",
-    desc: "profile.frames.glowDesc",
-  },
-];
+import { PROFILE_AVATARS, PROFILE_FRAMES } from "../lib/bmoAssets";
 
 interface Props {
   nickname: string;
@@ -246,33 +207,34 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
 
   // ── Display avatar logic ───────────────────────────────────────────
   const activeAvatar = profile
-    ? (EMOJI_AVATARS.find((a) => a.id === profile.selectedAvatar) ?? null)
+    ? (PROFILE_AVATARS.find((a) => a.id === profile.selectedAvatar) ?? null)
     : null;
-  const activeFrame = profile ? (FRAMES.find((f) => f.id === profile.selectedFrame) ?? null) : null;
+  const activeFrame = profile
+    ? (PROFILE_FRAMES.find((f) => f.id === profile.selectedFrame) ?? null)
+    : null;
 
-  const getAvatarName = (av: (typeof EMOJI_AVATARS)[0] | null) =>
+  const getAvatarName = (av: (typeof PROFILE_AVATARS)[number] | null) =>
     av ? t(`profile.avatars.${av.nameKey}` as const) : t("profile.defaultTheme");
-  const getFrameName = (fr: (typeof FRAMES)[0] | null) =>
+  const getFrameName = (fr: (typeof PROFILE_FRAMES)[number] | null) =>
     fr ? t(`profile.frames.${fr.nameKey}` as const) : t("profile.noFrame");
   const getTitleName = (key: string) => t(`profile.titles.${key}` as const);
 
   let displayUrl: string | null = null;
-  let displayEmoji = profile?.name?.[0] || "?";
+  let displayFallback = profile?.name?.[0] || "?";
   if (profile?.customAvatarUrl) {
     displayUrl = profile.customAvatarUrl;
-    displayEmoji = "";
+    displayFallback = "";
   } else if (activeAvatar) {
-    displayEmoji = activeAvatar.emoji;
-    displayUrl = null;
+    displayUrl = activeAvatar.imageSrc;
+    displayFallback = "";
   }
 
   // Edit preview avatar
-  const editPreviewUrl = uploadPreview || editCustomUrl || null;
-  const editPreviewEmoji = editAvatar
-    ? EMOJI_AVATARS.find((a) => a.id === editAvatar)?.emoji || ""
-    : !editCustomUrl && !uploadPreview
-      ? profile?.name?.[0] || "?"
-      : "";
+  const editPreviewUrl =
+    uploadPreview ||
+    editCustomUrl ||
+    PROFILE_AVATARS.find((avatar) => avatar.id === editAvatar)?.imageSrc ||
+    null;
 
   if (loading)
     return (
@@ -323,13 +285,13 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                 alt={profile.name}
                 loading="eager"
                 decoding="async"
-                className={`w-28 h-28 rounded-full object-cover ring-4 ring-white shadow-xl ${activeFrame?.style || ""}`}
+                className={`w-28 h-28 rounded-full bg-emerald-50 object-cover ring-4 ring-white shadow-xl ${activeFrame?.style || ""}`}
               />
             ) : (
               <div
-                className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-black ring-4 ring-white shadow-xl bg-gradient-to-br ${activeAvatar?.bg || "from-emerald-100 to-teal-100"} ${activeAvatar ? "text-white" : "text-emerald-600"} ${activeFrame?.style || ""}`}
+                className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-black ring-4 ring-white shadow-xl bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700 ${activeFrame?.style || ""}`}
               >
-                {displayEmoji}
+                {displayFallback}
               </div>
             )}
             {profile.customAvatarUrl && (
@@ -487,11 +449,19 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
               </h3>
               <div className="flex gap-3">
                 <div className="flex-1 flex items-center gap-2">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-black bg-gradient-to-br ${activeAvatar?.bg || "from-emerald-100 to-teal-100"} ${activeAvatar ? "text-white" : "text-emerald-600"}`}
-                  >
-                    {displayEmoji}
-                  </div>
+                  {displayUrl ? (
+                    <img
+                      src={displayUrl}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="h-10 w-10 rounded-full bg-emerald-50 object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-lg font-black text-emerald-700">
+                      {displayFallback}
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs font-bold text-gray-700">{getAvatarName(activeAvatar)}</p>
                     <p className="text-[10px] text-gray-400">Avatar</p>
@@ -575,19 +545,13 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                       alt="Preview"
                       loading="lazy"
                       decoding="async"
-                      className={`w-24 h-24 rounded-full object-cover ring-4 ring-emerald-400 shadow-lg ${FRAMES.find((f) => f.id === editFrame)?.style || ""}`}
+                      className={`w-24 h-24 rounded-full bg-emerald-50 object-cover ring-4 ring-emerald-400 shadow-lg ${PROFILE_FRAMES.find((f) => f.id === editFrame)?.style || ""}`}
                     />
-                  ) : editPreviewEmoji ? (
-                    <div
-                      className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl font-black bg-gradient-to-br ${EMOJI_AVATARS.find((a) => a.id === editAvatar)?.bg || "from-emerald-100 to-teal-100"} text-white shadow-lg ring-4 ring-emerald-400 ${FRAMES.find((f) => f.id === editFrame)?.style || ""}`}
-                    >
-                      {editPreviewEmoji}
-                    </div>
                   ) : (
                     <div
-                      className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl font-black bg-gray-100 text-gray-400 shadow-lg ring-4 ring-gray-200 ${FRAMES.find((f) => f.id === editFrame)?.style || ""}`}
+                      className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl font-black bg-gray-100 text-gray-400 shadow-lg ring-4 ring-gray-200 ${PROFILE_FRAMES.find((f) => f.id === editFrame)?.style || ""}`}
                     >
-                      ?
+                      {profile.name?.[0] || "?"}
                     </div>
                   )}
                   {uploading && (
@@ -651,13 +615,13 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                 />
               </div>
 
-              {/* Emoji avatars */}
+              {/* Collectible avatars */}
               <div>
                 <p className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
-                  Avatar emoji
+                  Avatar BMO
                 </p>
                 <div className="flex gap-3">
-                  {EMOJI_AVATARS.map((av) => (
+                  {PROFILE_AVATARS.map((av) => (
                     <button
                       key={av.id}
                       onClick={() => {
@@ -665,16 +629,20 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                         setEditCustomUrl("");
                         setUploadPreview(null);
                       }}
-                      className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xl font-black transition-all shadow-sm ${
+                      className={`w-16 h-16 overflow-hidden rounded-2xl flex flex-col items-center justify-center gap-0.5 font-black transition-all shadow-sm ${
                         editAvatar === av.id && !editCustomUrl
                           ? `${av.color} ring-2 ring-emerald-500 ring-offset-1 scale-105`
                           : "bg-gray-100 text-gray-400 hover:bg-gray-200 opacity-60 hover:opacity-100"
                       }`}
+                      aria-label={t(`profile.avatars.${av.nameKey}` as const)}
                     >
-                      {av.emoji}
-                      <span className="text-[8px] font-bold leading-none">
-                        {t(`profile.avatars.${av.nameKey}` as const).split(" ")[0]}
-                      </span>
+                      <img
+                        src={av.imageSrc}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-contain"
+                      />
                     </button>
                   ))}
                 </div>
@@ -695,7 +663,7 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                     <p className="text-xs font-bold text-gray-700">{t("profile.noFrame")}</p>
                     <p className="text-[10px] text-gray-400">{t("profile.defaultTheme")}</p>
                   </button>
-                  {FRAMES.map((fr) => (
+                  {PROFILE_FRAMES.map((fr) => (
                     <button
                       key={fr.id}
                       onClick={() => setEditFrame(editFrame === fr.id ? "" : fr.id)}

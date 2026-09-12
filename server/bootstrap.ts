@@ -9,6 +9,7 @@ import { cert, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { google } from "googleapis";
 import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { resolveGacha, generateServerCard, CARD_TOTAL } from "../server/lib/cards.js";
@@ -98,6 +99,12 @@ import { getVietnamDayKey } from "../src/lib/dayKey.js";
 import { getDailyChallengeIds, getDailyChallengeReward } from "../src/lib/dailyChallenges.js";
 import { resolveGameplayRewardClaim } from "../src/lib/gameplayRewards.js";
 import { parseRedeemInfo, type RedeemInfo } from "../src/lib/redemption.js";
+import {
+  deliverEmail,
+  getConfiguredEmailProvider,
+  getEmailConfigurationStatus,
+  type EmailSender,
+} from "../server/services/emailDelivery.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -265,9 +272,39 @@ app.use("/api/scan-garbage", buildScanRateLimiter());
 app.use("/api", buildDefaultRateLimiter());
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const smtpUser = process.env.SMTP_USER?.trim();
+// Gmail App Passwords are commonly displayed in four-character groups; remove
+// formatting whitespace before handing the credential to Nodemailer.
+const smtpPass = process.env.SMTP_PASS?.replace(/\s+/g, "");
+const smtpTransport =
+  smtpUser && smtpPass
+    ? nodemailer.createTransport({
+        host: process.env.SMTP_HOST?.trim() || "smtp.gmail.com",
+        port: Number(process.env.SMTP_PORT || 465),
+        secure: (process.env.SMTP_SECURE || "true").toLowerCase() !== "false",
+        auth: { user: smtpUser, pass: smtpPass },
+      })
+    : null;
+const emailProvider = getConfiguredEmailProvider(process.env);
 const notificationEmail = process.env.PURCHASE_NOTIFICATION_EMAIL?.trim();
 const notificationFrom =
-  process.env.NOTIFICATION_FROM_EMAIL?.trim() || "EcoQuest <onboarding@resend.dev>";
+  process.env.NOTIFICATION_FROM_EMAIL?.trim() ||
+  (emailProvider === "smtp" && smtpUser ? smtpUser : "EcoQuest <onboarding@resend.dev>");
+const emailSender: EmailSender | null =
+  emailProvider === "smtp" && smtpTransport
+    ? async (message) => {
+        const sent = await smtpTransport.sendMail({
+          from: message.from,
+          to: message.to,
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+        });
+        return { data: { id: sent.messageId }, error: null };
+      }
+    : emailProvider === "resend" && resend
+      ? async (message) => resend.emails.send(message)
+      : null;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -319,27 +356,29 @@ async function sendPurchaseEmail(user: any, itemId: string) {
        </div>
     `;
 
-    if (!resend || !notificationEmail) {
-      console.warn(
-        "[Email] Skipped: RESEND_API_KEY or PURCHASE_NOTIFICATION_EMAIL is not configured.",
-      );
-      return;
-    }
-
-    const { data, error } = await resend.emails.send({
-      from: notificationFrom,
-      to: notificationEmail,
-      subject: emailSubjectText(`EcoQuest: ${user.name} vừa mua ${itemName}!`),
-      text: textBody,
-      html: htmlBody,
-    });
-    if (error) {
-      console.error("[Email] Resend error:", error);
+    const delivery = await deliverEmail(
+      emailSender,
+      notificationEmail
+        ? {
+            from: notificationFrom,
+            to: notificationEmail,
+            subject: emailSubjectText(`EcoQuest: ${user.name} vừa mua ${itemName}!`),
+            text: textBody,
+            html: htmlBody,
+          }
+        : null,
+    );
+    if (delivery.status === "sent") {
+      console.info(`[Email] Purchase notification sent, ID: ${delivery.id || "unknown"}`);
+    } else if (delivery.status === "skipped") {
+      console.warn(`[Email] Purchase notification skipped: ${delivery.reason}`);
     } else {
-      console.log(`[Email] Purchase notification sent, ID: ${data?.id}`);
+      console.error(`[Email] Purchase notification failed: ${delivery.reason}`);
     }
+    return delivery;
   } catch (e) {
     console.error("[Email] Failed to send purchase notification:", e);
+    return { status: "failed" as const, reason: "template_render_failed" };
   }
 }
 
@@ -374,27 +413,29 @@ async function sendCraftEmail(
        `;
     htmlBody += "</div>";
 
-    if (!resend || !notificationEmail) {
-      console.warn(
-        "[Email] Skipped: RESEND_API_KEY or PURCHASE_NOTIFICATION_EMAIL is not configured.",
-      );
-      return;
-    }
-
-    const { data, error } = await resend.emails.send({
-      from: notificationFrom,
-      to: notificationEmail,
-      subject: emailSubjectText(`EcoQuest: ${user.name} vừa đổi quà ${itemName}!`),
-      text: textBody,
-      html: htmlBody,
-    });
-    if (error) {
-      console.error("[Email] Resend error:", error);
+    const delivery = await deliverEmail(
+      emailSender,
+      notificationEmail
+        ? {
+            from: notificationFrom,
+            to: notificationEmail,
+            subject: emailSubjectText(`EcoQuest: ${user.name} vừa đổi quà ${itemName}!`),
+            text: textBody,
+            html: htmlBody,
+          }
+        : null,
+    );
+    if (delivery.status === "sent") {
+      console.info(`[Email] Redemption notification sent, ID: ${delivery.id || "unknown"}`);
+    } else if (delivery.status === "skipped") {
+      console.warn(`[Email] Redemption notification skipped: ${delivery.reason}`);
     } else {
-      console.log(`[Email] Notification sent, ID: ${data?.id}`);
+      console.error(`[Email] Redemption notification failed: ${delivery.reason}`);
     }
+    return delivery;
   } catch (e) {
     console.error("[Email] Failed to send notification:", e);
+    return { status: "failed" as const, reason: "template_render_failed" };
   }
 }
 
@@ -1312,10 +1353,10 @@ app.post("/api/forgot-password", async (req, res) => {
   try {
     const user = await findUserByIdentifier(identifier);
     const baseUrl = passwordResetBaseUrl();
-    if (!user?.email || !resend || !baseUrl) {
-      if (user && (!resend || !baseUrl)) {
+    if (!user?.email || !emailSender || !baseUrl) {
+      if (user && (!emailSender || !baseUrl)) {
         console.warn(
-          "[forgot-password] Email delivery unavailable; configure RESEND_API_KEY and PUBLIC_APP_URL.",
+          "[forgot-password] Email delivery unavailable; configure a Resend or SMTP provider plus PUBLIC_APP_URL.",
         );
       }
       return res.json(publicResponse);
@@ -1338,7 +1379,7 @@ app.post("/api/forgot-password", async (req, res) => {
 
     const resetUrl = new URL(baseUrl);
     resetUrl.searchParams.set("reset_token", token);
-    const { error } = await resend.emails.send({
+    const delivery = await deliverEmail(emailSender, {
       from: notificationFrom,
       to: user.email,
       subject: "EcoQuest — Khôi phục mật khẩu",
@@ -1351,7 +1392,14 @@ app.post("/api/forgot-password", async (req, res) => {
         "Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email.",
       ].join("\n"),
     });
-    if (error) console.error("[forgot-password] Resend error:", error);
+    if (delivery.status !== "sent") {
+      await deletePasswordResetRecord(tokenHash);
+      delete user.passwordResetNonce;
+      await saveUser(user);
+      console.error(`[forgot-password] Delivery ${delivery.status}: ${delivery.reason}`);
+    } else {
+      console.info(`[forgot-password] Reset email sent, ID: ${delivery.id || "unknown"}`);
+    }
   } catch (error) {
     console.error("[forgot-password] request failed:", error);
   }
@@ -2620,7 +2668,9 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         crafted: progress?.crafted || [],
         purchased: progress?.purchased || [],
         challengesCompleted: [],
-        guildDonated: false,
+        // Guild contribution is a lifetime achievement flag; do not erase it
+        // when rolling over the daily challenge progress.
+        guildDonated: progress?.guildDonated === true,
         streakDays: newStreak,
         lastUpdateDate: todayStr,
         shards: progress?.shards ?? 0,
@@ -3384,7 +3434,7 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
           // 1) Upload image to Cloudinary (anonymized)
           const uploaded = await uploadToDataset(base64Data, {
             userId: accountId,
-            scanId: Date.now(), // placeholder; real scan_id assigned after insert
+            scanId: crypto.randomUUID(),
             category: predictedCategory,
             confidence,
           });
@@ -4205,6 +4255,45 @@ app.get("/api/admin/audit-log", requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/email/status - Safe configuration diagnostics (never exposes credentials)
+app.get("/api/admin/email/status", requireAdmin, (_req, res) => {
+  return res.json({ success: true, ...getEmailConfigurationStatus() });
+});
+
+// POST /api/admin/email/test - Explicit end-to-end provider check initiated by an admin
+app.post("/api/admin/email/test", requireAdmin, async (req, res) => {
+  const to = typeof req.body?.to === "string" ? req.body.to.trim() : "";
+  if (to.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Địa chỉ email kiểm thử không hợp lệ." });
+  }
+
+  const delivery = await deliverEmail(emailSender, {
+    from: notificationFrom,
+    to,
+    subject: "BMO EcoQuest — Kiểm tra hệ thống email",
+    text: [
+      "Hệ thống email BMO EcoQuest đang hoạt động.",
+      `Thời gian kiểm tra: ${new Date().toISOString()}`,
+      "Email này được gửi thủ công từ bảng quản trị.",
+    ].join("\n"),
+    html: `<div style="font-family:Inter,Arial,sans-serif;padding:24px;color:#052e28"><h2 style="margin:0 0 12px;color:#047857">BMO EcoQuest</h2><p>Hệ thống email đang hoạt động.</p><p style="color:#64748b;font-size:13px">Kiểm tra lúc ${escapeHtml(new Date().toISOString())}</p></div>`,
+  });
+
+  if (delivery.status === "skipped") {
+    return res
+      .status(503)
+      .json({ success: false, status: delivery.status, reason: delivery.reason });
+  }
+  if (delivery.status === "failed") {
+    return res
+      .status(502)
+      .json({ success: false, status: delivery.status, reason: delivery.reason });
+  }
+  return res.json({ success: true, status: delivery.status, id: delivery.id });
+});
+
 // GET /api/admin/system/health - System health check
 app.get("/api/admin/system/health", requireAdmin, async (_req, res) => {
   try {
@@ -4325,7 +4414,6 @@ async function startServer(): Promise<Server> {
   // The SPA fallback + 404 catch-all are registered at the END of
   // startServer() (right before app.listen) so they don't shadow
   // the per-domain routers mounted below.
-  // Placeholder: see end-of-file block.
 
   // Auto-sync Google Sheets Data initially and every 15 minutes (push DB → Sheets + pull Sheets → DB)
   const SPREADSHEET_ID =

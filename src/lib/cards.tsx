@@ -1,5 +1,6 @@
 import React, { ReactElement } from "react";
 import i18n from "./i18n";
+import { CARD_ELEMENT_ASSETS } from "./bmoAssets";
 
 export const TOTAL_CARDS = 420;
 
@@ -9312,6 +9313,9 @@ export function getCardArt(
       style={{ width: "100%", height: "100%" }}
     >
       <defs>
+        <clipPath id={`art-clip-${cardId}`}>
+          <rect x="2" y="2" width="116" height="156" rx="8" ry="8" />
+        </clipPath>
         {/* Dark pixel-art background gradient */}
         <linearGradient id={`bg-${cardId}`} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor={darkBg} />
@@ -9339,6 +9343,20 @@ export function getCardArt(
 
       {/* Dark card background */}
       <rect x="2" y="2" width="116" height="156" rx="8" ry="8" fill={`url(#bg-${cardId})`} />
+      {CARD_ELEMENT_ASSETS[elementId] && (
+        <g clipPath={`url(#art-clip-${cardId})`}>
+          <image
+            href={CARD_ELEMENT_ASSETS[elementId]}
+            x={artVariant % 2 === 0 ? -7 : 1}
+            y="1"
+            width={artVariant % 2 === 0 ? 134 : 120}
+            height="160"
+            preserveAspectRatio="xMidYMid slice"
+            opacity={rarityId === "common" ? 0.6 : 0.72}
+          />
+          <rect x="1" y="1" width="118" height="158" fill={darkBg} opacity="0.24" />
+        </g>
+      )}
       {/* Subtle border */}
       <rect
         x="2"

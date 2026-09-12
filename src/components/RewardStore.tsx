@@ -1,31 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Store, UserCircle2, Hexagon, Sparkles, Check, Lock } from "lucide-react";
+import { UserCircle2, Hexagon, Sparkles, Check, Lock } from "lucide-react";
 import { UserProgress } from "../types";
 import { Badge, Button, Card, SectionHeading, TabButton } from "../lib/ui";
 import { getAuthHeaders } from "../lib/auth";
+import { PROFILE_AVATARS, PROFILE_FRAMES } from "../lib/bmoAssets";
 
 interface Props {
   points: number;
   progress?: UserProgress;
-  onRefresh?: (progress?: any) => void;
+  onRefresh?: (progress?: UserProgress) => void;
 }
-
-const AVATARS = [
-  { id: "av1", name: "Mầm Xanh", cost: 50, icon: "🌱" },
-  { id: "av2", name: "Chiến Binh Nước", cost: 150, icon: "💧" },
-  { id: "av3", name: "Thủ Lĩnh Rừng", cost: 300, icon: "🦁" },
-];
-
-const FRAMES = [
-  { id: "fr1", name: "Khung Gỗ", cost: 100, color: "border-[6px] border-amber-700" },
-  { id: "fr2", name: "Khung Băng", cost: 200, color: "border-[6px] border-cyan-400" },
-  {
-    id: "fr3",
-    name: "Hào Quang Đất",
-    cost: 500,
-    color: "border-[6px] border-emerald-500 shadow-[0_0_15px_#10b981]",
-  },
-];
 
 type PurchaseCounts = Record<string, number>;
 
@@ -69,13 +53,14 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
     }
   };
 
-  const items = activeTab === "avatar" ? AVATARS : FRAMES;
+  const items = activeTab === "avatar" ? PROFILE_AVATARS : PROFILE_FRAMES;
 
   return (
-    <Card className="overflow-hidden rounded-[28px] p-0">
-      <div className="border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff,#faf8ff)] px-5 py-5">
+    <Card className="overflow-hidden rounded-[28px] border-emerald-950/10 p-0 shadow-[0_24px_60px_rgba(4,47,36,0.12)]">
+      <div className="relative overflow-hidden border-b border-emerald-200/20 bg-[radial-gradient(circle_at_80%_0%,rgba(251,191,36,0.2),transparent_34%),linear-gradient(135deg,#052e28,#0b5b48)] px-5 py-5 text-white">
+        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
         <SectionHeading
-          eyebrow="Store"
+          eyebrow="Eco vault"
           title="Cửa hàng điểm thưởng"
           subtitle="Mở khóa avatar và khung hồ sơ để cá nhân hóa tài khoản của bạn."
           action={
@@ -119,7 +104,7 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
             return (
               <Card
                 key={item.id}
-                className="rounded-[24px] border border-slate-100 bg-slate-50 p-4 transition hover:border-violet-200 hover:bg-violet-50"
+                className="group rounded-[24px] border border-emerald-100 bg-[linear-gradient(145deg,#ffffff,#f0fdf7)] p-4 transition duration-300 hover:-translate-y-1 hover:border-amber-300 hover:shadow-[0_16px_34px_rgba(4,120,87,0.14)]"
               >
                 <div className="relative flex h-full flex-col items-center justify-between text-center">
                   <div
@@ -129,12 +114,18 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
                   </div>
 
                   {activeTab === "avatar" ? (
-                    <div className="mb-3 mt-2 text-5xl">
-                      {(item as (typeof AVATARS)[number]).icon}
+                    <div className="relative mb-3 mt-2 h-24 w-24 overflow-hidden rounded-full bg-[radial-gradient(circle,#ecfdf5,#bbf7d0)] ring-2 ring-amber-300/70 shadow-[0_10px_28px_rgba(4,120,87,0.24)]">
+                      <img
+                        src={(item as (typeof PROFILE_AVATARS)[number]).imageSrc}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      />
                     </div>
                   ) : (
                     <div
-                      className={`mb-3 mt-2 h-16 w-16 rounded-full bg-slate-200 ${String((item as (typeof FRAMES)[number]).color)}`}
+                      className={`mb-3 mt-2 h-20 w-20 rounded-full bg-[radial-gradient(circle,#d1fae5,#0f766e)] ${String((item as (typeof PROFILE_FRAMES)[number]).previewClass)}`}
                     />
                   )}
 
