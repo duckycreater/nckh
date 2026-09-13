@@ -1,288 +1,176 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
+import type { TFunction } from "i18next";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowLeft, ChevronRight, Lock, ShieldCheck, Sparkles, Star, X, Zap } from "lucide-react";
 import { REGIONS } from "../data/worldMap";
-
-// Keep the star field stable across state updates. Randomising during render
-// made the map visibly jump every time a node was hovered or selected.
-const STAR_FIELD = Array.from({ length: 80 }, (_, index) => {
-  const seed = (index * 9301 + 49297) % 233280;
-  const unit = seed / 233280;
-  return {
-    size: 1 + ((index * 17) % 20) / 20,
-    left: (unit * 100 + index * 7.31) % 100,
-    top: (unit * 73 + index * 11.17) % 100,
-    delay: ((index * 13) % 30) / 10,
-    duration: 2 + ((index * 19) % 30) / 10,
-  };
-});
-
-// ─── World Map Component ─────────────────────────────────────────────────────────
-// Massive open-world style campaign map with 10 regions
+import type { CampaignRegionDefinition, CampaignStageDefinition } from "../../shared/cardGame";
 
 interface WorldMapProps {
   playerLevel: number;
   unlockedRegions: string[];
   currentRegion: string;
-  onSelectRegion: (regionId: string) => void;
+  campaignStars?: Record<string, number>;
+  campaignClaims?: string[];
+  onSelectRegion: (regionId: string, stageId: string) => void;
   onBack: () => void;
+}
+
+function stageLabel(stage: CampaignStageDefinition, index: number, t: TFunction) {
+  const key = stage.nameKey.startsWith("campaign.")
+    ? stage.nameKey.replace(/^campaign\./, "stages.")
+    : stage.nameKey;
+  return t(key, { defaultValue: `Nhiệm vụ ${index + 1}` });
 }
 
 export default function WorldMap({
   playerLevel,
   unlockedRegions,
   currentRegion,
+  campaignStars = {},
+  campaignClaims = [],
   onSelectRegion,
   onBack,
 }: WorldMapProps) {
   const { t } = useTranslation();
+  const reduceMotion = useReducedMotion();
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(currentRegion || null);
+  const selectedRegion = REGIONS.find((region) => region.id === selectedRegionId) || null;
+  const earnedStars = Object.values(campaignStars).reduce(
+    (total, value) => total + Math.max(0, Math.min(3, Number(value) || 0)),
+    0,
+  );
+  const completedStages = new Set(campaignClaims);
 
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(currentRegion || null);
-  const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
-  const [showRegionDetail, setShowRegionDetail] = useState(false);
-
-  const isRegionUnlocked = (regionId: string) => {
-    const region = REGIONS.find((r) => r.id === regionId);
-    if (!region) return false;
-    if (region.requiredPreviousRegion && !unlockedRegions.includes(region.requiredPreviousRegion))
-      return false;
-    return playerLevel >= region.requiredPlayerLevel;
-  };
-
-  const regionGradients: Record<string, string> = {
-    region_01: "from-slate-600 via-zinc-700 to-stone-800",
-    region_02: "from-amber-700 via-orange-800 to-red-900",
-    region_03: "from-slate-800 via-zinc-900 to-neutral-950",
-    region_04: "from-green-800 via-emerald-900 to-teal-950",
-    region_05: "from-red-900 via-rose-950 to-neutral-950",
-    region_06: "from-cyan-800 via-blue-900 to-indigo-950",
-    region_07: "from-blue-900 via-sky-950 to-cyan-950",
-    region_08: "from-violet-950 via-purple-950 to-fuchsia-950",
-    region_09: "from-neutral-950 via-stone-950 to-zinc-950",
-    region_10: "from-yellow-600 via-amber-700 to-orange-800",
-  };
-
-  const regionIcons: Record<string, string> = {
-    region_01: "🏚️",
-    region_02: "🏪",
-    region_03: "🏭",
-    region_04: "🏢",
-    region_05: "☢️",
-    region_06: "♻️",
-    region_07: "🌊",
-    region_08: "⛔",
-    region_09: "🔥",
-    region_10: "👑",
-  };
-
-  const selectedRegionData = selectedRegion ? REGIONS.find((r) => r.id === selectedRegion) : null;
+  const isRegionUnlocked = (region: CampaignRegionDefinition) =>
+    playerLevel >= region.requiredPlayerLevel &&
+    (region.id === "region_01" || unlockedRegions.includes(region.id));
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Atmospheric background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-        {/* Star field */}
-        <div className="absolute inset-0 opacity-30">
-          {STAR_FIELD.map((star, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full bg-white animate-pulse"
-              style={{
-                width: `${star.size}px`,
-                height: `${star.size}px`,
-                left: `${star.left}%`,
-                top: `${star.top}%`,
-                animationDelay: `${star.delay}s`,
-                animationDuration: `${star.duration}s`,
-              }}
-            />
-          ))}
-        </div>
+    <div className="relative min-h-dvh overflow-x-hidden bg-[#030807] text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(148,163,184,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.035)_1px,transparent_1px)] bg-[size:34px_34px]" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(34,211,238,.09),transparent_30%),radial-gradient(circle_at_86%_76%,rgba(251,191,36,.07),transparent_34%)]" />
 
-        {/* Title */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-6 py-4 flex items-center gap-4">
+      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#030807]/85 px-4 py-4 backdrop-blur-xl sm:px-6">
+        <div className="mx-auto flex max-w-7xl items-center gap-3">
           <button
+            type="button"
             onClick={onBack}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
+            aria-label={t("campaign.backToMap", { defaultValue: "Quay lại" })}
+            className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/[0.06] text-slate-300 transition hover:border-white/25 hover:text-white"
           >
-            <svg
-              className="w-6 h-6 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
+            <ArrowLeft className="h-5 w-5" />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/70">
+              BMO · Recovery Command
+            </p>
+            <h1 className="truncate text-xl font-black tracking-tight sm:text-2xl">
               {t("campaign.worldMap")}
             </h1>
-            <p className="text-sm text-white/60">{t("campaign.worldMapSubtitle")}</p>
           </div>
-          <div className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md">
-            <span className="text-sm text-white/80">{t("campaign.playerLevel")}:</span>
-            <span className="text-lg font-bold text-amber-400">{playerLevel}</span>
-          </div>
-        </div>
-
-        {/* Map container */}
-        <div className="absolute inset-0 top-20 flex items-center justify-center px-8">
-          <div className="relative w-full max-w-5xl">
-            {/* Region nodes arranged in a winding path */}
-            <div className="flex flex-col gap-16">
-              {/* Row 1: Regions 1-2 */}
-              <div className="flex justify-between items-center">
-                {REGIONS.slice(0, 2).map((region) => (
-                  <RegionNode
-                    key={region.id}
-                    region={region}
-                    isUnlocked={isRegionUnlocked(region.id)}
-                    isSelected={selectedRegion === region.id}
-                    isHovered={hoveredRegion === region.id}
-                    gradient={regionGradients[region.id]}
-                    icon={regionIcons[region.id]}
-                    onHover={() => setHoveredRegion(region.id)}
-                    onLeave={() => setHoveredRegion(null)}
-                    onClick={() => {
-                      setSelectedRegion(region.id);
-                      setShowRegionDetail(true);
-                    }}
-                    t={t}
-                  />
-                ))}
-              </div>
-
-              {/* Connector line */}
-              <div className="relative h-8 flex justify-center">
-                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-500/40 to-emerald-500/40" />
-              </div>
-
-              {/* Row 2: Regions 3-4 */}
-              <div className="flex justify-between items-center">
-                {REGIONS.slice(2, 4).map((region) => (
-                  <RegionNode
-                    key={region.id}
-                    region={region}
-                    isUnlocked={isRegionUnlocked(region.id)}
-                    isSelected={selectedRegion === region.id}
-                    isHovered={hoveredRegion === region.id}
-                    gradient={regionGradients[region.id]}
-                    icon={regionIcons[region.id]}
-                    onHover={() => setHoveredRegion(region.id)}
-                    onLeave={() => setHoveredRegion(null)}
-                    onClick={() => {
-                      setSelectedRegion(region.id);
-                      setShowRegionDetail(true);
-                    }}
-                    t={t}
-                  />
-                ))}
-              </div>
-
-              {/* Connector line */}
-              <div className="relative h-8 flex justify-center">
-                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500/40 to-teal-500/40" />
-              </div>
-
-              {/* Row 3: Regions 5-6 */}
-              <div className="flex justify-between items-center">
-                {REGIONS.slice(4, 6).map((region) => (
-                  <RegionNode
-                    key={region.id}
-                    region={region}
-                    isUnlocked={isRegionUnlocked(region.id)}
-                    isSelected={selectedRegion === region.id}
-                    isHovered={hoveredRegion === region.id}
-                    gradient={regionGradients[region.id]}
-                    icon={regionIcons[region.id]}
-                    onHover={() => setHoveredRegion(region.id)}
-                    onLeave={() => setHoveredRegion(null)}
-                    onClick={() => {
-                      setSelectedRegion(region.id);
-                      setShowRegionDetail(true);
-                    }}
-                    t={t}
-                  />
-                ))}
-              </div>
-
-              {/* Connector line */}
-              <div className="relative h-8 flex justify-center">
-                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-teal-500/40 to-cyan-500/40" />
-              </div>
-
-              {/* Row 4: Regions 7-8 */}
-              <div className="flex justify-between items-center">
-                {REGIONS.slice(6, 8).map((region) => (
-                  <RegionNode
-                    key={region.id}
-                    region={region}
-                    isUnlocked={isRegionUnlocked(region.id)}
-                    isSelected={selectedRegion === region.id}
-                    isHovered={hoveredRegion === region.id}
-                    gradient={regionGradients[region.id]}
-                    icon={regionIcons[region.id]}
-                    onHover={() => setHoveredRegion(region.id)}
-                    onLeave={() => setHoveredRegion(null)}
-                    onClick={() => {
-                      setSelectedRegion(region.id);
-                      setShowRegionDetail(true);
-                    }}
-                    t={t}
-                  />
-                ))}
-              </div>
-
-              {/* Connector line */}
-              <div className="relative h-8 flex justify-center">
-                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500/40 to-violet-500/40" />
-              </div>
-
-              {/* Row 5: Regions 9-10 */}
-              <div className="flex justify-between items-center">
-                {REGIONS.slice(8, 10).map((region) => (
-                  <RegionNode
-                    key={region.id}
-                    region={region}
-                    isUnlocked={isRegionUnlocked(region.id)}
-                    isSelected={selectedRegion === region.id}
-                    isHovered={hoveredRegion === region.id}
-                    gradient={regionGradients[region.id]}
-                    icon={regionIcons[region.id]}
-                    onHover={() => setHoveredRegion(region.id)}
-                    onLeave={() => setHoveredRegion(null)}
-                    onClick={() => {
-                      setSelectedRegion(region.id);
-                      setShowRegionDetail(true);
-                    }}
-                    t={t}
-                  />
-                ))}
-              </div>
-            </div>
+          <div className="hidden items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2.5 sm:flex">
+            <Metric
+              icon={<ShieldCheck className="h-4 w-4 text-cyan-300" />}
+              label="CLEAR"
+              value={`${completedStages.size}/100`}
+            />
+            <Metric
+              icon={<Star className="h-4 w-4 text-amber-300" />}
+              label="STARS"
+              value={`${earnedStars}/300`}
+            />
+            <Metric
+              icon={<Zap className="h-4 w-4 text-emerald-300" />}
+              label="LEVEL"
+              value={String(playerLevel)}
+            />
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Region detail panel */}
+      <main className="relative mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10">
+        <div className="mb-7 max-w-3xl">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300/75">
+            10 material sectors · 100 operations
+          </p>
+          <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-5xl">
+            Dọn từng vùng. Khép kín vòng vật liệu.
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
+            Mỗi khu vực dùng một quy luật chiến đấu riêng. Hoàn thành ải, nâng đủ ba sao và hạ boss
+            để mở tuyến tiếp theo.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {REGIONS.map((region, index) => {
+            const unlocked = isRegionUnlocked(region);
+            const regionCompleted = region.stages.filter((stage) =>
+              completedStages.has(stage.id),
+            ).length;
+            const regionStars = region.stages.reduce(
+              (sum, stage) => sum + (campaignStars[stage.id] || 0),
+              0,
+            );
+            return (
+              <motion.button
+                key={region.id}
+                type="button"
+                disabled={!unlocked}
+                onClick={() => setSelectedRegionId(region.id)}
+                initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+                animate={{ opacity: unlocked ? 1 : 0.45, y: 0 }}
+                transition={{ delay: reduceMotion ? 0 : index * 0.045 }}
+                whileHover={reduceMotion || !unlocked ? undefined : { y: -5 }}
+                className={`group relative min-h-64 overflow-hidden rounded-[26px] border p-5 text-left transition ${
+                  unlocked
+                    ? "border-white/10 bg-slate-950/80 hover:border-white/25"
+                    : "cursor-not-allowed border-white/[0.05] bg-slate-950/40 grayscale"
+                }`}
+                style={unlocked ? { boxShadow: `0 22px 70px ${region.accentColor}10` } : undefined}
+              >
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${region.gradient} opacity-55`}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,.08),transparent_34%,rgba(2,6,23,.72))]" />
+                <div className="relative flex h-full flex-col">
+                  <div className="flex items-start justify-between">
+                    <div
+                      className="grid h-12 w-12 place-items-center rounded-2xl border border-white/15 bg-black/25 text-2xl font-black backdrop-blur"
+                      style={{ color: region.accentColor }}
+                    >
+                      {unlocked ? region.icon : <Lock className="h-5 w-5 text-white/40" />}
+                    </div>
+                    <span className="font-mono text-[10px] font-black tracking-[0.16em] text-white/40">
+                      SECTOR {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </div>
+                  <div className="mt-auto pt-8">
+                    <p className="text-lg font-black leading-tight">{t(region.nameKey)}</p>
+                    <p className="mt-2 line-clamp-3 text-xs leading-5 text-white/52">
+                      {t(region.descriptionKey)}
+                    </p>
+                    <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-[10px] font-black uppercase tracking-wider text-white/50">
+                      <span>{regionCompleted}/10 clear</span>
+                      <span className="text-amber-200">{regionStars}/30 ★</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+      </main>
+
       <AnimatePresence>
-        {showRegionDetail && selectedRegionData && (
-          <RegionDetailPanel
-            region={selectedRegionData}
-            isUnlocked={isRegionUnlocked(selectedRegionData.id)}
-            playerLevel={playerLevel}
-            onClose={() => setShowRegionDetail(false)}
-            onStartCampaign={() => {
-              onSelectRegion(selectedRegionData.id);
-              setShowRegionDetail(false);
-            }}
-            t={t}
+        {selectedRegion && (
+          <RegionPanel
+            region={selectedRegion}
+            campaignStars={campaignStars}
+            campaignClaims={campaignClaims}
+            onClose={() => setSelectedRegionId(null)}
+            onSelectStage={(stageId) => onSelectRegion(selectedRegion.id, stageId)}
           />
         )}
       </AnimatePresence>
@@ -290,216 +178,146 @@ export default function WorldMap({
   );
 }
 
-// ─── Region Node Component ────────────────────────────────────────────────────────
-function RegionNode({
-  region,
-  isUnlocked,
-  isSelected,
-  isHovered,
-  gradient,
-  icon,
-  onHover,
-  onLeave,
-  onClick,
-  t,
-}: {
-  region: any;
-  isUnlocked: boolean;
-  isSelected: boolean;
-  isHovered: boolean;
-  gradient: string;
-  icon: string;
-  onHover: () => void;
-  onLeave: () => void;
-  onClick: () => void;
-  t: any;
-}) {
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <motion.div
-      className={`relative cursor-pointer ${!isUnlocked ? "opacity-40 cursor-not-allowed" : ""}`}
-      onHoverStart={isUnlocked ? onHover : undefined}
-      onHoverEnd={isUnlocked ? onLeave : undefined}
-      onClick={isUnlocked ? onClick : undefined}
-      whileHover={isUnlocked ? { scale: 1.05 } : {}}
-      whileTap={isUnlocked ? { scale: 0.95 } : {}}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: REGIONS.indexOf(region) * 0.05 }}
-    >
-      {/* Glow effect */}
-      {isUnlocked && (isSelected || isHovered) && (
-        <div
-          className={`absolute -inset-4 bg-gradient-to-br ${gradient} opacity-20 blur-xl rounded-3xl`}
-        />
-      )}
-
-      {/* Node card */}
-      <div
-        className={`
-        relative w-36 h-36 rounded-3xl bg-gradient-to-br ${gradient}
-        border-2 transition-all duration-300 backdrop-blur-sm
-        ${isSelected ? "border-amber-400 shadow-lg shadow-amber-400/30" : isHovered ? "border-white/50" : "border-white/20"}
-        ${isUnlocked ? "" : "grayscale"}
-      `}
-      >
-        {/* Icon */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-5xl drop-shadow-lg">{icon}</span>
-        </div>
-
-        {/* Lock overlay */}
-        {!isUnlocked && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-3xl">
-            <svg
-              className="w-8 h-8 text-white/50"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
-          </div>
-        )}
-
-        {/* Level badge */}
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/20">
-          <span className="text-xs font-bold text-white">Lv.{region.requiredPlayerLevel}</span>
-        </div>
-
-        {/* Selected ring */}
-        {isSelected && (
-          <motion.div
-            className="absolute -inset-2 rounded-3xl border-2 border-amber-400"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-            style={{ background: "conic-gradient(from 0deg, transparent, #f59e0b, transparent)" }}
-          />
-        )}
+    <div className="flex items-center gap-2">
+      {icon}
+      <div>
+        <p className="text-[8px] font-black tracking-[0.16em] text-white/35">{label}</p>
+        <p className="font-mono text-xs font-black text-white">{value}</p>
       </div>
-
-      {/* Region name */}
-      <p className="mt-3 text-center text-sm font-semibold text-white/90 truncate px-2">
-        {t(region.nameKey) || region.nameKey}
-      </p>
-    </motion.div>
+    </div>
   );
 }
 
-// ─── Region Detail Panel ─────────────────────────────────────────────────────────
-function RegionDetailPanel({
+function RegionPanel({
   region,
-  isUnlocked,
-  playerLevel,
+  campaignStars,
+  campaignClaims,
   onClose,
-  onStartCampaign,
-  t,
+  onSelectStage,
 }: {
-  region: any;
-  isUnlocked: boolean;
-  playerLevel: number;
+  region: CampaignRegionDefinition;
+  campaignStars: Record<string, number>;
+  campaignClaims: string[];
   onClose: () => void;
-  onStartCampaign: () => void;
-  t: any;
+  onSelectStage: (stageId: string) => void;
 }) {
+  const { t } = useTranslation();
+  const completed = useMemo(() => new Set(campaignClaims), [campaignClaims]);
+  const nextStage =
+    region.stages.find((stage, index) => {
+      if (completed.has(stage.id)) return false;
+      return index === 0 || completed.has(region.stages[index - 1].id);
+    }) || region.stages[region.stages.length - 1];
+
   return (
     <motion.div
-      className="absolute inset-0 z-20 flex items-end justify-center pb-8 pointer-events-none"
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-5"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
       <motion.div
-        className="pointer-events-auto w-full max-w-lg mx-4 rounded-3xl bg-slate-900/95 backdrop-blur-xl border border-white/20 p-6 shadow-2xl"
-        initial={{ y: 300, opacity: 0 }}
+        initial={{ y: 45, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 300, opacity: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        exit={{ y: 30, opacity: 0 }}
+        className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-[30px] border border-white/10 bg-[#07100f] shadow-2xl sm:rounded-[30px]"
       >
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-white">{t(region.nameKey) || region.nameKey}</h2>
-            <p className="text-sm text-white/60 mt-1">
-              {t(region.descriptionKey) || region.descriptionKey}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 transition-colors">
-            <svg
-              className="w-5 h-5 text-white/60"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+        <div className={`relative overflow-hidden bg-gradient-to-br ${region.gradient} p-6 sm:p-8`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(255,255,255,.18),transparent_38%),linear-gradient(180deg,transparent,rgba(2,6,23,.55))]" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-black/20 text-white/70 backdrop-blur hover:text-white"
+          >
+            <X className="h-5 w-5" />
           </button>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="rounded-xl bg-white/5 p-3 text-center">
-            <p className="text-2xl font-bold text-amber-400">{region.stages.length}</p>
-            <p className="text-xs text-white/50">{t("campaign.stages")}</p>
-          </div>
-          <div className="rounded-xl bg-white/5 p-3 text-center">
-            <p className="text-2xl font-bold text-emerald-400">{region.stages.length * 3}</p>
-            <p className="text-xs text-white/50">{t("campaign.totalStars")}</p>
-          </div>
-          <div className="rounded-xl bg-white/5 p-3 text-center">
-            <p className="text-2xl font-bold text-blue-400">Lv.{region.requiredPlayerLevel}+</p>
-            <p className="text-xs text-white/50">{t("campaign.requiredLevel")}</p>
-          </div>
-        </div>
-
-        {/* Stage preview */}
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-          {region.stages.map((stage: any, i: number) => (
-            <div
-              key={stage.id}
-              className="flex-shrink-0 w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center"
-            >
-              <span className="text-lg">
-                {stage.type === "boss"
-                  ? "👹"
-                  : stage.type === "elite"
-                    ? "⚔️"
-                    : stage.type === "miniboss"
-                      ? "💀"
-                      : "⚪"}
+          <div className="relative pr-12">
+            <div className="mb-4 flex items-center gap-3">
+              <span
+                className="grid h-12 w-12 place-items-center rounded-2xl border border-white/15 bg-black/20 text-2xl"
+                style={{ color: region.accentColor }}
+              >
+                {region.icon}
               </span>
-              <span className="text-[10px] text-white/50 mt-1">
-                {t("campaign.stage")} {i + 1}
+              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/55">
+                Material sector
               </span>
             </div>
-          ))}
-        </div>
-
-        {/* CTA */}
-        {isUnlocked ? (
-          <button
-            onClick={onStartCampaign}
-            className="w-full py-3 rounded-xl font-bold text-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white shadow-lg shadow-amber-500/30 transition-all"
-          >
-            {t("campaign.startCampaign")}
-          </button>
-        ) : (
-          <div className="w-full py-3 rounded-xl text-center text-white/50">
-            <p className="font-semibold">{t("campaign.locked")}</p>
-            <p className="text-sm">
-              {t("campaign.reachLevel")} {region.requiredPlayerLevel}
+            <h2 className="text-3xl font-black tracking-tight">{t(region.nameKey)}</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">
+              {t(region.descriptionKey)}
             </p>
           </div>
-        )}
+        </div>
+
+        <div className="p-5 sm:p-7">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {region.stages.map((stage, index) => {
+              const unlocked = index === 0 || completed.has(region.stages[index - 1].id);
+              const stars = campaignStars[stage.id] || 0;
+              return (
+                <button
+                  key={stage.id}
+                  type="button"
+                  disabled={!unlocked}
+                  onClick={() => onSelectStage(stage.id)}
+                  className={`relative min-h-32 rounded-2xl border p-3 text-left transition ${
+                    unlocked
+                      ? "border-white/10 bg-white/[0.045] hover:border-amber-300/45 hover:bg-amber-300/[0.07]"
+                      : "cursor-not-allowed border-white/[0.04] bg-black/20 opacity-35"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] font-black text-white/35">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    {completed.has(stage.id) ? (
+                      <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                    ) : !unlocked ? (
+                      <Lock className="h-4 w-4 text-white/30" />
+                    ) : null}
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-xs font-black leading-4 text-white">
+                    {stageLabel(stage, index, t)}
+                  </p>
+                  <p className="mt-2 text-[9px] font-black uppercase tracking-wider text-white/35">
+                    {stage.type}
+                  </p>
+                  <p className="absolute bottom-3 left-3 text-[10px] text-amber-300">
+                    {"★".repeat(stars)}
+                    {"☆".repeat(Math.max(0, 3 - stars))}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onSelectStage(nextStage.id)}
+            className="mt-5 flex w-full items-center justify-between rounded-2xl bg-slate-100 px-5 py-4 text-left text-slate-950 transition hover:bg-white"
+          >
+            <span>
+              <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                Tiếp tục chiến dịch
+              </span>
+              <span className="mt-1 block font-black">
+                {stageLabel(nextStage, region.stages.indexOf(nextStage), t)}
+              </span>
+            </span>
+            <span className="flex items-center gap-2 text-xs font-black">
+              <Sparkles className="h-4 w-4 text-amber-500" /> {nextStage.staminaCost}
+              <ChevronRight className="h-5 w-5" />
+            </span>
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

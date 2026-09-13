@@ -1,6 +1,11 @@
 import React, { ReactElement } from "react";
 import i18n from "./i18n";
 import { CARD_ELEMENT_ASSETS } from "./bmoAssets";
+import {
+  CARD_ELEMENT_IDENTITIES,
+  FLAGSHIP_CARD_ID_SET,
+  type CardElementId,
+} from "../../shared/cardGame";
 
 export const TOTAL_CARDS = 420;
 
@@ -7689,6 +7694,24 @@ export const ALL_CARDS: Card[] = CARDS.map((def) => ({
   artVariant: def.artVariant,
 }));
 
+/**
+ * The first production roster. The complete 420-card catalog remains readable
+ * for old accounts, while every new pull and collection screen uses these 100.
+ */
+export const FLAGSHIP_CARDS: Card[] = ALL_CARDS.filter((card) => FLAGSHIP_CARD_ID_SET.has(card.id));
+
+export const GENERATED_HERO_ART_IDS = new Set<number>([1, 31, 61, 91, 121, 151, 301, 311, 321]);
+
+export function getHeroArtPath(cardId: number): string | null {
+  return GENERATED_HERO_ART_IDS.has(cardId)
+    ? `/assets/bmo/cards/heroes/card-${String(cardId).padStart(3, "0")}.webp`
+    : null;
+}
+
+export function getCardElementIdentity(elementId: string) {
+  return CARD_ELEMENT_IDENTITIES[elementId as CardElementId] ?? CARD_ELEMENT_IDENTITIES.plastic;
+}
+
 export function getCardStats(card: Card): CardStats {
   return {
     atk: card.atk,
@@ -9292,6 +9315,23 @@ export function getCardArt(
   artVariant: number,
   rarityId: string,
 ): ReactElement {
+  const heroArtPath = getHeroArtPath(cardId);
+  if (heroArtPath) {
+    return (
+      <span className="relative block h-full w-full overflow-hidden rounded-[inherit] bg-slate-950">
+        <img
+          src={heroArtPath}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="h-full w-full select-none object-cover"
+        />
+        <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,transparent_60%,rgba(2,6,23,0.68))]" />
+      </span>
+    );
+  }
   const seed = cardId * 1000 + hashCode(elementId);
   const rng = (offset: number) => seededRandom(seed + offset);
 

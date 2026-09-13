@@ -113,8 +113,9 @@ function WorldMapRoute({ user }: { user: User }) {
       playerLevel={playerLevel}
       unlockedRegions={user.unlockedRegions || ["region_01"]}
       currentRegion={user.currentRegion || ""}
-      onSelectRegion={(regionId) => {
-        const stageId = `s${regionId.split("_")[1]}_01`;
+      campaignStars={user.progress?.campaignStars}
+      campaignClaims={user.progress?.campaignClaims}
+      onSelectRegion={(regionId, stageId) => {
         navigate(`/campaign/${regionId}/${stageId}`);
       }}
       onBack={() => navigate("/home")}
@@ -164,7 +165,11 @@ function FamilyModeStandalone({ user }: { user: User }) {
   );
 }
 
-function CampaignStageRoute() {
+function CampaignStageRoute({
+  onCampaignUpdate,
+}: {
+  onCampaignUpdate: (updates: Partial<User>) => void;
+}) {
   const navigate = useNavigate();
   const { regionId, stageId } = useParams<{ regionId: string; stageId: string }>();
   return (
@@ -172,6 +177,14 @@ function CampaignStageRoute() {
       regionId={regionId || ""}
       stageId={stageId || ""}
       onBack={() => navigate("/world-map")}
+      onProgress={(result) => {
+        const updates: Partial<User> = {};
+        if (result.points !== undefined) updates.points = result.points;
+        if (result.totalExpEarned !== undefined) updates.totalExpEarned = result.totalExpEarned;
+        if (result.progress !== undefined) updates.progress = result.progress as User["progress"];
+        if (result.unlockedRegions !== undefined) updates.unlockedRegions = result.unlockedRegions;
+        onCampaignUpdate(updates);
+      }}
     />
   );
 }
@@ -505,7 +518,7 @@ export default function App() {
             path="/campaign/:regionId/:stageId"
             element={
               <Suspense fallback={<LoadingFallback />}>
-                <CampaignStageRoute />
+                <CampaignStageRoute onCampaignUpdate={handleUpdateUser} />
               </Suspense>
             }
           />

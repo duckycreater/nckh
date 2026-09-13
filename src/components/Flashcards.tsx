@@ -28,13 +28,14 @@ import {
 } from "lucide-react";
 import { UserProgress } from "../types";
 import {
-  ALL_CARDS,
+  FLAGSHIP_CARDS,
   ELEMENTS,
   calcPower,
   getXpForLevel,
   getFusedXp,
   getCardAbility,
   getCardArt,
+  getCardElementIdentity,
   getAvatarEmoji,
   tCardName,
   type Card,
@@ -47,6 +48,7 @@ import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 import { BMO_ASSETS } from "../lib/bmoAssets";
 import { normalizeCardOwnership } from "../lib/cardOwnership";
 import { SHARD_CARD_REWARDS, SHARD_XP_REWARDS } from "../lib/shardShop";
+import { getCardHeroProfile } from "../lib/cardHeroes";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type Section =
@@ -66,7 +68,7 @@ interface StoredNewCard {
 
 const PULL_QUANTITY = 10;
 const CARD_PAGE_SIZE = 24;
-const CARD_BY_ID = new Map(ALL_CARDS.map((card) => [card.id, card]));
+const CARD_BY_ID = new Map(FLAGSHIP_CARDS.map((card) => [card.id, card]));
 const RARITY_SCORE: Readonly<Record<string, number>> = {
   event: 7,
   mythical: 6,
@@ -359,6 +361,7 @@ function CardTile({
   const rs = RARITY[card.rarity.id] || RARITY.common;
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
   const power = calcPower(card, level);
+  const heroProfile = getCardHeroProfile(card);
 
   if (locked) {
     return (
@@ -395,7 +398,7 @@ function CardTile({
         whileTap={{ scale: 0.98 }}
         transition={{ type: "spring", stiffness: 360, damping: 24 }}
         onClick={onClick}
-        aria-label={cardDisplayName(card)}
+        aria-label={`${heroProfile.callsign} — ${cardDisplayName(card)}`}
         className={`
           absolute inset-0 h-full w-full cursor-pointer overflow-hidden rounded-2xl border text-left
           ${rs.border}
@@ -458,7 +461,7 @@ function CardTile({
             </div>
             {/* Name */}
             <p className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-white">
-              {cardDisplayName(card)}
+              {heroProfile.callsign}
             </p>
             {/* Power */}
             <div className="flex items-center justify-center mt-0.5 gap-0.5">
@@ -493,10 +496,11 @@ function CardDetail({
 }) {
   const { t } = useTranslation();
   const rs = RARITY[card.rarity.id] || RARITY.common;
-  const ability = getCardAbility(card);
+  const heroProfile = getCardHeroProfile(card);
   const power = calcPower(card, level);
   const elemColor = ELEM_COLOR[card.element.id] || "#94a3b8";
   const elem = ELEMENTS.find((e) => e.id === card.element.id);
+  const elementIdentity = getCardElementIdentity(card.element.id);
 
   return (
     <motion.div
@@ -566,14 +570,12 @@ function CardDetail({
               </div>
 
               {/* Name */}
-              <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight truncate">
-                {cardDisplayName(card)}
+              <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight">
+                {heroProfile.callsign}
               </h3>
-              {card.subtitle && (
-                <p className="text-xs sm:text-sm text-slate-500 font-medium truncate">
-                  {card.subtitle}
-                </p>
-              )}
+              <p className="text-xs sm:text-sm text-slate-500 font-medium">
+                {cardDisplayName(card)} · {heroProfile.serial}
+              </p>
 
               {/* Element + Power */}
               <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
@@ -604,6 +606,23 @@ function CardDetail({
                   </span>
                 </div>
               </div>
+              <div
+                className="mt-2 rounded-lg border px-2.5 py-2"
+                style={{
+                  borderColor: `${elementIdentity.accent}35`,
+                  background: `${elementIdentity.accent}0D`,
+                }}
+              >
+                <p
+                  className="text-[9px] font-black uppercase tracking-[0.14em]"
+                  style={{ color: elementIdentity.accent }}
+                >
+                  {elementIdentity.mechanicVi}
+                </p>
+                <p className="mt-1 text-[9px] leading-4 text-slate-500 dark:text-slate-400">
+                  {elementIdentity.combatFantasyVi}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -630,49 +649,61 @@ function CardDetail({
           </div>
         </div>
 
-        {/* ── Ability Section ── */}
-        {ability && (
-          <div className="mx-3 sm:mx-6 my-4 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 dark:border-slate-700 dark:bg-slate-800/50">
-            <div className="flex items-center gap-2 sm:gap-3 mb-2">
-              <div
-                className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg"
-                style={{ backgroundColor: rs.accent + "15" }}
-              >
-                <span className="text-xl sm:text-2xl">{ability.icon}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-50">
-                  {ability.name}
-                </p>
-                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[7px] sm:text-[8px] font-bold uppercase ${
-                      ability.type === "ultimate"
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                        : ability.type === "active"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                          : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    {ability.type === "ultimate"
-                      ? "Tuyệt chiêu"
-                      : ability.type === "active"
-                        ? "Chủ động"
-                        : "Bị động"}
-                  </span>
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: ability.power }).map((_, i) => (
-                      <Star key={i} size={8} className="text-amber-500" />
-                    ))}
-                  </div>
-                </div>
-              </div>
+        {/* ── Champion-style tactical dossier ── */}
+        <div className="mx-3 my-4 space-y-3 sm:mx-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/50">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="accent">{heroProfile.roleVi}</Badge>
+              <Badge tone="default">{heroProfile.mechanicName}</Badge>
             </div>
-            <p className="text-[10px] sm:text-xs leading-relaxed text-slate-600 dark:text-slate-300 pl-[36px] sm:pl-[44px]">
-              {ability.desc}
+            <p className="mt-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              {heroProfile.combatIdentity}
             </p>
           </div>
-        )}
+
+          {[
+            heroProfile.passive,
+            heroProfile.skillOne,
+            heroProfile.skillTwo,
+            heroProfile.ultimate,
+          ].map((skill, index) => (
+            <div
+              key={skill.name}
+              className="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-800/50"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">
+                    {index === 0 ? "Nội tại" : index === 3 ? "Tuyệt chiêu" : `Kỹ năng ${index}`}
+                  </p>
+                  <p className="mt-1 text-xs font-black text-slate-900 dark:text-white">
+                    {skill.name}
+                  </p>
+                </div>
+                {index > 0 && (
+                  <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 font-mono text-[9px] font-black text-slate-500 dark:bg-slate-900">
+                    {skill.energyCost} EN · {skill.cooldown || "ULT"}
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
+                {skill.description}
+              </p>
+            </div>
+          ))}
+
+          <details className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-700 dark:bg-slate-900/60">
+            <summary className="cursor-pointer text-xs font-black text-slate-800 dark:text-white">
+              Hồ sơ vật liệu & xử lý thật
+            </summary>
+            <p className="mt-3 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
+              {heroProfile.lore}
+            </p>
+            <p className="mt-2 border-l-2 border-emerald-400 pl-3 text-[11px] leading-5 text-emerald-800 dark:text-emerald-200">
+              {heroProfile.recyclingIntel}
+            </p>
+          </details>
+        </div>
 
         {/* ── Action Button ── */}
         {onAddDeck && (
@@ -1164,7 +1195,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
   // ─── Filter & sort cards ────────────────────────────────────────────
   const displayCards = useMemo(() => {
-    const filtered = ALL_CARDS.filter(
+    const filtered = FLAGSHIP_CARDS.filter(
       (c) =>
         (filterRarity === "all" || c.rarity.id === filterRarity) &&
         (filterElement === "all" || c.element.id === filterElement) &&
@@ -1195,8 +1226,11 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     [displayCards, visibleCardLimit],
   );
 
-  const collectedCount = useMemo(() => unlockedCards.length, [unlockedCards]);
-  const totalCards = ALL_CARDS.length;
+  const collectedCount = useMemo(
+    () => unlockedCards.filter((id) => CARD_BY_ID.has(id)).length,
+    [unlockedCards],
+  );
+  const totalCards = FLAGSHIP_CARDS.length;
   const collectionStars = useMemo(
     () =>
       unlockedCards.reduce((total, id) => {
@@ -1214,7 +1248,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
     [unlockedCards, getCardLevel],
   );
   const fuseableCount = useMemo(
-    () => unlockedCards.filter((id) => getCardCount(id) >= 3).length,
+    () => unlockedCards.filter((id) => CARD_BY_ID.has(id) && getCardCount(id) >= 3).length,
     [unlockedCards, getCardCount],
   );
   const deckCards = useMemo(
@@ -1328,7 +1362,7 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
   const handleFuse = async (cardId: number) => {
     setFusing(true);
     setFuseMsg(null);
-    const card = CARD_BY_ID.get(cardId) || ALL_CARDS[0];
+    const card = CARD_BY_ID.get(cardId) || FLAGSHIP_CARDS[0];
     try {
       const res = await fetch("/api/cards/fuse", {
         method: "POST",

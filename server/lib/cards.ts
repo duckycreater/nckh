@@ -1,3 +1,5 @@
+import { FLAGSHIP_CARD_IDS, FLAGSHIP_CARD_ID_SET } from "../../shared/cardGame.js";
+
 // Canonical server-side card metadata used by authenticated card endpoints.
 // IDs, elements, and rarities deliberately match src/lib/cards.tsx.
 
@@ -184,8 +186,14 @@ const GACHA_POOLS: Record<Exclude<CardRarityId, "event">, number[]> = {
   legendary: [],
   mythical: [],
 };
-for (let id = 1; id <= NORMAL_GACHA_MAX_CARD_ID; id += 1) {
+for (const id of FLAGSHIP_CARD_IDS) {
   GACHA_POOLS[getCanonicalRarity(id) as keyof typeof GACHA_POOLS].push(id);
+}
+
+export const GACHA_CARD_IDS = Object.freeze([...FLAGSHIP_CARD_IDS]);
+
+export function isFlagshipCardId(id: number): boolean {
+  return FLAGSHIP_CARD_ID_SET.has(id);
 }
 
 function randomRarity(): Exclude<CardRarityId, "event"> {

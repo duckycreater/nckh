@@ -254,6 +254,18 @@ CREATE INDEX IF NOT EXISTS idx_social_target ON social_interactions(target_user_
 CREATE INDEX IF NOT EXISTS idx_social_type ON social_interactions(interaction_type, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_social_network ON social_interactions(user_id, target_user_id);
 
+-- Admin-configurable, server-authoritative campaign rewards. Stage ids are
+-- validated against the shared campaign catalog before writes reach this table.
+CREATE TABLE IF NOT EXISTS campaign_stage_rewards (
+  stage_id VARCHAR(20) PRIMARY KEY,
+  points INTEGER NOT NULL DEFAULT 0 CHECK(points BETWEEN 0 AND 5000),
+  shards INTEGER NOT NULL DEFAULT 0 CHECK(shards BETWEEN 0 AND 500),
+  card_id INTEGER CHECK(card_id IS NULL OR card_id BETWEEN 1 AND 420),
+  reward_id VARCHAR(255),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- User network metrics (computed periodically)
 CREATE TABLE IF NOT EXISTS user_network_metrics (
   id SERIAL PRIMARY KEY,

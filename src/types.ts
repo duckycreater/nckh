@@ -13,7 +13,14 @@ export interface UserProgress {
   shards?: number;
   stamina?: number;
   maxStamina?: number;
+  staminaUpdatedAt?: string;
   totalStars?: number;
+  campaignStars?: Record<string, number>;
+  campaignClaims?: string[];
+  campaignRewardStars?: Record<string, number>;
+  campaignRewardUnlocks?: string[];
+  campaignGiftByStage?: Record<string, string>;
+  campaignRedeemedStages?: string[];
 }
 
 export interface User {

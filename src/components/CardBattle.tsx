@@ -22,7 +22,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import {
-  ALL_CARDS,
+  FLAGSHIP_CARDS,
   getElementIcon,
   ELEMENTS,
   getAdvantage,
@@ -32,6 +32,7 @@ import {
   getCardArt,
   ALL_ABILITIES,
 } from "../lib/cards";
+import { getCardHeroProfile, type HeroAbilityProfile } from "../lib/cardHeroes";
 import { Badge, Button } from "../lib/ui";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 
@@ -39,8 +40,8 @@ import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 const CAMPAIGN_LEVELS = [
   {
     id: 1,
-    name: "Vùng Đất Rác Thiếc",
-    bossIds: [101, 102, 103],
+    name: "Vịnh Polymer",
+    bossIds: [181, 271, 272],
     bossHpMult: 0.8,
     bossAtkMult: 0.7,
     reward: 30,
@@ -48,8 +49,8 @@ const CAMPAIGN_LEVELS = [
   },
   {
     id: 2,
-    name: "Đầm Lầy Nhựa Độc",
-    bossIds: [201, 202, 203],
+    name: "Khu Phong Tỏa Đỏ",
+    bossIds: [256, 279, 280],
     bossHpMult: 1.2,
     bossAtkMult: 1.0,
     reward: 60,
@@ -57,8 +58,8 @@ const CAMPAIGN_LEVELS = [
   },
   {
     id: 3,
-    name: "Núi Chế Phẩm Hữu Cơ",
-    bossIds: [151, 152, 153],
+    name: "Vành Đai Tái Sinh",
+    bossIds: [241, 276, 297],
     bossHpMult: 1.6,
     bossAtkMult: 1.3,
     reward: 120,
@@ -66,8 +67,8 @@ const CAMPAIGN_LEVELS = [
   },
   {
     id: 4,
-    name: "Rừng Kim Loại Gỉ",
-    bossIds: [251, 252, 253],
+    name: "Lò Rèn Phế Tích",
+    bossIds: [226, 284, 300],
     bossHpMult: 2.2,
     bossAtkMult: 1.8,
     reward: 200,
@@ -75,8 +76,8 @@ const CAMPAIGN_LEVELS = [
   },
   {
     id: 5,
-    name: "Lõi Lò Đốt Rác",
-    bossIds: [301, 302, 303],
+    name: "Lõi Zero Waste",
+    bossIds: [391, 394, 364],
     bossHpMult: 3.5,
     bossAtkMult: 2.8,
     reward: 500,
@@ -219,6 +220,51 @@ function generateMoves(
     },
   ];
 
+  const heroCard = FLAGSHIP_CARDS.find((card) => card.id === cardId);
+  if (heroCard) {
+    const profile = getCardHeroProfile(heroCard);
+    const toMove = (
+      ability: HeroAbilityProfile,
+      slot: "skill1" | "skill2" | "ultimate",
+    ): BattleMove => ({
+      id: `${cardId}-${slot}`,
+      name: ability.name,
+      desc: ability.description,
+      icon: slot === "ultimate" ? "◉" : slot === "skill1" ? "◆" : "◇",
+      type: slot === "ultimate" ? "ultimate" : "skill",
+      energyCost: ability.energyCost,
+      cooldown: ability.cooldown,
+      currentCooldown: 0,
+      power:
+        ability.effect === "damage" || ability.effect === "drain"
+          ? Math.max(1, Math.floor((atk * ability.value) / 100))
+          : Math.max(1, Math.floor((int + def) * 0.35)),
+      effect: {
+        type: ability.effect,
+        value: ability.value,
+        duration: ability.duration,
+      },
+    });
+    baseMoves.push(
+      toMove(profile.skillOne, "skill1"),
+      toMove(profile.skillTwo, "skill2"),
+      toMove(profile.ultimate, "ultimate"),
+      {
+        id: `${cardId}-dodge`,
+        name: "Cơ động chiến thuật",
+        desc: "Né sát thương, bảo toàn chuỗi phối hợp.",
+        icon: "↯",
+        type: "dodge",
+        energyCost: 20,
+        cooldown: 2,
+        currentCooldown: 0,
+        power: 0,
+        effect: { type: "dodge", value: 0 },
+      },
+    );
+    return baseMoves;
+  }
+
   // Pick 1 active skill based on element
   const skillMap: Record<string, string[]> = {
     plastic: ["def_01", "def_06", "def_15", "utl_10"],
@@ -343,11 +389,13 @@ function buildBattleCard(cardId: number, level: number, atkMult = 1, hpMult = 1)
   const int = Math.floor((base.int || 0) * (1 + (level - 1) * 0.05));
   const moves = generateMoves(base.id, base.elementId, atk, def, int);
   const evasion = Math.min(85, 60 + (spd - 10) * 1);
+  const heroCard = FLAGSHIP_CARDS.find((card) => card.id === cardId);
+  const heroProfile = heroCard ? getCardHeroProfile(heroCard) : null;
 
   return {
     id: cardId,
-    name: base.name,
-    subtitle: base.subtitle,
+    name: heroProfile?.callsign || base.name,
+    subtitle: heroProfile ? base.name : base.subtitle,
     elementId: base.elementId,
     rarityId: base.rarityId,
     atk,
@@ -2293,8 +2341,10 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
           setTimeout(() => setHitSparks(null), 600);
 
           if (move.type === "ultimate") {
-            // Ultimate: 3x damage, bypass shield, clear debuffs
-            const { dmg, isCrit, notes } = calcBattleDamage(attacker, boss, attacker.atk * 3);
+            // Every hero keeps the cinematic hit, then applies its material
+            // system's own ultimate effect (regrowth, pressure, containment…).
+            const ultimatePower = move.effect?.type === "damage" ? move.power : attacker.atk * 1.25;
+            const { dmg, isCrit, notes } = calcBattleDamage(attacker, boss, ultimatePower);
             const comboMult = 1 + comboRef.current * 0.1;
             const finalDmg = Math.floor(dmg * comboMult);
             const advInfo = getAdvantageInfo(attacker.elementId, boss.elementId);
@@ -2316,6 +2366,64 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
 
             const { died } = applyDamage("boss", bossIdx, finalDmg);
             totalDmgRef.current += finalDmg;
+
+            const ultimateEffect = move.effect;
+            if (ultimateEffect?.type === "heal" || ultimateEffect?.type === "regen") {
+              const heal = Math.floor((attacker.maxHp * Math.min(ultimateEffect.value, 100)) / 100);
+              setPlayerTeam((prev) =>
+                prev.map((card) =>
+                  card.isAlive
+                    ? {
+                        ...card,
+                        hp: Math.min(card.maxHp, card.hp + heal),
+                        regenStacks:
+                          ultimateEffect.type === "regen"
+                            ? card.regenStacks + (ultimateEffect.duration || 2)
+                            : card.regenStacks,
+                      }
+                    : card,
+                ),
+              );
+              addLog(`${move.name} khôi phục đội hình!`, "heal");
+            } else if (ultimateEffect?.type === "shield" || ultimateEffect?.type === "buff_def") {
+              setPlayerTeam((prev) =>
+                prev.map((card) =>
+                  card.isAlive
+                    ? {
+                        ...card,
+                        shieldActive: true,
+                        shieldValue: Math.floor(
+                          (card.maxHp * Math.min(ultimateEffect.value, 100)) / 100,
+                        ),
+                        shieldTurns: ultimateEffect.duration || 2,
+                      }
+                    : card,
+                ),
+              );
+              addLog(`${move.name} gia cố toàn đội!`, "ability");
+            } else if (ultimateEffect?.type === "stun" || ultimateEffect?.type === "speed_down") {
+              setBossTeam((prev) =>
+                prev.map((card, index) =>
+                  index === bossIdx
+                    ? { ...card, stunned: Math.max(card.stunned, ultimateEffect.duration || 1) }
+                    : card,
+                ),
+              );
+              addLog(`${move.name} khóa nhịp mục tiêu!`, "status");
+            } else if (ultimateEffect?.type === "poison" || ultimateEffect?.type === "burn") {
+              const stackKey = ultimateEffect.type === "poison" ? "poisonStacks" : "burnStacks";
+              setBossTeam((prev) =>
+                prev.map((card, index) =>
+                  index === bossIdx
+                    ? { ...card, [stackKey]: card[stackKey] + (ultimateEffect.duration || 3) }
+                    : card,
+                ),
+              );
+              addLog(`${move.name} đặt vùng nguy hiểm!`, "status");
+            } else if (ultimateEffect?.type === "buff_atk") {
+              comboRef.current += 2;
+              addLog(`${move.name} tăng hai nhịp phối hợp!`, "ability");
+            }
 
             // Clear debuffs on player
             setPlayerTeam((prev) =>
@@ -2439,6 +2547,36 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
               ),
             );
             addLog(`${attacker.name} tăng phòng thủ!`, "status");
+          } else if (effect?.type === "buff_atk") {
+            comboRef.current += Math.max(1, Math.round(effect.value / 15));
+            setPlayerTeam((prev) =>
+              prev.map((c, i) =>
+                i === activePlayerIdx
+                  ? { ...c, ultimateCharge: Math.min(100, c.ultimateCharge + effect.value) }
+                  : c,
+              ),
+            );
+            addLog(`${attacker.name} tăng nhịp tấn công!`, "status");
+          } else if (effect?.type === "speed_down") {
+            setBossTeam((prev) =>
+              prev.map((c, i) =>
+                i === bossIdx ? { ...c, stunned: Math.max(c.stunned, effect.duration || 1) } : c,
+              ),
+            );
+            addLog(`${boss.name} bị khóa nhịp!`, "status");
+          } else if (effect?.type === "drain") {
+            const { dmg, isCrit } = calcBattleDamage(attacker, boss, move.power);
+            const drained = Math.max(1, Math.floor(dmg * 0.4));
+            applyDamage("boss", bossIdx, dmg);
+            setPlayerTeam((prev) =>
+              prev.map((c, i) =>
+                i === activePlayerIdx ? { ...c, hp: Math.min(c.maxHp, c.hp + drained) } : c,
+              ),
+            );
+            spawnDmg(dmg, "boss", isCrit);
+            spawnDmg(drained, "player", false, false, false, false, false, false, true);
+            totalDmgRef.current += dmg;
+            addLog(`${attacker.name} thu hồi ${drained} HP từ mục tiêu!`, "heal");
           }
 
           // Status tick player

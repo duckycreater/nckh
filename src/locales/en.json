@@ -1190,44 +1190,44 @@
     "boss": "Boss",
     "eventStage": "Event",
     "region_01": {
-      "name": "Roadside Dump",
-      "desc": "Where the journey begins. Household waste everywhere."
+      "name": "Polymer Bay",
+      "desc": "A flooded PET recovery dock where polymer units learn to reconfigure their armor."
     },
     "region_02": {
-      "name": "Flea Market",
-      "desc": "The flea market with all sorts of used items."
+      "name": "Cellulose Citadel",
+      "desc": "An abandoned press fortress powered by paper, board and chained combat tempo."
     },
     "region_03": {
-      "name": "Industrial Waste Zone",
-      "desc": "Area heavy with industrial waste."
+      "name": "Prism Glassworks",
+      "desc": "A recycled-glass foundry that refracts attacks and exposes weak points."
     },
     "region_04": {
-      "name": "Transfer Station",
-      "desc": "City waste transfer station."
+      "name": "Salvage Foundry",
+      "desc": "Scrap plate, induction coils and hydraulic presses form the heaviest defense line."
     },
     "region_05": {
-      "name": "Toxic Waste Land",
-      "desc": "Land heavily polluted by toxic waste."
+      "name": "Regrowth Belt",
+      "desc": "Mycelium and bioreactors turn organic matter into restoration for the whole squad."
     },
     "region_06": {
-      "name": "Recycling Plant",
-      "desc": "Modern plant with cutting-edge recycling technology."
+      "name": "Red Containment",
+      "desc": "Every mistake with batteries, solvents and chemicals is punished by sealed chambers."
     },
     "region_07": {
-      "name": "Plastic Ocean",
-      "desc": "Ocean polluted by massive plastic waste."
+      "name": "Charge Corridor",
+      "desc": "Recovered turbines and cells offer explosive power, but overcharge always has a cost."
     },
     "region_08": {
-      "name": "The Forbidden Zone",
-      "desc": "Restricted area with dangerous mutant creatures."
+      "name": "Pressure Tidelands",
+      "desc": "Pressure vessels and water treatment lines control combat through precise flow."
     },
     "region_09": {
-      "name": "Abyssal Hellscape",
-      "desc": "Bottomless abyss, home of garbage monsters."
+      "name": "E-Waste Graveyard",
+      "desc": "Retired modules, sensors and repair drones connect into a tactical network."
     },
     "region_10": {
-      "name": "The Trash Throne",
-      "desc": "Throne of the Trash King, site of the final battle."
+      "name": "Zero-Waste Core",
+      "desc": "The final operation where all nine material systems close the resource loop together."
     }
   },
   "collection": {

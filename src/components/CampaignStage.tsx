@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -14,8 +14,9 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { getRegionById, getStageById, REGIONS } from "../data/worldMap";
-import { ALL_CARDS, ELEMENTS, getCardArt, tCardName } from "../lib/cards";
+import { getRegionById, getStageById } from "../data/worldMap";
+import { ELEMENTS, FLAGSHIP_CARDS, getCardArt, tCardName } from "../lib/cards";
+import { getCardHeroProfile } from "../lib/cardHeroes";
 import { BMO_ASSETS } from "../lib/bmoAssets";
 import { getAuthHeaders } from "../lib/auth";
 
@@ -23,6 +24,12 @@ interface CampaignStageProps {
   regionId?: string;
   stageId?: string;
   onBack: () => void;
+  onProgress?: (result: {
+    points?: number;
+    totalExpEarned?: number;
+    progress?: unknown;
+    unlockedRegions?: string[];
+  }) => void;
 }
 
 type BattlePhase = "briefing" | "battle" | "result";
@@ -48,13 +55,28 @@ const copy = {
     defeatHint: "Xem lại nhóm vật liệu rồi thử lại. Không mất điểm khi thất bại.",
     retry: "Thử lại",
     claimed: "EXP đã được cộng",
-    duplicate: "Bạn đã nhận thưởng chiến dịch hôm nay",
+    duplicate: "Bạn đã nhận thưởng ở mốc sao này",
     claimFailed: "Kết quả đã lưu, nhưng chưa thể cộng EXP. Hãy thử lại sau.",
     claiming: "Đang xác minh phần thưởng…",
     accuracy: "Độ chính xác",
     hp: "Năng lượng",
     serverReward: "Thưởng máy chủ",
+    fullClear: "Thưởng 3 sao",
+    shards: "mảnh",
+    cardDrop: "thẻ",
+    catalogGift: "quà đặc biệt",
+    squad: "Đội hình triển khai",
+    squadHint:
+      "Chọn đúng 3 thẻ bạn sở hữu. Hệ và vai trò của chúng sẽ là nền cho combat campaign hoàn chỉnh.",
+    squadRequired: "Cần đủ 3 thẻ",
+    recipient: "Họ tên người nhận",
+    address: "Địa chỉ nhận quà",
+    redeemGift: "Xác nhận nhận quà",
+    redeemingGift: "Đang tạo yêu cầu giao quà…",
+    redeemedGift: "Đã tạo yêu cầu giao quà",
     noCards: "Chặng này chưa có dữ liệu thẻ hợp lệ.",
+    stamina: "Năng lượng chiến dịch",
+    insufficientStamina: "Chưa đủ năng lượng để triển khai",
   },
   en: {
     mission: "Sorting mission",
@@ -75,13 +97,28 @@ const copy = {
     defeatHint: "Review the material groups and retry. Losing never costs points.",
     retry: "Retry",
     claimed: "EXP added",
-    duplicate: "Today's campaign reward was already claimed",
+    duplicate: "This star-tier reward was already claimed",
     claimFailed: "Result saved, but EXP could not be added yet. Please retry later.",
     claiming: "Verifying reward…",
     accuracy: "Accuracy",
     hp: "Energy",
     serverReward: "Server reward",
+    fullClear: "Three-star reward",
+    shards: "shards",
+    cardDrop: "card",
+    catalogGift: "special gift",
+    squad: "Deployment squad",
+    squadHint:
+      "Select exactly three cards you own. Their systems and roles power the campaign combat layer.",
+    squadRequired: "Three cards required",
+    recipient: "Recipient name",
+    address: "Delivery address",
+    redeemGift: "Confirm gift delivery",
+    redeemingGift: "Creating delivery request…",
+    redeemedGift: "Delivery request created",
     noCards: "This stage has no valid card data yet.",
+    stamina: "Campaign energy",
+    insufficientStamina: "Not enough energy to deploy",
   },
 } as const;
 
@@ -96,6 +133,7 @@ export default function CampaignStage({
   regionId: regionIdProp,
   stageId: stageIdProp,
   onBack,
+  onProgress,
 }: CampaignStageProps) {
   const { t, i18n } = useTranslation();
   const params = useParams<{ regionId: string; stageId: string }>();
@@ -113,8 +151,8 @@ export default function CampaignStage({
     if (stage.bossCardId) ids.push(stage.bossCardId);
     else if (stage.trashCardIds[4]) ids.push(stage.trashCardIds[4]);
     return ids
-      .map((id) => ALL_CARDS.find((card) => card.id === id))
-      .filter((card): card is (typeof ALL_CARDS)[number] => Boolean(card));
+      .map((id) => FLAGSHIP_CARDS.find((card) => card.id === id))
+      .filter((card): card is (typeof FLAGSHIP_CARDS)[number] => Boolean(card));
   }, [stage]);
 
   const [phase, setPhase] = useState<BattlePhase>("briefing");
@@ -124,6 +162,79 @@ export default function CampaignStage({
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [rewardState, setRewardState] = useState<RewardState>("idle");
   const [earnedPoints, setEarnedPoints] = useState(0);
+  const [earnedShards, setEarnedShards] = useState(0);
+  const [awardedCardId, setAwardedCardId] = useState<number | null>(null);
+  const [unlockedGiftId, setUnlockedGiftId] = useState<string | null>(null);
+  const [giftName, setGiftName] = useState<string | null>(null);
+  const [serverStars, setServerStars] = useState(0);
+  const [answers, setAnswers] = useState<Array<{ cardId: number; elementId: string }>>([]);
+  const [rewardPreview, setRewardPreview] = useState<{
+    points: number;
+    shards: number;
+    cardId: number | null;
+    rewardId: string | null;
+  } | null>(null);
+  const [ownedCardIds, setOwnedCardIds] = useState<number[]>([]);
+  const [teamCardIds, setTeamCardIds] = useState<number[]>([]);
+  const [giftRecipient, setGiftRecipient] = useState("");
+  const [giftAddress, setGiftAddress] = useState("");
+  const [giftClaimState, setGiftClaimState] = useState<"idle" | "saving" | "done" | "error">(
+    "idle",
+  );
+  const [giftClaimMessage, setGiftClaimMessage] = useState("");
+  const [stamina, setStamina] = useState(100);
+  const [maxStamina, setMaxStamina] = useState(100);
+  const [rewardMessage, setRewardMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/campaign/config", { headers: getAuthHeaders() })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then((payload) => {
+        if (cancelled) return;
+        const config = payload?.rewardConfigs?.find(
+          (candidate: { stageId?: string }) => candidate.stageId === stageId,
+        );
+        if (config) {
+          setRewardPreview(config);
+          const unlockedGift = payload?.progress?.campaignGiftByStage?.[stageId];
+          const redeemed = Array.isArray(payload?.progress?.campaignRedeemedStages)
+            ? payload.progress.campaignRedeemedStages.includes(stageId)
+            : false;
+          if (unlockedGift && !redeemed) setUnlockedGiftId(String(unlockedGift));
+          const catalogGiftId = unlockedGift || config.rewardId;
+          const catalogGift = Array.isArray(payload?.rewardCatalog)
+            ? payload.rewardCatalog.find(
+                (candidate: { id?: string | number }) =>
+                  String(candidate.id) === String(catalogGiftId),
+              )
+            : null;
+          if (catalogGift?.name) setGiftName(String(catalogGift.name));
+        }
+        const rosterIds = new Set(FLAGSHIP_CARDS.map((card) => card.id));
+        setStamina(Math.max(0, Number(payload?.progress?.stamina ?? 100)));
+        setMaxStamina(Math.max(1, Number(payload?.progress?.maxStamina ?? 100)));
+        const owned = Array.isArray(payload?.progress?.flashcardsRead)
+          ? payload.progress.flashcardsRead
+              .map(Number)
+              .filter((cardId: number) => rosterIds.has(cardId))
+          : [];
+        if (owned.length) {
+          setOwnedCardIds(owned);
+          setTeamCardIds((current) => {
+            const validCurrent = current.filter((cardId) => owned.includes(cardId));
+            return validCurrent.length === 3 ? validCurrent : owned.slice(0, 3);
+          });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [stageId]);
 
   if (!region || !stage) {
     return (
@@ -141,11 +252,6 @@ export default function CampaignStage({
     );
   }
 
-  const regionIndex = Math.max(
-    0,
-    REGIONS.findIndex((item) => item.id === region.id),
-  );
-  const rewardLevel = Math.min(5, regionIndex + 1);
   const currentCard = encounters[round];
   const stageNumber = region.stages.findIndex((item) => item.id === stageId) + 1;
   const threshold = Math.ceil(encounters.length * 0.6);
@@ -177,12 +283,18 @@ export default function CampaignStage({
     setCorrectCount(0);
     setSelectedElement(null);
     setRewardState("idle");
+    setRewardMessage("");
     setEarnedPoints(0);
+    setEarnedShards(0);
+    setAwardedCardId(null);
+    setServerStars(0);
+    setAnswers([]);
   };
 
   const chooseAnswer = (elementId: string) => {
     if (!currentCard || selectedElement) return;
     setSelectedElement(elementId);
+    setAnswers((value) => [...value, { cardId: currentCard.id, elementId }]);
     if (elementId === currentCard.element.id) setCorrectCount((value) => value + 1);
     else setEnergy((value) => Math.max(0, value - 1));
   };
@@ -190,16 +302,28 @@ export default function CampaignStage({
   const claimReward = async () => {
     setRewardState("claiming");
     try {
-      const response = await fetch("/api/reward", {
+      const response = await fetch(`/api/campaign/stages/${stage.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ action: "card_battle", level: rewardLevel }),
+        body: JSON.stringify({ answers, teamCardIds }),
       });
       const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.success) throw new Error(result?.message || "reward_failed");
-      setEarnedPoints(Number(result.earnedPoints || 0));
+      if (!response.ok || !result?.success || !result?.cleared) {
+        throw new Error(result?.error || "reward_failed");
+      }
+      setEarnedPoints(Number(result.reward?.points || 0));
+      setEarnedShards(Number(result.reward?.shards || 0));
+      setAwardedCardId(result.reward?.cardId ? Number(result.reward.cardId) : null);
+      setUnlockedGiftId(result.reward?.rewardId ? String(result.reward.rewardId) : null);
+      setServerStars(Number(result.stars || 0));
+      setStamina(Math.max(0, Number(result.stamina ?? result.progress?.stamina ?? stamina)));
+      setMaxStamina(
+        Math.max(1, Number(result.maxStamina ?? result.progress?.maxStamina ?? maxStamina)),
+      );
       setRewardState(result.duplicate ? "duplicate" : "claimed");
-    } catch {
+      onProgress?.(result);
+    } catch (reason) {
+      setRewardMessage(reason instanceof Error ? reason.message : c.claimFailed);
       setRewardState("failed");
     }
   };
@@ -213,6 +337,34 @@ export default function CampaignStage({
     }
     setRound((value) => value + 1);
     setSelectedElement(null);
+  };
+
+  const toggleTeamCard = (cardId: number) => {
+    setTeamCardIds((current) => {
+      if (current.includes(cardId)) return current.filter((candidate) => candidate !== cardId);
+      if (current.length >= 3) return [...current.slice(1), cardId];
+      return [...current, cardId];
+    });
+  };
+
+  const redeemCampaignGift = async () => {
+    setGiftClaimState("saving");
+    setGiftClaimMessage("");
+    try {
+      const response = await fetch(`/api/campaign/stages/${stage.id}/redeem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ redeemInfo: { fullName: giftRecipient, address: giftAddress } }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || "redeem_failed");
+      setGiftClaimState("done");
+      setGiftClaimMessage(`${c.redeemedGift} · ${result.redemptionId}`);
+      onProgress?.(result);
+    } catch (reason) {
+      setGiftClaimState("error");
+      setGiftClaimMessage(reason instanceof Error ? reason.message : c.claimFailed);
+    }
   };
 
   const stageTone =
@@ -269,8 +421,12 @@ export default function CampaignStage({
               {t(region.nameKey)} · {t("campaign.stage")} {stageNumber}
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-sm font-black text-amber-200">
-            <Zap className="h-4 w-4 fill-current" /> {stage.staminaCost}
+          <div
+            className="flex items-center gap-2 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-sm font-black text-amber-200"
+            title={c.stamina}
+          >
+            <Zap className="h-4 w-4 fill-current" /> {stamina}/{maxStamina}
+            <span className="text-amber-100/50">−{stage.staminaCost}</span>
           </div>
         </div>
       </header>
@@ -339,16 +495,94 @@ export default function CampaignStage({
                   </p>
                 )}
 
+                {rewardPreview && (
+                  <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] px-4 py-3 text-xs font-bold text-amber-100/85">
+                    <span className="text-amber-300">{c.fullClear}</span>
+                    <span>+{rewardPreview.points} EXP</span>
+                    <span>
+                      +{rewardPreview.shards} {c.shards}
+                    </span>
+                    {rewardPreview.cardId && (
+                      <span>
+                        #{String(rewardPreview.cardId).padStart(3, "0")} {c.cardDrop}
+                      </span>
+                    )}
+                    {rewardPreview.rewardId && <span>{c.catalogGift}</span>}
+                  </div>
+                )}
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-white">{c.squad}</p>
+                      <p className="mt-1 max-w-2xl text-xs leading-5 text-white/55">
+                        {c.squadHint}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${teamCardIds.length === 3 ? "bg-emerald-400/15 text-emerald-200" : "bg-amber-400/15 text-amber-200"}`}
+                    >
+                      {teamCardIds.length}/3
+                    </span>
+                  </div>
+                  <div className="thin-scrollbar mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-1">
+                    {ownedCardIds.map((cardId) => {
+                      const card = FLAGSHIP_CARDS.find((candidate) => candidate.id === cardId);
+                      if (!card) return null;
+                      const selected = teamCardIds.includes(cardId);
+                      const profile = getCardHeroProfile(card);
+                      return (
+                        <button
+                          key={cardId}
+                          type="button"
+                          onClick={() => toggleTeamCard(cardId)}
+                          aria-pressed={selected}
+                          className={`flex w-[calc(50%-4px)] items-center gap-2 rounded-xl border p-2 text-left transition sm:w-[calc(33.333%-6px)] ${selected ? "border-amber-300/60 bg-amber-300/10" : "border-white/10 bg-white/[0.03] hover:border-white/25"}`}
+                        >
+                          <span className="h-12 w-9 shrink-0 overflow-hidden rounded-md bg-slate-900">
+                            {getCardArt(
+                              card.id,
+                              card.element.id,
+                              card.artVariant || 1,
+                              card.rarity.id,
+                            )}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-[10px] font-black text-white">
+                              {profile.callsign}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[9px] text-white/45">
+                              {profile.roleVi} · {profile.mechanicName}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <motion.button
                   onClick={resetBattle}
-                  disabled={!encounters.length}
                   whileHover={
-                    reduceMotion || !encounters.length ? undefined : { y: -3, scale: 1.01 }
+                    reduceMotion ||
+                    !encounters.length ||
+                    teamCardIds.length !== 3 ||
+                    stamina < stage.staminaCost
+                      ? undefined
+                      : { y: -3, scale: 1.01 }
                   }
                   whileTap={reduceMotion || !encounters.length ? undefined : { scale: 0.98 }}
+                  disabled={
+                    !encounters.length || teamCardIds.length !== 3 || stamina < stage.staminaCost
+                  }
                   className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-400 px-6 py-4 text-lg font-black text-emerald-950 shadow-[0_12px_34px_rgba(251,191,36,0.2)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Swords className="h-5 w-5" /> {c.start}
+                  <Swords className="h-5 w-5" />{" "}
+                  {teamCardIds.length !== 3
+                    ? c.squadRequired
+                    : stamina < stage.staminaCost
+                      ? c.insufficientStamina
+                      : c.start}
                 </motion.button>
               </div>
             </motion.section>
@@ -543,9 +777,70 @@ export default function CampaignStage({
                       <Sparkles className="h-4 w-4" /> {c.serverReward}
                     </div>
                     {rewardState === "claiming" && c.claiming}
-                    {rewardState === "claimed" && `${c.claimed}: +${earnedPoints} EXP`}
+                    {rewardState === "claimed" && (
+                      <div className="space-y-1">
+                        <p>
+                          {c.claimed}: +{earnedPoints} EXP · +{earnedShards} {c.shards}
+                        </p>
+                        <p className="text-amber-300">
+                          {"★".repeat(serverStars)}
+                          {"☆".repeat(Math.max(0, 3 - serverStars))}
+                        </p>
+                        {awardedCardId && (
+                          <p>
+                            #{String(awardedCardId).padStart(3, "0")} {c.cardDrop}
+                          </p>
+                        )}
+                        {unlockedGiftId && (
+                          <p>
+                            {c.catalogGift}: {giftName || c.catalogGift}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {rewardState === "duplicate" && c.duplicate}
-                    {rewardState === "failed" && c.claimFailed}
+                    {rewardState === "failed" && (rewardMessage || c.claimFailed)}
+                  </div>
+                )}
+
+                {won && unlockedGiftId && (
+                  <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.07] p-4 text-left">
+                    <p className="text-sm font-black text-cyan-100">{c.catalogGift}</p>
+                    <p className="mt-1 text-xs text-cyan-100/55">{giftName || c.catalogGift}</p>
+                    {giftClaimState === "done" ? (
+                      <p className="mt-3 rounded-xl bg-emerald-400/10 p-3 text-xs font-bold text-emerald-200">
+                        {giftClaimMessage}
+                      </p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        <input
+                          value={giftRecipient}
+                          onChange={(event) => setGiftRecipient(event.target.value)}
+                          autoComplete="name"
+                          placeholder={c.recipient}
+                          className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-300/50"
+                        />
+                        <textarea
+                          value={giftAddress}
+                          onChange={(event) => setGiftAddress(event.target.value)}
+                          autoComplete="street-address"
+                          placeholder={c.address}
+                          rows={3}
+                          className="w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-300/50"
+                        />
+                        {giftClaimState === "error" && (
+                          <p className="text-xs font-bold text-rose-300">{giftClaimMessage}</p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void redeemCampaignGift()}
+                          disabled={giftClaimState === "saving"}
+                          className="w-full rounded-xl bg-cyan-200 px-4 py-3 text-sm font-black text-cyan-950 disabled:opacity-60"
+                        >
+                          {giftClaimState === "saving" ? c.redeemingGift : c.redeemGift}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

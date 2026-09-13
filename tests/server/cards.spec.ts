@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CARD_TOTAL,
+  GACHA_CARD_IDS,
   NORMAL_GACHA_MAX_CARD_ID,
   generateServerCard,
   getCanonicalElement,
   getCanonicalRarity,
+  isFlagshipCardId,
   resolveGacha,
 } from "../../server/lib/cards.ts";
 import { ALL_CARDS, CARD_DEFINITIONS, calcPower } from "../../src/lib/cards.tsx";
@@ -28,9 +30,11 @@ describe("server card catalog", () => {
   });
 
   it("never puts event-exclusive cards in the standard gacha", () => {
+    assert.equal(GACHA_CARD_IDS.length, 100);
     for (let pull = 1; pull <= 2_000; pull += 1) {
       const id = resolveGacha([], pull);
       assert.ok(id >= 1 && id <= NORMAL_GACHA_MAX_CARD_ID, `unexpected event card #${id}`);
+      assert.ok(isFlagshipCardId(id), `unexpected legacy catalog card #${id}`);
     }
   });
 

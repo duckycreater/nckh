@@ -12,7 +12,23 @@ import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
-import { resolveGacha, generateServerCard } from "../server/lib/cards.js";
+import {
+  resolveGacha,
+  generateServerCard,
+  getCanonicalElement,
+  isFlagshipCardId,
+} from "../server/lib/cards.js";
+import {
+  CAMPAIGN_REGIONS,
+  FLAGSHIP_CARD_ID_SET,
+  getCampaignRegionForStage,
+  getCampaignStage,
+} from "../shared/cardGame.js";
+import {
+  getCampaignRewardConfig,
+  listCampaignRewardConfigs,
+  upsertCampaignRewardConfig,
+} from "../server/services/campaignRewards.js";
 import { GoogleGenAI } from "@google/genai";
 import {
   datasetCurator,
@@ -567,6 +583,16 @@ interface UserProgress {
   streakDays?: number;
   lastUpdateDate: string;
   shards?: number;
+  stamina?: number;
+  maxStamina?: number;
+  staminaUpdatedAt?: string;
+  campaignStars?: Record<string, number>;
+  campaignClaims?: string[];
+  campaignRewardStars?: Record<string, number>;
+  campaignRewardUnlocks?: string[];
+  /** Catalog reward captured when a stage first reaches three stars. */
+  campaignGiftByStage?: Record<string, string>;
+  campaignRedeemedStages?: string[];
 }
 
 interface User {
@@ -593,7 +619,30 @@ interface User {
   claimedStreakGifts?: number[];
   gameplayRewardDates?: Record<string, string>;
   redemptionRequests?: RedemptionRequest[];
+  unlockedRegions?: string[];
   passwordResetNonce?: string;
+}
+
+const CAMPAIGN_MAX_STAMINA = 100;
+const CAMPAIGN_STAMINA_RECHARGE_MS = 5 * 60 * 1000;
+
+function refreshCampaignStamina(progress: UserProgress, now = Date.now()): void {
+  const maxStamina = Math.max(
+    1,
+    Math.min(CAMPAIGN_MAX_STAMINA, Math.trunc(Number(progress.maxStamina) || CAMPAIGN_MAX_STAMINA)),
+  );
+  const current = Number.isFinite(Number(progress.stamina))
+    ? Math.max(0, Math.min(maxStamina, Math.trunc(Number(progress.stamina))))
+    : maxStamina;
+  const parsedUpdatedAt = Date.parse(String(progress.staminaUpdatedAt || ""));
+  const updatedAt = Number.isFinite(parsedUpdatedAt) ? Math.min(parsedUpdatedAt, now) : now;
+  const recovered = Math.floor((now - updatedAt) / CAMPAIGN_STAMINA_RECHARGE_MS);
+
+  progress.maxStamina = maxStamina;
+  progress.stamina = Math.min(maxStamina, current + recovered);
+  progress.staminaUpdatedAt = new Date(
+    progress.stamina >= maxStamina ? now : updatedAt + recovered * CAMPAIGN_STAMINA_RECHARGE_MS,
+  ).toISOString();
 }
 
 function normalizeProgressCards(progress: UserProgress): boolean {
@@ -613,6 +662,42 @@ function normalizeProgressCards(progress: UserProgress): boolean {
       ? progress.lastUpdateDate
       : getVietnamDayKey();
   progress.shards = Math.max(0, Math.trunc(Number(progress.shards) || 0));
+  refreshCampaignStamina(progress);
+  progress.campaignStars = Object.fromEntries(
+    Object.entries(progress.campaignStars || {})
+      .map(
+        ([stageId, stars]) =>
+          [stageId, Math.max(0, Math.min(3, Math.trunc(Number(stars) || 0)))] as const,
+      )
+      .filter((entry) => entry[1] > 0),
+  );
+  progress.campaignClaims = Array.isArray(progress.campaignClaims)
+    ? [...new Set(progress.campaignClaims.filter((stageId) => typeof stageId === "string"))]
+    : [];
+  progress.campaignRewardStars = Object.fromEntries(
+    Object.entries(progress.campaignRewardStars || {})
+      .map(
+        ([stageId, stars]) =>
+          [stageId, Math.max(0, Math.min(3, Math.trunc(Number(stars) || 0)))] as const,
+      )
+      .filter((entry) => entry[1] > 0),
+  );
+  progress.campaignRewardUnlocks = Array.isArray(progress.campaignRewardUnlocks)
+    ? [
+        ...new Set(
+          progress.campaignRewardUnlocks.filter((rewardId) => typeof rewardId === "string"),
+        ),
+      ]
+    : [];
+  progress.campaignGiftByStage = Object.fromEntries(
+    Object.entries(progress.campaignGiftByStage || {}).filter(
+      ([stageId, rewardId]) =>
+        typeof stageId === "string" && typeof rewardId === "string" && rewardId.trim().length > 0,
+    ),
+  );
+  progress.campaignRedeemedStages = Array.isArray(progress.campaignRedeemedStages)
+    ? [...new Set(progress.campaignRedeemedStages.filter((stageId) => typeof stageId === "string"))]
+    : [];
   progress.gachaPullCount = Math.max(0, Math.trunc(Number(progress.gachaPullCount) || 0));
   if (progress.cardLevels && typeof progress.cardLevels === "object") {
     progress.cardLevels = Object.fromEntries(
@@ -670,6 +755,15 @@ interface GameProgress {
   streakDays?: number;
   lastUpdateDate: string;
   shards?: number;
+  stamina?: number;
+  maxStamina?: number;
+  staminaUpdatedAt?: string;
+  campaignStars?: Record<string, number>;
+  campaignClaims?: string[];
+  campaignRewardStars?: Record<string, number>;
+  campaignRewardUnlocks?: string[];
+  campaignGiftByStage?: Record<string, string>;
+  campaignRedeemedStages?: string[];
 }
 
 async function getGameProgress(nick: string): Promise<GameProgress | null> {
@@ -2202,6 +2296,417 @@ app.post("/api/rewards", requireAdmin, async (req, res) => {
   }
 });
 
+// ─── Campaign: server-authoritative stages and admin rewards ────────────────
+const CAMPAIGN_STARTER_CARDS = [1, 31, 91] as const;
+
+function emptyGameProgress(): GameProgress {
+  return {
+    flashcardsRead: [],
+    flashcardCounts: {},
+    flashcardNames: {},
+    cardLevels: {},
+    gachaPullCount: 0,
+    checkins: [],
+    traded: [],
+    crafted: [],
+    purchased: [],
+    challengesCompleted: [],
+    guildDonated: false,
+    lastUpdateDate: getVietnamDayKey(),
+    shards: 0,
+    stamina: CAMPAIGN_MAX_STAMINA,
+    maxStamina: CAMPAIGN_MAX_STAMINA,
+    staminaUpdatedAt: new Date().toISOString(),
+    campaignStars: {},
+    campaignClaims: [],
+    campaignRewardStars: {},
+    campaignRewardUnlocks: [],
+    campaignGiftByStage: {},
+    campaignRedeemedStages: [],
+  };
+}
+
+function campaignStageIsUnlocked(stageId: string, progress: GameProgress): boolean {
+  const region = getCampaignRegionForStage(stageId);
+  const stage = getCampaignStage(stageId);
+  if (!region || !stage) return false;
+  const regionIndex = CAMPAIGN_REGIONS.findIndex((candidate) => candidate.id === region.id);
+  const stageIndex = region.stages.findIndex((candidate) => candidate.id === stageId);
+  if (stageIndex > 0)
+    return (progress.campaignClaims || []).includes(region.stages[stageIndex - 1].id);
+  if (regionIndex <= 0) return true;
+  const previousRegion = CAMPAIGN_REGIONS[regionIndex - 1];
+  const previousBoss = previousRegion.stages[previousRegion.stages.length - 1];
+  return (progress.campaignClaims || []).includes(previousBoss.id);
+}
+
+function campaignRewardAtStars(total: number, stars: number): number {
+  const multiplier = stars >= 3 ? 1 : stars === 2 ? 0.8 : stars === 1 ? 0.55 : 0;
+  return Math.round(total * multiplier);
+}
+
+app.get("/api/campaign/config", requireAuth, async (req, res) => {
+  try {
+    const nickname = (req as any).userNick as string;
+    const user = await getUser(nickname);
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    const progress = (await getGameProgress(nickname)) ?? user.progress ?? emptyGameProgress();
+    normalizeProgressCards(progress);
+
+    const ownedFlagships = progress.flashcardsRead.filter((cardId) =>
+      FLAGSHIP_CARD_ID_SET.has(cardId),
+    );
+    let starterGranted = false;
+    if (ownedFlagships.length === 0) {
+      for (const cardId of CAMPAIGN_STARTER_CARDS) {
+        progress.flashcardCounts[String(cardId)] = Math.max(
+          1,
+          progress.flashcardCounts[String(cardId)] || 0,
+        );
+        if (!progress.flashcardsRead.includes(cardId)) progress.flashcardsRead.push(cardId);
+      }
+      starterGranted = true;
+      await saveUserAndProgress(nickname, user, progress);
+    }
+
+    const [rewardConfigs, configuredRewards] = await Promise.all([
+      listCampaignRewardConfigs(),
+      isRewardsDbConfigured() ? listRewards().catch(() => []) : Promise.resolve([]),
+    ]);
+    const rewardCatalog = [...configuredRewards, ...defaultRewards].filter(
+      (reward, index, all) =>
+        all.findIndex((candidate) => String(candidate.id) === String(reward.id)) === index,
+    );
+    return res.json({
+      success: true,
+      rosterSize: 100,
+      regions: CAMPAIGN_REGIONS,
+      rewardConfigs,
+      rewardCatalog,
+      progress,
+      unlockedRegions: user.unlockedRegions || ["region_01"],
+      starterGranted,
+    });
+  } catch (error) {
+    console.error("[campaign:config] Error:", error);
+    return res.status(500).json({ success: false, error: "Campaign configuration unavailable" });
+  }
+});
+
+app.put("/api/admin/campaign/stages/:stageId/reward", requireAdmin, async (req, res) => {
+  try {
+    const stageId = getRouteParam(req.params.stageId);
+    const saved = await upsertCampaignRewardConfig(
+      stageId,
+      {
+        points: req.body?.points,
+        shards: req.body?.shards,
+        cardId: req.body?.cardId ?? null,
+        rewardId: req.body?.rewardId ?? null,
+      },
+      String((req as any).userNick || "admin"),
+    );
+    return res.json({ success: true, reward: saved });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid campaign reward";
+    const status = error instanceof RangeError ? 400 : 500;
+    console.error("[campaign:admin-reward] Error:", error);
+    return res.status(status).json({ success: false, error: message });
+  }
+});
+
+app.post("/api/campaign/stages/:stageId/complete", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
+  try {
+    const stageId = getRouteParam(req.params.stageId);
+    const stage = getCampaignStage(stageId);
+    const region = getCampaignRegionForStage(stageId);
+    if (!stage || !region)
+      return res.status(404).json({ success: false, error: "Stage not found" });
+
+    const rawAnswers = req.body?.answers;
+    if (!Array.isArray(rawAnswers)) {
+      return res.status(400).json({ success: false, error: "answers must be an array" });
+    }
+    const encounterIds = [...stage.trashCardIds.slice(0, 4)];
+    if (stage.bossCardId) encounterIds.push(stage.bossCardId);
+    else if (stage.trashCardIds[4]) encounterIds.push(stage.trashCardIds[4]);
+    const expectedIds = [...new Set(encounterIds)];
+    const answers = new Map<number, string>();
+    for (const answer of rawAnswers) {
+      const cardId = Number(answer?.cardId);
+      const elementId = typeof answer?.elementId === "string" ? answer.elementId : "";
+      if (!expectedIds.includes(cardId) || answers.has(cardId) || !elementId) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid or duplicate campaign answer" });
+      }
+      answers.set(cardId, elementId);
+    }
+    if (answers.size !== expectedIds.length) {
+      return res.status(400).json({ success: false, error: "Every encounter must be answered" });
+    }
+
+    const user = await getUser(nickname);
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    const progress = (await getGameProgress(nickname)) ?? user.progress ?? emptyGameProgress();
+    normalizeProgressCards(progress);
+    if (!campaignStageIsUnlocked(stageId, progress)) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Previous campaign stage is not complete" });
+    }
+
+    const submittedTeam: number[] = Array.isArray(req.body?.teamCardIds)
+      ? [...new Set<number>((req.body.teamCardIds as unknown[]).map((value) => Number(value)))]
+      : [];
+    if (
+      submittedTeam.length !== 3 ||
+      submittedTeam.some(
+        (cardId) => !isFlagshipCardId(cardId) || !progress.flashcardsRead.includes(cardId),
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Campaign team must contain 3 owned roster cards" });
+    }
+
+    const correct = expectedIds.reduce(
+      (total, cardId) => total + (answers.get(cardId) === getCanonicalElement(cardId) ? 1 : 0),
+      0,
+    );
+    const accuracy = expectedIds.length ? correct / expectedIds.length : 0;
+    const stars = accuracy === 1 ? 3 : accuracy >= 0.8 ? 2 : accuracy >= 0.6 ? 1 : 0;
+    if (stars === 0) {
+      return res.json({
+        success: true,
+        cleared: false,
+        stars: 0,
+        accuracy,
+        correct,
+        total: expectedIds.length,
+      });
+    }
+
+    const priorBest = progress.campaignStars?.[stageId] || 0;
+    const priorRewardStars = progress.campaignRewardStars?.[stageId] || 0;
+    const bestStars = Math.max(priorBest, stars);
+
+    // Stamina is charged only when the run improves the stage's rewarded star
+    // tier. Network retries and exact duplicate clears therefore remain safe.
+    const consumesStamina = stars > priorRewardStars;
+    if (consumesStamina && (progress.stamina || 0) < stage.staminaCost) {
+      return res.status(409).json({
+        success: false,
+        error: "Not enough campaign stamina",
+        stamina: progress.stamina || 0,
+        maxStamina: progress.maxStamina || CAMPAIGN_MAX_STAMINA,
+      });
+    }
+    if (consumesStamina) {
+      progress.stamina = Math.max(0, (progress.stamina || 0) - stage.staminaCost);
+      progress.staminaUpdatedAt = new Date().toISOString();
+    }
+    progress.campaignStars = { ...(progress.campaignStars || {}), [stageId]: bestStars };
+    progress.campaignClaims = [...new Set([...(progress.campaignClaims || []), stageId])];
+
+    const config = await getCampaignRewardConfig(stageId);
+    const rewardStars = Math.max(priorRewardStars, stars);
+    const earnedPoints = Math.max(
+      0,
+      campaignRewardAtStars(config.points, rewardStars) -
+        campaignRewardAtStars(config.points, priorRewardStars),
+    );
+    const earnedShards = Math.max(
+      0,
+      campaignRewardAtStars(config.shards, rewardStars) -
+        campaignRewardAtStars(config.shards, priorRewardStars),
+    );
+    const reachedFinalReward = priorRewardStars < 3 && rewardStars >= 3;
+    const awardedCardId = reachedFinalReward ? config.cardId : null;
+    const unlockedRewardId = reachedFinalReward ? config.rewardId : null;
+
+    progress.campaignRewardStars = {
+      ...(progress.campaignRewardStars || {}),
+      [stageId]: rewardStars,
+    };
+    applyPointDelta(user, earnedPoints);
+    progress.shards = (progress.shards || 0) + earnedShards;
+    if (awardedCardId !== null) {
+      progress.flashcardCounts[String(awardedCardId)] =
+        (progress.flashcardCounts[String(awardedCardId)] || 0) + 1;
+      if (!progress.flashcardsRead.includes(awardedCardId))
+        progress.flashcardsRead.push(awardedCardId);
+    }
+    if (unlockedRewardId) {
+      progress.campaignRewardUnlocks = [
+        ...new Set([...(progress.campaignRewardUnlocks || []), unlockedRewardId]),
+      ];
+      progress.campaignGiftByStage = {
+        ...(progress.campaignGiftByStage || {}),
+        [stageId]: unlockedRewardId,
+      };
+    }
+
+    if (stage.type === "boss") {
+      const regionIndex = CAMPAIGN_REGIONS.findIndex((candidate) => candidate.id === region.id);
+      const nextRegion = CAMPAIGN_REGIONS[regionIndex + 1];
+      user.unlockedRegions = [
+        ...new Set([
+          "region_01",
+          ...(user.unlockedRegions || []),
+          ...(nextRegion ? [nextRegion.id] : []),
+        ]),
+      ];
+    }
+    await saveUserAndProgress(nickname, user, progress);
+
+    if (earnedPoints > 0) {
+      await Promise.allSettled([
+        eventLogger.logReward(user.account_id, earnedPoints, 0, `campaign_${stageId}`),
+        logRewardTransaction(user.account_id, "earn", earnedPoints, {
+          reason: `Campaign ${stageId} · ${stars} sao`,
+          source: "campaign",
+          pointsBalance: user.points,
+        }),
+      ]);
+    }
+
+    return res.json({
+      success: true,
+      cleared: true,
+      duplicate: stars <= priorRewardStars,
+      stars,
+      bestStars,
+      accuracy,
+      correct,
+      total: expectedIds.length,
+      reward: {
+        points: earnedPoints,
+        shards: earnedShards,
+        cardId: awardedCardId,
+        rewardId: unlockedRewardId,
+      },
+      points: user.points,
+      totalExpEarned: user.totalExpEarned,
+      stamina: progress.stamina,
+      maxStamina: progress.maxStamina,
+      progress,
+      unlockedRegions: user.unlockedRegions || ["region_01"],
+    });
+  } catch (error) {
+    console.error("[campaign:complete] Error:", error);
+    return res.status(500).json({ success: false, error: "Campaign result could not be saved" });
+  } finally {
+    releaseLock();
+  }
+});
+
+app.post("/api/campaign/stages/:stageId/redeem", requireAuth, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const releaseLock = await acquireRewardLock(nickname);
+  try {
+    const stageId = getRouteParam(req.params.stageId);
+    if (!getCampaignStage(stageId)) {
+      return res.status(404).json({ success: false, error: "Stage not found" });
+    }
+
+    const recipient = parseRedeemInfo(req.body?.redeemInfo);
+    if (!recipient.success) {
+      return res.status(400).json({ success: false, error: recipient.message });
+    }
+    const user = await getUser(nickname);
+    const progress = await getGameProgress(nickname);
+    if (!user || !progress) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    normalizeProgressCards(progress);
+    if ((progress.campaignRedeemedStages || []).includes(stageId)) {
+      return res.status(409).json({ success: false, error: "Campaign gift already redeemed" });
+    }
+    if ((progress.campaignRewardStars?.[stageId] || 0) < 3) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Three stars are required for this gift" });
+    }
+
+    // Use the reward captured at unlock time. Admins may edit the stage later,
+    // but that must never replace a gift the player already earned. Backfill
+    // snapshots from the legacy reward-id set for existing accounts.
+    const config = await getCampaignRewardConfig(stageId);
+    const rewardId =
+      progress.campaignGiftByStage?.[stageId] ||
+      (config.rewardId && (progress.campaignRewardUnlocks || []).includes(config.rewardId)
+        ? config.rewardId
+        : null);
+    if (!rewardId || !(progress.campaignRewardUnlocks || []).includes(rewardId)) {
+      return res
+        .status(400)
+        .json({ success: false, error: "This stage has no unlocked catalog gift" });
+    }
+    progress.campaignGiftByStage = {
+      ...(progress.campaignGiftByStage || {}),
+      [stageId]: rewardId,
+    };
+    const configuredRewards = isRewardsDbConfigured() ? await listRewards().catch(() => []) : [];
+    const reward = [...configuredRewards, ...defaultRewards].find(
+      (candidate) => String(candidate.id) === rewardId,
+    );
+    if (!reward) {
+      return res
+        .status(409)
+        .json({ success: false, error: "Configured gift is no longer available" });
+    }
+
+    const redemptionRequest: RedemptionRequest = {
+      id: crypto.randomUUID(),
+      itemId: String(reward.id),
+      itemName: String(reward.name || `Quà ID ${reward.id}`).slice(0, 255),
+      cost: 0,
+      recipient: recipient.data,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    user.redemptionRequests = [...(user.redemptionRequests || []), redemptionRequest];
+    progress.campaignRedeemedStages = [
+      ...new Set([...(progress.campaignRedeemedStages || []), stageId]),
+    ];
+    await saveUserAndProgress(nickname, user, progress);
+    await Promise.allSettled([
+      db
+        ? db
+            .collection("users")
+            .doc(nickname.toLowerCase())
+            .collection("craft_history")
+            .add({
+              timestamp: redemptionRequest.createdAt,
+              craftedItemId: rewardId,
+              redemptionId: redemptionRequest.id,
+              itemName: redemptionRequest.itemName,
+              cost: 0,
+              redeemInfo: recipient.data,
+              status: redemptionRequest.status,
+              source: `campaign:${stageId}`,
+            })
+        : Promise.resolve(),
+      sendCraftEmail(user, rewardId, redemptionRequest.itemName, recipient.data),
+    ]);
+    return res.json({
+      success: true,
+      redemptionId: redemptionRequest.id,
+      status: redemptionRequest.status,
+      item: { id: reward.id, name: reward.name, imageUrl: reward.imageUrl },
+      progress,
+    });
+  } catch (error) {
+    console.error("[campaign:redeem] Error:", error);
+    return res.status(500).json({ success: false, error: "Campaign gift could not be redeemed" });
+  } finally {
+    releaseLock();
+  }
+});
+
 // ─── Card Fusion: combine 3 copies → upgraded version ────────────────────────
 app.post("/api/cards/fuse", requireAuth, async (req, res) => {
   const nickname = (req as any).userNick as string;
@@ -2701,8 +3206,17 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
         streakDays: newStreak,
         lastUpdateDate: todayStr,
         shards: progress?.shards ?? 0,
+        stamina: progress?.stamina ?? CAMPAIGN_MAX_STAMINA,
+        maxStamina: progress?.maxStamina ?? CAMPAIGN_MAX_STAMINA,
+        staminaUpdatedAt: progress?.staminaUpdatedAt || new Date().toISOString(),
         cardLevels: progress?.cardLevels || {},
         gachaPullCount: progress?.gachaPullCount ?? 0,
+        campaignStars: progress?.campaignStars || {},
+        campaignClaims: progress?.campaignClaims || [],
+        campaignRewardStars: progress?.campaignRewardStars || {},
+        campaignRewardUnlocks: progress?.campaignRewardUnlocks || [],
+        campaignGiftByStage: progress?.campaignGiftByStage || {},
+        campaignRedeemedStages: progress?.campaignRedeemedStages || [],
       };
     }
 

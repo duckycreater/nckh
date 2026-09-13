@@ -1002,44 +1002,44 @@
     "boss": "Boss",
     "eventStage": "Sự Kiện",
     "region_01": {
-      "name": "Bãi Rác Ven Đường",
-      "desc": "Nơi hành trình bắt đầu. Rác thải sinh hoạt khắp nơi."
+      "name": "Vịnh Polymer",
+      "desc": "Cảng thu hồi PET ngập nước, nơi các đơn vị polymer học cách tái cấu trúc giáp."
     },
     "region_02": {
-      "name": "Khu Chợ Trời",
-      "desc": "Khu chợ trời với đủ loại rác đã qua sử dụng."
+      "name": "Thành Trì Cellulose",
+      "desc": "Một pháo đài máy in bỏ hoang vận hành bằng giấy, bìa và nhịp chiến đấu liên hoàn."
     },
     "region_03": {
-      "name": "Bãi Rác Công Nghiệp",
-      "desc": "Khu vực tập trung chất thải công nghiệp nặng."
+      "name": "Kính Vực Quang Phổ",
+      "desc": "Khu luyện kính tái chế bẻ cong ánh sáng, phản đòn và phơi lộ điểm yếu."
     },
     "region_04": {
-      "name": "Trạm Trung Chuyển",
-      "desc": "Trạm trung chuyển rác trung tâm thành phố."
+      "name": "Lò Rèn Phế Tích",
+      "desc": "Thép phế liệu, cuộn cảm và máy ép thủy lực tạo nên tuyến phòng thủ nặng nhất."
     },
     "region_05": {
-      "name": "Vùng Đất Chất Thải",
-      "desc": "Vùng đất bị ô nhiễm nặng bởi chất thải độc hại."
+      "name": "Vành Đai Tái Sinh",
+      "desc": "Mycelium và lò ủ sinh học biến chất hữu cơ thành hồi phục cho toàn đội."
     },
     "region_06": {
-      "name": "Nhà Máy Tái Chế",
-      "desc": "Nhà máy tái chế hiện đại với công nghệ tiên tiến."
+      "name": "Khu Phong Tỏa Đỏ",
+      "desc": "Mọi sai sót xử lý pin, dung môi và hóa chất đều bị buồng chứa trừng phạt."
     },
     "region_07": {
-      "name": "Đại Dương Rác",
-      "desc": "Đại dương bị ô nhiễm bởi rác nhựa khổng lồ."
+      "name": "Hành Lang Điện Tích",
+      "desc": "Tua-bin và pin thu hồi trao sức mạnh bùng nổ, nhưng quá tải luôn có cái giá của nó."
     },
     "region_08": {
-      "name": "Vùng Cấm Địa",
-      "desc": "Khu vực cấm với sinh vật đột biến nguy hiểm."
+      "name": "Đới Thủy Triều",
+      "desc": "Các bể áp suất và tuyến lọc nước điều khiển nhịp trận bằng dòng chảy chính xác."
     },
     "region_09": {
-      "name": "Vực Thẳm Địa Ngục",
-      "desc": "Vực thẳm không đáy, nơi trú ngụ của quái vật rác."
+      "name": "Nghĩa Địa Điện Tử",
+      "desc": "Module cũ, cảm biến và drone sửa chữa liên kết thành một mạng lưới chiến thuật."
     },
     "region_10": {
-      "name": "Ngai Vàng Rác Thải",
-      "desc": "Ngai vàng của vua rác, nơi trậnchiến cuối cùng."
+      "name": "Lõi Zero Waste",
+      "desc": "Chiến dịch cuối nơi chín hệ vật liệu phải phối hợp để đóng kín vòng tuần hoàn."
     }
   },
   "collection": {

@@ -3,7 +3,15 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronRight, Layers3, Sparkles, X, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BMO_ASSETS } from "../lib/bmoAssets";
-import { CARD_DEFINITIONS, ELEMENTS, getCardArt, getCardById, tCardName } from "../lib/cards";
+import {
+  CARD_DEFINITIONS,
+  ELEMENTS,
+  FLAGSHIP_CARDS,
+  getCardArt,
+  getCardById,
+  tCardName,
+} from "../lib/cards";
+import { getCardHeroProfile } from "../lib/cardHeroes";
 
 export interface PullResult {
   id: number;
@@ -88,6 +96,8 @@ export default function CollectionReveal({
   const rarityId = card?.rarityId ?? "common";
   const theme = RARITY_THEME[rarityId] ?? RARITY_THEME.common;
   const element = ELEMENTS.find((candidate) => candidate.id === card?.elementId);
+  const heroCard = FLAGSHIP_CARDS.find((candidate) => candidate.id === card?.id);
+  const heroProfile = heroCard ? getCardHeroProfile(heroCard) : null;
   const isLast = currentIndex >= validCardIds.length - 1;
   const displayName = useMemo(() => {
     if (!card) return t("cards.unknown", { defaultValue: "Thẻ bí ẩn" });
@@ -273,11 +283,24 @@ export default function CollectionReveal({
                             ))}
                           </div>
                           <h2 className="line-clamp-2 text-xl font-black leading-tight text-white sm:text-2xl">
-                            {displayName}
+                            {heroProfile?.callsign || displayName}
                           </h2>
                           <p className="mt-1 line-clamp-1 text-xs text-slate-400">
-                            #{String(card.id).padStart(3, "0")} · {card.subtitle}
+                            #{String(card.id).padStart(3, "0")} · {displayName}
                           </p>
+                          {heroProfile && (
+                            <div className="mt-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.12em]">
+                              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-slate-300">
+                                {heroProfile.roleVi}
+                              </span>
+                              <span
+                                className="rounded-full border border-white/10 bg-white/5 px-2 py-1"
+                                style={{ color: theme.accent }}
+                              >
+                                {heroProfile.mechanicName}
+                              </span>
+                            </div>
+                          )}
                           <div className="mt-4 grid grid-cols-3 gap-2">
                             {stats.map((stat) => (
                               <div

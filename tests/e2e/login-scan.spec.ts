@@ -20,6 +20,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getVietnamDayKey } from "../../src/lib/dayKey.ts";
 import { getDailyChallengeIds, getDailyChallengeReward } from "../../src/lib/dailyChallenges.ts";
+import { FLAGSHIP_CARD_ID_SET, getCampaignStage } from "../../shared/cardGame.ts";
+import { getCanonicalElement } from "../../server/lib/cards.ts";
 
 const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
@@ -471,6 +473,129 @@ describe("E2E: login → scan garbage", () => {
 
     const duplicateRedemption = await redeem();
     expect(duplicateRedemption.status).toBe(409);
+
+    const campaignConfig = await fetch(url("/api/campaign/config"), { headers: auth });
+    expect(campaignConfig.status).toBe(200);
+    const campaignConfigBody = await campaignConfig.json();
+    expect(campaignConfigBody.rosterSize).toBe(100);
+    expect(campaignConfigBody.regions.length).toBe(10);
+    expect(campaignConfigBody.rewardConfigs.length).toBe(100);
+    const campaignTeam = campaignConfigBody.progress.flashcardsRead
+      .map(Number)
+      .filter((cardId: number) => FLAGSHIP_CARD_ID_SET.has(cardId))
+      .slice(0, 3);
+    expect(campaignTeam.length).toBe(3);
+
+    const stageId = "s01_01";
+    const configuredCampaignReward = await fetch(
+      url(`/api/admin/campaign/stages/${stageId}/reward`),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-admin-key": "bmo-e2e-admin-key" },
+        body: JSON.stringify({ points: 77, shards: 7, cardId: 1, rewardId: null }),
+      },
+    );
+    expect(configuredCampaignReward.status).toBe(200);
+
+    const campaignStage = getCampaignStage(stageId)!;
+    const encounterIds = [...campaignStage.trashCardIds.slice(0, 4)];
+    if (campaignStage.bossCardId) encounterIds.push(campaignStage.bossCardId);
+    else if (campaignStage.trashCardIds[4]) encounterIds.push(campaignStage.trashCardIds[4]);
+    const campaignAnswers = [...new Set(encounterIds)].map((cardId) => ({
+      cardId,
+      elementId: getCanonicalElement(cardId),
+    }));
+    const completeCampaign = () =>
+      fetch(url(`/api/campaign/stages/${stageId}/complete`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...auth },
+        body: JSON.stringify({ answers: campaignAnswers, teamCardIds: campaignTeam }),
+      });
+    const firstCampaignClear = await completeCampaign();
+    expect(firstCampaignClear.status).toBe(200);
+    const firstCampaignBody = await firstCampaignClear.json();
+    expect(firstCampaignBody.cleared).toBe(true);
+    expect(firstCampaignBody.stars).toBe(3);
+    expect(firstCampaignBody.reward.points).toBe(77);
+    expect(firstCampaignBody.reward.shards).toBe(7);
+    expect(firstCampaignBody.reward.cardId).toBe(1);
+    expect(firstCampaignBody.stamina).toBe(95);
+
+    const duplicateCampaignClear = await completeCampaign();
+    expect(duplicateCampaignClear.status).toBe(200);
+    const duplicateCampaignBody = await duplicateCampaignClear.json();
+    expect(duplicateCampaignBody.duplicate).toBe(true);
+    expect(duplicateCampaignBody.reward.points).toBe(0);
+    expect(duplicateCampaignBody.reward.shards).toBe(0);
+    expect(duplicateCampaignBody.reward.cardId).toBe(null);
+    expect(duplicateCampaignBody.stamina).toBe(95);
+
+    const lockedStage = getCampaignStage("s01_03")!;
+    const lockedAnswers = [...new Set(lockedStage.trashCardIds.slice(0, 5))].map((cardId) => ({
+      cardId,
+      elementId: getCanonicalElement(cardId),
+    }));
+    const lockedAttempt = await fetch(url("/api/campaign/stages/s01_03/complete"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ answers: lockedAnswers, teamCardIds: campaignTeam }),
+    });
+    expect(lockedAttempt.status).toBe(403);
+
+    const secondStageId = "s01_02";
+    const giftReward = await fetch(url(`/api/admin/campaign/stages/${secondStageId}/reward`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "x-admin-key": "bmo-e2e-admin-key" },
+      body: JSON.stringify({ points: 30, shards: 3, cardId: null, rewardId: "1" }),
+    });
+    expect(giftReward.status).toBe(200);
+    const secondStage = getCampaignStage(secondStageId)!;
+    const secondStageAnswers = [...new Set(secondStage.trashCardIds.slice(0, 5))].map((cardId) => ({
+      cardId,
+      elementId: getCanonicalElement(cardId),
+    }));
+    const secondStageClear = await fetch(url(`/api/campaign/stages/${secondStageId}/complete`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ answers: secondStageAnswers, teamCardIds: campaignTeam }),
+    });
+    expect(secondStageClear.status).toBe(200);
+    const secondStageBody = await secondStageClear.json();
+    expect(secondStageBody.reward.rewardId).toBe("1");
+    expect(secondStageBody.progress.campaignGiftByStage[secondStageId]).toBe("1");
+    expect(secondStageBody.stamina).toBe(90);
+
+    // Admin edits affect future unlocks only. The player's earned gift remains
+    // the original catalog item and can still be redeemed exactly once.
+    const changedGiftReward = await fetch(
+      url(`/api/admin/campaign/stages/${secondStageId}/reward`),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-admin-key": "bmo-e2e-admin-key" },
+        body: JSON.stringify({ points: 30, shards: 3, cardId: null, rewardId: "2" }),
+      },
+    );
+    expect(changedGiftReward.status).toBe(200);
+    const redeemCampaignGift = () =>
+      fetch(url(`/api/campaign/stages/${secondStageId}/redeem`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...auth },
+        body: JSON.stringify({
+          redeemInfo: {
+            fullName: "Nguyễn Văn A",
+            address: "12 Nguyễn Trãi, Phường Bến Thành, Quận 1, TP.HCM",
+          },
+        }),
+      });
+    const redeemedCampaignGift = await redeemCampaignGift();
+    expect(redeemedCampaignGift.status).toBe(200);
+    const redeemedCampaignGiftBody = await redeemedCampaignGift.json();
+    expect(String(redeemedCampaignGiftBody.item.id)).toBe("1");
+    expect(redeemedCampaignGiftBody.progress.campaignRedeemedStages.includes(secondStageId)).toBe(
+      true,
+    );
+    const duplicateCampaignGift = await redeemCampaignGift();
+    expect(duplicateCampaignGift.status).toBe(409);
   });
 });
 
