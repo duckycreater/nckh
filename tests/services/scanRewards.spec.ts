@@ -1,73 +1,59 @@
-/**
- * tests/services/scanRewards.spec.ts
- *
- * Verifies the daily-cap behavior of decideScanReward(). The cap exists
- * to prevent client- or replay-attack-style inflation of points.
- */
-import { describe, it, beforeEach, afterEach } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { decideScanReward, getScanRewardConfig } from "../../server/services/scanRewards.js";
+import {
+  decideScanReward,
+  getScanRewardConfig,
+  type ScanRewardEntry,
+} from "../../server/services/scanRewards.js";
 
-const originalNow = Date.now;
-let fakeNow = 1_700_000_000_000;
-
-beforeEach(() => {
-  fakeNow = 1_700_000_000_000;
-  Date.now = () => fakeNow;
-});
-
-afterEach(() => {
-  Date.now = originalNow;
-});
+const START = 1_700_000_000_000;
 
 describe("scanRewards.decideScanReward", () => {
   it("returns no_user when nick is missing", () => {
-    const r = decideScanReward(undefined);
-    assert.equal(r.awarded, 0);
-    assert.equal(r.reason, "no_user");
+    const result = decideScanReward(undefined, undefined, "hash-a", START);
+    assert.equal(result.awarded, 0);
+    assert.equal(result.reason, "no_user");
+    assert.deepEqual(result.history, []);
   });
 
-  it("awards points on the first scan", () => {
-    const cfg = getScanRewardConfig();
-    const r = decideScanReward("alice");
-    assert.equal(r.awarded, cfg.points);
-    assert.equal(r.totalToday, 1);
-    assert.equal(r.reason, "ok");
+  it("awards and returns history for durable persistence", () => {
+    const result = decideScanReward("alice", [], "hash-a", START);
+    assert.equal(result.awarded, getScanRewardConfig().points);
+    assert.equal(result.totalToday, 1);
+    assert.equal(result.reason, "ok");
+    assert.deepEqual(result.history, [{ at: START, imageHash: "hash-a" }]);
   });
 
-  it("caps at SCAN_REWARD_DAILY_CAP", () => {
-    const cfg = getScanRewardConfig();
-    let last = { awarded: 0, totalToday: 0, reason: "ok" as "ok" | "capped" | "no_user" };
-    for (let i = 0; i < cfg.dailyCap; i++) {
-      fakeNow += 60_000; // 1 minute apart
-      last = decideScanReward("bob");
+  it("does not reward the same image twice within the window", () => {
+    const first = decideScanReward("alice", [], "hash-a", START);
+    const replay = decideScanReward("alice", first.history, "hash-a", START + 60_000);
+    assert.equal(replay.awarded, 0);
+    assert.equal(replay.reason, "duplicate");
+    assert.equal(replay.totalToday, 1);
+  });
+
+  it("caps distinct scans at the configured daily limit", () => {
+    const config = getScanRewardConfig();
+    let history: ScanRewardEntry[] = [];
+    for (let index = 0; index < config.dailyCap; index += 1) {
+      const result = decideScanReward("bob", history, `hash-${index}`, START + index * 60_000);
+      assert.equal(result.reason, "ok");
+      history = result.history;
     }
-    assert.equal(last.totalToday, cfg.dailyCap);
-    assert.equal(last.reason, "ok");
-    // One more must hit the cap
-    fakeNow += 60_000;
-    const next = decideScanReward("bob");
-    assert.equal(next.reason, "capped");
-    assert.equal(next.awarded, 0);
+    const capped = decideScanReward("bob", history, "hash-over-cap", START + 21 * 60_000);
+    assert.equal(capped.awarded, 0);
+    assert.equal(capped.reason, "capped");
+    assert.equal(capped.totalToday, config.dailyCap);
   });
 
-  it("does not count scans older than 24h", () => {
-    const cfg = getScanRewardConfig();
-    for (let i = 0; i < cfg.dailyCap; i++) {
-      fakeNow += 60_000;
-      decideScanReward("carol");
-    }
-    // Jump 25 hours forward — window is empty again
-    fakeNow += 25 * 60 * 60 * 1000;
-    const r = decideScanReward("carol");
-    assert.equal(r.reason, "ok");
-    assert.equal(r.totalToday, 1);
-  });
-
-  it("isolates per-nick state", () => {
-    decideScanReward("dave");
-    const r2 = decideScanReward("erin");
-    assert.equal(r2.totalToday, 1);
+  it("drops expired and malformed persisted entries", () => {
+    const history = [
+      { at: START - 25 * 60 * 60 * 1000, imageHash: "expired" },
+      { at: Number.NaN, imageHash: "invalid" },
+    ];
+    const result = decideScanReward("carol", history, "fresh", START);
+    assert.equal(result.reason, "ok");
+    assert.deepEqual(result.history, [{ at: START, imageHash: "fresh" }]);
   });
 });

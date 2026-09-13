@@ -36,8 +36,8 @@ import { getCardHeroProfile, type HeroAbilityProfile } from "../lib/cardHeroes";
 import { Badge, Button } from "../lib/ui";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 
-// ─── Campaign Levels ────────────────────────────────────────────────────────
-const CAMPAIGN_LEVELS = [
+// ─── Battle arenas ──────────────────────────────────────────────────────────
+const BATTLE_ARENAS = [
   {
     id: 1,
     name: "Vịnh Polymer",
@@ -1575,7 +1575,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   const totalDmgRef = useRef(0);
   const perfectionRef = useRef(false); // true = no HP damage taken
 
-  const level = CAMPAIGN_LEVELS.find((l) => l.id === selectedLevelId) || CAMPAIGN_LEVELS[0];
+  const level = BATTLE_ARENAS.find((l) => l.id === selectedLevelId) || BATTLE_ARENAS[0];
   const bossAlive = bossTeam.filter((c) => c.isAlive);
   const playerAlive = playerTeam.filter((c) => c.isAlive);
   const activePlayer = playerTeam[activePlayerIdx];
@@ -2648,7 +2648,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
     setBossTeam(bosses);
 
     setLog([]);
-    addLog(`⚔️ Chiến dịch: ${level.name}`, "turn");
+    addLog(`⚔️ Đấu trường: ${level.name}`, "turn");
     addLog(
       `Boss: ${ELEMENTS.find((e) => e.id === level.element)?.name ?? level.element} (x3)`,
       "info",
@@ -2710,11 +2710,11 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
       {stage === "intro" && (
         <div className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto p-3 sm:p-4">
           <div className="text-center pt-2">
-            <h2 className="text-xl sm:text-2xl font-black text-white">Chọn Chiến Dịch</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-white">Chọn đấu trường</h2>
             <p className="mt-1 text-xs sm:text-sm text-slate-400">Đánh bại 3 boss liên tiếp!</p>
           </div>
           <div className="w-full max-w-sm space-y-2 pb-4">
-            {CAMPAIGN_LEVELS.map((lvl) => {
+            {BATTLE_ARENAS.map((lvl) => {
               const bossEl = ELEMENTS.find((e) => e.id === lvl.element);
               return (
                 <button
@@ -2818,7 +2818,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
                     transition={{ type: "spring", stiffness: 250, damping: 16 }}
                     className="text-center"
                   >
-                    <p className="text-sm font-bold text-amber-400 mb-1">Chiến Dịch</p>
+                    <p className="text-sm font-bold text-amber-400 mb-1">Đấu Trường</p>
                     <h2 className="text-2xl sm:text-4xl font-black text-white">{level.name}</h2>
                     <p className="mt-3 text-sm text-slate-400">Đánh bại tất cả boss!</p>
                     <div className="mt-3 flex items-center justify-center gap-2">

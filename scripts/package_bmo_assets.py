@@ -24,7 +24,6 @@ ASSETS = {
     "exec-b87002b3-ce22-40aa-8868-02dff99fb86c.png": ("card-elements/water.webp", (640, 853), 84),
     "exec-38868d7f-da61-4800-8498-b895271f3886.png": ("card-elements/tech.webp", (640, 853), 84),
     "exec-9bb01514-a10a-4550-a48f-35fae971eec0.png": ("scenes/auth-hero.webp", (1600, 900), 84),
-    "exec-f324634a-09b3-494c-a056-1d58686d84e3.png": ("scenes/campaign-arena.webp", (1600, 900), 84),
     "exec-5f075d55-3c96-4b07-93b7-d802c4b96675.png": ("scenes/gacha-vault.webp", (1600, 900), 84),
     "exec-3d6f2e34-4462-4abc-8bc7-3d0e03fc07ba.png": ("avatars/seedling.webp", (512, 512), 90),
     "exec-c768219a-708b-47b3-875f-acd27b1756c1.png": ("avatars/water-guardian.webp", (512, 512), 90),

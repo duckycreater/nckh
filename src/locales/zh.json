@@ -30,7 +30,6 @@
   "nav": {
     "home": "首页",
     "cards": "收藏",
-    "campaign": "战役",
     "craft": "制作",
     "leaderboard": "排行榜"
   },
@@ -321,15 +320,7 @@
     }
   },
   "cardBattle": {
-    "campaignLevels": {
-      "level1": "锡罐废土",
-      "level2": "毒塑料沼泽",
-      "level3": "有机化合物山",
-      "level4": "锈金属森林",
-      "level5": "焚化炉核心"
-    },
     "turn": "回合 {turn}",
-    "selectCampaign": "选择战役",
     "defeatBosses": "击败3个首领！",
     "start": "开战！",
     "needCard": "至少需要1张卡牌才能战斗！",
@@ -1117,64 +1108,8 @@
     "xpAdded": "+{exp} 经验已添加！",
     "newCardAdded": "新卡牌已添加到收集册！",
     "cardAdded": "卡牌已添加到收集册！",
-    "purchaseFailed": "购买失败。"
-  },
-  "campaign": {
-    "worldMap": "世界地图",
-    "worldMapSubtitle": "征服100个关卡",
-    "playerLevel": "等级",
-    "stages": "关卡",
-    "totalStars": "总星数",
-    "requiredLevel": "需求等级",
-    "startCampaign": "开始战役",
-    "locked": "已锁定",
-    "reachLevel": "需达到等级",
-    "stage": "关卡",
-    "normal": "普通",
-    "elite": "精英",
-    "miniboss": "迷你Boss",
-    "boss": "Boss",
-    "eventStage": "活动",
-    "region_01": {
-      "name": "路边垃圾场",
-      "desc": "旅程开始的地方。到处都是生活垃圾。"
-    },
-    "region_02": {
-      "name": "跳蚤市场",
-      "desc": "有各种二手物品的跳蚤市场。"
-    },
-    "region_03": {
-      "name": "工业废料区",
-      "desc": "重工业废料集中区。"
-    },
-    "region_04": {
-      "name": "中转站",
-      "desc": "城市垃圾中转中心。"
-    },
-    "region_05": {
-      "name": "污染土地",
-      "desc": "被有毒废料严重污染的区域。"
-    },
-    "region_06": {
-      "name": "回收工厂",
-      "desc": "拥有先进回收技术的现代化工厂。"
-    },
-    "region_07": {
-      "name": "塑料海洋",
-      "desc": "被巨大塑料垃圾污染的海洋。"
-    },
-    "region_08": {
-      "name": "禁区",
-      "desc": "有危险变异生物的禁区。"
-    },
-    "region_09": {
-      "name": "深渊地狱",
-      "desc": "无底深渊，垃圾怪物的栖息地。"
-    },
-    "region_10": {
-      "name": "垃圾王座",
-      "desc": "垃圾之王的王座，最终之战之地。"
-    }
+    "purchaseFailed": "购买失败。",
+    "openFirstPack": "开启第一个卡包"
   },
   "collection": {
     "newCard": "新卡牌！",
@@ -1193,13 +1128,6 @@
     "autoContinueIn": "{{seconds}}秒后自动继续",
     "openPack": "开启卡包",
     "cardsRevealed": "已开启{{count}}张卡牌"
-  },
-  "stamina": {
-    "stamina": "体力",
-    "maxStamina": "最大体力",
-    "refillIn": "恢复倒计时",
-    "full": "已满",
-    "notEnough": "体力不足"
   },
   "rewards": {
     "xp": "经验",

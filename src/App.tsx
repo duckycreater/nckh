@@ -8,7 +8,7 @@ import React, {
   lazy,
   Suspense,
 } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Auth } from "./components/Auth";
 import { User } from "./types";
@@ -21,7 +21,6 @@ import {
   onLanguageChanged,
 } from "./lib/i18n";
 import { Globe } from "lucide-react";
-import { calculateLevel } from "./lib/useLevel";
 import { clearAuthToken, getAuthHeaders, getAuthToken } from "./lib/auth";
 
 // Phase 4: public global impact dashboard (no login required)
@@ -42,8 +41,6 @@ const LazyProfileCompletionModal = lazy(() =>
     default: m.ProfileCompletionModal,
   })),
 );
-const LazyWorldMap = lazy(() => import("./components/WorldMap"));
-const LazyCampaignStage = lazy(() => import("./components/CampaignStage"));
 const LazyFamilyMode = lazy(() =>
   import("./components/FamilyMode").then((m) => ({ default: m.FamilyMode })),
 );
@@ -51,9 +48,6 @@ const LazyFamilyMode = lazy(() =>
 // ─── Lazy Imports ──────────────────────────────────────────────────────
 const LazyAdminDashboard = lazy(() =>
   import("./components/AdminDashboard").then((m) => ({ default: m.AdminDashboard })),
-);
-const LazyFlashcards = lazy(() =>
-  import("./components/Flashcards").then((m) => ({ default: m.Flashcards })),
 );
 
 function LoadingFallback({ message }: { message?: string }) {
@@ -103,26 +97,6 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
 }
 
-// ─── Campaign Route Wrappers
-function WorldMapRoute({ user }: { user: User }) {
-  const navigate = useNavigate();
-  const totalExp = user.totalExpEarned ?? user.points;
-  const { level: playerLevel } = calculateLevel(totalExp);
-  return (
-    <LazyWorldMap
-      playerLevel={playerLevel}
-      unlockedRegions={user.unlockedRegions || ["region_01"]}
-      currentRegion={user.currentRegion || ""}
-      campaignStars={user.progress?.campaignStars}
-      campaignClaims={user.progress?.campaignClaims}
-      onSelectRegion={(regionId, stageId) => {
-        navigate(`/campaign/${regionId}/${stageId}`);
-      }}
-      onBack={() => navigate("/home")}
-    />
-  );
-}
-
 function FamilyRoute({ user }: { user: User }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -162,30 +136,6 @@ function FamilyModeStandalone({ user }: { user: User }) {
       )}
       <LazyFamilyMode user={user} isOpen={open} onClose={() => setOpen(false)} />
     </>
-  );
-}
-
-function CampaignStageRoute({
-  onCampaignUpdate,
-}: {
-  onCampaignUpdate: (updates: Partial<User>) => void;
-}) {
-  const navigate = useNavigate();
-  const { regionId, stageId } = useParams<{ regionId: string; stageId: string }>();
-  return (
-    <LazyCampaignStage
-      regionId={regionId || ""}
-      stageId={stageId || ""}
-      onBack={() => navigate("/world-map")}
-      onProgress={(result) => {
-        const updates: Partial<User> = {};
-        if (result.points !== undefined) updates.points = result.points;
-        if (result.totalExpEarned !== undefined) updates.totalExpEarned = result.totalExpEarned;
-        if (result.progress !== undefined) updates.progress = result.progress as User["progress"];
-        if (result.unlockedRegions !== undefined) updates.unlockedRegions = result.unlockedRegions;
-        onCampaignUpdate(updates);
-      }}
-    />
   );
 }
 
@@ -472,6 +422,9 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
+          {/* Retired deep links must not masquerade as a valid dashboard tab. */}
+          <Route path="/world-map" element={<Navigate to="/home" replace />} />
+          <Route path="/campaign/*" element={<Navigate to="/home" replace />} />
           {isAdmin ? (
             <>
               <Route
@@ -505,23 +458,6 @@ export default function App() {
               }
             />
           )}
-          {/* Campaign Routes */}
-          <Route
-            path="/world-map"
-            element={
-              <Suspense fallback={<LoadingFallback />}>
-                <WorldMapRoute user={user} />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/campaign/:regionId/:stageId"
-            element={
-              <Suspense fallback={<LoadingFallback />}>
-                <CampaignStageRoute onCampaignUpdate={handleUpdateUser} />
-              </Suspense>
-            }
-          />
           <Route
             path="/family"
             element={

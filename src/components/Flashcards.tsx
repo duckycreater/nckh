@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { lazy, Suspense, useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,7 +25,6 @@ import {
   Coffee,
   Timer,
   RefreshCw,
-  Map as MapIcon,
 } from "lucide-react";
 import { UserProgress } from "../types";
 import {
@@ -41,8 +40,6 @@ import {
   tCardName,
   type Card,
 } from "../lib/cards";
-import { CardBattle } from "./CardBattle";
-import { RoguelikeRun } from "./RoguelikeRun";
 import CollectionReveal from "./CollectionReveal";
 import { Badge, Button } from "../lib/ui";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
@@ -50,6 +47,24 @@ import { BMO_ASSETS } from "../lib/bmoAssets";
 import { normalizeCardOwnership } from "../lib/cardOwnership";
 import { SHARD_CARD_REWARDS, SHARD_XP_REWARDS } from "../lib/shardShop";
 import { getCardHeroProfile } from "../lib/cardHeroes";
+
+const LazyCardBattle = lazy(() =>
+  import("./CardBattle").then((module) => ({ default: module.CardBattle })),
+);
+const LazyRoguelikeRun = lazy(() =>
+  import("./RoguelikeRun").then((module) => ({ default: module.RoguelikeRun })),
+);
+
+function GameLoadingOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/90 backdrop-blur-sm">
+      <div className="flex items-center gap-3 rounded-2xl border border-cyan-400/20 bg-slate-900 px-5 py-4 text-sm font-bold text-cyan-100 shadow-2xl">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-cyan-200/30 border-t-cyan-300" />
+        Đang nạp trận đấu…
+      </div>
+    </div>
+  );
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type Section =
@@ -943,21 +958,13 @@ function GachaReveal({
 // ─── Main Component ─────────────────────────────────────────────────────────
 interface Props {
   onReward: (claim: GameplayRewardClaim) => void;
-  onOpenCampaign: () => void;
   points?: number;
   userId: string;
   progress?: UserProgress;
   onRefresh?: (progress?: UserProgress) => void;
 }
 
-export function Flashcards({
-  onReward,
-  onOpenCampaign,
-  points = 0,
-  userId,
-  progress,
-  onRefresh,
-}: Props) {
+export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }: Props) {
   const { t } = useTranslation();
 
   // ─── State ───────────────────────────────────────────────────────────
@@ -1860,17 +1867,6 @@ export function Flashcards({
 
         {/* Tabs */}
         <div className="mt-2 sm:mt-3 flex gap-1 overflow-x-auto thin-scrollbar">
-          <button
-            type="button"
-            onClick={onOpenCampaign}
-            className="flex flex-shrink-0 items-center gap-1.5 rounded-xl border border-cyan-300/50 bg-gradient-to-r from-cyan-500 to-emerald-500 px-2.5 py-1.5 text-[10px] font-black text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.22)] transition hover:brightness-110 sm:px-3.5 sm:text-xs"
-          >
-            <MapIcon size={13} />
-            <span>{t("nav.campaign")}</span>
-            <span className="rounded bg-slate-950/80 px-1 py-0.5 text-[7px] tracking-wider text-cyan-200">
-              NEW
-            </span>
-          </button>
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -2005,7 +2001,7 @@ export function Flashcards({
                     className="mt-5 border border-indigo-400/30 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25"
                   >
                     <Sparkles size={15} />
-                    {t("campaign.openPack", { defaultValue: "Mở gói đầu tiên" })}
+                    {t("flashcards.openFirstPack", { defaultValue: "Mở gói đầu tiên" })}
                   </Button>
                 )}
               </div>
@@ -3245,23 +3241,27 @@ export function Flashcards({
       {/* ─── CardBattle Modal ─── */}
       <AnimatePresence>
         {showBattle && (
-          <CardBattle
-            deckCardIds={deck}
-            cardLevels={Object.fromEntries(deck.map((id) => [id, getCardLevel(id)]))}
-            onClose={() => setShowBattle(false)}
-            onWin={onReward}
-          />
+          <Suspense fallback={<GameLoadingOverlay />}>
+            <LazyCardBattle
+              deckCardIds={deck}
+              cardLevels={Object.fromEntries(deck.map((id) => [id, getCardLevel(id)]))}
+              onClose={() => setShowBattle(false)}
+              onWin={onReward}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* ─── Roguelike Run Modal ─── */}
       <AnimatePresence>
         {showRoguelike && (
-          <RoguelikeRun
-            onClose={() => setShowRoguelike(false)}
-            onReward={onReward}
-            userCards={unlockedCards}
-          />
+          <Suspense fallback={<GameLoadingOverlay />}>
+            <LazyRoguelikeRun
+              onClose={() => setShowRoguelike(false)}
+              onReward={onReward}
+              userCards={unlockedCards}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 

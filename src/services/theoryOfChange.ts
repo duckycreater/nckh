@@ -101,10 +101,9 @@ export function computeComSubscores(user: Partial<User>): ComSubscores {
   // Physical opportunity — proxy: smart-bin coverage (we assume OK for schools)
   const physicalOpportunity = user.binAccessScore ?? 0.7;
 
-  // Social opportunity — proxy: friend count, world-map unlocks
+  // Social opportunity — proxy: observed peer connections.
   const friends = user.friendCount ?? 0;
-  const regionsUnlocked = (user.unlockedRegions?.length ?? 0) / 8.0;
-  const socialOpportunity = squish((friends - 1) / 6) * 0.55 + Math.min(1, regionsUnlocked) * 0.45;
+  const socialOpportunity = squish((friends - 1) / 6);
 
   // Reflective motivation — proxy: environmental-identity scale & flagged identity
   const eidScore = user.environmentalIdentityScore;

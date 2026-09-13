@@ -25,7 +25,7 @@ export default defineConfig({
     // E2E suites boot an in-process Express server. They still work under
     // vitest but they take 5–15s each, so we set generous timeouts and let
     // them run sequentially (the default `pool: 'threads'` does that for us).
-    exclude: ["**/node_modules/**", "dist/**", "tests/run-all.ts"],
+    exclude: ["**/node_modules/**", "dist/**", "tests/run-all.ts", "tests/browser/**"],
     environment: "node",
     testTimeout: 30_000,
     hookTimeout: 30_000,

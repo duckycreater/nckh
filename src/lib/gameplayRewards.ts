@@ -55,7 +55,7 @@ export function resolveGameplayRewardClaim(value: unknown): ResolvedGameplayRewa
       return {
         action: value.action,
         points: CARD_BATTLE_REWARDS[Number(level) - 1],
-        reason: `Hoàn thành chiến dịch thẻ cấp ${level}`,
+        reason: `Hoàn thành đấu trường thẻ cấp ${level}`,
         dailyScope: value.action,
       };
     }

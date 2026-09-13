@@ -214,9 +214,6 @@ export function specToPartialUser(spec: SyntheticUserSpec): Partial<User> {
   return {
     points: Math.round(spec.baseline.engagement * 1000),
     level: Math.max(1, Math.round(spec.baseline.streak / 4) + 1),
-    unlockedRegions:
-      spec.baseline.friends > 4 ? ["region_01", "region_02", "region_03"] : ["region_01"],
-    currentRegion: "region_01",
     dominantProfile: spec.archetype,
     personalityMode: spec.archetype === "peer_driven" ? "social" : "solo",
     engagementScore: spec.baseline.engagement,

@@ -1,55 +1,66 @@
-/**
- * server/services/scanRewards.ts
- *
- * D5: Server-authoritative scan rewards. The previous implementation let
- * the client compute `+50` on its own, which a motivated user could
- * trivially inflate by replaying scan requests. The fix is to make the
- * server:
- *
- *   1. Add the reward only after the AI call succeeds.
- *   2. Cap each user to SCAN_REWARD_DAILY_CAP successful scans / 24h
- *      (subsequent scans still work, but earn 0).
- *   3. Return the new points balance in the response, so the client
- *      can show the user the canonical value.
- *
- * The cap is enforced by a sliding window in `cache`. For multi-instance
- * deployments, the limit should be moved to Supabase; the in-memory
- * check is good enough for our single-server deployment.
- */
+/** Server-authoritative, durable scan-reward policy. */
 const SCAN_REWARD_POINTS = 50;
 const SCAN_REWARD_DAILY_CAP = 20;
+const SCAN_REWARD_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-const cache = new Map<string, number[]>(); // nick -> sorted [ts, ts, …]
+export interface ScanRewardEntry {
+  at: number;
+  imageHash: string;
+}
+
+export interface ScanRewardDecision {
+  awarded: number;
+  totalToday: number;
+  reason: "ok" | "capped" | "duplicate" | "no_user";
+  history: ScanRewardEntry[];
+}
 
 /**
- * Returns `{ awarded, totalToday, reason }`.
- *   awarded      — points to credit for this scan
- *   totalToday   — how many scans in the last 24h
- *   reason       — "ok" | "capped"
+ * Pure policy function: callers persist the returned history with the user's
+ * balance. A matching image hash is rewarded once per rolling 24-hour window,
+ * and malformed legacy entries are discarded during every decision.
  */
 export function decideScanReward(
   nick: string | undefined,
+  storedHistory: readonly ScanRewardEntry[] | undefined,
+  imageHash: string,
   now = Date.now(),
-): {
-  awarded: number;
-  totalToday: number;
-  reason: "ok" | "capped" | "no_user";
-} {
-  if (!nick) return { awarded: 0, totalToday: 0, reason: "no_user" };
-  const cutoff = now - 24 * 60 * 60 * 1000;
-  const arr = (cache.get(nick) ?? []).filter((t) => t > cutoff);
-  if (arr.length >= SCAN_REWARD_DAILY_CAP) {
-    cache.set(nick, arr);
-    return { awarded: 0, totalToday: arr.length, reason: "capped" };
+): ScanRewardDecision {
+  if (!nick) return { awarded: 0, totalToday: 0, reason: "no_user", history: [] };
+
+  const cutoff = now - SCAN_REWARD_WINDOW_MS;
+  const history = (Array.isArray(storedHistory) ? storedHistory : [])
+    .filter(
+      (entry): entry is ScanRewardEntry =>
+        Number.isFinite(entry?.at) &&
+        entry.at > cutoff &&
+        entry.at <= now &&
+        typeof entry.imageHash === "string" &&
+        entry.imageHash.length > 0,
+    )
+    .sort((a, b) => a.at - b.at)
+    .slice(-SCAN_REWARD_DAILY_CAP);
+
+  if (imageHash && history.some((entry) => entry.imageHash === imageHash)) {
+    return { awarded: 0, totalToday: history.length, reason: "duplicate", history };
   }
-  arr.push(now);
-  cache.set(nick, arr);
-  return { awarded: SCAN_REWARD_POINTS, totalToday: arr.length, reason: "ok" };
+  if (history.length >= SCAN_REWARD_DAILY_CAP) {
+    return { awarded: 0, totalToday: history.length, reason: "capped", history };
+  }
+
+  const nextHistory = [...history, { at: now, imageHash }];
+  return {
+    awarded: SCAN_REWARD_POINTS,
+    totalToday: nextHistory.length,
+    reason: "ok",
+    history: nextHistory,
+  };
 }
 
 export function getScanRewardConfig() {
   return {
     points: SCAN_REWARD_POINTS,
     dailyCap: SCAN_REWARD_DAILY_CAP,
+    windowHours: SCAN_REWARD_WINDOW_MS / (60 * 60 * 1000),
   };
 }

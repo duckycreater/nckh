@@ -14,6 +14,8 @@
     "test:watch": "vitest",
     "test:unit": "vitest run tests/services tests/run-all.ts",
     "test:e2e": "vitest run tests/e2e --reporter=default",
+    "test:browser": "playwright test",
+    "test:all": "npm test && npm run test:browser",
     "test:node": "tsx --test tests/run-all.ts",
     "check:paths": "node scripts/check-duplicate-paths.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
@@ -59,7 +61,7 @@
     "motion": "^12.23.24",
     "multer": "^2.1.1",
     "ngeohash": "^0.6.3",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^10.0.9",
     "onnxruntime-web": "^1.19.2",
     "pg": "^8.21.0",
     "react": "^19.0.1",
@@ -76,6 +78,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

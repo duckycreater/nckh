@@ -30,7 +30,6 @@
   "nav": {
     "home": "Chính",
     "cards": "Sưu tập",
-    "campaign": "Chiến dịch",
     "craft": "Chế tạo",
     "leaderboard": "Hạng"
   },
@@ -322,15 +321,7 @@
     }
   },
   "cardBattle": {
-    "campaignLevels": {
-      "level1": "Vùng Đất Rác Thiếc",
-      "level2": "Đầm Lầy Nhựa Độc",
-      "level3": "Núi Chế Phẩm Hữu Cơ",
-      "level4": "Rừng Kim Loại Gỉ",
-      "level5": "Lõi Lò Đốt Rác"
-    },
     "turn": "Lượt {turn}",
-    "selectCampaign": "Chọn Chiến Dịch",
     "defeatBosses": "Đánh bại 3 boss liên tiếp!",
     "start": "Xông trận!",
     "needCard": "Cần ít nhất 1 thẻ để chiến đấu!",
@@ -428,7 +419,15 @@
   "streakCalendar": {
     "history": "Lịch Sử Check-in",
     "last7Days": "7 ngày gần nhất",
-    "weekdays": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+    "weekdays": [
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "CN"
+    ]
   },
   "surpriseGift": {
     "openning": "Đang mở quà...",
@@ -966,82 +965,8 @@
     "xpAdded": "+{exp} EXP đã được thêm!",
     "newCardAdded": "Thẻ mới đã được thêm vào bộ sưu tập!",
     "cardAdded": "Thẻ đã được thêm vào bộ sưu tập!",
-    "purchaseFailed": "Mua thất bại."
-  },
-  "campaign": {
-    "worldMap": "Bản Đồ Thế Giới",
-    "worldMapSubtitle": "100 Chặng Đường Chinh Phục",
-    "playerLevel": "Cấp Độ",
-    "stages": "Chặng",
-    "totalStars": "Tổng Sao",
-    "requiredLevel": "Cấp Yêu Cầu",
-    "startCampaign": "Bắt Đầu Chiến Dịch",
-    "openPack": "Mở gói đầu tiên",
-    "locked": "🔒 Đã Khóa",
-    "reachLevel": "Cần đạt cấp",
-    "stage": "Chặng",
-    "stageNotFound": "Không tìm thấy chặng",
-    "backToMap": "← Quay lại bản đồ",
-    "enemies": "Kẻ địch",
-    "boss": "Trùm",
-    "bossCard": "Thẻ trùm #{{id}}",
-    "bossStats": "HP x{{hp}} | ATK x{{atk}}",
-    "rewardsHeading": "Phần thưởng (3 Sao)",
-    "gold": "Vàng",
-    "startBattle": "⚔️ Bắt đầu trận đấu",
-    "stageBoss": "TRẬN TRÙM",
-    "stageElite": "CHẶNG TINH ANH",
-    "stageMiniboss": "CHẶNG TIỂU TRÙM",
-    "stageNormal": "CHẶNG THƯỜNG",
-    "stageBossHint": "Đánh bại trùm để hoàn thành chặng!",
-    "stageEliteHint": "Một kẻ địch hùng mạnh đang chờ!",
-    "stageMinibossHint": "Có tiểu trùm canh khu vực này!",
-    "stageNormalHint": "Dọn sạch kẻ địch để chiến thắng!",
-    "normal": "Thường",
-    "elite": "Elite",
-    "miniboss": "Mini Boss",
-    "boss": "Boss",
-    "eventStage": "Sự Kiện",
-    "region_01": {
-      "name": "Vịnh Polymer",
-      "desc": "Cảng thu hồi PET ngập nước, nơi các đơn vị polymer học cách tái cấu trúc giáp."
-    },
-    "region_02": {
-      "name": "Thành Trì Cellulose",
-      "desc": "Một pháo đài máy in bỏ hoang vận hành bằng giấy, bìa và nhịp chiến đấu liên hoàn."
-    },
-    "region_03": {
-      "name": "Kính Vực Quang Phổ",
-      "desc": "Khu luyện kính tái chế bẻ cong ánh sáng, phản đòn và phơi lộ điểm yếu."
-    },
-    "region_04": {
-      "name": "Lò Rèn Phế Tích",
-      "desc": "Thép phế liệu, cuộn cảm và máy ép thủy lực tạo nên tuyến phòng thủ nặng nhất."
-    },
-    "region_05": {
-      "name": "Vành Đai Tái Sinh",
-      "desc": "Mycelium và lò ủ sinh học biến chất hữu cơ thành hồi phục cho toàn đội."
-    },
-    "region_06": {
-      "name": "Khu Phong Tỏa Đỏ",
-      "desc": "Mọi sai sót xử lý pin, dung môi và hóa chất đều bị buồng chứa trừng phạt."
-    },
-    "region_07": {
-      "name": "Hành Lang Điện Tích",
-      "desc": "Tua-bin và pin thu hồi trao sức mạnh bùng nổ, nhưng quá tải luôn có cái giá của nó."
-    },
-    "region_08": {
-      "name": "Đới Thủy Triều",
-      "desc": "Các bể áp suất và tuyến lọc nước điều khiển nhịp trận bằng dòng chảy chính xác."
-    },
-    "region_09": {
-      "name": "Nghĩa Địa Điện Tử",
-      "desc": "Module cũ, cảm biến và drone sửa chữa liên kết thành một mạng lưới chiến thuật."
-    },
-    "region_10": {
-      "name": "Lõi Zero Waste",
-      "desc": "Chiến dịch cuối nơi chín hệ vật liệu phải phối hợp để đóng kín vòng tuần hoàn."
-    }
+    "purchaseFailed": "Mua thất bại.",
+    "openFirstPack": "Mở gói đầu tiên"
   },
   "collection": {
     "newCard": "THẺ MỚI!",
@@ -1062,13 +987,6 @@
     "autoContinueIn": "Tiếp tục sau {{seconds}}s",
     "openPack": "Mở gói thẻ",
     "cardsRevealed": "Đã mở {{count}} thẻ"
-  },
-  "stamina": {
-    "stamina": "Thể Lực",
-    "maxStamina": "Thể Lực Tối Đa",
-    "refillIn": "Hồi sau",
-    "full": "Đã Đầy",
-    "notEnough": "Không Đủ Thể Lực"
   },
   "rewards": {
     "xp": "Kinh Nghiệm",

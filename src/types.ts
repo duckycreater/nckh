@@ -11,16 +11,6 @@ export interface UserProgress {
   streakDays?: number;
   lastUpdateDate: string;
   shards?: number;
-  stamina?: number;
-  maxStamina?: number;
-  staminaUpdatedAt?: string;
-  totalStars?: number;
-  campaignStars?: Record<string, number>;
-  campaignClaims?: string[];
-  campaignRewardStars?: Record<string, number>;
-  campaignRewardUnlocks?: string[];
-  campaignGiftByStage?: Record<string, string>;
-  campaignRedeemedStages?: string[];
 }
 
 export interface User {
@@ -39,8 +29,6 @@ export interface User {
   customAvatarUrl?: string;
   level?: number;
   totalExpEarned?: number;
-  unlockedRegions?: string[];
-  currentRegion?: string;
   // Research fields
   dominantProfile?: string;
   personalityMode?: string;

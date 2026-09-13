@@ -353,7 +353,7 @@ export function getCardHeroProfile(card: Card): CardHeroProfile {
     },
     ultimate: {
       name: elementKit.ultimate,
-      description: `Kích hoạt lõi ${callsign} ở công suất chiến dịch, ${effectDescription(elementKit.ultimateEffect, ultimateValue, 3)}.`,
+      description: `Kích hoạt lõi ${callsign} ở công suất tác chiến, ${effectDescription(elementKit.ultimateEffect, ultimateValue, 3)}.`,
       effect: elementKit.ultimateEffect,
       value: ultimateValue,
       duration: 3,

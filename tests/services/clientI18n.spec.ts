@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import i18n from "../../src/lib/i18n";
+import { changeLanguage } from "../../src/lib/i18n";
 import { tCardName } from "../../src/lib/cards";
 
 describe("client i18n rendering", () => {
@@ -40,5 +41,11 @@ describe("client i18n rendering", () => {
   it("humanizes an unknown dynamic key instead of exposing its raw path", async () => {
     await i18n.changeLanguage("vi");
     expect(i18n.t("futureFeature.someRawKey")).toBe("Some Raw Key");
+  });
+
+  it("loads a secondary locale on demand", async () => {
+    await changeLanguage("fr");
+    expect(i18n.t("auth.login")).toBe("CONNEXION");
+    await changeLanguage("vi");
   });
 });

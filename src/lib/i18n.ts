@@ -11,12 +11,6 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import vi from "../locales/vi.json";
 import en from "../locales/en.json";
-import zh from "../locales/zh.json";
-import es from "../locales/es.json";
-import fr from "../locales/fr.json";
-import ja from "../locales/ja.json";
-import ko from "../locales/ko.json";
-import id from "../locales/id.json";
 
 /** Persistent storage key. Migrate from legacy `ecoquest_language`. */
 const STORAGE_KEY = "bmo_language";
@@ -36,6 +30,17 @@ export const LANGUAGES = [
 export type LanguageCode = (typeof LANGUAGES)[number]["code"];
 
 export const SUPPORTED_LANGUAGE_CODES: readonly LanguageCode[] = LANGUAGES.map((l) => l.code);
+
+type LocaleMessages = Record<string, unknown>;
+const localeLoaders: Partial<Record<LanguageCode, () => Promise<LocaleMessages>>> = {
+  zh: () => import("../locales/zh.json").then((module) => module.default as LocaleMessages),
+  es: () => import("../locales/es.json").then((module) => module.default as LocaleMessages),
+  fr: () => import("../locales/fr.json").then((module) => module.default as LocaleMessages),
+  ja: () => import("../locales/ja.json").then((module) => module.default as LocaleMessages),
+  ko: () => import("../locales/ko.json").then((module) => module.default as LocaleMessages),
+  id: () => import("../locales/id.json").then((module) => module.default as LocaleMessages),
+};
+const loadedLanguages = new Set<LanguageCode>(["vi", "en"]);
 
 function migrateLegacyKey() {
   try {
@@ -72,6 +77,8 @@ function humanizeMissingKey(key: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Nội dung";
 }
 
+const initialLanguage = getInitialLanguage();
+
 if (!i18n.isInitialized) {
   // For the newer locale packs (es/fr/ja/ko/id) we deliberately ship a
   // partial JSON. i18next will fallback per-key to "en" for any missing
@@ -81,14 +88,11 @@ if (!i18n.isInitialized) {
     resources: {
       vi: { translation: vi },
       en: { translation: en },
-      zh: { translation: zh },
-      es: { translation: es },
-      fr: { translation: fr },
-      ja: { translation: ja },
-      ko: { translation: ko },
-      id: { translation: id },
     },
-    lng: getInitialLanguage(),
+    // The two canonical locales are bundled for an immediate first paint.
+    // Other packs are fetched only when selected, saving roughly 270 KB of
+    // translation JSON on the common Vietnamese/English startup path.
+    lng: loadedLanguages.has(initialLanguage) ? initialLanguage : "en",
     fallbackLng: ["en", "vi"],
     supportedLngs: [...SUPPORTED_LANGUAGE_CODES, "en"],
     interpolation: {
@@ -174,14 +178,22 @@ function syncDocumentMeta(lng: string) {
 }
 
 /** Change UI language and persist. Notifies subscribers (LanguageSwitcher). */
-export function changeLanguage(code: LanguageCode) {
-  i18n.changeLanguage(code);
+export async function changeLanguage(code: LanguageCode): Promise<void> {
   try {
     localStorage.setItem(STORAGE_KEY, code);
   } catch {
     // Keep the in-memory language when persistence is unavailable.
   }
-  // Update <html dir> attribute synchronously so the next paint is RTL-correct.
+  if (!loadedLanguages.has(code)) {
+    const loader = localeLoaders[code];
+    if (!loader) throw new Error(`No locale loader registered for ${code}`);
+    const messages = await loader();
+    i18n.addResourceBundle(code, "translation", messages, true, true);
+    loadedLanguages.add(code);
+  }
+  await i18n.changeLanguage(code);
+
+  // Update <html dir> attribute before notifying the rest of the app.
   if (typeof document !== "undefined") {
     const rtlCodes = new Set(["ar", "he", "fa", "ur", "yi"]);
     document.documentElement.setAttribute("dir", rtlCodes.has(code) ? "rtl" : "ltr");
@@ -204,14 +216,21 @@ if (typeof document !== "undefined") {
   syncDocumentMeta(getCurrentLanguage());
 }
 
+if (!loadedLanguages.has(initialLanguage)) {
+  void changeLanguage(initialLanguage).catch((error) => {
+    console.warn(`[i18n] Failed to load ${initialLanguage}; using English fallback.`, error);
+  });
+}
+
 export function getCurrentLanguage(): LanguageCode {
   return (i18n.language as LanguageCode) || "vi";
 }
 
 /** Subscribe to language changes outside React. */
 export function onLanguageChanged(handler: (code: LanguageCode) => void) {
-  i18n.on("languageChanged", (lng) => handler(lng as LanguageCode));
-  return () => i18n.off("languageChanged", handler);
+  const wrapped = (lng: string) => handler(lng as LanguageCode);
+  i18n.on("languageChanged", wrapped);
+  return () => i18n.off("languageChanged", wrapped);
 }
 
 export default i18n;

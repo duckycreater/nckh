@@ -21,7 +21,6 @@ import {
   Database,
   FileSpreadsheet,
   Server,
-  Trophy,
 } from "lucide-react";
 import { User, RewardItem } from "../types";
 import {
@@ -45,7 +44,6 @@ import { QuizConfigPanel } from "./admin/QuizConfigPanel";
 import { SheetsSyncPanel } from "./admin/SheetsSyncPanel";
 import { ResearchPanel } from "./admin/ResearchPanel";
 import { SystemPanel } from "./admin/SystemPanel";
-import { CampaignRewardsPanel } from "./admin/CampaignRewardsPanel";
 
 interface Props {
   user: User;
@@ -106,15 +104,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<
-    | "overview"
-    | "rewards"
-    | "campaign"
-    | "users"
-    | "experiments"
-    | "quiz"
-    | "sheets"
-    | "research"
-    | "system"
+    "overview" | "rewards" | "users" | "experiments" | "quiz" | "sheets" | "research" | "system"
   >("overview");
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -422,7 +412,6 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const tabs = [
     { id: "overview", label: t("admin.tabs.overview"), icon: <BarChart3 className="h-4 w-4" /> },
     { id: "rewards", label: t("admin.tabs.rewards"), icon: <Gift className="h-4 w-4" /> },
-    { id: "campaign", label: "Campaign", icon: <Trophy className="h-4 w-4" /> },
     { id: "users", label: t("admin.tabs.users"), icon: <Users className="h-4 w-4" /> },
     {
       id: "experiments",
@@ -625,8 +614,6 @@ export function AdminDashboard({ user, onLogout }: Props) {
             )}
           </Card>
         )}
-
-        {activeTab === "campaign" && <CampaignRewardsPanel />}
 
         {activeTab === "users" && (
           <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">

@@ -27,7 +27,6 @@ export interface ResearchUserRecord {
   quizzesCompleted: number;
   chatMessagesCount: number;
   friendCount: number;
-  unlockedRegions: string[];
   /** Environmental Identity Scale (Whitmarsh-O'Neill EID-4) mean 1..7 normalised to 0..1. */
   environmentalIdentityScore: number;
   /** Streak in days. */
@@ -51,8 +50,7 @@ export function subscoresFromRecord(r: Partial<ResearchUserRecord>): ComSubscore
 
   const physicalOpportunity = 0.7; // assumption: schools all have bins
   const friends = r.friendCount ?? 0;
-  const regionsUnlocked = (r.unlockedRegions?.length ?? 0) / 8.0;
-  const socialOpportunity = squish((friends - 1) / 6) * 0.55 + Math.min(1, regionsUnlocked) * 0.45;
+  const socialOpportunity = squish((friends - 1) / 6);
 
   const eidScore = r.environmentalIdentityScore;
   const reflectiveMotivation = eidScore == null ? 0.5 : Math.max(0, Math.min(1, eidScore));

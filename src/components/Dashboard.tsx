@@ -4,14 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { User } from "../types";
 import { formatNumber } from "../lib/format";
 import { Minigame } from "./Minigame";
-import { Leaderboard } from "./Leaderboard";
 import { VirtualGarden } from "./VirtualGarden";
 import { DailyChallenges } from "./DailyChallenges";
-import { RewardStore } from "./RewardStore";
-import { RewardHistory } from "./RewardHistory";
-import { CraftingStation } from "./CraftingStation";
-import { ProfileView } from "./ProfileView";
-import { Settings } from "./Settings";
 import { AdaptiveRewardBanner } from "./AdaptiveRewardBanner";
 import { StreakCalendar } from "./StreakCalendar";
 import { MilestoneBurst, MilestoneProgress, checkMilestones } from "./MilestoneBurst";
@@ -19,10 +13,7 @@ import { LevelUpCelebration } from "./LevelUpCelebration";
 import { calculateLevel, TIER_NAMES, levelToTier } from "../lib/useLevel";
 import { AchievementPopup } from "./AchievementPopup";
 import { SurpriseGift, STREAK_GIFT_TIERS } from "./SurpriseGift";
-import { DailyWheel, type WheelSpinResult } from "./DailyWheel";
-import { PvPArena } from "./PvPArena";
-import { TournamentBracket } from "./TournamentBracket";
-import { ClanLobby } from "./ClanLobby";
+import type { WheelSpinResult } from "./DailyWheel";
 import { saveStreakToCache } from "../lib/streakPersistence";
 import { showPointsToast, PointsToastContainer } from "../lib/toast";
 import { getAuthHeaders } from "../lib/auth";
@@ -44,12 +35,33 @@ import {
   ChevronRight,
   Gift,
   Star,
-  Map as MapIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const LazyFlashcards = lazy(() => import("./Flashcards").then((m) => ({ default: m.Flashcards })));
 const LazyAIScanner = lazy(() => import("./AIScanner").then((m) => ({ default: m.AIScanner })));
+const LazyLeaderboard = lazy(() =>
+  import("./Leaderboard").then((m) => ({ default: m.Leaderboard })),
+);
+const LazyRewardStore = lazy(() =>
+  import("./RewardStore").then((m) => ({ default: m.RewardStore })),
+);
+const LazyRewardHistory = lazy(() =>
+  import("./RewardHistory").then((m) => ({ default: m.RewardHistory })),
+);
+const LazyCraftingStation = lazy(() =>
+  import("./CraftingStation").then((m) => ({ default: m.CraftingStation })),
+);
+const LazyProfileView = lazy(() =>
+  import("./ProfileView").then((m) => ({ default: m.ProfileView })),
+);
+const LazySettings = lazy(() => import("./Settings").then((m) => ({ default: m.Settings })));
+const LazyDailyWheel = lazy(() => import("./DailyWheel").then((m) => ({ default: m.DailyWheel })));
+const LazyPvPArena = lazy(() => import("./PvPArena").then((m) => ({ default: m.PvPArena })));
+const LazyTournamentBracket = lazy(() =>
+  import("./TournamentBracket").then((m) => ({ default: m.TournamentBracket })),
+);
+const LazyClanLobby = lazy(() => import("./ClanLobby").then((m) => ({ default: m.ClanLobby })));
 
 function LoadingFallback({ message = "Đang tải..." }: { message?: string }) {
   return (
@@ -419,13 +431,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">
                     {t("dashboard.toolsLabel")}
                   </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
-                    <ActionBtn
-                      icon={<MapIcon size={20} className="text-cyan-600" />}
-                      label={t("nav.campaign")}
-                      color="bg-cyan-50 border-cyan-200"
-                      onClick={() => navigate("/world-map")}
-                    />
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     <ActionBtn
                       icon={<Trophy size={20} className="text-orange-500" />}
                       label={t("dashboard.leaderboard")}
@@ -494,7 +500,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               <Suspense fallback={<LoadingFallback message="Đang tải bộ sưu tập..." />}>
                 <LazyFlashcards
                   onReward={handleEarnPoints}
-                  onOpenCampaign={() => navigate("/world-map")}
                   points={user.points}
                   userId={user.account_id}
                   progress={user.progress}
@@ -505,23 +510,25 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
             {/* CRAFT */}
             {activeTab === "craft" && (
-              <div className="space-y-4">
-                <CraftingStation
-                  points={user.points}
-                  progress={user.progress}
-                  onRefresh={triggerRefresh}
-                />
-                <RewardStore
-                  points={user.points}
-                  progress={user.progress}
-                  onRefresh={triggerRefresh}
-                />
-                <RewardHistory
-                  userId={user.account_id}
-                  currentBalance={user.points}
-                  refreshKey={refreshTrigger}
-                />
-              </div>
+              <Suspense fallback={<LoadingFallback message="Đang tải đổi quà..." />}>
+                <div className="space-y-4">
+                  <LazyCraftingStation
+                    points={user.points}
+                    progress={user.progress}
+                    onRefresh={triggerRefresh}
+                  />
+                  <LazyRewardStore
+                    points={user.points}
+                    progress={user.progress}
+                    onRefresh={triggerRefresh}
+                  />
+                  <LazyRewardHistory
+                    userId={user.account_id}
+                    currentBalance={user.points}
+                    refreshKey={refreshTrigger}
+                  />
+                </div>
+              </Suspense>
             )}
 
             {/* LEADERBOARD */}
@@ -533,11 +540,13 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 >
                   ← Trang chủ
                 </button>
-                <Leaderboard
-                  refreshTrigger={refreshTrigger}
-                  currentUser={user.account_id}
-                  onUserClick={(nickname) => setViewingProfile(nickname)}
-                />
+                <Suspense fallback={<LoadingFallback message="Đang tải bảng xếp hạng..." />}>
+                  <LazyLeaderboard
+                    refreshTrigger={refreshTrigger}
+                    currentUser={user.account_id}
+                    onUserClick={(nickname) => setViewingProfile(nickname)}
+                  />
+                </Suspense>
               </div>
             )}
           </div>
@@ -569,18 +578,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 <Compass size={20} />
               </motion.div>
               <span className="text-[10px] font-bold">{t("nav.cards")}</span>
-            </button>
-            <button
-              onClick={() => navigate("/world-map")}
-              className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-cyan-600 transition-colors"
-            >
-              <motion.div
-                animate={{ y: [-1, -3, -1] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-              >
-                <MapIcon size={20} />
-              </motion.div>
-              <span className="text-[10px] font-black">{t("nav.campaign")}</span>
             </button>
             <button
               onClick={() => navigate("/craft")}
@@ -624,68 +621,70 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
           </Suspense>
         )}
 
-        {viewingProfile && (
-          <ProfileView
-            nickname={viewingProfile}
-            currentUserNick={user.account_id}
-            onClose={() => setViewingProfile(null)}
-          />
-        )}
+        <Suspense fallback={null}>
+          {viewingProfile && (
+            <LazyProfileView
+              nickname={viewingProfile}
+              currentUserNick={user.account_id}
+              onClose={() => setViewingProfile(null)}
+            />
+          )}
 
-        {showSettings && (
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute inset-0 z-50 bg-[var(--background)] overflow-y-auto"
-          >
-            <div className="p-4">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="mb-6 flex items-center gap-1 text-sm font-bold text-[var(--primary)] hover:underline"
-              >
-                ← Đóng
-              </button>
-              <Settings user={user} onUpdate={onUpdateUser} />
-            </div>
-          </motion.div>
-        )}
+          {showSettings && (
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="absolute inset-0 z-50 bg-[var(--background)] overflow-y-auto"
+            >
+              <div className="p-4">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="mb-6 flex items-center gap-1 text-sm font-bold text-[var(--primary)] hover:underline"
+                >
+                  ← Đóng
+                </button>
+                <LazySettings user={user} onUpdate={onUpdateUser} />
+              </div>
+            </motion.div>
+          )}
 
-        {showDailyWheel && (
-          <DailyWheel
-            lastSpinDate={lastWheelDate}
-            onSpin={handleWheelSpin}
-            onClose={() => setShowDailyWheel(false)}
-          />
-        )}
+          {showDailyWheel && (
+            <LazyDailyWheel
+              lastSpinDate={lastWheelDate}
+              onSpin={handleWheelSpin}
+              onClose={() => setShowDailyWheel(false)}
+            />
+          )}
 
-        {showSurpriseGift && (
-          <SurpriseGift
-            streakDays={streakDays}
-            onClaim={handleSurpriseClaim}
-            onClose={() => setShowSurpriseGift(null)}
-          />
-        )}
+          {showSurpriseGift && (
+            <SurpriseGift
+              streakDays={streakDays}
+              onClaim={handleSurpriseClaim}
+              onClose={() => setShowSurpriseGift(null)}
+            />
+          )}
 
-        {showPvPArena && (
-          <PvPArena
-            currentUserNick={user.name}
-            onClose={() => setShowPvPArena(false)}
-            onBattle={() => setShowPvPArena(false)}
-          />
-        )}
+          {showPvPArena && (
+            <LazyPvPArena
+              currentUserNick={user.name}
+              onClose={() => setShowPvPArena(false)}
+              onBattle={() => setShowPvPArena(false)}
+            />
+          )}
 
-        {showTournament && (
-          <TournamentBracket
-            currentUserNick={user.account_id}
-            onClose={() => setShowTournament(false)}
-          />
-        )}
+          {showTournament && (
+            <LazyTournamentBracket
+              currentUserNick={user.account_id}
+              onClose={() => setShowTournament(false)}
+            />
+          )}
 
-        {showClanLobby && (
-          <ClanLobby userNick={user.account_id} onClose={() => setShowClanLobby(false)} />
-        )}
+          {showClanLobby && (
+            <LazyClanLobby userNick={user.account_id} onClose={() => setShowClanLobby(false)} />
+          )}
+        </Suspense>
 
         {pendingMilestone && (
           <MilestoneBurst

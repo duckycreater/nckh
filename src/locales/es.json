@@ -30,7 +30,6 @@
   "nav": {
     "home": "Inicio",
     "cards": "Colección",
-    "campaign": "Campaña",
     "craft": "Crear",
     "leaderboard": "Clasificación"
   },
@@ -321,15 +320,7 @@
     }
   },
   "cardBattle": {
-    "campaignLevels": {
-      "level1": "Tin Can Wasteland",
-      "level2": "Toxic Plastic Swamp",
-      "level3": "Organic Compound Mountain",
-      "level4": "Rusty Metal Forest",
-      "level5": "Incinerator Core"
-    },
     "turn": "Turn {turn}",
-    "selectCampaign": "Select Campaign",
     "defeatBosses": "Defeat 3 bosses in a row!",
     "start": "¡Batalla!",
     "needCard": "At least 1 card needed to battle!",
@@ -1102,64 +1093,8 @@
     "xpAdded": "+{exp} EXP added!",
     "newCardAdded": "New card added to collection!",
     "cardAdded": "Card added to collection!",
-    "purchaseFailed": "Purchase failed."
-  },
-  "campaign": {
-    "worldMap": "World Map",
-    "worldMapSubtitle": "100 Stages to Conquer",
-    "playerLevel": "Level",
-    "stages": "Stages",
-    "totalStars": "Total Stars",
-    "requiredLevel": "Required Level",
-    "startCampaign": "Start Campaign",
-    "locked": "Locked",
-    "reachLevel": "Reach level",
-    "stage": "Stage",
-    "normal": "Normal",
-    "elite": "Elite",
-    "miniboss": "Mini Boss",
-    "boss": "Boss",
-    "eventStage": "Event",
-    "region_01": {
-      "name": "Roadside Dump",
-      "desc": "Where the journey begins. Household waste everywhere."
-    },
-    "region_02": {
-      "name": "Flea Market",
-      "desc": "The flea market with all sorts of used items."
-    },
-    "region_03": {
-      "name": "Industrial Waste Zone",
-      "desc": "Area heavy with industrial waste."
-    },
-    "region_04": {
-      "name": "Transfer Station",
-      "desc": "City waste transfer station."
-    },
-    "region_05": {
-      "name": "Toxic Waste Land",
-      "desc": "Land heavily polluted by toxic waste."
-    },
-    "region_06": {
-      "name": "Recycling Plant",
-      "desc": "Modern plant with cutting-edge recycling technology."
-    },
-    "region_07": {
-      "name": "Plastic Ocean",
-      "desc": "Ocean polluted by massive plastic waste."
-    },
-    "region_08": {
-      "name": "The Forbidden Zone",
-      "desc": "Restricted area with dangerous mutant creatures."
-    },
-    "region_09": {
-      "name": "Abyssal Hellscape",
-      "desc": "Bottomless abyss, home of garbage monsters."
-    },
-    "region_10": {
-      "name": "The Trash Throne",
-      "desc": "Throne of the Trash King, site of the final battle."
-    }
+    "purchaseFailed": "Purchase failed.",
+    "openFirstPack": "Abre tu primer paquete"
   },
   "collection": {
     "newCard": "NEW CARD!",
@@ -1178,13 +1113,6 @@
     "autoContinueIn": "Auto-continuing in {{seconds}}s",
     "openPack": "Open pack",
     "cardsRevealed": "Opened {{count}} cards"
-  },
-  "stamina": {
-    "stamina": "Stamina",
-    "maxStamina": "Max Stamina",
-    "refillIn": "Refills in",
-    "full": "Full",
-    "notEnough": "Not Enough Stamina"
   },
   "rewards": {
     "xp": "XP",

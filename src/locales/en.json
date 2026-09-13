@@ -30,7 +30,6 @@
   "nav": {
     "home": "Home",
     "cards": "Collection",
-    "campaign": "Campaign",
     "craft": "Craft",
     "leaderboard": "Leaderboard"
   },
@@ -322,15 +321,7 @@
     }
   },
   "cardBattle": {
-    "campaignLevels": {
-      "level1": "Tin Can Wasteland",
-      "level2": "Toxic Plastic Swamp",
-      "level3": "Organic Compound Mountain",
-      "level4": "Rusty Metal Forest",
-      "level5": "Incinerator Core"
-    },
     "turn": "Turn {turn}",
-    "selectCampaign": "Select Campaign",
     "defeatBosses": "Defeat 3 bosses in a row!",
     "start": "Battle!",
     "needCard": "At least 1 card needed to battle!",
@@ -428,7 +419,15 @@
   "streakCalendar": {
     "history": "Check-in History",
     "last7Days": "Last 7 days",
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "surpriseGift": {
     "openning": "Opening gift...",
@@ -1154,82 +1153,8 @@
     "xpAdded": "+{exp} EXP added!",
     "newCardAdded": "New card added to collection!",
     "cardAdded": "Card added to collection!",
-    "purchaseFailed": "Purchase failed."
-  },
-  "campaign": {
-    "worldMap": "World Map",
-    "worldMapSubtitle": "100 Stages to Conquer",
-    "playerLevel": "Level",
-    "stages": "Stages",
-    "totalStars": "Total Stars",
-    "requiredLevel": "Required Level",
-    "startCampaign": "Start Campaign",
-    "openPack": "Open your first pack",
-    "locked": "Locked",
-    "reachLevel": "Reach level",
-    "stage": "Stage",
-    "stageNotFound": "Stage not found",
-    "backToMap": "← Back to map",
-    "enemies": "Enemies",
-    "boss": "Boss",
-    "bossCard": "Boss Card #{{id}}",
-    "bossStats": "HP x{{hp}} | ATK x{{atk}}",
-    "rewardsHeading": "Rewards (3 Stars)",
-    "gold": "Gold",
-    "startBattle": "⚔️ Start Battle",
-    "stageBoss": "BOSS BATTLE",
-    "stageElite": "ELITE STAGE",
-    "stageMiniboss": "MINIBOSS STAGE",
-    "stageNormal": "NORMAL STAGE",
-    "stageBossHint": "Defeat the boss to clear this stage!",
-    "stageEliteHint": "A powerful enemy awaits!",
-    "stageMinibossHint": "A mini-boss guards this area!",
-    "stageNormalHint": "Clear all enemies to win!",
-    "normal": "Normal",
-    "elite": "Elite",
-    "miniboss": "Mini Boss",
-    "boss": "Boss",
-    "eventStage": "Event",
-    "region_01": {
-      "name": "Polymer Bay",
-      "desc": "A flooded PET recovery dock where polymer units learn to reconfigure their armor."
-    },
-    "region_02": {
-      "name": "Cellulose Citadel",
-      "desc": "An abandoned press fortress powered by paper, board and chained combat tempo."
-    },
-    "region_03": {
-      "name": "Prism Glassworks",
-      "desc": "A recycled-glass foundry that refracts attacks and exposes weak points."
-    },
-    "region_04": {
-      "name": "Salvage Foundry",
-      "desc": "Scrap plate, induction coils and hydraulic presses form the heaviest defense line."
-    },
-    "region_05": {
-      "name": "Regrowth Belt",
-      "desc": "Mycelium and bioreactors turn organic matter into restoration for the whole squad."
-    },
-    "region_06": {
-      "name": "Red Containment",
-      "desc": "Every mistake with batteries, solvents and chemicals is punished by sealed chambers."
-    },
-    "region_07": {
-      "name": "Charge Corridor",
-      "desc": "Recovered turbines and cells offer explosive power, but overcharge always has a cost."
-    },
-    "region_08": {
-      "name": "Pressure Tidelands",
-      "desc": "Pressure vessels and water treatment lines control combat through precise flow."
-    },
-    "region_09": {
-      "name": "E-Waste Graveyard",
-      "desc": "Retired modules, sensors and repair drones connect into a tactical network."
-    },
-    "region_10": {
-      "name": "Zero-Waste Core",
-      "desc": "The final operation where all nine material systems close the resource loop together."
-    }
+    "purchaseFailed": "Purchase failed.",
+    "openFirstPack": "Open your first pack"
   },
   "collection": {
     "newCard": "NEW CARD!",
@@ -1250,13 +1175,6 @@
     "autoContinueIn": "Auto-continuing in {{seconds}}s",
     "openPack": "Open pack",
     "cardsRevealed": "Opened {{count}} cards"
-  },
-  "stamina": {
-    "stamina": "Stamina",
-    "maxStamina": "Max Stamina",
-    "refillIn": "Refills in",
-    "full": "Full",
-    "notEnough": "Not Enough Stamina"
   },
   "rewards": {
     "xp": "XP",

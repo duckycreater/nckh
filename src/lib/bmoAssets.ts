@@ -1,6 +1,5 @@
 export const BMO_ASSETS = {
   authHero: "/assets/bmo/scenes/auth-hero.webp",
-  campaignArena: "/assets/bmo/scenes/campaign-arena.webp",
   gachaVault: "/assets/bmo/scenes/gacha-vault.webp",
   cardBack: "/assets/bmo/cards/card-back.webp",
 } as const;
