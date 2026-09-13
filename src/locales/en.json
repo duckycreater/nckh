@@ -286,6 +286,7 @@
     "cameraError": "Cannot access camera. Grant camera permission in your browser or upload an image from your device.",
     "capture": "Capture",
     "closeCamera": "Close Camera",
+    "cameraPreview": "Camera preview",
     "startWithImage": "Start with an image",
     "startImageHint": "Upload from your device or use the camera to get detailed, clear, and actionable analysis.",
     "analyzing": "Analyzing image",
@@ -407,6 +408,7 @@
     "perSession": "Save per user session",
     "askPlaceholder": "Ask your question...",
     "openChatbot": "Open chatbot",
+    "voiceError": "Microphone is unavailable. Check browser permission and try again.",
     "errorResponse": "Error: {error}",
     "connectionError": "Cannot connect to server."
   },
@@ -503,6 +505,11 @@
     }
   },
   "admin": {
+    "logout": "Log out",
+    "totalUsers": "Total users",
+    "admins": "Administrators",
+    "recentActivity": "Recently active",
+    "experimentsActive": "Active experiments",
     "tabs": {
       "overview": "Overview",
       "rewards": "Rewards",
@@ -1025,6 +1032,24 @@
       "roguelike": "Survival",
       "shards": "Shards"
     },
+    "challenge": {
+      "multiElement": "Multi-element squad",
+      "multiElementDesc": "Win with a squad containing at least three different elements.",
+      "speedWin": "Lightning victory",
+      "speedWinDesc": "Finish a battle in record time.",
+      "noDamage": "Untouched",
+      "noDamageDesc": "Win without losing HP.",
+      "koAll": "Clean sweep",
+      "koAllDesc": "Defeat every opponent in one turn.",
+      "epicWin": "Legendary moment",
+      "epicWinDesc": "Win using an Epic card."
+    },
+    "sort": {
+      "power": "Power",
+      "level": "Level",
+      "rarity": "Rarity",
+      "name": "Name"
+    },
     "shard": {
       "xpSmall": "Small EXP Charm",
       "xpSmallDesc": "+50 EXP for any card",
@@ -1075,6 +1100,11 @@
       "close": "Close",
       "spinning": "Opening...",
       "result": "Result",
+      "pack": "BMO Eco Vault",
+      "revealTitle": "Card reveal",
+      "tapReveal": "Tap to reveal card",
+      "skipAll": "Skip all",
+      "reveal": "Reveal card",
       "newBadge": "New card",
       "newCard": "New card! Added to collection",
       "duplicate": "You already have this card",
@@ -1102,6 +1132,9 @@
       "legendary": "{n} pulls until guaranteed Legendary"
     },
     "searchPlaceholder": "Search cards by name...",
+    "loadMore": "Show more",
+    "collectionStars": "Collection stars",
+    "shards": "shards",
     "levelup": {
       "notEnough": "Not enough EXP!",
       "success": "Level up successful to Lv.{level}!",
@@ -1130,6 +1163,7 @@
     "totalStars": "Total Stars",
     "requiredLevel": "Required Level",
     "startCampaign": "Start Campaign",
+    "openPack": "Open your first pack",
     "locked": "Locked",
     "reachLevel": "Reach level",
     "stage": "Stage",
@@ -1201,6 +1235,8 @@
     "viewCollection": "View Collection",
     "totalCards": "Total Cards",
     "uniqueCards": "Unique Cards",
+    "ownedCards": "Owned cards",
+    "progress": "Progress",
     "missingCards": "Missing Cards",
     "shinyCards": "Shiny Cards",
     "eventCards": "Event Cards",
@@ -1595,6 +1631,30 @@
   "family": {
     "open": "Open Family Mode",
     "homeTitle": "Family Mode"
+  },
+  "bmoCare": {
+    "title": "Virtual companion",
+    "errorLoading": "BMO Care data could not be loaded.",
+    "moodExcited": "Excited",
+    "moodHappy": "Happy",
+    "moodNeutral": "Neutral",
+    "moodSad": "Sad",
+    "moodCritical": "Needs care",
+    "totalInteractions": "Interactions",
+    "bestMood": "Best mood",
+    "nextUnlock": "Next unlock",
+    "unlockNow": "Ready to unlock",
+    "daysAway": "days remaining",
+    "unlocked": "Unlocked",
+    "moodHistory": "Mood history"
+  },
+  "dataset": {
+    "title": "Contribute to Open Science"
+  },
+  "wasteRush": {
+    "introDesc": "Sort as much waste as you can before time runs out. Build combos for a higher score.",
+    "startButton": "Start challenge",
+    "timeLeft": "Time left"
   },
   "error": {
     "serverUnavailable": "Server unavailable",

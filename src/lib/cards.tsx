@@ -345,8 +345,18 @@ export function tAbility(abilityId: string): string {
 export function tCardName(name: string): string {
   const key = CARDS_I18N[name];
   if (key) {
-    const translated = i18n.t(`cards.names.${key}`);
-    return translated !== `cards.names.${key}` ? translated : name;
+    const resourceKey = `cards.names.${key}`;
+    // The canonical card catalog is authored in Vietnamese. Older vi.json
+    // packs omit some names, so falling through to English here makes a
+    // Vietnamese screen look like raw/untranslated data. Prefer the catalog
+    // name when the active Vietnamese pack has no explicit entry.
+    const language = i18n.resolvedLanguage || i18n.language || "vi";
+    if (language.startsWith("vi")) {
+      const vietnamese = i18n.getResource("vi", "translation", resourceKey);
+      return typeof vietnamese === "string" && vietnamese.trim() ? vietnamese : name;
+    }
+    const translated = i18n.t(resourceKey);
+    return translated !== resourceKey ? translated : name;
   }
   return name;
 }

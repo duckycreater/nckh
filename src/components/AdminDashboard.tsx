@@ -442,7 +442,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/research")}>
-              <Activity className="h-4 w-4" /> {t("admin.research")}
+              <Activity className="h-4 w-4" /> {t("admin.tabs.research")}
             </Button>
             <Button variant="ghost" size="sm" onClick={onLogout}>
               <LogOut className="h-4 w-4" /> {t("admin.logout", "Đăng xuất")}

@@ -24,6 +24,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const ts = require('typescript');
 
 const ROOT = path.resolve(__dirname, '..');
 const FE = path.join(ROOT, 'src', 'locales');
@@ -146,6 +147,71 @@ function requiredErrorKeysCheck() {
   }
 }
 
+/**
+ * Verify literal client-side t("namespace.key") calls against both canonical
+ * locale packs. i18next otherwise renders the missing key itself, which leaks
+ * implementation details such as `bmoCare.moodHappy` into the interface.
+ */
+function requiredClientKeysCheck() {
+  console.log('\n→ required client translation coverage');
+  const en = new Set(flatten(readJson(path.join(FE, 'en.json'))));
+  const vi = new Set(flatten(readJson(path.join(FE, 'vi.json'))));
+  const references = new Map();
+
+  function walk(directory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'locales') walk(fullPath);
+        continue;
+      }
+      if (!/\.(?:ts|tsx)$/.test(entry.name)) continue;
+      const sourceText = fs.readFileSync(fullPath, 'utf8');
+      const sourceFile = ts.createSourceFile(
+        fullPath,
+        sourceText,
+        ts.ScriptTarget.Latest,
+        true,
+        entry.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      );
+      const visit = (node) => {
+        if (
+          ts.isCallExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === 't' &&
+          node.arguments.length > 0 &&
+          (ts.isStringLiteral(node.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))
+        ) {
+          const key = node.arguments[0].text;
+          if (key.includes('.')) {
+            const line = sourceFile.getLineAndCharacterOfPosition(node.arguments[0].getStart()).line + 1;
+            const locations = references.get(key) || [];
+            locations.push(`${path.relative(ROOT, fullPath)}:${line}`);
+            references.set(key, locations);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sourceFile);
+    }
+  }
+
+  walk(path.join(ROOT, 'src'));
+  const missing = [...references.entries()].filter(([key]) => !en.has(key) || !vi.has(key));
+  if (missing.length) {
+    log(
+      false,
+      'client translation keys missing from en.json or vi.json',
+      missing
+        .slice(0, 10)
+        .map(([key, locations]) => `${key} (${locations[0]})`)
+        .join(', '),
+    );
+  } else {
+    log(true, `all ${references.size} literal client keys resolve in en.json and vi.json`);
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Main
 // ----------------------------------------------------------------------------
@@ -157,6 +223,7 @@ console.log('──────────────────────�
 parityCheck(FE, 'frontend src/locales/*.json');
 parityCheck(BE, 'backend server/locales/*.json');
 requiredErrorKeysCheck();
+requiredClientKeysCheck();
 
 console.log('\n──────────────────────────────────────────────');
 if (failed) {

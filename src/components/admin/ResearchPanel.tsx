@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Badge, SectionHeading, EmptyState } from "../../lib/ui";
 import { showToast } from "../../lib/toast";
+import { StructuredDataView } from "./StructuredDataView";
 
 const token = () => localStorage.getItem("auth_token") || "";
 
@@ -44,13 +45,6 @@ interface UserDetailResult {
   interventions: InterventionData | null;
   loading: boolean;
   error: string | null;
-}
-
-// Helper to safely escape HTML (prevent XSS)
-function escapeHtml(text: string): string {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 // Types for Research Dashboard API responses
@@ -266,30 +260,23 @@ export function ResearchPanel() {
           </div>
         )}
 
-        {/* Error state - escape HTML to prevent XSS */}
+        {/* React escapes text values, so rendering the message directly is safe. */}
         {userDetail.error && (
           <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
-            Lỗi: {escapeHtml(userDetail.error)}
+            Lỗi: {userDetail.error}
           </div>
         )}
 
-        {/* Success state - render JSON safely */}
+        {/* Success state */}
         {userDetail.profile !== null && !userDetail.loading && !userDetail.error && (
-          <div className="mt-3 rounded-2xl bg-slate-50 p-3">
-            <pre
-              className="text-xs overflow-auto"
-              style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-            >
-              {JSON.stringify(
-                {
-                  profile: userDetail.profile,
-                  decay: userDetail.decay,
-                  interventions: userDetail.interventions,
-                },
-                null,
-                2,
-              )}
-            </pre>
+          <div className="mt-3">
+            <StructuredDataView
+              data={{
+                profile: userDetail.profile,
+                decay: userDetail.decay,
+                interventions: userDetail.interventions,
+              }}
+            />
           </div>
         )}
       </Card>
@@ -350,9 +337,7 @@ function OverviewView({ data }: { data: ResearchOverview }) {
       {data.personalityDistribution && (
         <div className="col-span-full rounded-2xl border border-slate-100 bg-slate-50 p-4">
           <h3 className="text-sm font-semibold mb-2">Phân bố personality</h3>
-          <pre className="text-xs overflow-auto">
-            {JSON.stringify(data.personalityDistribution, null, 2)}
-          </pre>
+          <StructuredDataView data={data.personalityDistribution} />
         </div>
       )}
     </div>
@@ -363,9 +348,7 @@ function RetentionView({ data }: { data: ResearchRetention }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">7-day Retention</h3>
-      <pre className="text-xs overflow-auto bg-slate-50 p-3 rounded">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      <StructuredDataView data={data} />
     </div>
   );
 }
@@ -374,9 +357,7 @@ function InterventionsView({ data }: { data: InterventionEffectiveness }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Intervention Effectiveness</h3>
-      <pre className="text-xs overflow-auto bg-slate-50 p-3 rounded">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      <StructuredDataView data={data} />
     </div>
   );
 }
@@ -385,9 +366,7 @@ function DecayView({ data }: { data: EngagementDecay }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Engagement Decay (30 ngày)</h3>
-      <pre className="text-xs overflow-auto bg-slate-50 p-3 rounded">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      <StructuredDataView data={data} />
     </div>
   );
 }
@@ -396,9 +375,7 @@ function PersonalityView({ data }: { data: PersonalityComparison }) {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Personality Comparison</h3>
-      <pre className="text-xs overflow-auto bg-slate-50 p-3 rounded">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      <StructuredDataView data={data} />
     </div>
   );
 }

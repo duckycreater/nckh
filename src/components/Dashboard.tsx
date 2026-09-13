@@ -330,7 +330,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   )}
                 </div>
                 <p className="text-[11px] text-[var(--text-muted)] truncate">
-                  Lv.{level} · {tierData.short}
+                  Lv.{level} · {loc.startsWith("vi") ? tierData.full : tierData.short}
                 </p>
               </div>
             </button>

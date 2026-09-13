@@ -63,6 +63,15 @@ function getInitialLanguage(): LanguageCode {
   return "vi";
 }
 
+function humanizeMissingKey(key: string): string {
+  const leaf = key.split(".").at(-1) || key;
+  const words = leaf
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Nội dung";
+}
+
 if (!i18n.isInitialized) {
   // For the newer locale packs (es/fr/ja/ko/id) we deliberately ship a
   // partial JSON. i18next will fallback per-key to "en" for any missing
@@ -92,6 +101,10 @@ if (!i18n.isInitialized) {
     },
     returnNull: false,
     saveMissing: false,
+    // Last-resort protection for dynamic keys that static coverage cannot
+    // enumerate. Never expose implementation paths such as `feature.fooBar`
+    // to users, even if a future locale entry is accidentally omitted.
+    parseMissingKeyHandler: humanizeMissingKey,
     // Silence "key not found" warnings in dev for the partial locale packs.
     // Production builds still ship the keys, so the only visible effect is
     // a more focused dev console.

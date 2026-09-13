@@ -286,6 +286,7 @@
     "cameraError": "Không thể truy cập camera. Hãy cấp quyền camera trong trình duyệt hoặc tải ảnh từ thiết bị.",
     "capture": "Chụp ảnh",
     "closeCamera": "Đóng camera",
+    "cameraPreview": "Khung xem trước camera",
     "startWithImage": "Bắt đầu với một hình ảnh",
     "startImageHint": "Tải ảnh từ thiết bị hoặc dùng camera để nhận phân tích chi tiết, rõ ràng và dễ hành động hơn.",
     "analyzing": "Đang phân tích hình ảnh",
@@ -407,6 +408,7 @@
     "perSession": "Lưu theo phiên người dùng",
     "askPlaceholder": "Nhập câu hỏi của bạn...",
     "openChatbot": "Mở chatbot",
+    "voiceError": "Không thể dùng micro. Hãy kiểm tra quyền trình duyệt và thử lại.",
     "errorResponse": "Lỗi: {error}",
     "connectionError": "Lỗi kết nối đến server."
   },
@@ -503,6 +505,11 @@
     }
   },
   "admin": {
+    "logout": "Đăng xuất",
+    "totalUsers": "Tổng người dùng",
+    "admins": "Quản trị viên",
+    "recentActivity": "Hoạt động gần đây",
+    "experimentsActive": "Thí nghiệm đang chạy",
     "tabs": {
       "overview": "Tổng quan",
       "rewards": "Phần thưởng",
@@ -837,6 +844,24 @@
       "roguelike": "Sinh Tồn",
       "shards": "Mảnh ghép"
     },
+    "challenge": {
+      "multiElement": "Đa nguyên tố",
+      "multiElementDesc": "Thắng bằng đội hình có từ 3 nguyên tố khác nhau.",
+      "speedWin": "Tốc độ ánh sáng",
+      "speedWinDesc": "Hoàn thành trận đấu trong thời gian kỷ lục.",
+      "noDamage": "Không một vết xước",
+      "noDamageDesc": "Chiến thắng mà không mất HP.",
+      "koAll": "Quét sạch",
+      "koAllDesc": "Hạ gục toàn bộ đối thủ trong một lượt.",
+      "epicWin": "Khoảnh khắc huyền thoại",
+      "epicWinDesc": "Dùng một thẻ Siêu Hiếm để giành chiến thắng."
+    },
+    "sort": {
+      "power": "Sức mạnh",
+      "level": "Cấp thẻ",
+      "rarity": "Độ hiếm",
+      "name": "Tên thẻ"
+    },
     "shard": {
       "xpSmall": "Bùa EXP nhỏ",
       "xpSmallDesc": "+50 EXP cho thẻ bất kỳ",
@@ -887,6 +912,11 @@
       "close": "Đóng",
       "spinning": "Đang mở...",
       "result": "Kết quả",
+      "pack": "BMO Eco Vault",
+      "revealTitle": "Mở thẻ",
+      "tapReveal": "Chạm để mở thẻ",
+      "skipAll": "Bỏ qua tất cả",
+      "reveal": "Mở thẻ",
       "newBadge": "Thẻ mới",
       "newCard": "Thẻ mới! Đã thêm vào bộ sưu tập",
       "duplicate": "Bạn đã có thẻ này",
@@ -914,6 +944,9 @@
       "legendary": "Còn {n} lượt để chắc chắn nhận thẻ Huyền thoại"
     },
     "searchPlaceholder": "Tìm thẻ theo tên...",
+    "loadMore": "Hiển thị thêm",
+    "collectionStars": "Sao bộ sưu tập",
+    "shards": "mảnh",
     "levelup": {
       "notEnough": "Không đủ EXP!",
       "success": "Nâng cấp thành công lên Lv.{level}!",
@@ -942,6 +975,7 @@
     "totalStars": "Tổng Sao",
     "requiredLevel": "Cấp Yêu Cầu",
     "startCampaign": "Bắt Đầu Chiến Dịch",
+    "openPack": "Mở gói đầu tiên",
     "locked": "🔒 Đã Khóa",
     "reachLevel": "Cần đạt cấp",
     "stage": "Chặng",
@@ -1013,6 +1047,8 @@
     "viewCollection": "Xem Bộ Sưu Tập",
     "totalCards": "Tổng Thẻ",
     "uniqueCards": "Thẻ Độc Nhất",
+    "ownedCards": "Đã sở hữu",
+    "progress": "Tiến độ",
     "missingCards": "Thẻ Còn Thiếu",
     "shinyCards": "Thẻ Kim Loại",
     "eventCards": "Thẻ Sự Kiện",
@@ -1407,6 +1443,30 @@
   "family": {
     "open": "Mở Family Mode",
     "homeTitle": "Family Mode"
+  },
+  "bmoCare": {
+    "title": "Bạn đồng hành ảo",
+    "errorLoading": "Không thể tải dữ liệu chăm sóc BMO.",
+    "moodExcited": "Cực kỳ hào hứng",
+    "moodHappy": "Vui vẻ",
+    "moodNeutral": "Bình thường",
+    "moodSad": "Buồn",
+    "moodCritical": "Cần được chăm sóc",
+    "totalInteractions": "Lượt tương tác",
+    "bestMood": "Tâm trạng tốt nhất",
+    "nextUnlock": "Mốc mở khóa tiếp theo",
+    "unlockNow": "Có thể mở khóa ngay",
+    "daysAway": "ngày nữa",
+    "unlocked": "Đã mở khóa",
+    "moodHistory": "Lịch sử tâm trạng"
+  },
+  "dataset": {
+    "title": "Đóng góp cho Khoa học Mở"
+  },
+  "wasteRush": {
+    "introDesc": "Phân loại thật nhiều rác trước khi hết giờ và nối combo để tăng điểm.",
+    "startButton": "Bắt đầu thử thách",
+    "timeLeft": "Thời gian còn lại"
   },
   "error": {
     "serverUnavailable": "Máy chủ không khả dụng",

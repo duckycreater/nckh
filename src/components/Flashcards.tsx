@@ -1645,10 +1645,10 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
             onChange={(e) => setSortBy(e.target.value as SortBy)}
             className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500 cursor-pointer"
           >
-            <option value="power">Power</option>
-            <option value="level">Level</option>
-            <option value="rarity">Rarity</option>
-            <option value="name">Name</option>
+            <option value="power">{t("flashcards.sort.power")}</option>
+            <option value="level">{t("flashcards.sort.level")}</option>
+            <option value="rarity">{t("flashcards.sort.rarity")}</option>
+            <option value="name">{t("flashcards.sort.name")}</option>
           </select>
         </div>
 

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Badge, SectionHeading } from "../../lib/ui";
 import { showToast } from "../../lib/toast";
+import { summarizeStructuredData } from "./StructuredDataView";
 
 const token = () => localStorage.getItem("auth_token") || "";
 
@@ -319,8 +320,11 @@ export function SystemPanel() {
                     <td className="py-2 px-2 text-xs">
                       {a.target_type && `${a.target_type}#${a.target_id || ""}`}
                     </td>
-                    <td className="py-2 px-2 text-xs font-mono text-slate-500 max-w-xs truncate">
-                      {a.details ? JSON.stringify(a.details).slice(0, 80) : ""}
+                    <td
+                      className="max-w-xs truncate px-2 py-2 text-xs text-slate-500"
+                      title={a.details ? summarizeStructuredData(a.details, 8) : undefined}
+                    >
+                      {a.details ? summarizeStructuredData(a.details) : "Không có chi tiết"}
                     </td>
                   </tr>
                 ))}
