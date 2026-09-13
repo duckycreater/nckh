@@ -7700,7 +7700,9 @@ export const ALL_CARDS: Card[] = CARDS.map((def) => ({
  */
 export const FLAGSHIP_CARDS: Card[] = ALL_CARDS.filter((card) => FLAGSHIP_CARD_ID_SET.has(card.id));
 
-export const GENERATED_HERO_ART_IDS = new Set<number>([1, 31, 61, 91, 121, 151, 301, 311, 321]);
+export const GENERATED_HERO_ART_IDS = new Set<number>([
+  1, 2, 31, 32, 61, 62, 91, 92, 121, 122, 151, 152, 301, 302, 311, 312, 321, 322,
+]);
 
 export function getHeroArtPath(cardId: number): string | null {
   return GENERATED_HERO_ART_IDS.has(cardId)
