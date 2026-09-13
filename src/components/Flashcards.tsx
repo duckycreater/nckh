@@ -25,6 +25,7 @@ import {
   Coffee,
   Timer,
   RefreshCw,
+  Map as MapIcon,
 } from "lucide-react";
 import { UserProgress } from "../types";
 import {
@@ -942,13 +943,21 @@ function GachaReveal({
 // ─── Main Component ─────────────────────────────────────────────────────────
 interface Props {
   onReward: (claim: GameplayRewardClaim) => void;
+  onOpenCampaign: () => void;
   points?: number;
   userId: string;
   progress?: UserProgress;
   onRefresh?: (progress?: UserProgress) => void;
 }
 
-export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }: Props) {
+export function Flashcards({
+  onReward,
+  onOpenCampaign,
+  points = 0,
+  userId,
+  progress,
+  onRefresh,
+}: Props) {
   const { t } = useTranslation();
 
   // ─── State ───────────────────────────────────────────────────────────
@@ -1851,6 +1860,17 @@ export function Flashcards({ onReward, points = 0, userId, progress, onRefresh }
 
         {/* Tabs */}
         <div className="mt-2 sm:mt-3 flex gap-1 overflow-x-auto thin-scrollbar">
+          <button
+            type="button"
+            onClick={onOpenCampaign}
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-xl border border-cyan-300/50 bg-gradient-to-r from-cyan-500 to-emerald-500 px-2.5 py-1.5 text-[10px] font-black text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.22)] transition hover:brightness-110 sm:px-3.5 sm:text-xs"
+          >
+            <MapIcon size={13} />
+            <span>{t("nav.campaign")}</span>
+            <span className="rounded bg-slate-950/80 px-1 py-0.5 text-[7px] tracking-wider text-cyan-200">
+              NEW
+            </span>
+          </button>
           {TABS.map((tab) => (
             <button
               key={tab.id}

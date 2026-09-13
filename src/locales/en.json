@@ -30,6 +30,7 @@
   "nav": {
     "home": "Home",
     "cards": "Collection",
+    "campaign": "Campaign",
     "craft": "Craft",
     "leaderboard": "Leaderboard"
   },

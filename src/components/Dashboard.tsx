@@ -44,6 +44,7 @@ import {
   ChevronRight,
   Gift,
   Star,
+  Map as MapIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -418,7 +419,13 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">
                     {t("dashboard.toolsLabel")}
                   </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                    <ActionBtn
+                      icon={<MapIcon size={20} className="text-cyan-600" />}
+                      label={t("nav.campaign")}
+                      color="bg-cyan-50 border-cyan-200"
+                      onClick={() => navigate("/world-map")}
+                    />
                     <ActionBtn
                       icon={<Trophy size={20} className="text-orange-500" />}
                       label={t("dashboard.leaderboard")}
@@ -487,6 +494,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               <Suspense fallback={<LoadingFallback message="Đang tải bộ sưu tập..." />}>
                 <LazyFlashcards
                   onReward={handleEarnPoints}
+                  onOpenCampaign={() => navigate("/world-map")}
                   points={user.points}
                   userId={user.account_id}
                   progress={user.progress}
@@ -561,6 +569,18 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 <Compass size={20} />
               </motion.div>
               <span className="text-[10px] font-bold">{t("nav.cards")}</span>
+            </button>
+            <button
+              onClick={() => navigate("/world-map")}
+              className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-cyan-600 transition-colors"
+            >
+              <motion.div
+                animate={{ y: [-1, -3, -1] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              >
+                <MapIcon size={20} />
+              </motion.div>
+              <span className="text-[10px] font-black">{t("nav.campaign")}</span>
             </button>
             <button
               onClick={() => navigate("/craft")}
