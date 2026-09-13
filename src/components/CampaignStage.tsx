@@ -1,26 +1,53 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   Check,
-  Heart,
+  CircleHelp,
+  Crosshair,
+  Gauge,
+  LockKeyhole,
+  MapPin,
+  Radar,
   RotateCcw,
   Shield,
   Sparkles,
-  Swords,
   Trophy,
   X,
   Zap,
 } from "lucide-react";
 import { getRegionById, getStageById } from "../data/worldMap";
-import { ELEMENTS, FLAGSHIP_CARDS, getCardArt, tCardName } from "../lib/cards";
+import { ELEMENTS, FLAGSHIP_CARDS, getCardArt, tCardName, type Card } from "../lib/cards";
 import { getCardHeroProfile } from "../lib/cardHeroes";
 import { BMO_ASSETS } from "../lib/bmoAssets";
 import { getAuthHeaders } from "../lib/auth";
+import {
+  CARD_ELEMENT_IDENTITIES,
+  type CampaignRegionDefinition,
+  type CardElementId,
+} from "../../shared/cardGame";
+import {
+  applyCampaignCommand,
+  CAMPAIGN_LANES,
+  countResolvedTargets,
+  createCampaignRun,
+  getCampaignRunScore,
+  getLaneLabel,
+  isMaterialSynergy,
+  type CampaignCommand,
+  type CampaignCommandEvent,
+  type CampaignCombatState,
+  type CampaignIntent,
+  type CampaignLane,
+  type CampaignOperatorState,
+  type CampaignRole,
+  type CampaignTeamCard,
+  type CampaignTargetState,
+} from "../../shared/campaignCombat";
 
-interface CampaignStageProps {
+interface Props {
   regionId?: string;
   stageId?: string;
   onBack: () => void;
@@ -32,101 +59,214 @@ interface CampaignStageProps {
   }) => void;
 }
 
-type BattlePhase = "briefing" | "battle" | "result";
+type Phase = "briefing" | "run" | "result";
 type RewardState = "idle" | "claiming" | "claimed" | "duplicate" | "failed";
+type CampaignCopy = { [Key in keyof typeof vi]: string };
 
-const copy = {
-  vi: {
-    mission: "Nhiệm vụ phân loại",
-    brief:
-      "Nhận diện đúng hệ vật liệu của từng thẻ. Bạn có 3 năng lượng và cần đúng ít nhất 60% để hoàn thành.",
-    intel: "Dữ liệu đối tượng",
-    start: "Bắt đầu nhiệm vụ",
-    question: "Vật phẩm này thuộc nhóm nào?",
-    round: "Lượt",
-    correct: "Chính xác",
-    wrong: "Chưa đúng",
-    correctWas: "Đáp án đúng",
-    next: "Lượt tiếp theo",
-    finish: "Xem kết quả",
-    victory: "Nhiệm vụ hoàn thành",
-    defeat: "Nhiệm vụ chưa hoàn thành",
-    victoryHint: "Phân loại tốt! Phần thưởng sẽ được máy chủ xác minh trước khi cộng.",
-    defeatHint: "Xem lại nhóm vật liệu rồi thử lại. Không mất điểm khi thất bại.",
-    retry: "Thử lại",
-    claimed: "EXP đã được cộng",
-    duplicate: "Bạn đã nhận thưởng ở mốc sao này",
-    claimFailed: "Kết quả đã lưu, nhưng chưa thể cộng EXP. Hãy thử lại sau.",
-    claiming: "Đang xác minh phần thưởng…",
-    accuracy: "Độ chính xác",
-    hp: "Năng lượng",
-    serverReward: "Thưởng máy chủ",
-    fullClear: "Thưởng 3 sao",
-    shards: "mảnh",
-    cardDrop: "thẻ",
-    catalogGift: "quà đặc biệt",
-    squad: "Đội hình triển khai",
-    squadHint:
-      "Chọn đúng 3 thẻ bạn sở hữu. Hệ và vai trò của chúng sẽ là nền cho combat campaign hoàn chỉnh.",
-    squadRequired: "Cần đủ 3 thẻ",
-    recipient: "Họ tên người nhận",
-    address: "Địa chỉ nhận quà",
-    redeemGift: "Xác nhận nhận quà",
-    redeemingGift: "Đang tạo yêu cầu giao quà…",
-    redeemedGift: "Đã tạo yêu cầu giao quà",
-    noCards: "Chặng này chưa có dữ liệu thẻ hợp lệ.",
-    stamina: "Năng lượng chiến dịch",
-    insufficientStamina: "Chưa đủ năng lượng để triển khai",
-  },
-  en: {
-    mission: "Sorting mission",
-    brief:
-      "Identify each card's material class. You have 3 energy and need at least 60% accuracy to clear the stage.",
-    intel: "Encounter intel",
-    start: "Start mission",
-    question: "Which material class does this item belong to?",
-    round: "Round",
-    correct: "Correct",
-    wrong: "Not quite",
-    correctWas: "Correct answer",
-    next: "Next round",
-    finish: "View result",
-    victory: "Mission complete",
-    defeat: "Mission incomplete",
-    victoryHint: "Great sorting. The server verifies the reward before crediting it.",
-    defeatHint: "Review the material groups and retry. Losing never costs points.",
-    retry: "Retry",
-    claimed: "EXP added",
-    duplicate: "This star-tier reward was already claimed",
-    claimFailed: "Result saved, but EXP could not be added yet. Please retry later.",
-    claiming: "Verifying reward…",
-    accuracy: "Accuracy",
-    hp: "Energy",
-    serverReward: "Server reward",
-    fullClear: "Three-star reward",
-    shards: "shards",
-    cardDrop: "card",
-    catalogGift: "special gift",
-    squad: "Deployment squad",
-    squadHint:
-      "Select exactly three cards you own. Their systems and roles power the campaign combat layer.",
-    squadRequired: "Three cards required",
-    recipient: "Recipient name",
-    address: "Delivery address",
-    redeemGift: "Confirm gift delivery",
-    redeemingGift: "Creating delivery request…",
-    redeemedGift: "Delivery request created",
-    noCards: "This stage has no valid card data yet.",
-    stamina: "Campaign energy",
-    insufficientStamina: "Not enough energy to deploy",
-  },
+interface RewardPreview {
+  points: number;
+  shards: number;
+  cardId: number | null;
+  rewardId: string | null;
+}
+
+interface BriefingProps {
+  c: CampaignCopy;
+  stageTitle: string;
+  region: CampaignRegionDefinition;
+  encounters: Card[];
+  teamCards: Card[];
+  ownedIds: number[];
+  teamIds: number[];
+  rewardPreview: RewardPreview | null;
+  notice: string;
+  stageTone: string;
+  toggleTeam: (id: number) => void;
+  start: () => void;
+}
+
+interface RunBoardProps {
+  c: CampaignCopy;
+  english: boolean;
+  run: CampaignCombatState;
+  encounters: Card[];
+  selectedTarget?: CampaignTargetState;
+  selectedOperator?: CampaignOperatorState;
+  targetId: number | null;
+  operatorId: number | null;
+  secondId: number | null;
+  lane: CampaignLane;
+  material: CardElementId;
+  notice: string;
+  setTargetId: (id: number) => void;
+  setLane: (lane: CampaignLane) => void;
+  setMaterial: (elementId: CardElementId) => void;
+  selectOperator: (id: number) => void;
+  act: (command: CampaignCommand) => void;
+}
+
+interface ResultProps {
+  c: CampaignCopy;
+  run: CampaignCombatState;
+  rewardState: RewardState;
+  serverStars: number;
+  earnedPoints: number;
+  earnedShards: number;
+  cardReward: number | null;
+  giftId: string | null;
+  giftName: string | null;
+  giftRecipient: string;
+  giftAddress: string;
+  giftMessage: string;
+  giftSaving: boolean;
+  setGiftRecipient: (value: string) => void;
+  setGiftAddress: (value: string) => void;
+  redeem: () => void;
+  reset: () => void;
+  onBack: () => void;
+}
+
+const vi = {
+  op: "TACTICAL SALVAGE RUN",
+  brief: "Đây không phải trận đánh theo lượt. Đây là một dây chuyền cứu hộ đang sập.",
+  body: "Mỗi tín hiệu báo trước rủi ro. Điều đội hình vào đúng lane, đọc vật liệu, phối hợp hai hệ để xử lý sạch — hoặc chấp nhận nhiễm bẩn để giữ nhịp.",
+  deploy: "Triển khai đội hình",
+  deployHint: "Chọn 3 đơn vị. Thứ tự chọn vào FRONT / MID / BACK; có thể SHIFT trong run.",
+  start: "Bắt đầu salvage run",
+  needTeam: "Cần 3 đơn vị đã sở hữu",
+  nodes: "tín hiệu cần thu hồi",
+  run: "SALVAGE GRID",
+  ap: "AP",
+  integrity: "Ổn định hệ thống",
+  contamination: "Nhiễm bẩn",
+  combo: "Chuỗi sạch",
+  target: "Node đang mở",
+  material: "Đọc vật liệu",
+  operator: "Operator",
+  salvage: "SALVAGE",
+  salvageHint: "1 AP · đúng hệ sẽ thu hồi sạch",
+  sync: "SYNC BURST",
+  syncHint: "2 AP · cần cặp synergy",
+  brace: "BRACE LANE",
+  braceHint: "1 AP · chặn tín hiệu sắp tới",
+  shift: "SHIFT",
+  shiftHint: "Đổi lane · đặt đúng người trước đúng rủi ro",
+  endTurn: "Khóa lane & kết thúc lượt",
+  intent: "Ý định tín hiệu",
+  secured: "SECURED",
+  jammed: "JAMMED",
+  chooseLane: "Chọn lane",
+  selectTarget: "Chọn một node để xử lý",
+  clean: "Đọc đúng hệ",
+  wrong: "Sai hệ · node mất ổn định",
+  victory: "DÂY CHUYỀN ĐƯỢC CỨU",
+  victoryBody: "Đội hình đã biến kiến thức phân loại thành quyết định chiến thuật.",
+  defeat: "MẠNG THU HỒI SỤP",
+  defeatBody: "Nhiễm bẩn vượt kiểm soát. Đổi đội hình và thử một route khác.",
+  retry: "Chạy lại route",
+  back: "Về bản đồ",
+  score: "Recovery score",
+  reward: "Thưởng máy chủ",
+  claiming: "Đang xác minh run…",
+  claimFailed: "Run kết thúc nhưng phần thưởng chưa được cộng.",
+  duplicate: "Mốc sao này đã nhận trước đó",
+  exp: "EXP",
+  shards: "mảnh",
+  card: "thẻ",
+  gift: "quà đặc biệt",
+  recipient: "Họ tên người nhận",
+  address: "Địa chỉ nhận quà",
+  redeem: "Xác nhận nhận quà",
+  redeeming: "Đang tạo yêu cầu giao quà…",
+  redeemed: "Đã tạo yêu cầu giao quà",
+  insufficient: "Chưa đủ năng lượng chiến dịch",
+  noAp: "Hết AP — hãy khóa lane để kết thúc lượt.",
+} as const;
+const en = {
+  op: "TACTICAL SALVAGE RUN",
+  brief: "This is not a turn-based brawl. It is a failing recovery line.",
+  body: "Every signal telegraphs a risk. Place the right operator in the right lane, read the material, and pair systems for clean recovery — or accept contamination to keep tempo.",
+  deploy: "Deploy squad",
+  deployHint: "Pick 3 units. Selection order enters FRONT / MID / BACK; SHIFT during the run.",
+  start: "Start salvage run",
+  needTeam: "Three owned units required",
+  nodes: "signals to recover",
+  run: "SALVAGE GRID",
+  ap: "AP",
+  integrity: "System integrity",
+  contamination: "Contamination",
+  combo: "Clean chain",
+  target: "Open node",
+  material: "Read material",
+  operator: "Operator",
+  salvage: "SALVAGE",
+  salvageHint: "1 AP · matching the material recovers it clean",
+  sync: "SYNC BURST",
+  syncHint: "2 AP · requires a synergy pair",
+  brace: "BRACE LANE",
+  braceHint: "1 AP · block the incoming signal",
+  shift: "SHIFT",
+  shiftHint: "Move lane · place the right unit before the risk",
+  endTurn: "Lock lane & end turn",
+  intent: "Signal intent",
+  secured: "SECURED",
+  jammed: "JAMMED",
+  chooseLane: "Choose lane",
+  selectTarget: "Select a node to process",
+  clean: "Material read correct",
+  wrong: "Wrong material · node destabilized",
+  victory: "RECOVERY LINE SAVED",
+  victoryBody: "The squad turned material knowledge into real tactical decisions.",
+  defeat: "RECOVERY NETWORK COLLAPSED",
+  defeatBody: "Contamination exceeded control. Change formation and try another route.",
+  retry: "Retry route",
+  back: "Back to map",
+  score: "Recovery score",
+  reward: "Server reward",
+  claiming: "Verifying run…",
+  claimFailed: "The run ended but the reward could not be credited.",
+  duplicate: "This star tier was already claimed",
+  exp: "EXP",
+  shards: "shards",
+  card: "card",
+  gift: "special gift",
+  recipient: "Recipient name",
+  address: "Delivery address",
+  redeem: "Confirm delivery",
+  redeeming: "Creating delivery request…",
+  redeemed: "Delivery request created",
+  insufficient: "Not enough campaign energy",
+  noAp: "No AP — lock a lane to end the turn.",
 } as const;
 
-function resolveStageNameKey(nameKey: string): string {
-  // Stage metadata historically used the campaign.* namespace while locale
-  // files store the 100 stage names under stages.*. Resolve both formats so a
-  // missing translation never leaks a raw i18next key into the UI.
-  return nameKey.startsWith("campaign.") ? nameKey.replace(/^campaign\./, "stages.") : nameKey;
+function roleLabel(role: CampaignRole, english: boolean) {
+  const labels: Record<CampaignRole, [string, string]> = {
+    vanguard: ["Tiên phong", "Vanguard"],
+    striker: ["Đột kích", "Striker"],
+    controller: ["Điều khiển", "Controller"],
+    support: ["Hỗ trợ", "Support"],
+    specialist: ["Chuyên gia", "Specialist"],
+  };
+  return labels[role][english ? 1 : 0];
+}
+function intentMeta(intent: CampaignIntent, english: boolean) {
+  if (intent === "impact")
+    return {
+      label: "IMPACT",
+      detail: english ? "Hits the occupied lane" : "Đập vào lane đang bị chiếm",
+      color: "#fb7185",
+    };
+  if (intent === "spill")
+    return {
+      label: "SPILL",
+      detail: english ? "Spreads contamination" : "Lan nhiễm bẩn ra hệ thống",
+      color: "#fbbf24",
+    };
+  return {
+    label: "JAM",
+    detail: english ? "Locks one operator" : "Khóa một operator",
+    color: "#c084fc",
+  };
 }
 
 export default function CampaignStage({
@@ -134,101 +274,91 @@ export default function CampaignStage({
   stageId: stageIdProp,
   onBack,
   onProgress,
-}: CampaignStageProps) {
+}: Props) {
   const { t, i18n } = useTranslation();
   const params = useParams<{ regionId: string; stageId: string }>();
-  const regionId = regionIdProp || params.regionId || "";
+  const region = getRegionById(regionIdProp || params.regionId || "");
   const stageId = stageIdProp || params.stageId || "";
-  const region = getRegionById(regionId);
-  const stage = getStageById(regionId, stageId);
-  const c = i18n.resolvedLanguage?.startsWith("vi") ? copy.vi : copy.en;
-  const reduceMotion = useReducedMotion();
-  const stageNameKey = stage ? resolveStageNameKey(stage.nameKey) : "";
-
+  const stage = getStageById(region?.id || "", stageId);
+  const english = !i18n.resolvedLanguage?.startsWith("vi");
+  const c = english ? en : vi;
   const encounters = useMemo(() => {
     if (!stage) return [];
-    const ids = [...stage.trashCardIds.slice(0, 4)];
-    if (stage.bossCardId) ids.push(stage.bossCardId);
-    else if (stage.trashCardIds[4]) ids.push(stage.trashCardIds[4]);
-    return ids
+    const ids = [
+      ...stage.trashCardIds.slice(0, 4),
+      ...(stage.bossCardId
+        ? [stage.bossCardId]
+        : stage.trashCardIds[4]
+          ? [stage.trashCardIds[4]]
+          : []),
+    ];
+    return [...new Set(ids)]
       .map((id) => FLAGSHIP_CARDS.find((card) => card.id === id))
       .filter((card): card is (typeof FLAGSHIP_CARDS)[number] => Boolean(card));
   }, [stage]);
-
-  const [phase, setPhase] = useState<BattlePhase>("briefing");
-  const [round, setRound] = useState(0);
-  const [energy, setEnergy] = useState(3);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>("briefing");
+  const [run, setRun] = useState<CampaignCombatState | null>(null);
+  const [events, setEvents] = useState<CampaignCommandEvent[]>([]);
+  const [answers, setAnswers] = useState<Record<number, CardElementId>>({});
+  const [ownedIds, setOwnedIds] = useState<number[]>([]);
+  const [teamIds, setTeamIds] = useState<number[]>([]);
+  const [targetId, setTargetId] = useState<number | null>(null);
+  const [operatorId, setOperatorId] = useState<number | null>(null);
+  const [secondId, setSecondId] = useState<number | null>(null);
+  const [lane, setLane] = useState<CampaignLane>("front");
+  const [material, setMaterial] = useState<CardElementId>("plastic");
+  const [stamina, setStamina] = useState(100);
+  const [maxStamina, setMaxStamina] = useState(100);
+  const [notice, setNotice] = useState("");
+  const [rewardPreview, setRewardPreview] = useState<RewardPreview | null>(null);
   const [rewardState, setRewardState] = useState<RewardState>("idle");
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [earnedShards, setEarnedShards] = useState(0);
-  const [awardedCardId, setAwardedCardId] = useState<number | null>(null);
-  const [unlockedGiftId, setUnlockedGiftId] = useState<string | null>(null);
-  const [giftName, setGiftName] = useState<string | null>(null);
   const [serverStars, setServerStars] = useState(0);
-  const [answers, setAnswers] = useState<Array<{ cardId: number; elementId: string }>>([]);
-  const [rewardPreview, setRewardPreview] = useState<{
-    points: number;
-    shards: number;
-    cardId: number | null;
-    rewardId: string | null;
-  } | null>(null);
-  const [ownedCardIds, setOwnedCardIds] = useState<number[]>([]);
-  const [teamCardIds, setTeamCardIds] = useState<number[]>([]);
+  const [cardReward, setCardReward] = useState<number | null>(null);
+  const [giftId, setGiftId] = useState<string | null>(null);
+  const [giftName, setGiftName] = useState<string | null>(null);
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftAddress, setGiftAddress] = useState("");
-  const [giftClaimState, setGiftClaimState] = useState<"idle" | "saving" | "done" | "error">(
-    "idle",
-  );
-  const [giftClaimMessage, setGiftClaimMessage] = useState("");
-  const [stamina, setStamina] = useState(100);
-  const [maxStamina, setMaxStamina] = useState(100);
-  const [rewardMessage, setRewardMessage] = useState("");
+  const [giftMessage, setGiftMessage] = useState("");
+  const [giftSaving, setGiftSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void fetch("/api/campaign/config", { headers: getAuthHeaders() })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return response.json();
-      })
+      .then(async (response) => (response.ok ? response.json() : null))
       .then((payload) => {
-        if (cancelled) return;
-        const config = payload?.rewardConfigs?.find(
-          (candidate: { stageId?: string }) => candidate.stageId === stageId,
+        if (cancelled || !payload) return;
+        const config = payload.rewardConfigs?.find(
+          (item: { stageId?: string }) => item.stageId === stageId,
         );
         if (config) {
           setRewardPreview(config);
-          const unlockedGift = payload?.progress?.campaignGiftByStage?.[stageId];
-          const redeemed = Array.isArray(payload?.progress?.campaignRedeemedStages)
-            ? payload.progress.campaignRedeemedStages.includes(stageId)
-            : false;
-          if (unlockedGift && !redeemed) setUnlockedGiftId(String(unlockedGift));
-          const catalogGiftId = unlockedGift || config.rewardId;
-          const catalogGift = Array.isArray(payload?.rewardCatalog)
+          const unlocked = payload.progress?.campaignGiftByStage?.[stageId];
+          const redeemed =
+            Array.isArray(payload.progress?.campaignRedeemedStages) &&
+            payload.progress.campaignRedeemedStages.includes(stageId);
+          if (unlocked && !redeemed) setGiftId(String(unlocked));
+          const catalog = Array.isArray(payload.rewardCatalog)
             ? payload.rewardCatalog.find(
-                (candidate: { id?: string | number }) =>
-                  String(candidate.id) === String(catalogGiftId),
+                (item: { id?: string | number }) =>
+                  String(item.id) === String(unlocked || config.rewardId),
               )
             : null;
-          if (catalogGift?.name) setGiftName(String(catalogGift.name));
+          if (catalog?.name) setGiftName(String(catalog.name));
         }
-        const rosterIds = new Set(FLAGSHIP_CARDS.map((card) => card.id));
-        setStamina(Math.max(0, Number(payload?.progress?.stamina ?? 100)));
-        setMaxStamina(Math.max(1, Number(payload?.progress?.maxStamina ?? 100)));
-        const owned = Array.isArray(payload?.progress?.flashcardsRead)
-          ? payload.progress.flashcardsRead
-              .map(Number)
-              .filter((cardId: number) => rosterIds.has(cardId))
+        setStamina(Math.max(0, Number(payload.progress?.stamina ?? 100)));
+        setMaxStamina(Math.max(1, Number(payload.progress?.maxStamina ?? 100)));
+        const roster = new Set(FLAGSHIP_CARDS.map((card) => card.id));
+        const owned = Array.isArray(payload.progress?.flashcardsRead)
+          ? payload.progress.flashcardsRead.map(Number).filter((id: number) => roster.has(id))
           : [];
-        if (owned.length) {
-          setOwnedCardIds(owned);
-          setTeamCardIds((current) => {
-            const validCurrent = current.filter((cardId) => owned.includes(cardId));
-            return validCurrent.length === 3 ? validCurrent : owned.slice(0, 3);
-          });
-        }
+        setOwnedIds(owned);
+        setTeamIds((current) =>
+          current.filter((id) => owned.includes(id)).length === 3
+            ? current.filter((id) => owned.includes(id))
+            : owned.slice(0, 3),
+        );
       })
       .catch(() => undefined);
     return () => {
@@ -236,120 +366,149 @@ export default function CampaignStage({
     };
   }, [stageId]);
 
-  if (!region || !stage) {
+  if (!region || !stage)
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-white">
         <div className="text-center">
-          <p className="mb-4 text-xl text-white">{t("campaign.stageNotFound")}</p>
-          <button
-            onClick={onBack}
-            className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-emerald-500"
-          >
-            {t("campaign.backToMap")}
+          <p className="mb-4 text-xl">{t("campaign.stageNotFound")}</p>
+          <button onClick={onBack} className="rounded-xl bg-emerald-600 px-6 py-3 font-bold">
+            {c.back}
           </button>
         </div>
       </div>
     );
-  }
+  const stageTitle = t(
+    stage.nameKey.startsWith("campaign.")
+      ? stage.nameKey.replace(/^campaign\./, "stages.")
+      : stage.nameKey,
+    { defaultValue: stage.nameKey },
+  );
+  const teamCards = teamIds
+    .map((id) => FLAGSHIP_CARDS.find((card) => card.id === id))
+    .filter((card): card is (typeof FLAGSHIP_CARDS)[number] => Boolean(card));
+  const selectedTarget =
+    run?.targets.find((item) => item.id === targetId) ||
+    run?.targets.find((item) => !item.resolved);
+  const selectedOperator = run?.operators.find((item) => item.id === operatorId);
+  const stageTone =
+    stage.type === "boss"
+      ? "from-rose-500 to-red-950"
+      : stage.type === "elite"
+        ? "from-violet-500 to-indigo-950"
+        : "from-emerald-500 to-teal-950";
 
-  const currentCard = encounters[round];
-  const stageNumber = region.stages.findIndex((item) => item.id === stageId) + 1;
-  const threshold = Math.ceil(encounters.length * 0.6);
-  const won = correctCount >= threshold && energy > 0;
-  const accuracy = encounters.length ? Math.round((correctCount / encounters.length) * 100) : 0;
-
-  const answerOptions = currentCard
-    ? [
-        currentCard.element,
-        ...ELEMENTS.filter((element) => element.id !== currentCard.element.id)
-          .slice(currentCard.id % Math.max(1, ELEMENTS.length - 3))
-          .concat(ELEMENTS)
-          .filter(
-            (element, index, array) =>
-              element.id !== currentCard.element.id &&
-              array.findIndex((candidate) => candidate.id === element.id) === index,
-          )
-          .slice(0, 3),
-      ].sort(
-        (a, b) =>
-          ((a.id.charCodeAt(0) + currentCard.id) % 7) - ((b.id.charCodeAt(0) + currentCard.id) % 7),
-      )
-    : [];
-
-  const resetBattle = () => {
-    setPhase("battle");
-    setRound(0);
-    setEnergy(3);
-    setCorrectCount(0);
-    setSelectedElement(null);
+  const toggleTeam = (id: number) =>
+    setTeamIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : current.length >= 3
+          ? [...current.slice(1), id]
+          : [...current, id],
+    );
+  const start = () => {
+    if (teamCards.length !== 3) return setNotice(c.needTeam);
+    if (stamina < stage.staminaCost) return setNotice(c.insufficient);
+    const team: CampaignTeamCard[] = teamCards.map((card) => {
+      const profile = getCardHeroProfile(card);
+      return {
+        id: card.id,
+        elementId: card.element.id as CardElementId,
+        role: profile.role,
+        name: profile.callsign,
+        maxHp: Math.max(78, card.hp),
+      };
+    });
+    const next = createCampaignRun(
+      `run_${stage.id}_${Date.now()}`,
+      team,
+      encounters.map((card) => ({
+        id: card.id,
+        elementId: card.element.id as CardElementId,
+        name: tCardName(card.name),
+      })),
+    );
+    setRun(next);
+    setEvents([]);
+    setAnswers({});
+    setTargetId(next.activeTargetId);
+    setOperatorId(next.operators[0]?.id ?? null);
+    setSecondId(null);
+    setMaterial(next.operators[0]?.elementId ?? "plastic");
+    setNotice("");
     setRewardState("idle");
-    setRewardMessage("");
-    setEarnedPoints(0);
-    setEarnedShards(0);
-    setAwardedCardId(null);
-    setServerStars(0);
-    setAnswers([]);
+    setPhase("run");
   };
-
-  const chooseAnswer = (elementId: string) => {
-    if (!currentCard || selectedElement) return;
-    setSelectedElement(elementId);
-    setAnswers((value) => [...value, { cardId: currentCard.id, elementId }]);
-    if (elementId === currentCard.element.id) setCorrectCount((value) => value + 1);
-    else setEnergy((value) => Math.max(0, value - 1));
-  };
-
-  const claimReward = async () => {
+  const claim = async (
+    nextAnswers: Record<number, CardElementId>,
+    nextEvents: CampaignCommandEvent[],
+  ) => {
     setRewardState("claiming");
     try {
       const response = await fetch(`/api/campaign/stages/${stage.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ answers, teamCardIds }),
+        body: JSON.stringify({
+          answers: encounters.map((card) => ({
+            cardId: card.id,
+            elementId: nextAnswers[card.id] || "",
+          })),
+          teamCardIds: teamIds,
+          combat: { events: nextEvents },
+        }),
       });
       const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.success || !result?.cleared) {
-        throw new Error(result?.error || "reward_failed");
-      }
+      if (!response.ok || !result?.success || !result?.cleared)
+        throw new Error(result?.error || c.claimFailed);
       setEarnedPoints(Number(result.reward?.points || 0));
       setEarnedShards(Number(result.reward?.shards || 0));
-      setAwardedCardId(result.reward?.cardId ? Number(result.reward.cardId) : null);
-      setUnlockedGiftId(result.reward?.rewardId ? String(result.reward.rewardId) : null);
       setServerStars(Number(result.stars || 0));
-      setStamina(Math.max(0, Number(result.stamina ?? result.progress?.stamina ?? stamina)));
-      setMaxStamina(
-        Math.max(1, Number(result.maxStamina ?? result.progress?.maxStamina ?? maxStamina)),
-      );
+      setCardReward(result.reward?.cardId ? Number(result.reward.cardId) : null);
+      setGiftId(result.reward?.rewardId ? String(result.reward.rewardId) : null);
+      setStamina(Number(result.stamina ?? stamina));
+      setMaxStamina(Number(result.maxStamina ?? maxStamina));
       setRewardState(result.duplicate ? "duplicate" : "claimed");
       onProgress?.(result);
-    } catch (reason) {
-      setRewardMessage(reason instanceof Error ? reason.message : c.claimFailed);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : c.claimFailed);
       setRewardState("failed");
     }
   };
-
-  const nextRound = () => {
-    const lastRound = round >= encounters.length - 1;
-    if (lastRound || energy <= 0) {
+  const act = (command: CampaignCommand) => {
+    if (!run) return;
+    const outcome = applyCampaignCommand(run, command);
+    if (outcome.event.result === "invalid") return setNotice(run.ap <= 0 ? c.noAp : c.operator);
+    const nextAnswers = { ...answers };
+    if (command.type === "salvage" || command.type === "sync")
+      nextAnswers[command.targetId] = command.claimedElementId;
+    const nextEvents = [...events, outcome.event];
+    setRun(outcome.state);
+    setEvents(nextEvents);
+    setAnswers(nextAnswers);
+    setTargetId(outcome.state.activeTargetId);
+    setNotice(
+      outcome.event.result === "clean"
+        ? c.clean
+        : outcome.event.result === "contaminated"
+          ? c.wrong
+          : "",
+    );
+    if (outcome.state.status !== "active") {
       setPhase("result");
-      if (correctCount >= threshold && energy > 0) void claimReward();
-      return;
+      if (outcome.state.status === "victory") void claim(nextAnswers, nextEvents);
     }
-    setRound((value) => value + 1);
-    setSelectedElement(null);
   };
-
-  const toggleTeamCard = (cardId: number) => {
-    setTeamCardIds((current) => {
-      if (current.includes(cardId)) return current.filter((candidate) => candidate !== cardId);
-      if (current.length >= 3) return [...current.slice(1), cardId];
-      return [...current, cardId];
-    });
+  const selectOperator = (id: number) => {
+    if (operatorId === id) {
+      if (secondId !== null) setSecondId(null);
+      else setOperatorId(null);
+    } else if (secondId === id) setSecondId(null);
+    else if (operatorId !== null && secondId === null) setSecondId(id);
+    else setOperatorId(id);
+    const unit = run?.operators.find((item) => item.id === id);
+    if (unit && operatorId === null) setMaterial(unit.elementId);
   };
-
-  const redeemCampaignGift = async () => {
-    setGiftClaimState("saving");
-    setGiftClaimMessage("");
+  const redeem = async () => {
+    setGiftSaving(true);
     try {
       const response = await fetch(`/api/campaign/stages/${stage.id}/redeem`, {
         method: "POST",
@@ -357,24 +516,23 @@ export default function CampaignStage({
         body: JSON.stringify({ redeemInfo: { fullName: giftRecipient, address: giftAddress } }),
       });
       const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.success) throw new Error(result?.error || "redeem_failed");
-      setGiftClaimState("done");
-      setGiftClaimMessage(`${c.redeemedGift} · ${result.redemptionId}`);
+      if (!response.ok || !result?.success) throw new Error(result?.error || c.claimFailed);
+      setGiftMessage(`${c.redeemed} · ${result.redemptionId}`);
       onProgress?.(result);
-    } catch (reason) {
-      setGiftClaimState("error");
-      setGiftClaimMessage(reason instanceof Error ? reason.message : c.claimFailed);
+    } catch (error) {
+      setGiftMessage(error instanceof Error ? error.message : c.claimFailed);
+    } finally {
+      setGiftSaving(false);
     }
   };
-
-  const stageTone =
-    stage.type === "boss"
-      ? "from-rose-500 to-red-700"
-      : stage.type === "elite"
-        ? "from-violet-500 to-fuchsia-700"
-        : stage.type === "miniboss"
-          ? "from-amber-500 to-orange-700"
-          : "from-emerald-500 to-teal-700";
+  const reset = () => {
+    setPhase("briefing");
+    setRun(null);
+    setEvents([]);
+    setAnswers({});
+    setRewardState("idle");
+    setNotice("");
+  };
 
   return (
     <div className="fixed inset-0 overflow-auto bg-[#020b0a] text-white">
@@ -382,488 +540,86 @@ export default function CampaignStage({
         src={BMO_ASSETS.campaignArena}
         alt=""
         aria-hidden="true"
-        className="fixed inset-0 h-full w-full object-cover opacity-45"
+        className="fixed inset-0 h-full w-full object-cover opacity-35"
       />
-      <div className="fixed inset-0 bg-[linear-gradient(180deg,rgba(2,11,10,0.55),rgba(2,11,10,0.95)_75%)]" />
-      {!reduceMotion && (
-        <>
-          <motion.div
-            aria-hidden="true"
-            className="pointer-events-none fixed -left-24 top-24 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl"
-            animate={{ x: [0, 45, 0], y: [0, 28, 0], opacity: [0.35, 0.6, 0.35] }}
-            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            aria-hidden="true"
-            className="pointer-events-none fixed -right-24 bottom-10 h-80 w-80 rounded-full bg-amber-300/10 blur-3xl"
-            animate={{ x: [0, -36, 0], y: [0, -24, 0], opacity: [0.25, 0.5, 0.25] }}
-            transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </>
-      )}
-
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#031713]/80 px-4 py-3 backdrop-blur-xl sm:px-6">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <motion.button
-            onClick={onBack}
-            aria-label={t("campaign.backToMap")}
-            whileHover={reduceMotion ? undefined : { scale: 1.05 }}
-            whileTap={reduceMotion ? undefined : { scale: 0.95 }}
-            className="rounded-xl border border-white/10 bg-white/10 p-2.5 transition hover:bg-white/20"
-          >
+      <div className="fixed inset-0 bg-black/65" />
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#031713]/85 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center gap-3">
+          <button onClick={onBack} className="rounded-xl border border-white/10 bg-white/10 p-2">
             <ArrowLeft className="h-5 w-5" />
-          </motion.button>
+          </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-black sm:text-lg">
-              {stage ? t(stageNameKey, { defaultValue: stage.nameKey }) : ""}
-            </p>
-            <p className="truncate text-xs text-emerald-100/65">
-              {t(region.nameKey)} · {t("campaign.stage")} {stageNumber}
+            <p className="truncate font-black">{stageTitle}</p>
+            <p className="truncate text-xs text-white/50">
+              {t(region.nameKey)} · {c.op}
             </p>
           </div>
-          <div
-            className="flex items-center gap-2 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-sm font-black text-amber-200"
-            title={c.stamina}
-          >
-            <Zap className="h-4 w-4 fill-current" /> {stamina}/{maxStamina}
-            <span className="text-amber-100/50">−{stage.staminaCost}</span>
+          <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-sm font-black text-amber-200">
+            <Zap className="mr-1 inline h-4 w-4" />
+            {stamina}/{maxStamina}
           </div>
         </div>
       </header>
-
-      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-68px)] max-w-5xl items-center px-4 py-8 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6">
         <AnimatePresence mode="wait">
           {phase === "briefing" && (
-            <motion.section
-              key="briefing"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              className="w-full overflow-hidden rounded-[32px] border border-emerald-200/20 bg-[#061d19]/90 shadow-[0_30px_100px_rgba(0,0,0,0.55)] backdrop-blur-xl"
-            >
-              <div className={`relative overflow-hidden bg-gradient-to-r ${stageTone} p-6 sm:p-8`}>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.24),transparent_38%)]" />
-                <div className="relative">
-                  <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/15 px-3 py-1 text-xs font-black uppercase tracking-[0.16em]">
-                    <Swords className="h-3.5 w-3.5" /> {c.mission}
-                  </span>
-                  <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-                    {t(stageNameKey, { defaultValue: stage.nameKey })}
-                  </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
-                    {c.brief}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-5 sm:p-8">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-black">
-                    <Shield className="h-5 w-5 text-emerald-300" /> {c.intel}
-                  </h2>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/65">
-                    {encounters.length} cards
-                  </span>
-                </div>
-                {encounters.length ? (
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-                    {encounters.map((card, index) => (
-                      <motion.div
-                        key={`${card.id}-${index}`}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.07 }}
-                        className="group overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-2"
-                      >
-                        <div className="mx-auto aspect-[3/4] w-full max-w-28 transition-transform duration-300 group-hover:scale-[1.03]">
-                          {getCardArt(
-                            card.id,
-                            card.element.id,
-                            card.artVariant || 1,
-                            card.rarity.id,
-                          )}
-                        </div>
-                        <p className="mt-1 truncate text-center text-[10px] font-bold text-white/65 sm:text-xs">
-                          {tCardName(card.name)}
-                        </p>
-                      </motion.div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-200">
-                    {c.noCards}
-                  </p>
-                )}
-
-                {rewardPreview && (
-                  <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] px-4 py-3 text-xs font-bold text-amber-100/85">
-                    <span className="text-amber-300">{c.fullClear}</span>
-                    <span>+{rewardPreview.points} EXP</span>
-                    <span>
-                      +{rewardPreview.shards} {c.shards}
-                    </span>
-                    {rewardPreview.cardId && (
-                      <span>
-                        #{String(rewardPreview.cardId).padStart(3, "0")} {c.cardDrop}
-                      </span>
-                    )}
-                    {rewardPreview.rewardId && <span>{c.catalogGift}</span>}
-                  </div>
-                )}
-
-                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black text-white">{c.squad}</p>
-                      <p className="mt-1 max-w-2xl text-xs leading-5 text-white/55">
-                        {c.squadHint}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${teamCardIds.length === 3 ? "bg-emerald-400/15 text-emerald-200" : "bg-amber-400/15 text-amber-200"}`}
-                    >
-                      {teamCardIds.length}/3
-                    </span>
-                  </div>
-                  <div className="thin-scrollbar mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-1">
-                    {ownedCardIds.map((cardId) => {
-                      const card = FLAGSHIP_CARDS.find((candidate) => candidate.id === cardId);
-                      if (!card) return null;
-                      const selected = teamCardIds.includes(cardId);
-                      const profile = getCardHeroProfile(card);
-                      return (
-                        <button
-                          key={cardId}
-                          type="button"
-                          onClick={() => toggleTeamCard(cardId)}
-                          aria-pressed={selected}
-                          className={`flex w-[calc(50%-4px)] items-center gap-2 rounded-xl border p-2 text-left transition sm:w-[calc(33.333%-6px)] ${selected ? "border-amber-300/60 bg-amber-300/10" : "border-white/10 bg-white/[0.03] hover:border-white/25"}`}
-                        >
-                          <span className="h-12 w-9 shrink-0 overflow-hidden rounded-md bg-slate-900">
-                            {getCardArt(
-                              card.id,
-                              card.element.id,
-                              card.artVariant || 1,
-                              card.rarity.id,
-                            )}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-[10px] font-black text-white">
-                              {profile.callsign}
-                            </span>
-                            <span className="mt-0.5 block truncate text-[9px] text-white/45">
-                              {profile.roleVi} · {profile.mechanicName}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <motion.button
-                  onClick={resetBattle}
-                  whileHover={
-                    reduceMotion ||
-                    !encounters.length ||
-                    teamCardIds.length !== 3 ||
-                    stamina < stage.staminaCost
-                      ? undefined
-                      : { y: -3, scale: 1.01 }
-                  }
-                  whileTap={reduceMotion || !encounters.length ? undefined : { scale: 0.98 }}
-                  disabled={
-                    !encounters.length || teamCardIds.length !== 3 || stamina < stage.staminaCost
-                  }
-                  className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-400 px-6 py-4 text-lg font-black text-emerald-950 shadow-[0_12px_34px_rgba(251,191,36,0.2)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Swords className="h-5 w-5" />{" "}
-                  {teamCardIds.length !== 3
-                    ? c.squadRequired
-                    : stamina < stage.staminaCost
-                      ? c.insufficientStamina
-                      : c.start}
-                </motion.button>
-              </div>
-            </motion.section>
+            <Briefing
+              c={c}
+              stageTitle={stageTitle}
+              region={region}
+              encounters={encounters}
+              teamCards={teamCards}
+              ownedIds={ownedIds}
+              teamIds={teamIds}
+              rewardPreview={rewardPreview}
+              notice={notice}
+              stageTone={stageTone}
+              toggleTeam={toggleTeam}
+              start={start}
+            />
           )}
-
-          {phase === "battle" && currentCard && (
-            <motion.section
-              key={`battle-${round}`}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="w-full"
-            >
-              <div className="mb-5 flex items-center justify-between rounded-2xl border border-white/10 bg-black/30 px-4 py-3 backdrop-blur">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-300">
-                    {c.round}
-                  </p>
-                  <p className="font-black">
-                    {round + 1} / {encounters.length}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1" aria-label={`${c.hp}: ${energy}`}>
-                  {[0, 1, 2].map((index) => (
-                    <motion.div
-                      key={index}
-                      animate={
-                        reduceMotion || index >= energy ? { scale: 1 } : { scale: [1, 1.14, 1] }
-                      }
-                      transition={
-                        reduceMotion || index >= energy
-                          ? { duration: 0 }
-                          : { duration: 1.8, repeat: Infinity, delay: index * 0.12 }
-                      }
-                    >
-                      <Heart
-                        className={`h-6 w-6 ${index < energy ? "fill-rose-400 text-rose-400" : "text-white/15"}`}
-                      />
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-              <div
-                className="mb-5 h-1.5 overflow-hidden rounded-full bg-white/10"
-                aria-label={`${c.round} ${round + 1}/${encounters.length}`}
-              >
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-cyan-300 to-amber-300"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${((round + 1) / encounters.length) * 100}%` }}
-                  transition={{ duration: reduceMotion ? 0 : 0.45, ease: "easeOut" }}
-                />
-              </div>
-
-              <div className="grid items-center gap-6 lg:grid-cols-[300px_1fr]">
-                <motion.div
-                  initial={{ scale: 0.9, rotateY: 10 }}
-                  animate={
-                    reduceMotion
-                      ? { scale: 1, rotateY: 0 }
-                      : { scale: 1, rotateY: 0, y: [0, -5, 0] }
-                  }
-                  transition={
-                    reduceMotion
-                      ? { duration: 0 }
-                      : { duration: 4, repeat: Infinity, ease: "easeInOut" }
-                  }
-                  className="mx-auto aspect-[3/4] w-52 drop-shadow-[0_28px_30px_rgba(0,0,0,0.55)] sm:w-64"
-                >
-                  {getCardArt(
-                    currentCard.id,
-                    currentCard.element.id,
-                    currentCard.artVariant || 1,
-                    currentCard.rarity.id,
-                  )}
-                </motion.div>
-
-                <div className="rounded-[28px] border border-white/10 bg-[#061d19]/90 p-5 shadow-2xl backdrop-blur-xl sm:p-7">
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-amber-300">
-                    {tCardName(currentCard.name)}
-                  </span>
-                  <h2 className="mb-5 mt-2 text-2xl font-black">{c.question}</h2>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {answerOptions.map((element) => {
-                      const chosen = selectedElement === element.id;
-                      const correct = element.id === currentCard.element.id;
-                      const revealCorrect = Boolean(selectedElement && correct);
-                      const revealWrong = Boolean(chosen && !correct);
-                      return (
-                        <motion.button
-                          key={element.id}
-                          onClick={() => chooseAnswer(element.id)}
-                          disabled={Boolean(selectedElement)}
-                          whileHover={
-                            reduceMotion || Boolean(selectedElement) ? undefined : { x: 3 }
-                          }
-                          whileTap={
-                            reduceMotion || Boolean(selectedElement) ? undefined : { scale: 0.98 }
-                          }
-                          className={`relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left font-bold transition ${
-                            revealCorrect
-                              ? "border-emerald-300 bg-emerald-400/20 text-emerald-100"
-                              : revealWrong
-                                ? "border-rose-300 bg-rose-400/20 text-rose-100"
-                                : "border-white/10 bg-white/5 text-white/85 hover:border-amber-200/50 hover:bg-white/10"
-                          }`}
-                        >
-                          <span
-                            className="h-3 w-3 rounded-full shadow-[0_0_12px_currentColor]"
-                            style={{ backgroundColor: element.accent }}
-                          />
-                          <span className="flex-1">
-                            {i18n.resolvedLanguage?.startsWith("vi")
-                              ? element.name
-                              : element.nameShort}
-                          </span>
-                          {revealCorrect && <Check className="h-5 w-5" />}
-                          {revealWrong && <X className="h-5 w-5" />}
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-
-                  {selectedElement && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-5"
-                    >
-                      <div
-                        role="status"
-                        aria-live="polite"
-                        className={`rounded-xl p-3 text-sm font-bold ${
-                          selectedElement === currentCard.element.id
-                            ? "bg-emerald-400/15 text-emerald-200"
-                            : "bg-rose-400/15 text-rose-200"
-                        }`}
-                      >
-                        {selectedElement === currentCard.element.id ? c.correct : c.wrong}.{" "}
-                        {c.correctWas}:{" "}
-                        {i18n.resolvedLanguage?.startsWith("vi")
-                          ? currentCard.element.name
-                          : currentCard.element.nameShort}
-                        .
-                      </div>
-                      <motion.button
-                        onClick={nextRound}
-                        whileHover={reduceMotion ? undefined : { y: -2 }}
-                        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                        className="mt-3 w-full rounded-xl bg-white px-4 py-3 font-black text-emerald-950 transition hover:bg-emerald-50"
-                      >
-                        {round >= encounters.length - 1 || energy <= 0 ? c.finish : c.next}
-                      </motion.button>
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-            </motion.section>
+          {phase === "run" && run && (
+            <RunBoard
+              c={c}
+              english={english}
+              run={run}
+              encounters={encounters}
+              selectedTarget={selectedTarget}
+              selectedOperator={selectedOperator}
+              targetId={targetId}
+              operatorId={operatorId}
+              secondId={secondId}
+              lane={lane}
+              material={material}
+              notice={notice}
+              setTargetId={setTargetId}
+              setLane={setLane}
+              setMaterial={setMaterial}
+              selectOperator={selectOperator}
+              act={act}
+            />
           )}
-
-          {phase === "result" && (
-            <motion.section
-              key="result"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mx-auto w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/10 bg-[#061d19]/95 text-center shadow-[0_30px_100px_rgba(0,0,0,0.65)] backdrop-blur-xl"
-            >
-              <div
-                className={`bg-gradient-to-r ${won ? "from-emerald-500 to-teal-700" : "from-slate-600 to-slate-800"} p-8`}
-              >
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-white/25 bg-black/15">
-                  {won ? (
-                    <Trophy className="h-10 w-10 text-amber-200" />
-                  ) : (
-                    <Shield className="h-10 w-10 text-white/70" />
-                  )}
-                </div>
-                <h1 className="text-3xl font-black">{won ? c.victory : c.defeat}</h1>
-                <p className="mt-2 text-sm text-white/80">{won ? c.victoryHint : c.defeatHint}</p>
-              </div>
-
-              <div className="p-6 sm:p-8">
-                <div className="grid grid-cols-3 gap-3">
-                  <ResultMetric label={c.accuracy} value={`${accuracy}%`} />
-                  <ResultMetric label={c.correct} value={`${correctCount}/${encounters.length}`} />
-                  <ResultMetric label={c.hp} value={`${energy}/3`} />
-                </div>
-
-                {won && (
-                  <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-bold text-amber-100">
-                    <div className="mb-1 flex items-center justify-center gap-2 text-amber-300">
-                      <Sparkles className="h-4 w-4" /> {c.serverReward}
-                    </div>
-                    {rewardState === "claiming" && c.claiming}
-                    {rewardState === "claimed" && (
-                      <div className="space-y-1">
-                        <p>
-                          {c.claimed}: +{earnedPoints} EXP · +{earnedShards} {c.shards}
-                        </p>
-                        <p className="text-amber-300">
-                          {"★".repeat(serverStars)}
-                          {"☆".repeat(Math.max(0, 3 - serverStars))}
-                        </p>
-                        {awardedCardId && (
-                          <p>
-                            #{String(awardedCardId).padStart(3, "0")} {c.cardDrop}
-                          </p>
-                        )}
-                        {unlockedGiftId && (
-                          <p>
-                            {c.catalogGift}: {giftName || c.catalogGift}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {rewardState === "duplicate" && c.duplicate}
-                    {rewardState === "failed" && (rewardMessage || c.claimFailed)}
-                  </div>
-                )}
-
-                {won && unlockedGiftId && (
-                  <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.07] p-4 text-left">
-                    <p className="text-sm font-black text-cyan-100">{c.catalogGift}</p>
-                    <p className="mt-1 text-xs text-cyan-100/55">{giftName || c.catalogGift}</p>
-                    {giftClaimState === "done" ? (
-                      <p className="mt-3 rounded-xl bg-emerald-400/10 p-3 text-xs font-bold text-emerald-200">
-                        {giftClaimMessage}
-                      </p>
-                    ) : (
-                      <div className="mt-3 space-y-2">
-                        <input
-                          value={giftRecipient}
-                          onChange={(event) => setGiftRecipient(event.target.value)}
-                          autoComplete="name"
-                          placeholder={c.recipient}
-                          className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-300/50"
-                        />
-                        <textarea
-                          value={giftAddress}
-                          onChange={(event) => setGiftAddress(event.target.value)}
-                          autoComplete="street-address"
-                          placeholder={c.address}
-                          rows={3}
-                          className="w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-300/50"
-                        />
-                        {giftClaimState === "error" && (
-                          <p className="text-xs font-bold text-rose-300">{giftClaimMessage}</p>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => void redeemCampaignGift()}
-                          disabled={giftClaimState === "saving"}
-                          className="w-full rounded-xl bg-cyan-200 px-4 py-3 text-sm font-black text-cyan-950 disabled:opacity-60"
-                        >
-                          {giftClaimState === "saving" ? c.redeemingGift : c.redeemGift}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <motion.button
-                    onClick={resetBattle}
-                    whileHover={reduceMotion ? undefined : { y: -2 }}
-                    whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-5 py-3 font-black transition hover:bg-white/10"
-                  >
-                    <RotateCcw className="h-4 w-4" /> {c.retry}
-                  </motion.button>
-                  <motion.button
-                    onClick={onBack}
-                    whileHover={reduceMotion ? undefined : { y: -2 }}
-                    whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                    className="rounded-2xl bg-white px-5 py-3 font-black text-emerald-950 transition hover:bg-emerald-50"
-                  >
-                    {t("campaign.backToMap")}
-                  </motion.button>
-                </div>
-              </div>
-            </motion.section>
+          {phase === "result" && run && (
+            <Result
+              c={c}
+              run={run}
+              rewardState={rewardState}
+              serverStars={serverStars}
+              earnedPoints={earnedPoints}
+              earnedShards={earnedShards}
+              cardReward={cardReward}
+              giftId={giftId}
+              giftName={giftName}
+              giftRecipient={giftRecipient}
+              giftAddress={giftAddress}
+              giftMessage={giftMessage}
+              giftSaving={giftSaving}
+              setGiftRecipient={setGiftRecipient}
+              setGiftAddress={setGiftAddress}
+              redeem={redeem}
+              reset={reset}
+              onBack={onBack}
+            />
           )}
         </AnimatePresence>
       </main>
@@ -871,11 +627,520 @@ export default function CampaignStage({
   );
 }
 
-function ResultMetric({ label, value }: { label: string; value: string }) {
+function Briefing({
+  c,
+  stageTitle,
+  region,
+  encounters,
+  teamCards,
+  ownedIds,
+  teamIds,
+  rewardPreview,
+  notice,
+  stageTone,
+  toggleTeam,
+  start,
+}: BriefingProps) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-      <p className="text-xl font-black text-white">{value}</p>
-      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-white/50">{label}</p>
-    </div>
+    <motion.section
+      key="briefing"
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-3xl border border-cyan-200/15 bg-[#061d19]/90 shadow-2xl"
+    >
+      <div className={`bg-gradient-to-r ${stageTone} p-6 sm:p-9`}>
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/20 px-3 py-1 text-xs font-black">
+          <Radar className="h-4 w-4" />
+          {c.op}
+        </div>
+        <h1 className="text-3xl font-black sm:text-5xl">{stageTitle}</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-white/80">{c.brief}</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-white/60">{c.body}</p>
+      </div>
+      <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200/60">
+            {region.elementId} · {encounters.length} {c.nodes}
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
+            {encounters.map((card, index) => (
+              <div
+                key={card.id}
+                className="overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-2"
+              >
+                <div className="relative aspect-[3/4] overflow-hidden rounded-xl">
+                  {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
+                  <span className="absolute left-1 top-1 rounded bg-black/70 px-1 text-[9px]">
+                    N{index + 1}
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-center text-[10px]">{tCardName(card.name)}</p>
+              </div>
+            ))}
+          </div>
+          {rewardPreview && (
+            <p className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/10 p-3 text-xs font-bold text-amber-100">
+              3★ · +{rewardPreview.points} {c.exp} · +{rewardPreview.shards} {c.shards}
+            </p>
+          )}
+        </div>
+        <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="font-black">{c.deploy}</p>
+              <p className="mt-1 text-xs text-white/50">{c.deployHint}</p>
+            </div>
+            <span className="rounded-full bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-100">
+              {teamIds.length}/3
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {CAMPAIGN_LANES.map((lane: CampaignLane, index: number) => (
+              <div
+                key={lane}
+                className="min-h-24 rounded-xl border border-dashed border-white/15 p-2"
+              >
+                <p className="text-[9px] text-white/40">{getLaneLabel(lane)}</p>
+                {teamCards[index] ? (
+                  <div className="mt-2 overflow-hidden rounded-lg">
+                    <div className="aspect-[3/2]">
+                      {getCardArt(
+                        teamCards[index].id,
+                        teamCards[index].element.id,
+                        teamCards[index].artVariant || 1,
+                        teamCards[index].rarity.id,
+                      )}
+                    </div>
+                    <p className="truncate text-[9px] font-bold">
+                      {getCardHeroProfile(teamCards[index]).callsign}
+                    </p>
+                  </div>
+                ) : (
+                  <MapPin className="mx-auto mt-8 h-4 w-4 text-white/20" />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 max-h-52 overflow-auto">
+            <div className="grid grid-cols-2 gap-2">
+              {ownedIds.map((id: number) => {
+                const card = FLAGSHIP_CARDS.find((item) => item.id === id);
+                if (!card) return null;
+                const selected = teamIds.includes(id);
+                const profile = getCardHeroProfile(card);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => toggleTeam(id)}
+                    className={`flex items-center gap-2 rounded-xl border p-2 text-left ${selected ? "border-cyan-300/60 bg-cyan-300/10" : "border-white/10 bg-white/[0.03]"}`}
+                  >
+                    <div className="h-9 w-7 overflow-hidden rounded">
+                      <>
+                        {getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
+                      </>
+                    </div>
+                    <span className="min-w-0 truncate text-[10px]">{profile.callsign}</span>
+                    {selected && <Check className="ml-auto h-4 w-4 text-cyan-200" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <button
+            onClick={start}
+            disabled={teamIds.length !== 3}
+            className="mt-4 w-full rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-40"
+          >
+            {teamIds.length === 3 ? c.start : c.needTeam}
+          </button>
+          {notice && <p className="mt-2 text-center text-xs text-amber-200">{notice}</p>}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function RunBoard({
+  c,
+  english,
+  run,
+  encounters,
+  selectedTarget,
+  selectedOperator,
+  targetId,
+  operatorId,
+  secondId,
+  lane,
+  material,
+  notice,
+  setTargetId,
+  setLane,
+  setMaterial,
+  selectOperator,
+  act,
+}: RunBoardProps) {
+  const operatorsIn = (selectedLane: CampaignLane) =>
+    run.operators.filter((operator) => operator.lane === selectedLane);
+  const secondOperator = run.operators.find((operator) => operator.id === secondId);
+  const syncReady =
+    selectedOperator &&
+    secondOperator &&
+    isMaterialSynergy(selectedOperator.elementId, secondOperator.elementId);
+  return (
+    <motion.section
+      key="run"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-4"
+    >
+      <div className="grid gap-3 sm:grid-cols-4">
+        {[
+          [c.ap, `${run.ap}/${run.maxAp}`],
+          [c.integrity, `${run.integrity}/${run.maxIntegrity}`],
+          [c.contamination, run.contamination],
+          [c.combo, `x${run.combo}`],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] p-4">
+            <p className="text-[10px] font-black uppercase text-white/55">{label}</p>
+            <p className="mt-1 text-3xl font-black">{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-3xl border border-cyan-200/15 bg-[#061d19]/90 p-4 shadow-2xl sm:p-6">
+        <div className="flex justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200/60">
+              {c.run} · TURN {run.turn}
+            </p>
+            <p className="mt-1 text-sm text-white/60">{run.lastEnemyAction}</p>
+          </div>
+          <span className="rounded-full bg-rose-300/10 px-3 py-1 text-xs font-black">
+            {countResolvedTargets(run)}/{run.targets.length} {c.secured}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-5">
+          {run.targets.map((target, index) => {
+            const card = encounters.find((item) => item.id === target.id);
+            const meta = intentMeta(target.intent, english);
+            return (
+              <button
+                key={target.id}
+                onClick={() => setTargetId(target.id)}
+                className={`rounded-2xl border p-2 text-left ${target.resolved ? "border-emerald-300/50 bg-emerald-300/10" : targetId === target.id ? "border-cyan-300/70 bg-cyan-300/10" : "border-white/10 bg-white/[0.03]"}`}
+              >
+                <div className="aspect-[3/2] overflow-hidden rounded-xl">
+                  {card &&
+                    getCardArt(card.id, card.element.id, card.artVariant || 1, card.rarity.id)}
+                </div>
+                <div className="mt-2 flex justify-between text-[9px] font-black">
+                  <span>
+                    N{index + 1} · {getLaneLabel(target.lane)}
+                  </span>
+                  <span style={{ color: target.resolved ? "#86efac" : meta.color }}>
+                    {target.resolved ? "✓" : meta.label}
+                  </span>
+                </div>
+                <p className="truncate text-[10px]">{card ? tCardName(card.name) : target.id}</p>
+                {!target.resolved && (
+                  <div
+                    className="mt-1 h-1 rounded bg-cyan-300"
+                    style={{ width: `${target.integrity}%` }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="flex items-center gap-2">
+              <CircleHelp className="h-5 w-5 text-cyan-200" />
+              <div>
+                <p className="text-[10px] uppercase text-cyan-200/60">{c.target}</p>
+                <p className="font-black">
+                  {selectedTarget
+                    ? tCardName(
+                        encounters.find((card) => card.id === selectedTarget.id)?.name ||
+                          selectedTarget.name ||
+                          `#${selectedTarget.id}`,
+                      )
+                    : c.selectTarget}
+                </p>
+                <p className="text-xs text-white/50">
+                  {selectedTarget && !selectedTarget.resolved
+                    ? intentMeta(selectedTarget.intent, english).detail
+                    : c.secured}
+                </p>
+              </div>
+            </div>
+            {selectedTarget && !selectedTarget.resolved && (
+              <div className="mt-3">
+                <p className="text-[10px] uppercase text-amber-200/60">{c.material}</p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {ELEMENTS.map((element) => (
+                    <button
+                      key={element.id}
+                      onClick={() => setMaterial(element.id as CardElementId)}
+                      className={`rounded-lg border px-2 py-1 text-[10px] ${material === element.id ? "border-cyan-200 bg-cyan-300/20" : "border-white/10"}`}
+                    >
+                      {CARD_ELEMENT_IDENTITIES[element.id as CardElementId].icon} {element.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="mb-2 text-[10px] uppercase text-white/45">
+              {c.operator}: {selectedOperator?.name || "—"}
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {CAMPAIGN_LANES.map((selectedLane) => (
+                <div key={selectedLane} className="rounded-xl border border-white/10 p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-white/40">{getLaneLabel(selectedLane)}</span>
+                    <button
+                      onClick={() => setLane(selectedLane)}
+                      className="text-[9px] text-cyan-200"
+                    >
+                      {c.chooseLane}
+                    </button>
+                  </div>
+                  {operatorsIn(selectedLane).map((operator) => (
+                    <button
+                      key={operator.id}
+                      onClick={() => selectOperator(operator.id)}
+                      className={`mt-1 w-full rounded-lg border p-2 text-left text-[10px] ${operatorId === operator.id || secondId === operator.id ? "border-cyan-300/70 bg-cyan-300/10" : "border-white/10"}`}
+                    >
+                      <b className="block truncate">
+                        {operatorId === operator.id
+                          ? "A · "
+                          : secondId === operator.id
+                            ? "B · "
+                            : ""}
+                        {operator.name || operator.id}
+                      </b>
+                      <span className="text-cyan-200/60">
+                        {operator.elementId} · {roleLabel(operator.role, english)}
+                      </span>
+                      <span className="block text-[9px] text-white/35">
+                        {english
+                          ? CARD_ELEMENT_IDENTITIES[operator.elementId as CardElementId].mechanicEn
+                          : CARD_ELEMENT_IDENTITIES[operator.elementId as CardElementId].mechanicVi}
+                      </span>
+                      <span className="block text-white/45">
+                        HP {operator.hp}/{operator.maxHp} {operator.jammed ? `· ${c.jammed}` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+          <button
+            disabled={
+              !selectedTarget || selectedTarget.resolved || operatorId === null || run.ap < 1
+            }
+            onClick={() =>
+              selectedTarget &&
+              operatorId !== null &&
+              act({
+                type: "salvage",
+                targetId: selectedTarget.id,
+                operatorId,
+                claimedElementId: material,
+              })
+            }
+            className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-left disabled:opacity-40"
+          >
+            <b>
+              <Crosshair className="mr-1 inline h-4 w-4" />
+              {c.salvage}
+            </b>
+            <small className="mt-1 block text-white/50">{c.salvageHint}</small>
+          </button>
+          <button
+            disabled={
+              !selectedTarget ||
+              selectedTarget.resolved ||
+              operatorId === null ||
+              secondId === null ||
+              !syncReady ||
+              run.ap < 2
+            }
+            onClick={() =>
+              selectedTarget &&
+              operatorId !== null &&
+              secondId !== null &&
+              act({
+                type: "sync",
+                targetId: selectedTarget.id,
+                firstOperatorId: operatorId,
+                secondOperatorId: secondId,
+                claimedElementId: material,
+              })
+            }
+            className="rounded-xl border border-fuchsia-300/30 bg-fuchsia-300/10 p-3 text-left disabled:opacity-40"
+          >
+            <b>
+              <Sparkles className="mr-1 inline h-4 w-4" />
+              {c.sync}
+            </b>
+            <small className="mt-1 block text-white/50">{c.syncHint}</small>
+          </button>
+          <button
+            disabled={run.ap < 1}
+            onClick={() => act({ type: "brace", lane })}
+            className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 p-3 text-left disabled:opacity-40"
+          >
+            <b>
+              <Shield className="mr-1 inline h-4 w-4" />
+              {c.brace}
+            </b>
+            <small className="mt-1 block text-white/50">{c.braceHint}</small>
+          </button>
+          <button
+            disabled={run.ap < 1 || operatorId === null}
+            onClick={() => operatorId !== null && act({ type: "shift", operatorId, lane })}
+            className="rounded-xl border border-amber-300/30 bg-amber-300/10 p-3 text-left disabled:opacity-40"
+          >
+            <b>
+              <Gauge className="mr-1 inline h-4 w-4" />
+              {c.shift}
+            </b>
+            <small className="mt-1 block text-white/50">{c.shiftHint}</small>
+          </button>
+        </div>
+        <div className="mt-3 flex justify-between border-t border-white/10 pt-3">
+          <p className="text-xs text-white/55">{notice}</p>
+          <button
+            onClick={() => act({ type: "commit" })}
+            className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black"
+          >
+            <LockKeyhole className="mr-1 inline h-3.5 w-3.5" />
+            {c.endTurn}
+          </button>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function Result({
+  c,
+  run,
+  rewardState,
+  serverStars,
+  earnedPoints,
+  earnedShards,
+  cardReward,
+  giftId,
+  giftName,
+  giftRecipient,
+  giftAddress,
+  giftMessage,
+  giftSaving,
+  setGiftRecipient,
+  setGiftAddress,
+  redeem,
+  reset,
+  onBack,
+}: ResultProps) {
+  return (
+    <motion.section
+      key="result"
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-auto max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-[#061d19]/95 shadow-2xl"
+    >
+      <div
+        className={`p-8 ${run.status === "victory" ? "bg-gradient-to-r from-emerald-500 to-cyan-800" : "bg-gradient-to-r from-rose-500 to-indigo-950"}`}
+      >
+        <div className="flex items-center gap-3">
+          {run.status === "victory" ? <Trophy /> : <X />}
+          <h1 className="text-3xl font-black">{run.status === "victory" ? c.victory : c.defeat}</h1>
+        </div>
+        <p className="mt-3 text-sm text-white/80">
+          {run.status === "victory" ? c.victoryBody : c.defeatBody}
+        </p>
+      </div>
+      <div className="grid gap-3 p-6 sm:grid-cols-3">
+        <div className="rounded-xl bg-cyan-300/10 p-4">
+          <small>{c.score}</small>
+          <p className="text-3xl font-black">{getCampaignRunScore(run)}</p>
+        </div>
+        <div className="rounded-xl bg-emerald-300/10 p-4">
+          <small>{c.secured}</small>
+          <p className="text-3xl font-black">
+            {countResolvedTargets(run)}/{run.targets.length}
+          </p>
+        </div>
+        <div className="rounded-xl bg-fuchsia-300/10 p-4">
+          <small>{c.combo}</small>
+          <p className="text-3xl font-black">x{run.bestCombo}</p>
+        </div>
+      </div>
+      {run.status === "victory" && (
+        <div className="mx-6 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4">
+          <p className="font-black text-amber-100">{c.reward}</p>
+          {rewardState === "claiming" && <p className="mt-2 text-xs">{c.claiming}</p>}
+          {rewardState === "failed" && (
+            <p className="mt-2 text-xs text-rose-200">{c.claimFailed}</p>
+          )}
+          {(rewardState === "claimed" || rewardState === "duplicate") && (
+            <p className="mt-2 text-xs text-amber-100">
+              ★ {serverStars} · +{earnedPoints} {c.exp} · +{earnedShards} {c.shards}{" "}
+              {cardReward ? `· #${cardReward} ${c.card}` : ""}{" "}
+              {rewardState === "duplicate" ? `· ${c.duplicate}` : ""}
+            </p>
+          )}
+        </div>
+      )}
+      {giftId && (
+        <div className="mx-6 mt-4 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-4">
+          <p className="font-black text-cyan-100">{giftName || c.gift}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <input
+              value={giftRecipient}
+              onChange={(event) => setGiftRecipient(event.target.value)}
+              placeholder={c.recipient}
+              className="rounded-lg bg-black/20 p-2 text-sm"
+            />
+            <input
+              value={giftAddress}
+              onChange={(event) => setGiftAddress(event.target.value)}
+              placeholder={c.address}
+              className="rounded-lg bg-black/20 p-2 text-sm"
+            />
+          </div>
+          <button
+            onClick={redeem}
+            disabled={giftSaving || !giftRecipient || !giftAddress}
+            className="mt-3 rounded-lg bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"
+          >
+            {giftSaving ? c.redeeming : c.redeem}
+          </button>
+          {giftMessage && <p className="mt-2 text-xs">{giftMessage}</p>}
+        </div>
+      )}
+      <div className="flex justify-end gap-3 p-6">
+        <button
+          onClick={reset}
+          className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black"
+        >
+          <RotateCcw className="mr-1 inline h-4 w-4" />
+          {c.retry}
+        </button>
+        <button
+          onClick={onBack}
+          className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950"
+        >
+          <ArrowLeft className="mr-1 inline h-4 w-4" />
+          {c.back}
+        </button>
+      </div>
+    </motion.section>
   );
 }

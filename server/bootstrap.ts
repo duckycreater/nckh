@@ -24,6 +24,7 @@ import {
   getCampaignRegionForStage,
   getCampaignStage,
 } from "../shared/cardGame.js";
+import { isMaterialSynergy } from "../shared/campaignCombat.js";
 import {
   getCampaignRewardConfig,
   listCampaignRewardConfigs,
@@ -2477,7 +2478,91 @@ app.post("/api/campaign/stages/:stageId/complete", requireAuth, async (req, res)
       0,
     );
     const accuracy = expectedIds.length ? correct / expectedIds.length : 0;
-    const stars = accuracy === 1 ? 3 : accuracy >= 0.8 ? 2 : accuracy >= 0.6 ? 1 : 0;
+    // The campaign client now submits a compact command transcript. The
+    // transcript is intentionally validated here instead of trusting client
+    // damage numbers: only owned operators may act, targets must belong to
+    // this stage, and every material read must be a known element. Legacy
+    // clients may omit combat entirely and retain the original answer-only
+    // scoring path.
+    const rawCombatEvents = req.body?.combat?.events;
+    let tacticalCleanTargets = new Set<number>();
+    let tacticalMistakes = 0;
+    if (rawCombatEvents !== undefined) {
+      if (!Array.isArray(rawCombatEvents) || rawCombatEvents.length > 40) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid campaign command transcript" });
+      }
+      for (const entry of rawCombatEvents) {
+        const command = entry?.command;
+        const commandType = command?.type;
+        if (!command || !["salvage", "sync", "brace", "shift", "commit"].includes(commandType)) {
+          return res.status(400).json({ success: false, error: "Invalid campaign command" });
+        }
+        if (commandType === "salvage") {
+          const targetId = Number(command.targetId);
+          const operatorId = Number(command.operatorId);
+          const elementId = String(command.claimedElementId || "");
+          if (
+            !expectedIds.includes(targetId) ||
+            !submittedTeam.includes(operatorId) ||
+            !getCanonicalElement(targetId) ||
+            !getCanonicalElement(operatorId)
+          ) {
+            return res.status(400).json({ success: false, error: "Invalid salvage command" });
+          }
+          if (getCanonicalElement(targetId) !== elementId) {
+            tacticalMistakes += 1;
+            continue;
+          }
+          tacticalCleanTargets.add(targetId);
+        } else if (commandType === "sync") {
+          const targetId = Number(command.targetId);
+          const firstOperatorId = Number(command.firstOperatorId);
+          const secondOperatorId = Number(command.secondOperatorId);
+          const elementId = String(command.claimedElementId || "");
+          if (
+            !expectedIds.includes(targetId) ||
+            firstOperatorId === secondOperatorId ||
+            !submittedTeam.includes(firstOperatorId) ||
+            !submittedTeam.includes(secondOperatorId) ||
+            !isMaterialSynergy(
+              getCanonicalElement(firstOperatorId),
+              getCanonicalElement(secondOperatorId),
+            )
+          ) {
+            return res.status(400).json({ success: false, error: "Invalid sync command" });
+          }
+          if (getCanonicalElement(targetId) !== elementId) {
+            tacticalMistakes += 1;
+            continue;
+          }
+          tacticalCleanTargets.add(targetId);
+        } else if (commandType === "brace") {
+          if (!["front", "mid", "back"].includes(String(command.lane))) {
+            return res.status(400).json({ success: false, error: "Invalid brace command" });
+          }
+        } else if (
+          commandType === "shift" &&
+          (!submittedTeam.includes(Number(command.operatorId)) ||
+            !["front", "mid", "back"].includes(String(command.lane)))
+        ) {
+          return res.status(400).json({ success: false, error: "Invalid shift command" });
+        }
+      }
+    }
+    let stars = accuracy === 1 ? 3 : accuracy >= 0.8 ? 2 : accuracy >= 0.6 ? 1 : 0;
+    if (Array.isArray(rawCombatEvents)) {
+      if (tacticalCleanTargets.size < expectedIds.length) {
+        stars = 0;
+      } else if (tacticalMistakes === 0 && rawCombatEvents.length <= expectedIds.length * 2 + 2) {
+        stars = Math.min(stars, 3);
+      } else if (tacticalMistakes <= 2) {
+        stars = Math.min(stars, 2);
+      } else {
+        stars = Math.min(stars, 1);
+      }
+    }
     if (stars === 0) {
       return res.json({
         success: true,
@@ -2582,6 +2667,7 @@ app.post("/api/campaign/stages/:stageId/complete", requireAuth, async (req, res)
       accuracy,
       correct,
       total: expectedIds.length,
+      tacticalMistakes,
       reward: {
         points: earnedPoints,
         shards: earnedShards,

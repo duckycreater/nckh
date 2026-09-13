@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { getVietnamDayKey } from "../../src/lib/dayKey.ts";
 import { getDailyChallengeIds, getDailyChallengeReward } from "../../src/lib/dailyChallenges.ts";
 import { FLAGSHIP_CARD_ID_SET, getCampaignStage } from "../../shared/cardGame.ts";
+import { isMaterialSynergy } from "../../shared/campaignCombat.ts";
 import { getCanonicalElement } from "../../server/lib/cards.ts";
 
 const expect = (v: unknown) => ({
@@ -505,11 +506,65 @@ describe("E2E: login → scan garbage", () => {
       cardId,
       elementId: getCanonicalElement(cardId),
     }));
+    const campaignCombatEvents = campaignAnswers.map((answer, index) => ({
+      turn: Math.floor(index / 2) + 1,
+      result: "clean",
+      combo: index + 1,
+      command: {
+        type: "salvage",
+        targetId: answer.cardId,
+        operatorId: campaignTeam[0],
+        claimedElementId: answer.elementId,
+      },
+    }));
+    const invalidSyncPair = campaignTeam
+      .flatMap((firstOperatorId: number, index: number) =>
+        campaignTeam
+          .slice(index + 1)
+          .map((secondOperatorId: number) => [firstOperatorId, secondOperatorId] as const),
+      )
+      .find(
+        ([firstOperatorId, secondOperatorId]: readonly [number, number]) =>
+          !isMaterialSynergy(
+            getCanonicalElement(firstOperatorId),
+            getCanonicalElement(secondOperatorId),
+          ),
+      );
+    assert.ok(invalidSyncPair, "test roster should contain a non-synergy operator pair");
+    const invalidSyncAttempt = await fetch(url(`/api/campaign/stages/${stageId}/complete`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({
+        answers: campaignAnswers,
+        teamCardIds: campaignTeam,
+        combat: {
+          events: [
+            {
+              turn: 1,
+              result: "clean",
+              combo: 2,
+              command: {
+                type: "sync",
+                targetId: campaignAnswers[0].cardId,
+                firstOperatorId: invalidSyncPair[0],
+                secondOperatorId: invalidSyncPair[1],
+                claimedElementId: campaignAnswers[0].elementId,
+              },
+            },
+          ],
+        },
+      }),
+    });
+    expect(invalidSyncAttempt.status).toBe(400);
     const completeCampaign = () =>
       fetch(url(`/api/campaign/stages/${stageId}/complete`), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...auth },
-        body: JSON.stringify({ answers: campaignAnswers, teamCardIds: campaignTeam }),
+        body: JSON.stringify({
+          answers: campaignAnswers,
+          teamCardIds: campaignTeam,
+          combat: { events: campaignCombatEvents },
+        }),
       });
     const firstCampaignClear = await completeCampaign();
     expect(firstCampaignClear.status).toBe(200);
