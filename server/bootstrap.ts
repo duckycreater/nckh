@@ -6207,7 +6207,10 @@ async function startServer(): Promise<Server> {
           } else if (
             /\/(?:index\.html|sw\.js|sw-legacy-cleanup\.js|manifest\.webmanifest)$/.test(normalized)
           ) {
-            res.setHeader("Cache-Control", "no-cache");
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
+            if (normalized.endsWith("/sw.js")) res.setHeader("Service-Worker-Allowed", "/");
           } else {
             res.setHeader("Cache-Control", "public, max-age=86400");
           }
@@ -6222,7 +6225,9 @@ async function startServer(): Promise<Server> {
       if (path.extname(req.path)) {
         return res.status(404).type("text/plain").send("Not Found");
       }
-      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
       return res.sendFile(path.join(distPath, "index.html"));
     });
   }

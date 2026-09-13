@@ -4,7 +4,7 @@ import path from "path";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 
 /**
  * vite.config.ts
@@ -26,7 +26,10 @@ export default defineConfig(() => {
       VitePWA({
         registerType: "autoUpdate",
         strategies: "generateSW",
-        injectRegister: "auto",
+        // Registration is handled by appUpdateManager so every foreground
+        // visit explicitly checks /sw.js instead of waiting for the browser's
+        // implementation-defined update schedule.
+        injectRegister: false,
         manifest: {
           name: "BMO Robot – Phân loại rác",
           short_name: "BMO",
@@ -63,24 +66,18 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          skipWaiting: true,
+          clientsClaim: true,
           // Force a one-time cache namespace migration after the app moved
           // from Google Fonts to self-hosted fonts. Otherwise an older
           // bmo-app-shell cache can keep serving CSS that still imports the
           // blocked Google Fonts stylesheet.
           cleanupOutdatedCaches: true,
           importScripts: ["/sw-legacy-cleanup.js"],
-          // 3 cache buckets with very different lifetimes.
+          // Cache buckets with very different lifetimes. Navigations are
+          // handled by the precached SPA fallback below; adding a second
+          // document runtime cache would create another stale index.html.
           runtimeCaching: [
-            {
-              // App shell — short cache, network-first so updates land quickly.
-              urlPattern: ({ request }) => request.destination === "document",
-              handler: "NetworkFirst",
-              options: {
-                cacheName: `bmo-app-shell-${CACHE_VERSION}`,
-                networkTimeoutSeconds: 5,
-                expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 7 },
-              },
-            },
             {
               // JS / CSS / workers — StaleWhileRevalidate so cached chunks stay
               // available offline, but updates appear after refresh.
@@ -151,7 +148,10 @@ export default defineConfig(() => {
               },
             },
           ],
-          navigateFallback: "/offline.html",
+          // The fallback must be the SPA shell. Pointing this at offline.html
+          // makes Workbox serve the offline page for every client-side route,
+          // including while the network is healthy.
+          navigateFallback: "/index.html",
           navigateFallbackDenylist: [/^\/api\//],
           globPatterns: ["**/*.{js,css,html,svg,png,webp,ico,woff,woff2}"],
           // Hero portraits are loaded only when a card is visible. Keeping the
