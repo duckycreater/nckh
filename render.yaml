@@ -4,7 +4,10 @@ services:
     name: nckh
     runtime: node
     branch: master
-    buildCommand: npm ci --legacy-peer-deps && npm run build
+    # NODE_ENV=production makes npm omit devDependencies by default. The
+    # explicit include keeps reproducible build/test tooling available during
+    # Render's build phase; runtime still starts only dist/server.cjs.
+    buildCommand: npm ci --include=dev --legacy-peer-deps && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeployTrigger: checksPass
