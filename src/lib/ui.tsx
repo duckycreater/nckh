@@ -224,7 +224,7 @@ export function TabButton({
   return (
     <button
       className={cn(
-        "rounded-2xl px-4 py-2.5 text-sm font-bold transition-all focus-visible:shadow-[0_0_0_4px_var(--primary-ring)]",
+        "rounded-2xl px-4 py-2.5 text-sm font-bold transition-all focus-visible:shadow-[0_0_0_4px_var(--primary-ring)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:text-[var(--text-muted)]",
         active
           ? "bg-white text-[var(--primary-strong)] shadow-[var(--shadow-soft)]"
           : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -260,7 +260,10 @@ export function ModalShell({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+    <div
+      className="fixed inset-0 z-50 flex min-h-0 items-center justify-center overflow-hidden p-2 sm:p-4"
+      role="presentation"
+    >
       {onClose && (
         <button
           type="button"

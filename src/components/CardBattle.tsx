@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Swords,
@@ -488,10 +488,18 @@ function calcBattleDamage(
 }
 
 // ─── Screen Shake ─────────────────────────────────────────────────────────
-function ScreenShake({ active, children }: { active: boolean; children: React.ReactNode }) {
+function ScreenShake({
+  active,
+  reduced = false,
+  children,
+}: {
+  active: boolean;
+  reduced?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <motion.div
-      animate={active ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
+      animate={active && !reduced ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
       transition={{ duration: 0.45 }}
     >
       {children}
@@ -1271,17 +1279,29 @@ function TurnAnnouncement({ text, color }: { text: string; color: string }) {
 }
 
 // ─── Confetti ──────────────────────────────────────────────────────────────
-function VictoryConfetti() {
-  const particles = Array.from({ length: 100 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    delay: Math.random() * 1.5,
-    color: ["#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#ef4444", "#f97316", "#06b6d4", "#ec4899"][
-      Math.floor(Math.random() * 8)
-    ],
-    size: Math.random() * 12 + 4,
-    shape: Math.random() > 0.5 ? "circle" : "square",
-  }));
+function VictoryConfetti({ reduced = false }: { reduced?: boolean }) {
+  const particles = useMemo(
+    () =>
+      Array.from({ length: reduced ? 28 : 64 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        delay: Math.random() * 1.5,
+        color: [
+          "#f59e0b",
+          "#22c55e",
+          "#3b82f6",
+          "#a855f7",
+          "#ef4444",
+          "#f97316",
+          "#06b6d4",
+          "#ec4899",
+        ][Math.floor(Math.random() * 8)],
+        size: Math.random() * 12 + 4,
+        shape: Math.random() > 0.5 ? "circle" : "square",
+        rotate: Math.random() * 900 - 450,
+      })),
+    [reduced],
+  );
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
       {particles.map((p) => (
@@ -1292,7 +1312,7 @@ function VictoryConfetti() {
             y: "115%",
             opacity: [1, 1, 0],
             scale: [0, 1.3, 0.6],
-            rotate: Math.random() * 900 - 450,
+            rotate: p.rotate,
           }}
           transition={{ duration: 3.2, delay: p.delay, ease: "easeIn" }}
           className="absolute"
@@ -1310,7 +1330,15 @@ function VictoryConfetti() {
 }
 
 // ─── Hit Sparks (enhanced 16-particle burst) ─────────────────────────
-function HitSparks({ target, elementId }: { target: "player" | "boss"; elementId: string }) {
+function HitSparks({
+  target,
+  elementId,
+  reduced = false,
+}: {
+  target: "player" | "boss";
+  elementId: string;
+  reduced?: boolean;
+}) {
   const colorMap: Record<string, string> = {
     plastic: "#06b6d4",
     paper: "#f59e0b",
@@ -1320,14 +1348,17 @@ function HitSparks({ target, elementId }: { target: "player" | "boss"; elementId
     hazard: "#ef4444",
   };
   const color = colorMap[elementId] || "#ffffff";
-  const sparks = Array.from({ length: 16 }, (_, i) => ({
-    id: i,
-    angle: (i / 16) * 360 + Math.random() * 22 - 11,
-    distance: 35 + Math.random() * 50,
-    size: 2 + Math.random() * 5,
-    delay: Math.random() * 0.12,
-    duration: 0.4 + Math.random() * 0.25,
-  }));
+  const sparks = useMemo(() => {
+    const count = reduced ? 8 : 16;
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      angle: (i / count) * 360 + Math.random() * 22 - 11,
+      distance: 35 + Math.random() * 50,
+      size: 2 + Math.random() * 5,
+      delay: Math.random() * 0.12,
+      duration: 0.4 + Math.random() * 0.25,
+    }));
+  }, [reduced, target, elementId]);
 
   return (
     <div
@@ -1524,6 +1555,17 @@ interface Props {
 }
 
 export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
+  // Keep the same battle design while scaling decorative GPU/DOM work down
+  // on Raspberry Pi, older phones and users who request reduced motion.
+  const [effectsReduced] = useState(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+    return (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      navigator.hardwareConcurrency <= 4 ||
+      memory <= 4
+    );
+  });
   // ─── State ────────────────────────────────────────────────────────────────
   const [stage, setStage] = useState<BattleStage>("intro");
   const [selectedLevelId, setSelectedLevelId] = useState<number>(1);
@@ -2665,13 +2707,15 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col overflow-hidden"
+      className={`fixed inset-0 z-[200] flex flex-col overflow-hidden ${effectsReduced ? "battle-lite-effects" : ""}`}
       style={{
         background: "linear-gradient(180deg, #0a0a14 0%, #12121f 40%, #1a1030 70%, #0a0a14 100%)",
       }}
     >
       {/* ─── Top bar ──────────────────────────────────────────────────────── */}
-      <div className="relative z-30 flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 border-b border-white/10 bg-black/60 backdrop-blur-xl">
+      <div
+        className={`relative z-30 flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 border-b border-white/10 bg-black/70 ${effectsReduced ? "" : "backdrop-blur-xl"}`}
+      >
         <Button
           onClick={() => {
             isRunningRef.current = false;
@@ -2776,7 +2820,7 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
 
       {/* ─── BATTLE ─────────────────────────────────────────────────────────── */}
       {stage === "battle" && (
-        <ScreenShake active={isShaking}>
+        <ScreenShake active={isShaking} reduced={effectsReduced}>
           <div className="relative flex flex-1 flex-col overflow-hidden">
             {/* Danger vignette */}
             {playerAlive.length > 0 && (
@@ -3083,7 +3127,12 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
             {/* Hit Sparks */}
             <AnimatePresence>
               {hitSparks && (
-                <HitSparks key="sparks" target={hitSparks.target} elementId={hitSparks.elementId} />
+                <HitSparks
+                  key="sparks"
+                  target={hitSparks.target}
+                  elementId={hitSparks.elementId}
+                  reduced={effectsReduced}
+                />
               )}
             </AnimatePresence>
 
@@ -3116,7 +3165,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
             </div>
 
             {/* Battle log */}
-            <div className="mx-2 sm:mx-3 mb-2 max-h-20 sm:max-h-24 overflow-y-auto rounded-xl border border-white/10 bg-black/60 px-2 sm:px-3 py-1.5 sm:py-2 backdrop-blur-sm scrollbar-thin scrollbar-track-black scrollbar-thumb-white/10">
+            <div
+              className={`mx-2 sm:mx-3 mb-2 max-h-20 sm:max-h-24 overflow-y-auto rounded-xl border border-white/10 bg-black/75 px-2 sm:px-3 py-1.5 sm:py-2 scrollbar-thin scrollbar-track-black scrollbar-thumb-white/10 ${effectsReduced ? "" : "backdrop-blur-sm"}`}
+            >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-wider">
@@ -3158,9 +3209,9 @@ export function CardBattle({ deckCardIds, cardLevels, onClose, onWin }: Props) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md overflow-y-auto"
+            className={`fixed inset-0 z-[300] flex items-center justify-center bg-black/85 overflow-y-auto ${effectsReduced ? "" : "backdrop-blur-md"}`}
           >
-            <VictoryConfetti />
+            <VictoryConfetti reduced={effectsReduced} />
             <motion.div
               initial={{ scale: 0.3, y: 60, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}

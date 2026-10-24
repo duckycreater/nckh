@@ -14,7 +14,12 @@ export interface EmailProviderResponse {
 export type EmailSender = (message: TransactionalEmail) => Promise<EmailProviderResponse>;
 
 export type EmailDeliveryResult =
-  | { status: "sent"; id?: string }
+  | {
+      status: "accepted";
+      id?: string;
+      providerAccepted: true;
+      deliveryConfirmed: false;
+    }
   | { status: "skipped"; reason: "provider_not_configured" | "recipient_not_configured" }
   | { status: "failed"; reason: string };
 
@@ -82,7 +87,14 @@ export async function deliverEmail(
   try {
     const response = await sender(message);
     if (response.error) return { status: "failed", reason: providerErrorReason(response.error) };
-    return { status: "sent", id: response.data?.id };
+    // Resend/SMTP acceptance is not proof that the destination mailbox has
+    // received the message. Delivery/bounce webhooks may update that later.
+    return {
+      status: "accepted",
+      id: response.data?.id,
+      providerAccepted: true,
+      deliveryConfirmed: false,
+    };
   } catch (error) {
     return { status: "failed", reason: providerErrorReason(error) };
   }

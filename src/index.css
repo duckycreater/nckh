@@ -644,6 +644,20 @@ button:disabled {
   animation: avatar-pulse 2s ease-in-out infinite;
 }
 
+/* Card Battle keeps its visual hierarchy on low-power devices, but drops
+   the expensive decorative loops that compete with touch input and turn
+   state updates. One-shot hit/turn animations remain intact. */
+.battle-lite-effects .avatar-pulse,
+.battle-lite-effects .rarity-uncommon-shimmer,
+.battle-lite-effects .rarity-mythical-pulse,
+.battle-lite-effects .rarity-event-glitch,
+.battle-lite-effects .rarity-legendary-shimmer,
+.battle-lite-effects .rarity-mythical-stardust,
+.battle-lite-effects .synergy-pulse {
+  animation: none !important;
+  filter: none !important;
+}
+
 /* ─── Card Fan Effect ─────────────────────────────────────────────────────── */
 .card-grid-item {
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);

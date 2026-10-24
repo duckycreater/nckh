@@ -8,7 +8,7 @@ This document walks an admin through the test cases for the new admin features s
 | ---------------- | ------------------------------------------------------------------------------------------ |
 | App URL          | `http://localhost:5173` (dev) / production domain                                         |
 | Admin account    | Account with `role: "admin"` in Firestore                                                 |
-| Env vars         | `VITE_ADMIN_API_KEY`, `GOOGLE_SPREADSHEET_ID`, Firebase + Supabase credentials             |
+| Env vars         | Server-only `ADMIN_API_KEY`, `GOOGLE_SPREADSHEET_ID`, Firebase + Supabase credentials      |
 | Spreadsheet tabs | `Users`, `QuizQuestions`, `QuizConfig`, `Rewards`, `BehavioralEvents`, `SyncLog` (new)     |
 
 ---
@@ -246,7 +246,7 @@ This document walks an admin through the test cases for the new admin features s
 | #   | Test                                                                       | Expected                                                                                       |
 | --- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | 9.1 | Non-admin user calls `GET /api/admin/quiz/questions` directly             | 401 / 403 response                                                                             |
-| 9.2 | User without `VITE_ADMIN_API_KEY` makes admin call                        | 401 response; UI shows re-auth banner                                                          |
+| 9.2 | User without an authenticated admin session makes an admin call           | 401 response; UI shows re-auth banner                                                          |
 | 9.3 | Audit log records every quiz CRUD action with admin UID                   | Yes — visible in System tab                                                                    |
 | 9.4 | CSV import of 10,000 rows                                                  | Rate limit kicks in (5 req/sec default); remaining rows queued                                |
 

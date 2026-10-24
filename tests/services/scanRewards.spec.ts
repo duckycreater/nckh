@@ -47,6 +47,27 @@ describe("scanRewards.decideScanReward", () => {
     assert.equal(capped.totalToday, config.dailyCap);
   });
 
+  it("caps rewards for repeated material profiles without blocking new scans", () => {
+    const config = getScanRewardConfig();
+    let history: ScanRewardEntry[] = [];
+    for (let index = 0; index < config.materialProfileCap; index += 1) {
+      const result = decideScanReward(
+        "student",
+        history,
+        `plastic-${index}`,
+        START + index,
+        "plastic",
+      );
+      assert.equal(result.reason, "ok");
+      history = result.history;
+    }
+    const repeated = decideScanReward("student", history, "plastic-extra", START + 100, "plastic");
+    assert.equal(repeated.reason, "profile_capped");
+    assert.equal(repeated.awarded, 0);
+    const different = decideScanReward("student", history, "paper-first", START + 101, "paper");
+    assert.equal(different.reason, "ok");
+  });
+
   it("drops expired and malformed persisted entries", () => {
     const history = [
       { at: START - 25 * 60 * 60 * 1000, imageHash: "expired" },

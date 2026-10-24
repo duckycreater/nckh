@@ -44,6 +44,8 @@ export interface DatasetUploadResult {
   bytes: number;
 }
 
+export type CardImageUploadResult = DatasetUploadResult;
+
 export async function uploadToDataset(
   base64Data: string,
   metadata: {
@@ -80,6 +82,48 @@ export async function uploadToDataset(
     };
   } catch (err) {
     console.error("[cloudinary] dataset upload failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Store the player's card artwork separately from the opt-in research dataset.
+ * No research tag or display name is attached. Cloudinary strips EXIF and
+ * normalises the image so the collection never serves multi-megabyte originals.
+ */
+export async function uploadCardImage(
+  dataUri: string,
+  metadata: { ownerId: string; scanId: string; category: string },
+): Promise<CardImageUploadResult | null> {
+  ensureConfigured();
+  if (!configured) return null;
+  try {
+    const ownerHash = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(metadata.ownerId),
+    );
+    const ownerTag = Buffer.from(ownerHash).toString("hex").slice(0, 16);
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: `bmo-material-cards/${metadata.category}`,
+      public_id: `card_${metadata.scanId}`,
+      tags: ["material-card", `owner_${ownerTag}`],
+      overwrite: false,
+      unique_filename: false,
+      resource_type: "image",
+      transformation: [
+        { width: 960, height: 960, crop: "limit" },
+        { quality: "auto:good", fetch_format: "auto", flags: "strip_profile" },
+      ],
+    });
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      width: result.width,
+      height: result.height,
+      bytes: result.bytes,
+    };
+  } catch (error) {
+    console.error("[cloudinary] material card upload failed:", error);
     return null;
   }
 }

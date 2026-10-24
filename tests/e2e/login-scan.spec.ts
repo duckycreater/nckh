@@ -46,6 +46,15 @@ before(async () => {
   process.env.SUPABASE_URL = "";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "";
   process.env.ADMIN_API_KEY = "bmo-e2e-admin-key";
+  process.env.BMO_TEST_SCAN_RESPONSE = JSON.stringify({
+    verdict: "single_waste",
+    objectName: "Chai nước nhựa",
+    category: "plastic",
+    description: "Một chai nhựa trong, sạch và đã sử dụng.",
+    disposalInstructions: "Tháo nắp, làm sạch và đưa vào tuyến thu hồi nhựa phù hợp.",
+    observedConditions: ["transparent", "material_code_visible"],
+    uncertaintyReason: null,
+  });
   process.env.RL_AUTH_BURST = "100";
   process.env.RL_AUTH_REFILL_PER_MIN = "100";
   testDataDir = mkdtempSync(join(tmpdir(), "bmo-login-e2e-"));
@@ -146,27 +155,66 @@ describe("E2E: login → scan garbage", () => {
     expect(typeof manifest.sha256).toBe("string");
     expect(manifest.sha256.length).toBe(64);
   });
-  it("POST /api/scan-garbage with a tiny image returns a category", async (t) => {
+  it("scans, rewards, creates one card, and makes retries idempotent", async (t) => {
     if (!booted) return t.skip();
+    const nickname = `scan_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const password = "StrongPass123!";
+    const registered = await fetch(url("/api/register"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reg_name: "Scan Student",
+        reg_nickname: nickname,
+        reg_password: password,
+      }),
+    });
+    expect(registered.status).toBe(200);
+    const login = await fetch(url("/api/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ login_nickname: nickname, login_password: password }),
+    });
+    expect(login.status).toBe(200);
+    const token = (await login.json()).token;
+    const auth = { Authorization: `Bearer ${token}` };
     const tinyImage =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
     const r = await fetch(url("/api/scan-garbage"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ image: tinyImage }),
     });
-    expect(
-      r.status === 200 ||
-        r.status === 401 ||
-        r.status === 403 ||
-        r.status === 400 ||
-        r.status === 500,
-    ).toBeTruthy();
-    if (r.status === 200) {
-      const body = await r.json();
-      expect(typeof body.analysis === "string" || typeof body.analysis === "object").toBeTruthy();
-      expect(typeof body.rewarded).toBe("boolean");
-    }
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.scan.verdict).toBe("single_waste");
+    expect(body.scan.category).toBe("plastic");
+    expect(body.scan.eligibleForCard).toBe(true);
+    expect(body.rewarded).toBe(true);
+    expect(body.points).toBe(50);
+    expect(body.cardPreview.cost).toBe(50);
+
+    const createCard = () =>
+      fetch(url("/api/material-cards"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...auth },
+        body: JSON.stringify({
+          scanId: body.scan.scanId,
+          idempotencyKey: `e2e:${body.scan.scanId}`,
+        }),
+      });
+    const firstCreate = await createCard();
+    expect(firstCreate.status).toBe(201);
+    const firstCard = await firstCreate.json();
+    expect(firstCard.points).toBe(0);
+    const retryCreate = await createCard();
+    expect(retryCreate.status).toBe(200);
+    const retryCard = await retryCreate.json();
+    expect(retryCard.card.id).toBe(firstCard.card.id);
+    expect(retryCard.charged).toBe(false);
+
+    const collection = await fetch(url("/api/material-cards"), { headers: auth });
+    expect(collection.status).toBe(200);
+    expect((await collection.json()).cards.length).toBe(1);
   });
   it("GET /api/admin/stats rejects without admin key (401/403)", async (t) => {
     if (!booted) return t.skip();
@@ -330,7 +378,7 @@ describe("E2E: login → scan garbage", () => {
       headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ cardId: "not-a-card" }),
     });
-    expect(invalidCardUpgrade.status).toBe(400);
+    expect(invalidCardUpgrade.status).toBe(410);
 
     const privacy = await fetch(url("/api/federated/privacy"), { headers: auth });
     expect(privacy.status).toBe(200);
@@ -355,56 +403,22 @@ describe("E2E: login → scan garbage", () => {
       headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ action: "ai_scan_local" }),
     });
-    const rewardBody = await reward.json();
-    expect(rewardBody.points).toBe(50);
-
-    const duplicateReward = await fetch(url("/api/reward"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...auth },
-      body: JSON.stringify({ action: "ai_scan_local" }),
-    });
-    const duplicateRewardBody = await duplicateReward.json();
-    expect(duplicateRewardBody.earnedPoints).toBe(0);
-    expect(duplicateRewardBody.points).toBe(50);
+    expect(reward.status).toBe(400);
 
     const pull = await fetch(url("/api/cards/gacha-pull"), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ count: 10 }),
     });
-    expect(pull.status).toBe(200);
-    const pullBody = await pull.json();
-    expect(pullBody.cards.length).toBe(10);
-    expect(pullBody.pullCost).toBe(50);
-    expect(pullBody.remainingPoints).toBe(0);
-    assert.ok(pullBody.progress.flashcardsRead.length > 0);
-    assert.ok(pullBody.progress.flashcardsRead.length <= 10);
-    assert.notEqual(pullBody.progress.flashcardsRead.length, 420);
-
-    const ownedCardId = pullBody.progress.flashcardsRead[0];
-    const insufficientFuse = await fetch(url("/api/cards/fuse"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...auth },
-      body: JSON.stringify({ cardId: ownedCardId }),
-    });
-    expect(insufficientFuse.status).toBe(400);
-
-    const insufficientLevelUp = await fetch(url("/api/cards/levelup"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...auth },
-      body: JSON.stringify({ cardId: ownedCardId }),
-    });
-    expect(insufficientLevelUp.status).toBe(400);
+    expect(pull.status).toBe(410);
 
     const levels = await fetch(url(`/api/cards/levels/${nick}`), { headers: auth });
-    expect(levels.status).toBe(200);
-    const levelsBody = await levels.json();
-    expect(typeof levelsBody.levels).toBe("object");
+    expect(levels.status).toBe(410);
 
     const profile = await fetch(url(`/api/user/${nick}`), { headers: auth });
     const profileBody = await profile.json();
     expect(profileBody.points).toBe(0);
-    expect(profileBody.totalExpEarned).toBe(50);
+    expect(profileBody.totalExpEarned).toBe(0);
 
     const challengeId = getDailyChallengeIds(getVietnamDayKey())[0]!;
     const challengeReward = getDailyChallengeReward(challengeId)!;
@@ -452,9 +466,14 @@ describe("E2E: login → scan garbage", () => {
       headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ action: "card_battle", level: 2 }),
     });
-    const battleRewardBody = await battleReward.json();
-    expect(battleReward.status).toBe(200);
-    expect(battleRewardBody.points).toBe(challengeReward + 60);
+    expect(battleReward.status).toBe(400);
+
+    const fundStore = await fetch(url(`/api/admin/users/${nick}/adjust-points`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-admin-key": "bmo-e2e-admin-key" },
+      body: JSON.stringify({ delta: 100, reason: "E2E store setup" }),
+    });
+    expect(fundStore.status).toBe(200);
 
     const purchase = () =>
       fetch(url("/api/user-progress"), {
@@ -465,7 +484,7 @@ describe("E2E: login → scan garbage", () => {
     const firstPurchase = await purchase();
     expect(firstPurchase.status).toBe(200);
     const firstPurchaseBody = await firstPurchase.json();
-    expect(firstPurchaseBody.points).toBe(challengeReward + 10);
+    expect(firstPurchaseBody.points).toBe(challengeReward + 50);
 
     const duplicatePurchase = await purchase();
     expect(duplicatePurchase.status).toBe(409);
@@ -493,8 +512,8 @@ describe("E2E: login → scan garbage", () => {
     const firstRedemption = await redeem();
     expect(firstRedemption.status).toBe(200);
     const firstRedemptionBody = await firstRedemption.json();
-    expect(firstRedemptionBody.points).toBe(challengeReward + 510);
-    expect(firstRedemptionBody.totalExpEarned).toBe(challengeReward + 2110);
+    expect(firstRedemptionBody.points).toBe(challengeReward + 550);
+    expect(firstRedemptionBody.totalExpEarned).toBe(challengeReward + 2100);
     expect(firstRedemptionBody.progress.crafted.includes("1")).toBe(true);
     expect(typeof firstRedemptionBody.redemptionId).toBe("string");
     expect(firstRedemptionBody.status).toBe("pending");

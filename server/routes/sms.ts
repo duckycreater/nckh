@@ -17,7 +17,7 @@ import {
 import { resolveLocale } from "../services/localeRouter.js";
 import { visionPipeline } from "../services/visionPipeline.js";
 import { transcribeAudio } from "../services/voiceSTT.js";
-import { getGroq, getGemini } from "../services/aiRouter.js";
+import { getGroq, getGemini, GROQ_MODEL } from "../services/aiRouter.js";
 import { validateToken } from "../auth.js";
 import twilio from "twilio";
 
@@ -108,7 +108,7 @@ export function smsRouter(): Router {
           reply = "BMO is offline. Please try later.";
         } else {
           const completion = await groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
+            model: GROQ_MODEL,
             messages: [
               {
                 role: "system",

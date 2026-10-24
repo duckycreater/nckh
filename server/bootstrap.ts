@@ -18,7 +18,7 @@ import {
   datasetCurator,
   DatasetCurator as DatasetCuratorClass,
 } from "../server/services/datasetCurator";
-import { uploadToDataset } from "../server/services/cloudinaryDataset";
+import { uploadCardImage, uploadToDataset } from "../server/services/cloudinaryDataset";
 import { getDb as getResearchDb } from "../server/db";
 import { initDb, isDbConnected, getDb, setFirestore } from "../server/db.js";
 import {
@@ -34,6 +34,16 @@ import {
   type ScanRewardDecision,
   type ScanRewardEntry,
 } from "../server/services/scanRewards";
+import {
+  MaterialCardError,
+  makeCardPreview,
+  saveMaterialScan,
+} from "../server/services/materialCards";
+import {
+  MATERIAL_SCAN_PROMPT,
+  MATERIAL_SCAN_RESPONSE_SCHEMA,
+  parseMaterialScanAnalysis,
+} from "../server/services/materialScanAnalysis";
 import {
   buildCors,
   buildHelmet,
@@ -113,6 +123,11 @@ import {
   getEmailConfigurationStatus,
   type EmailSender,
 } from "../server/services/emailDelivery.js";
+import {
+  enqueueEmail,
+  getEmailOutboxSummary,
+  startEmailOutboxWorker,
+} from "../server/services/emailOutbox.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -290,6 +305,18 @@ app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 // tighter limit (e.g., /api/federated/submit uses 30/min).
 app.use("/api/scan-garbage", buildScanRateLimiter());
 
+// The catalog/gacha combat system is retired. Keeping these paths alive would
+// allow old clients to spend points in a collection that the new UI cannot use.
+app.use(
+  /^\/api\/(?:cards\/(?:gacha-pull|fuse|levelup|levels\/[^/]+)|shards\/purchase|pvp\/(?:match|result|history))$/,
+  requireAuth,
+  (_req, res) =>
+    res.status(410).json({
+      error: "Tính năng thẻ cũ đã ngừng hoạt động. Hãy tạo thẻ vật liệu từ lần quét mới.",
+      code: "legacy_card_system_retired",
+    }),
+);
+
 // Rate-limit API traffic only. Applying this middleware at the app root also
 // counts every JS chunk, font and icon loaded by the SPA. A fresh dashboard can
 // exceed the burst budget before its first data request and receive false 429s.
@@ -380,8 +407,9 @@ async function sendPurchaseEmail(user: any, itemId: string) {
        </div>
     `;
 
-    const delivery = await deliverEmail(
+    const delivery = await enqueueEmail(
       emailSender,
+      "purchase_notification",
       notificationEmail
         ? {
             from: notificationFrom,
@@ -392,12 +420,14 @@ async function sendPurchaseEmail(user: any, itemId: string) {
           }
         : null,
     );
-    if (delivery.status === "sent") {
-      console.info(`[Email] Purchase notification sent, ID: ${delivery.id || "unknown"}`);
+    if (delivery.status === "accepted") {
+      console.info(
+        `[Email] Purchase notification accepted, ID: ${delivery.providerMessageId || "unknown"}`,
+      );
+    } else if (delivery.status === "queued") {
+      console.warn(`[Email] Purchase notification queued for retry: ${delivery.reason}`);
     } else if (delivery.status === "skipped") {
       console.warn(`[Email] Purchase notification skipped: ${delivery.reason}`);
-    } else {
-      console.error(`[Email] Purchase notification failed: ${delivery.reason}`);
     }
     return delivery;
   } catch (e) {
@@ -437,8 +467,9 @@ async function sendCraftEmail(
        `;
     htmlBody += "</div>";
 
-    const delivery = await deliverEmail(
+    const delivery = await enqueueEmail(
       emailSender,
+      "redemption_notification",
       notificationEmail
         ? {
             from: notificationFrom,
@@ -449,12 +480,14 @@ async function sendCraftEmail(
           }
         : null,
     );
-    if (delivery.status === "sent") {
-      console.info(`[Email] Redemption notification sent, ID: ${delivery.id || "unknown"}`);
+    if (delivery.status === "accepted") {
+      console.info(
+        `[Email] Redemption notification accepted, ID: ${delivery.providerMessageId || "unknown"}`,
+      );
+    } else if (delivery.status === "queued") {
+      console.warn(`[Email] Redemption notification queued for retry: ${delivery.reason}`);
     } else if (delivery.status === "skipped") {
       console.warn(`[Email] Redemption notification skipped: ${delivery.reason}`);
-    } else {
-      console.error(`[Email] Redemption notification failed: ${delivery.reason}`);
     }
     return delivery;
   } catch (e) {
@@ -1037,7 +1070,11 @@ interface CreditedScanReward extends ScanRewardDecision {
   accountId: string | null;
 }
 
-async function creditScanReward(nickname: string, imageHash: string): Promise<CreditedScanReward> {
+async function creditScanReward(
+  nickname: string,
+  imageHash: string,
+  materialProfile?: string,
+): Promise<CreditedScanReward> {
   const releaseRewardLock = await acquireRewardLock(nickname);
   try {
     if (db) {
@@ -1051,7 +1088,13 @@ async function creditScanReward(nickname: string, imageHash: string): Promise<Cr
         const snapshot = await transaction.get(userRef);
         if (!snapshot.exists) return;
         const user = normalizeUserEconomy(snapshot.data() as User);
-        const reward = decideScanReward(nickname, user.scanRewardHistory, imageHash);
+        const reward = decideScanReward(
+          nickname,
+          user.scanRewardHistory,
+          imageHash,
+          Date.now(),
+          materialProfile,
+        );
         user.scanRewardHistory = reward.history;
         if (reward.awarded > 0) applyPointDelta(user, reward.awarded);
         transaction.set(
@@ -1076,7 +1119,13 @@ async function creditScanReward(nickname: string, imageHash: string): Promise<Cr
         accountId: null,
       };
     }
-    const reward = decideScanReward(nickname, user.scanRewardHistory, imageHash);
+    const reward = decideScanReward(
+      nickname,
+      user.scanRewardHistory,
+      imageHash,
+      Date.now(),
+      materialProfile,
+    );
     user.scanRewardHistory = reward.history;
     if (reward.awarded > 0) applyPointDelta(user, reward.awarded);
     await saveUser(user);
@@ -1531,7 +1580,7 @@ app.post("/api/forgot-password", async (req, res) => {
         "Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email.",
       ].join("\n"),
     });
-    if (delivery.status !== "sent") {
+    if (delivery.status !== "accepted") {
       await deletePasswordResetRecord(tokenHash);
       delete user.passwordResetNonce;
       await saveUser(user);
@@ -3266,7 +3315,10 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     }
 
     if (!ai) {
-      return err(res, 500, "error.internal", req as any);
+      return res.status(503).json({
+        error: "Dịch vụ trò chuyện chưa được cấu hình.",
+        code: "chat_provider_unavailable",
+      });
     }
 
     // Research: Get personality mode for personalized system prompt.
@@ -3361,8 +3413,13 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
     if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
       return err(res, 400, "error.scan.noText", req as any);
     }
-    if (!ai) {
-      return err(res, 500, "error.internal", req as any);
+    const deterministicTestResponse =
+      process.env.NODE_ENV === "test" ? process.env.BMO_TEST_SCAN_RESPONSE : undefined;
+    if (!ai && !deterministicTestResponse) {
+      return res.status(503).json({
+        error: "Dịch vụ nhận diện chưa được cấu hình.",
+        code: "scan_provider_unavailable",
+      });
     }
 
     const startTime = Date.now();
@@ -3398,20 +3455,21 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
     // Compute image hash for dedup + provenance
     const imageHash = DatasetCuratorClass.hashImage(base64Data);
 
-    const prompt = [
-      "Phân tích vật thể rác chính trong ảnh.",
-      "Chỉ trả về một JSON object, không markdown và không văn bản ngoài JSON.",
-      'Schema: {"category":"plastic|paper|glass|metal|organic|hazard","description":"mô tả ngắn bằng tiếng Việt","disposalInstructions":"hướng dẫn xử lý an toàn bằng tiếng Việt"}.',
-      "category phải là đúng một trong sáu giá trị enum đã cho; không tự tạo độ tin cậy.",
-    ].join(" ");
+    const scanId = crypto.randomUUID();
 
-    const response = await Promise.race([
-      ai.models.generateContent({
+    const response = deterministicTestResponse
+      ? { text: deterministicTestResponse }
+      : await Promise.race([
+      ai!.models.generateContent({
         model: "gemini-2.5-flash",
+        config: {
+          responseMimeType: "application/json",
+          responseJsonSchema: MATERIAL_SCAN_RESPONSE_SCHEMA,
+        },
         contents: [
           {
             role: "user",
-            parts: [{ text: prompt }, { inlineData: { data: base64Data, mimeType } }],
+            parts: [{ text: MATERIAL_SCAN_PROMPT }, { inlineData: { data: base64Data, mimeType } }],
           },
         ],
       }),
@@ -3443,9 +3501,8 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
 
     const rawAnalysis = response?.text || "";
     const latencyMs = Date.now() - startTime;
-    const structuredAnalysis = visionPipeline.parseGeminiStructuredResponse(rawAnalysis);
-    const predictedCategory =
-      structuredAnalysis?.category ?? visionPipeline.parseGeminiResponseToCategory(rawAnalysis);
+    const scanAnalysis = parseMaterialScanAnalysis(rawAnalysis, scanId);
+    const predictedCategory = scanAnalysis.category;
     const categoryLabels: Record<string, string> = {
       plastic: "Nhựa",
       paper: "Giấy",
@@ -3454,18 +3511,54 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
       organic: "Hữu cơ",
       hazard: "Nguy hại",
     };
-    const analysis = structuredAnalysis
-      ? `**Phân loại: ${categoryLabels[predictedCategory]}**\n\n${structuredAnalysis.description}\n\n**Hướng dẫn xử lý:**\n${structuredAnalysis.disposalInstructions}`
-      : rawAnalysis;
+    const analysis = scanAnalysis.category
+      ? `**Phân loại: ${categoryLabels[scanAnalysis.category]}**\n\n${scanAnalysis.description}\n\n**Hướng dẫn xử lý:**\n${scanAnalysis.disposalInstructions}`
+      : `**Chưa thể xác thực vật thể**\n\n${scanAnalysis.description}\n\n${scanAnalysis.uncertaintyReason || "Hãy chụp lại ảnh rõ hơn."}`;
 
     // Gemini's text endpoint does not expose calibrated class probabilities.
     // Keep the legacy numeric field at zero for schema compatibility and mark
     // the provenance explicitly; never fabricate confidence from prose length.
     const confidence = 0;
     const confidenceSource = "unavailable" as const;
-    const categorySource = structuredAnalysis
-      ? ("llm_structured_json" as const)
-      : ("llm_text_parse" as const);
+    const categorySource = "llm_structured_json" as const;
+
+    // Card images are private product data, separate from the opt-in research
+    // dataset. Development can retain the processed data URL in memory; a
+    // production card uses Cloudinary and never writes base64 into Firestore.
+    const cardImage = scanAnalysis.eligibleForCard
+      ? await uploadCardImage(imageBase64, {
+          ownerId: accountId,
+          scanId,
+          category: scanAnalysis.category!,
+        })
+      : null;
+    const cardImageUrl =
+      cardImage?.url || (process.env.NODE_ENV === "production" ? null : imageBase64);
+    const cardPreview =
+      scanAnalysis.eligibleForCard && scanAnalysis.category
+        ? makeCardPreview(
+            scanId,
+            scanAnalysis.objectName,
+            scanAnalysis.category,
+            cardImageUrl,
+            scanAnalysis,
+          )
+        : null;
+
+    // Persist the verified scan before minting points. If the production
+    // database is unavailable, the request fails without changing the balance.
+    await saveMaterialScan({
+      id: scanId,
+      ownerNick: nickname.toLowerCase(),
+      ownerId: accountId,
+      imageHash,
+      imageUrl: cardImageUrl,
+      analysis: scanAnalysis,
+      preview: cardPreview,
+      cardId: null,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    });
 
     // The request flag is only a user intention.  Release eligibility is
     // determined from the audited consent row, so a forged JSON body cannot
@@ -3492,7 +3585,15 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
     // Reward history and balance are committed together. Firestore uses a
     // transaction so retries, duplicate images, restarts and multiple server
     // instances cannot mint points twice.
-    const reward = await creditScanReward(nickname, imageHash);
+    const currentUser = scanAnalysis.eligibleForCard ? null : await getUser(nickname);
+    const reward = scanAnalysis.eligibleForCard
+      ? await creditScanReward(nickname, imageHash, scanAnalysis.category || undefined)
+      : {
+          awarded: 0,
+          reason: "ineligible",
+          points: currentUser?.points ?? null,
+          accountId: currentUser?.account_id ?? accountId,
+        };
     const newPointsBalance = reward.points;
     if (reward.awarded > 0 && newPointsBalance !== null) {
       writeGoogleSheetsLog(
@@ -3514,9 +3615,12 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
     // its own +50 on top.
     res.json({
       analysis,
+      scan: scanAnalysis,
+      cardPreview,
       rewarded: newPointsBalance !== null && reward.awarded > 0,
       points: newPointsBalance,
       pointsEarned: newPointsBalance !== null ? reward.awarded : 0,
+      rewardAmount: newPointsBalance !== null ? reward.awarded : 0,
       rewardReason:
         reward.awarded === 0
           ? reward.reason
@@ -3535,7 +3639,7 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
     });
 
     // Log events (non-blocking)
-    if (isDbConnected()) {
+    if (isDbConnected() && predictedCategory) {
       visionPipeline
         .logInference(accountId, "gemini_2.5_flash", latencyMs, confidence, predictedCategory)
         .catch(() => {});
@@ -3557,19 +3661,21 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
         .catch(() => {});
     }
     if (nickname) {
-      eventLogger.logGarbageScan(nickname, true, predictedCategory, undefined).catch(() => {});
+      eventLogger
+        .logGarbageScan(nickname, scanAnalysis.eligibleForCard, predictedCategory || "uncertain", undefined)
+        .catch(() => {});
     }
 
     // ── Phase 1: Dataset capture (open science, opt-in) ───────────────────
     // Only kick off if user has explicitly consented via settings toggle.
-    if (nickname && consentGranted) {
+    if (nickname && consentGranted && predictedCategory) {
       // Fire-and-forget: don't block the response
       (async () => {
         try {
           // 1) Upload image to Cloudinary (anonymized)
           const uploaded = await uploadToDataset(base64Data, {
             userId: accountId,
-            scanId: crypto.randomUUID(),
+            scanId,
             category: predictedCategory,
             confidence,
           });
@@ -4389,8 +4495,13 @@ app.get("/api/admin/audit-log", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/email/status - Safe configuration diagnostics (never exposes credentials)
-app.get("/api/admin/email/status", requireAdmin, (_req, res) => {
-  return res.json({ success: true, ...getEmailConfigurationStatus() });
+app.get("/api/admin/email/status", requireAdmin, async (_req, res) => {
+  return res.json({
+    success: true,
+    ...getEmailConfigurationStatus(),
+    outbox: await getEmailOutboxSummary(),
+    deliverySemantics: "provider_acceptance_is_not_mailbox_delivery",
+  });
 });
 
 // POST /api/admin/email/test - Explicit end-to-end provider check initiated by an admin
@@ -4466,8 +4577,15 @@ app.get("/api/admin/system/health", requireAdmin, async (_req, res) => {
 });
 
 async function startServer(): Promise<Server> {
+  if (process.env.NODE_ENV === "production" && !db && !process.env.BMO_DATA_FILE?.trim()) {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT is required in production; refusing to use ephemeral data.json storage.",
+    );
+  }
+
   // Initialize session store (sweeps expired tokens)
   await initSessionStore();
+  startEmailOutboxWorker(emailSender);
 
   // Initialize research database (PostgreSQL)
   const dbReady = await initDb();
@@ -4641,6 +4759,34 @@ async function startServer(): Promise<Server> {
   // Liveness + dependency probe (used by smoke.sh and uptime monitors)
   const { healthRouter } = await import("../server/routes/health.js");
   app.use("/api/health", healthRouter());
+
+  // Scan-derived material cards and server-scored sorting matches.
+  const { materialCardsRouter } = await import("../server/routes/materialCards.js");
+  app.use(
+    "/api",
+    materialCardsRouter({
+      getLocalEconomy: (nick) =>
+        process.env.NODE_ENV === "production" && !process.env.BMO_DATA_FILE?.trim()
+          ? undefined
+          : {
+              getPoints: async () => (await getUser(nick))?.points ?? 0,
+              debit: async (amount) => {
+                const release = await acquireRewardLock(nick);
+                try {
+                  const user = await getUser(nick);
+                  if (!user || user.points < amount) {
+                    throw new MaterialCardError("insufficient_points", "Không đủ điểm để tạo thẻ.");
+                  }
+                  applyPointDelta(user, -amount);
+                  await saveUser(user);
+                  return user.points;
+                } finally {
+                  release();
+                }
+              },
+            },
+    }),
+  );
 
   // Research data endpoints (shorter paths)
   app.get("/api/personality/:userId", requireAuth, async (req, res) => {

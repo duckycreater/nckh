@@ -32,8 +32,10 @@ describe("email delivery", () => {
   it("passes the exact message to the provider and returns its id", async () => {
     const sender = vi.fn().mockResolvedValue({ data: { id: "mail_123" }, error: null });
     await expect(deliverEmail(sender, message)).resolves.toEqual({
-      status: "sent",
+      status: "accepted",
       id: "mail_123",
+      providerAccepted: true,
+      deliveryConfirmed: false,
     });
     expect(sender).toHaveBeenCalledOnce();
     expect(sender).toHaveBeenCalledWith(message);

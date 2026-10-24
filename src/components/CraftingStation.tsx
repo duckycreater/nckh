@@ -18,6 +18,7 @@ import {
 } from "../lib/ui";
 import { getAuthHeaders } from "../lib/auth";
 import { parseRedeemInfo } from "../lib/redemption";
+import { isDisplayableImageUrl } from "../lib/media";
 
 interface Props {
   points: number;
@@ -254,7 +255,7 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
 
                     <div className="flex flex-col gap-4 p-4 sm:flex-row">
                       <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-[22px] border border-amber-100 bg-white shadow-sm sm:h-24 sm:w-24">
-                        {recipe.imageUrl ? (
+                        {isDisplayableImageUrl(recipe.imageUrl) ? (
                           <img
                             src={recipe.imageUrl}
                             alt={recipe.name}

@@ -12,6 +12,7 @@
 
 import { logger } from "../lib/logger";
 import * as ort from "onnxruntime-web";
+import ortWasmUrl from "../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm?url";
 
 export type ExecutionProvider = "webgpu" | "wasm" | "wasm-simd" | "wasm-threads";
 
@@ -72,9 +73,11 @@ let initialized = false;
 export async function initOrtEnv(): Promise<void> {
   if (initialized) return;
 
-  // Leave wasmPaths unset so Vite resolves the matching, locally bundled
-  // runtime artifact. A hard-coded CDN version can drift from the JS package
-  // and is also blocked by the production Content-Security-Policy.
+  // Explicit URL is required with Vite code-splitting. Without it, ORT asks
+  // the SPA root for the wasm filename; Express then returns index.html and
+  // WebAssembly compilation fails with the HTML magic bytes (`<!do`).
+  // `?url` keeps the binary self-hosted and version-matched to the JS package.
+  ort.env.wasm.wasmPaths = { wasm: ortWasmUrl };
   const hardwareConcurrency =
     typeof navigator === "undefined" ? 1 : navigator.hardwareConcurrency || 2;
   ort.env.wasm.numThreads = Math.min(hardwareConcurrency, 4);

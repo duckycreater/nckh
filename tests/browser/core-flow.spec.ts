@@ -1,16 +1,32 @@
 import { expect, test } from "@playwright/test";
 
-test("auth, cards, rewards navigation and retired Campaign route work end to end", async ({
+test("auth, material cards, rewards navigation and retired Campaign route work end to end", async ({
   page,
 }) => {
   const pageErrors: Error[] = [];
+  const consoleErrors: string[] = [];
+  const failedRequests: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error));
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("requestfailed", (request) =>
+    failedRequests.push(`${request.url()} (${request.failure()?.errorText || "unknown"})`),
+  );
 
   const suffix = `${Date.now()}${Math.floor(Math.random() * 10_000)}`;
   const nickname = `browser_${suffix}`;
   const password = "BrowserPass1!";
 
   await page.goto("/");
+  await page.waitForLoadState("domcontentloaded");
+  try {
+    await page.locator("#login-nick").waitFor({ state: "visible", timeout: 7_500 });
+  } catch {
+    throw new Error(
+      `Application did not mount. pageErrors=${pageErrors.map((error) => error.message).join(" | ")} consoleErrors=${consoleErrors.join(" | ")} failedRequests=${failedRequests.join(" | ")}`,
+    );
+  }
   await expect(page.locator("#login-nick")).toBeVisible();
   await page.getByRole("button", { name: /Đăng ký ngay|Register now/i }).click();
 
@@ -37,6 +53,9 @@ test("auth, cards, rewards navigation and retired Campaign route work end to end
   await page.goto("/cards");
   await expect(page).toHaveURL(/\/cards$/);
   await expect(page.getByText(/Bộ sưu tập/i).first()).toBeVisible();
+  await expect(page.getByText(/Material Lab/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Thử thách/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Đối kháng/i })).toBeVisible();
   await expect(page.getByText(/^Campaign$|^Chiến dịch$/i)).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("[object Object]");
 

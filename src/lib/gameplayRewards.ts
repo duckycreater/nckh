@@ -29,12 +29,8 @@ export function resolveGameplayRewardClaim(value: unknown): ResolvedGameplayRewa
 
   switch (value.action) {
     case "ai_scan_local":
-      return {
-        action: value.action,
-        points: 50,
-        reason: "Phân loại rác bằng AI trên thiết bị",
-        dailyScope: value.action,
-      };
+      // Offline inference is a preliminary hint, not verified evidence.
+      return null;
     case "garden_pet":
       return {
         action: value.action,
@@ -50,30 +46,12 @@ export function resolveGameplayRewardClaim(value: unknown): ResolvedGameplayRewa
         dailyScope: value.action,
       };
     case "card_battle": {
-      const level = value.level;
-      if (!Number.isSafeInteger(level) || Number(level) < 1 || Number(level) > 5) return null;
-      return {
-        action: value.action,
-        points: CARD_BATTLE_REWARDS[Number(level) - 1],
-        reason: `Hoàn thành đấu trường thẻ cấp ${level}`,
-        dailyScope: value.action,
-      };
+      // The retired client-simulated battle cannot mint spendable points.
+      return null;
     }
     case "roguelike": {
-      const floor = value.floor;
-      if (
-        !Number.isSafeInteger(floor) ||
-        Number(floor) < 1 ||
-        Number(floor) > MAX_ROGUELIKE_FLOOR
-      ) {
-        return null;
-      }
-      return {
-        action: value.action,
-        points: Number(floor) * ROGUELIKE_FLOOR_REWARD,
-        reason: `Hoàn thành lượt roguelike tới tầng ${floor}`,
-        dailyScope: value.action,
-      };
+      // The retired client-simulated run cannot mint spendable points.
+      return null;
     }
     default:
       return null;

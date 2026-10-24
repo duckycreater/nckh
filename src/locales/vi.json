@@ -277,6 +277,8 @@
     "localAI": "Local AI",
     "status": "Trạng thái",
     "cloudStatus": "Phù hợp khi bạn muốn kết quả phân tích sâu hơn từ Cloud AI.",
+    "offlineStatus": "Không có Internet. Hệ thống đã chuyển sang Local AI để tiếp tục phân loại trên thiết bị.",
+    "cloudOffline": "Cloud AI cần kết nối Internet",
     "localLoading": "Mô hình cục bộ đang được chuẩn bị để phân tích ngay trên thiết bị của bạn.",
     "localReady": "Local AI đã sẵn sàng để phản hồi nhanh mà không cần gửi ảnh đi xa hơn.",
     "loadingModel": "Đang tải mô hình cục bộ",

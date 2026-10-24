@@ -10,7 +10,7 @@
  */
 
 import crypto from "node:crypto";
-import { getGroq, getGemini } from "./aiRouter";
+import { getGroq, getGemini, GROQ_MODEL } from "./aiRouter";
 
 const CATEGORIES = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
 const CATEGORY_VI: Record<string, string> = {
@@ -114,7 +114,7 @@ export class DatasetCurator {
   }
 
   /**
-   * Groq cross-check: ask llama-3.3-70b to reason about category from analysis text.
+   * Groq cross-check: ask the configured text model to reason from analysis text.
    * No image passed - pure text reasoning, ~250ms, very cheap.
    */
   private async crossCheckWithGroq(
@@ -122,7 +122,7 @@ export class DatasetCurator {
     groq: NonNullable<ReturnType<typeof getGroq>>,
   ): Promise<{ category: string; confidence: number; reasoning: string }> {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: GROQ_MODEL,
       messages: [
         {
           role: "system",

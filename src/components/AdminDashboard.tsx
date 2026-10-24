@@ -39,6 +39,7 @@ import {
 } from "../lib/ui";
 import { showToast } from "../lib/toast";
 import { getAuthHeaders } from "../lib/auth";
+import { isDisplayableImageUrl } from "../lib/media";
 import { QuizBuilder } from "./admin/QuizBuilder";
 import { QuizConfigPanel } from "./admin/QuizConfigPanel";
 import { SheetsSyncPanel } from "./admin/SheetsSyncPanel";
@@ -580,7 +581,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
                 {rewards.map((reward) => (
                   <Card key={reward.id} className="rounded-[26px] overflow-hidden p-0">
                     <div className="h-40 bg-slate-100">
-                      {reward.imageUrl ? (
+                      {isDisplayableImageUrl(reward.imageUrl) ? (
                         <img
                           src={reward.imageUrl}
                           alt={reward.name}

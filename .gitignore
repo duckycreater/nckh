@@ -34,3 +34,11 @@ smoke-*-err.log
 health-out.json
 metadata.json
 logs/
+backups/
+*.tsbuildinfo
+
+# Local/generated Python and experiment artefacts
+__pycache__/
+*.py[cod]
+.tmp/
+outputs/

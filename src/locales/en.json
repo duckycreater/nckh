@@ -277,6 +277,8 @@
     "localAI": "Local AI",
     "status": "Status",
     "cloudStatus": "Best for deeper analysis results from Cloud AI.",
+    "offlineStatus": "No Internet connection. The scanner switched to Local AI so classification can continue on this device.",
+    "cloudOffline": "Cloud AI requires an Internet connection",
     "localLoading": "Local model is being prepared for on-device analysis.",
     "localReady": "Local AI is ready for fast responses without sending images.",
     "loadingModel": "Loading local model",

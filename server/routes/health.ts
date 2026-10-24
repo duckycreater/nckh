@@ -19,7 +19,8 @@
  */
 
 import { Router } from "express";
-import { getDb, isDbConnected } from "../db.js";
+import type { Request, Response } from "express";
+import { getDb, getFirestore, isDbConnected } from "../db.js";
 import { federatedAggregator } from "../services/federatedAggregator.js";
 
 interface HealthPayload {
@@ -29,6 +30,7 @@ interface HealthPayload {
   version: string;
   components: {
     db: ComponentStatus;
+    primary_store: ComponentStatus;
     federated: ComponentStatus;
     fl_server_python: ComponentStatus;
   };
@@ -44,14 +46,55 @@ interface ComponentStatus {
 const START = Date.now();
 const VERSION = process.env.BMO_VERSION || "0.1.0";
 
+async function probePrimaryStore(): Promise<ComponentStatus> {
+  const startedAt = Date.now();
+  const firestore = getFirestore();
+  if (!firestore) {
+    const localStoreAllowed =
+      process.env.NODE_ENV !== "production" || Boolean(process.env.BMO_DATA_FILE?.trim());
+    return {
+      ok: localStoreAllowed,
+      detail: localStoreAllowed
+        ? "local test/development store"
+        : "Firestore is required in production",
+      latency_ms: Date.now() - startedAt,
+    };
+  }
+  try {
+    await Promise.race([
+      firestore.collection("system_migrations").doc("readiness").get(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Firestore readiness timeout")), 2_000),
+      ),
+    ]);
+    return { ok: true, detail: "Firestore reachable", latency_ms: Date.now() - startedAt };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Firestore error: ${(error as Error).message || "unknown"}`,
+      latency_ms: Date.now() - startedAt,
+    };
+  }
+}
+
 async function probeDb(): Promise<ComponentStatus> {
   const t0 = Date.now();
   try {
     const db = getDb();
     if (!db) {
+      const configured = Boolean(
+        process.env.SUPABASE_URL?.trim() && process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
+      );
+      if (process.env.RESEARCH_DB_ENABLED === "false" || !configured) {
+        return {
+          ok: true,
+          detail: "optional research database disabled",
+          latency_ms: Date.now() - t0,
+        };
+      }
       return {
         ok: false,
-        detail: "DB module not initialised (RESEARCH_DB_ENABLED=false?)",
+        detail: "configured research database not initialised",
         latency_ms: Date.now() - t0,
       };
     }
@@ -120,12 +163,23 @@ async function probeFlServer(): Promise<ComponentStatus> {
 export function healthRouter(): Router {
   const router = Router();
 
-  router.get("/", async (_req, res) => {
-    const [db, fl] = await Promise.all([probeDb(), probeFlServer()]);
+  router.get("/live", (_req, res) => {
+    res.json({ ok: true, uptime: Date.now() - START, now: Date.now(), version: VERSION });
+  });
+
+  const readiness = async (_req: Request, res: Response) => {
+    const [primaryStore, db, fl] = await Promise.all([
+      probePrimaryStore(),
+      probeDb(),
+      probeFlServer(),
+    ]);
     const fed = probeFederated();
-    const components = { db, federated: fed, fl_server_python: fl };
-    const ok = db.ok && fed.ok && fl.ok;
+    const components = { primary_store: primaryStore, db, federated: fed, fl_server_python: fl };
+    // Research, federation and the optional Python service can degrade while
+    // authentication, points, scans and rewards remain usable.
+    const ok = primaryStore.ok;
     const warnings: string[] = [];
+    if (!primaryStore.ok) warnings.push("primary Firestore unavailable");
     if (!db.ok) warnings.push("research DB unavailable");
     if (!fl.ok) warnings.push("Python FL server unreachable");
     if (!fed.ok) warnings.push("federated aggregator heartbeat stale");
@@ -139,7 +193,10 @@ export function healthRouter(): Router {
       warnings,
     };
     res.status(ok ? 200 : 503).json(payload);
-  });
+  };
+
+  router.get("/ready", readiness);
+  router.get("/", readiness);
 
   return router;
 }

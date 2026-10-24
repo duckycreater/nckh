@@ -64,9 +64,8 @@ export function buildCors(): RequestHandler {
 }
 
 /**
- * Helmet config. We disable the default `contentSecurityPolicy` because the
- * SPA uses inline styles via Tailwind and inline scripts for PWA bootstrapping;
- * CSP is added separately when the frontend is fully migrated (D5).
+ * Helmet config. CSP is assembled separately by `buildCsp` so development can
+ * permit Vite's HMR runtime while production remains nonce-restricted.
  */
 export function buildHelmet(): RequestHandler {
   return helmet({
@@ -242,16 +241,23 @@ function generateNonce(): string {
  * policy can be tightened to `'self' 'nonce-...'` only.
  */
 export function buildCsp(): RequestHandler {
-  return (_req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const isProduction = process.env.NODE_ENV === "production";
+    // `upgrade-insecure-requests` on an HTTP origin makes WebKit upgrade
+    // same-origin JS/CSS to HTTPS and blank the whole application. Emit it
+    // only when the actual public request is already HTTPS (directly or via
+    // the trusted reverse proxy).
+    const requestIsHttps = req.secure || req.get("x-forwarded-proto") === "https";
     const nonce = generateNonce();
     // Attach nonce to res.locals so SSR / template engines can inject it.
     (res.locals as { cspNonce?: string }).cspNonce = nonce;
     const csp = [
       "default-src 'self'",
-      // React 19 with the jsx-runtime compiles to fully-qualified module
-      // scripts; we still need 'unsafe-inline' for the few <style> blocks
-      // Tailwind v4 injects in dev mode.
-      `script-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+      // Vite injects an inline preamble and evaluates HMR modules in development.
+      // The production build uses static scripts and keeps the stricter policy.
+      isProduction
+        ? `script-src 'self' 'nonce-${nonce}'`
+        : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       // Roboto is now self-hosted from /fonts/*, so same-origin only.
       // 'unsafe-inline' for styles is needed because Tailwind v4 emits
       // inline <style> blocks at runtime. Tighten with hashed-style
@@ -259,14 +265,16 @@ export function buildCsp(): RequestHandler {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss:",
+      isProduction
+        ? "connect-src 'self' https://*.supabase.co wss:"
+        : "connect-src 'self' https://*.supabase.co ws: wss:",
       "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
       "object-src 'none'",
       "manifest-src 'self'",
-      process.env.NODE_ENV === "production" ? "upgrade-insecure-requests" : "",
+      isProduction && requestIsHttps ? "upgrade-insecure-requests" : "",
     ]
       .filter(Boolean)
       .join("; ");

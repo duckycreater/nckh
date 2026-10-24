@@ -22,7 +22,7 @@ export type TaskType =
 export type Provider = "groq" | "gemini";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
-const GROQ_MODEL = "llama-3.3-70b-versatile"; // Groq's best for reasoning + chat
+export const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b";
 
 let groqClient: Groq | null = null;
 let geminiAi: GoogleGenAI | null = null;
@@ -57,7 +57,7 @@ export interface GenerateOptions {
  * Cost estimates in USD per 1M tokens (rough, used for budget accounting).
  */
 const COST_PER_M_TOKENS: Record<Provider, { input: number; output: number }> = {
-  groq: { input: 0.59, output: 0.79 }, // llama-3.3-70b
+  groq: { input: 0.075, output: 0.3 }, // openai/gpt-oss-20b default
   gemini: { input: 0.075, output: 0.3 }, // gemini-2.5-flash
 };
 

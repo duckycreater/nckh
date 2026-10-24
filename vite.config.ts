@@ -4,7 +4,7 @@ import path from "path";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5-material-cards";
 
 /**
  * vite.config.ts
@@ -15,7 +15,7 @@ const CACHE_VERSION = "v4";
  *                    so we never re-download hundreds of MB on flaky networks.
  *   - api-data    : stale-while-revalidate for province list, locale files,
  *                    and model manifest endpoints.
- *   - background-sync: pending scan uploads retry on network restore.
+ *   - account-scoped offline scan drafts are restored explicitly after login.
  */
 
 export default defineConfig(() => {
@@ -157,7 +157,18 @@ export default defineConfig(() => {
           // Hero portraits are loaded only when a card is visible. Keeping the
           // full roster out of the install precache prevents a multi-megabyte
           // first visit and avoids old artwork getting stuck in the app shell.
-          globIgnores: ["assets/bmo/cards/heroes/**"],
+          globIgnores: [
+            "assets/bmo/cards/heroes/**",
+            // Retain the previous art files for rollback, but do not ship
+            // unused versions in the offline install payload.
+            "assets/bmo/scenes/auth-hero.webp",
+            "assets/bmo/scenes/gacha-vault.webp",
+            // ML runtimes are large and used only after the local-scanner
+            // route is opened. Runtime caching still stores them after that
+            // first intentional use, without delaying PWA installation.
+            "assets/ml-tensorflow-*.js",
+            "assets/ml-onnx-*.js",
+          ],
         },
         devOptions: { enabled: false },
       }),
@@ -165,6 +176,16 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "."),
+      },
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules/@tensorflow/")) return "ml-tensorflow";
+            if (id.includes("node_modules/onnxruntime-web/")) return "ml-onnx";
+          },
+        },
       },
     },
     server: {

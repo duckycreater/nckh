@@ -47,30 +47,30 @@ export function Auth({ onLogin }: AuthProps) {
   const isVietnamese = i18n.resolvedLanguage?.startsWith("vi") ?? true;
   const productCopy = isVietnamese
     ? {
-        eyebrow: "NỀN TẢNG GIÁO DỤC MÔI TRƯỜNG",
-        title: "Biến mỗi lần phân loại rác thành một dữ liệu có ích.",
+        eyebrow: "HỆ THỐNG PHÂN LOẠI RÁC TẠI TRƯỜNG",
+        title: "Nhận diện rác. Phản hồi ngay. Ghi nhận rõ ràng.",
         description:
-          "BMO kết nối nhận diện bằng AI, hành vi xanh và hệ thống điểm trong một trải nghiệm có thể đo lường.",
+          "BMO kết nối camera, mô hình nhận diện và hệ thống điểm để hướng dẫn học sinh phân loại rác.",
         features: [
-          "Nhận diện và hướng dẫn phân loại rác",
-          "Điểm thưởng được máy chủ xác minh",
-          "Theo dõi tiến bộ và dữ liệu nghiên cứu",
+          "Nhận diện loại rác từ camera hoặc hình ảnh",
+          "Hướng dẫn bỏ đúng thùng và phản hồi tức thì",
+          "Lưu lịch sử, điểm số và tiến bộ cá nhân",
         ],
-        privacy: "Quyền riêng tư và tính minh bạch được thiết kế ngay từ đầu.",
-        badge: "ISEF 2026 · Evidence-ready platform",
+        privacy: "Kết quả được ghi nhận theo tài khoản và thời gian thực.",
+        badge: "DỰ ÁN KHKT 2026–2027 · BMO ROBOT",
       }
     : {
-        eyebrow: "ENVIRONMENTAL LEARNING PLATFORM",
-        title: "Turn every waste-sorting action into useful evidence.",
+        eyebrow: "SCHOOL WASTE-SORTING SYSTEM",
+        title: "Recognize waste. Respond instantly. Keep a clear record.",
         description:
-          "BMO brings AI-assisted recognition, green habits and verified rewards into one measurable experience.",
+          "BMO connects a camera, a recognition model and a points system to guide students through waste sorting.",
         features: [
-          "Waste recognition and sorting guidance",
-          "Server-verified reward points",
-          "Progress tracking and research data",
+          "Recognize waste from a camera or uploaded image",
+          "Show the correct bin and give immediate feedback",
+          "Keep personal history, points and progress",
         ],
-        privacy: "Privacy and transparency are designed in from the start.",
-        badge: "ISEF 2026 · Evidence-ready platform",
+        privacy: "Results are recorded by account and timestamp.",
+        badge: "SCIENCE PROJECT 2026–2027 · BMO ROBOT",
       };
 
   // Check for remember token on mount
@@ -358,6 +358,8 @@ export function Auth({ onLogin }: AuthProps) {
             src={BMO_ASSETS.authHero}
             alt=""
             aria-hidden="true"
+            width={1536}
+            height={1024}
             fetchPriority="high"
             decoding="async"
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"

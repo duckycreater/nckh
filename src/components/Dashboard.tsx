@@ -31,14 +31,15 @@ import {
   Camera,
   Swords,
   Users,
-  Crown,
   ChevronRight,
   Gift,
   Star,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const LazyFlashcards = lazy(() => import("./Flashcards").then((m) => ({ default: m.Flashcards })));
+const LazyMaterialCards = lazy(() =>
+  import("./MaterialCards").then((m) => ({ default: m.MaterialCards })),
+);
 const LazyAIScanner = lazy(() => import("./AIScanner").then((m) => ({ default: m.AIScanner })));
 const LazyLeaderboard = lazy(() =>
   import("./Leaderboard").then((m) => ({ default: m.Leaderboard })),
@@ -57,10 +58,6 @@ const LazyProfileView = lazy(() =>
 );
 const LazySettings = lazy(() => import("./Settings").then((m) => ({ default: m.Settings })));
 const LazyDailyWheel = lazy(() => import("./DailyWheel").then((m) => ({ default: m.DailyWheel })));
-const LazyPvPArena = lazy(() => import("./PvPArena").then((m) => ({ default: m.PvPArena })));
-const LazyTournamentBracket = lazy(() =>
-  import("./TournamentBracket").then((m) => ({ default: m.TournamentBracket })),
-);
 const LazyClanLobby = lazy(() => import("./ClanLobby").then((m) => ({ default: m.ClanLobby })));
 
 function LoadingFallback({ message = "Đang tải..." }: { message?: string }) {
@@ -109,8 +106,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const [showSurpriseGift, setShowSurpriseGift] = useState<
     import("./SurpriseGift").SurpriseGiftDef | null
   >(null);
-  const [showPvPArena, setShowPvPArena] = useState(false);
-  const [showTournament, setShowTournament] = useState(false);
   const [showClanLobby, setShowClanLobby] = useState(false);
   const [lastWheelDate, setLastWheelDate] = useState<string>("");
   const [lastGiftMilestone, setLastGiftMilestone] = useState<number>(0);
@@ -431,7 +426,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                   <p className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">
                     {t("dashboard.toolsLabel")}
                   </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <ActionBtn
                       icon={<Trophy size={20} className="text-orange-500" />}
                       label={t("dashboard.leaderboard")}
@@ -440,15 +435,9 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                     />
                     <ActionBtn
                       icon={<Swords size={20} className="text-red-500" />}
-                      label={t("dashboard.pvpLabel")}
+                      label="Đối kháng vật liệu"
                       color="bg-red-50 border-red-100"
-                      onClick={() => setShowPvPArena(true)}
-                    />
-                    <ActionBtn
-                      icon={<Crown size={20} className="text-violet-500" />}
-                      label={t("dashboard.tournament")}
-                      color="bg-violet-50 border-violet-100"
-                      onClick={() => setShowTournament(true)}
+                      onClick={() => navigate("/cards")}
                     />
                     <ActionBtn
                       icon={<Users size={20} className="text-emerald-500" />}
@@ -498,12 +487,11 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             {/* CARDS */}
             {activeTab === "cards" && (
               <Suspense fallback={<LoadingFallback message="Đang tải bộ sưu tập..." />}>
-                <LazyFlashcards
-                  onReward={handleEarnPoints}
+                <LazyMaterialCards
                   points={user.points}
-                  userId={user.account_id}
-                  progress={user.progress}
-                  onRefresh={triggerRefresh}
+                  actorNick={user.nick}
+                  refreshKey={refreshTrigger}
+                  onScan={() => setShowScanner(true)}
                 />
               </Suspense>
             )}
@@ -560,8 +548,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "home" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
             >
               <motion.div
-                animate={activeTab === "home" ? { y: [-1, -3, -1] } : {}}
-                transition={{ duration: 0.6, repeat: activeTab === "home" ? Infinity : 0 }}
+                animate={activeTab === "home" ? { y: -2 } : { y: 0 }}
+                transition={{ duration: 0.2 }}
               >
                 <Home size={20} />
               </motion.div>
@@ -572,8 +560,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "cards" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
             >
               <motion.div
-                animate={activeTab === "cards" ? { y: [-1, -3, -1] } : {}}
-                transition={{ duration: 0.6, repeat: activeTab === "cards" ? Infinity : 0 }}
+                animate={activeTab === "cards" ? { y: -2 } : { y: 0 }}
+                transition={{ duration: 0.2 }}
               >
                 <Compass size={20} />
               </motion.div>
@@ -584,8 +572,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "craft" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
             >
               <motion.div
-                animate={activeTab === "craft" ? { y: [-1, -3, -1] } : {}}
-                transition={{ duration: 0.6, repeat: activeTab === "craft" ? Infinity : 0 }}
+                animate={activeTab === "craft" ? { y: -2 } : { y: 0 }}
+                transition={{ duration: 0.2 }}
               >
                 <Hammer size={20} />
               </motion.div>
@@ -596,8 +584,8 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${activeTab === "leaderboard" ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
             >
               <motion.div
-                animate={activeTab === "leaderboard" ? { y: [-1, -3, -1] } : {}}
-                transition={{ duration: 0.6, repeat: activeTab === "leaderboard" ? Infinity : 0 }}
+                animate={activeTab === "leaderboard" ? { y: -2 } : { y: 0 }}
+                transition={{ duration: 0.2 }}
               >
                 <Trophy size={20} />
               </motion.div>
@@ -617,6 +605,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 onUpdateUser({ points: pts });
                 setRefreshTrigger((prev) => prev + 1);
               }}
+              onCardCreated={() => setRefreshTrigger((prev) => prev + 1)}
             />
           </Suspense>
         )}
@@ -663,21 +652,6 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               streakDays={streakDays}
               onClaim={handleSurpriseClaim}
               onClose={() => setShowSurpriseGift(null)}
-            />
-          )}
-
-          {showPvPArena && (
-            <LazyPvPArena
-              currentUserNick={user.name}
-              onClose={() => setShowPvPArena(false)}
-              onBattle={() => setShowPvPArena(false)}
-            />
-          )}
-
-          {showTournament && (
-            <LazyTournamentBracket
-              currentUserNick={user.account_id}
-              onClose={() => setShowTournament(false)}
             />
           )}
 
