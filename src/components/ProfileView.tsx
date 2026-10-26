@@ -10,12 +10,12 @@ import {
   Trash2,
   ChevronRight,
   Shield,
-  Star,
   Zap,
   Award,
   Flame,
+  ImageIcon,
 } from "lucide-react";
-import { Skeleton, ErrorRetry } from "../lib/ui";
+import { Skeleton, ErrorRetry, ModalShell } from "../lib/ui";
 import { RewardHistory } from "./RewardHistory";
 import { useTranslation } from "react-i18next";
 import { PROFILE_AVATARS, PROFILE_FRAMES } from "../lib/bmoAssets";
@@ -24,6 +24,7 @@ interface Props {
   nickname: string;
   currentUserNick: string;
   onClose: () => void;
+  embedded?: boolean;
 }
 
 function getAuthHeaders(): RequestInit {
@@ -31,7 +32,7 @@ function getAuthHeaders(): RequestInit {
   return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 }
 
-export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
+export function ProfileView({ nickname, currentUserNick, onClose, embedded = false }: Props) {
   const { t } = useTranslation();
   const isOwnProfile = nickname.trim().toLowerCase() === currentUserNick.trim().toLowerCase();
   const [profile, setProfile] = useState<User | null>(null);
@@ -238,7 +239,7 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
 
   if (loading)
     return (
-      <div className="absolute inset-0 z-40 bg-gray-50 p-4 pt-16 space-y-4 animate-pulse overflow-y-auto">
+      <div className={embedded ? "min-h-[32rem] space-y-4 overflow-y-auto rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4 pt-16" : "absolute inset-0 z-40 space-y-4 overflow-y-auto bg-gray-50 p-4 pt-16"}>
         <Skeleton className="h-10 w-28 rounded-full" />
         <div className="flex flex-col items-center gap-3 pt-4">
           <Skeleton className="w-28 h-28 rounded-full" />
@@ -257,7 +258,7 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
 
   if (error || !profile)
     return (
-      <div className="absolute inset-0 z-40 bg-white p-4 text-center pt-20">
+      <div className={embedded ? "min-h-[28rem] rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4 pt-20 text-center" : "absolute inset-0 z-40 bg-white p-4 pt-20 text-center"}>
         <ErrorRetry message={error || t("profile.playerNotFound")} onRetry={loadProfile} />
         <button onClick={onClose} className="mt-4 text-emerald-500 font-bold">
           {t("profile.backButton")}
@@ -271,68 +272,37 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
   const streakMult = Math.min(1 + (streak - 1) * 0.1, 2);
 
   return (
-    <div className="absolute inset-0 z-40 bg-gray-50 overflow-y-auto">
-      {/* ── HEADER BANNER ─────────────────────────────────────────── */}
-      <div className="relative">
-        {/* Background gradient */}
-        <div className="h-40 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500" />
-        {/* Avatar circle + edit button */}
-        <div className="absolute -bottom-12 left-0 right-0 flex flex-col items-center">
-          <div className="relative">
-            {displayUrl ? (
-              <img
-                src={displayUrl}
-                alt={profile.name}
-                loading="eager"
-                decoding="async"
-                className={`w-28 h-28 rounded-full bg-emerald-50 object-cover ring-4 ring-white shadow-xl ${activeFrame?.style || ""}`}
-              />
-            ) : (
-              <div
-                className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-black ring-4 ring-white shadow-xl bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700 ${activeFrame?.style || ""}`}
-              >
-                {displayFallback}
-              </div>
-            )}
-            {profile.customAvatarUrl && (
-              <span className="absolute -bottom-1 -right-1 bg-indigo-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow">
-                Tùy chỉnh
-              </span>
-            )}
-          </div>
-          <h2 className="mt-3 text-2xl font-black text-gray-800 tracking-tight">{profile.name}</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="bg-emerald-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
-              {t("profile.levelTitle", { level, title: getTitleName(titleKey) })}
-            </span>
-            <span className="bg-orange-100 text-orange-600 text-xs font-black px-3 py-1 rounded-full">
-              {t("profile.streakDays", { streak })}
-            </span>
-          </div>
-        </div>
-        {/* Back + Edit buttons */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between">
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1 bg-white/80 backdrop-blur text-gray-700 font-bold text-sm px-3 py-1.5 rounded-full shadow hover:bg-white transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>{t("profile.backButton")}</span>
+    <div className={embedded ? "overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)]" : "absolute inset-0 z-40 overflow-y-auto bg-[var(--background)]"}>
+      <header className="border-b border-[var(--border-subtle)] bg-[var(--surface)] p-5 sm:p-6">
+        {!embedded && (
+          <button onClick={onClose} className="mb-5 flex min-h-11 items-center gap-2 rounded-[8px] border border-[var(--border-strong)] px-3 text-sm font-semibold text-[var(--text-secondary)]">
+            <ArrowLeft className="h-4 w-4" /> {t("profile.backButton")}
           </button>
+        )}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          {displayUrl ? (
+            <img src={displayUrl} alt={profile.name} loading="eager" decoding="async" className={`h-20 w-20 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--primary-soft)] object-cover ${activeFrame?.style || ""}`} />
+          ) : (
+            <div className={`material-pattern material-organic flex h-20 w-20 shrink-0 items-center justify-center rounded-[14px] text-3xl font-semibold text-white ${activeFrame?.style || ""}`} data-material="organic">{displayFallback}</div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-2xl font-semibold tracking-[-0.025em] text-[var(--graphite)]">{profile.name}</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">@{profile.account_id}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full border border-[var(--primary-border)] bg-[var(--primary-soft)] px-3 py-1 text-xs font-semibold text-[var(--primary-strong)]">{t("profile.levelTitle", { level, title: getTitleName(titleKey) })}</span>
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">{t("profile.streakDays", { streak })}</span>
+            </div>
+          </div>
           {isOwnProfile && (
-            <button
-              onClick={openEdit}
-              className="flex items-center gap-1.5 bg-white/80 backdrop-blur text-emerald-600 font-bold text-sm px-4 py-1.5 rounded-full shadow hover:bg-white transition"
-            >
-              <Pencil className="w-4 h-4" />
-              <span>{t("profile.editProfile")}</span>
+            <button onClick={openEdit} className="flex min-h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--border-strong)] px-4 text-sm font-semibold text-[var(--primary)] hover:bg-[var(--primary-soft)]">
+              <Pencil className="h-4 w-4" /> {t("profile.editProfile")}
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* ── MAIN CONTENT ─────────────────────────────────────────── */}
-      <div className="mt-16 px-4 pb-24 space-y-4 max-w-lg mx-auto">
+      <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
         {/* EXP bar */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-2">
@@ -346,7 +316,7 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
           </div>
           <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-700"
+              className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300"
               style={{ width: `${Math.min((profile.points % 200) / 2, 100)}%` }}
             />
           </div>
@@ -356,33 +326,20 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
         </div>
 
         {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
             <Flame className="text-orange-400 mb-1" size={22} />
             <span className="text-xl font-black text-gray-800">{streak}</span>
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
               {t("profile.streak")}
             </span>
-            {streak > 1 && (
-              <span className="text-[10px] font-black text-orange-400">
-                ×{streakMult.toFixed(1)} EXP
-              </span>
-            )}
+            {streak > 1 && <span className="text-[10px] font-black text-orange-400">×{streakMult.toFixed(1)}</span>}
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
             <Award className="text-blue-400 mb-1" size={22} />
             <span className="text-xl font-black text-gray-800">{level}</span>
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
               {t("profile.level")}
-            </span>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
-            <Star className="text-purple-400 mb-1" size={22} />
-            <span className="text-xl font-black text-gray-800">
-              {profile.progress?.flashcardsRead?.length || 0}
-            </span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
-              {t("profile.cardsOwned")}
             </span>
           </div>
         </div>
@@ -458,7 +415,7 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                       className="h-10 w-10 rounded-full bg-emerald-50 object-cover"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-lg font-black text-emerald-700">
+                    <div className="material-pattern material-organic flex h-10 w-10 items-center justify-center rounded-[8px] text-lg font-semibold text-white" data-material="organic">
                       {displayFallback}
                     </div>
                   )}
@@ -469,10 +426,8 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                 </div>
                 <div className="w-px bg-gray-100" />
                 <div className="flex-1 flex items-center gap-2">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black bg-gray-100 text-gray-500 ${activeFrame?.style || ""}`}
-                  >
-                    🖼
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-[var(--text-muted)] ${activeFrame?.style || ""}`}>
+                    <ImageIcon size={17} aria-hidden="true" />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-gray-700">{getFrameName(activeFrame)}</p>
@@ -488,28 +443,6 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
               </div>
             </div>
 
-            {/* Bộ sưu tập */}
-            <div className="bg-indigo-50 rounded-2xl p-4 shadow-sm border border-indigo-100">
-              <h3 className="font-black text-indigo-600 text-xs uppercase tracking-wider mb-2">
-                {t("profile.collection")}
-              </h3>
-              <div className="flex items-end justify-between">
-                <div>
-                  <span className="text-3xl font-black text-indigo-600">
-                    {profile.progress?.flashcardsRead?.length || 0}
-                  </span>
-                  <span className="text-lg font-bold text-indigo-300">/300</span>
-                </div>
-                <div className="w-32 bg-indigo-100 rounded-full h-2">
-                  <div
-                    className="h-full bg-indigo-400 rounded-full"
-                    style={{
-                      width: `${((profile.progress?.flashcardsRead?.length || 0) / 300) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -521,13 +454,13 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
 
       {/* ── EDIT MODAL ─────────────────────────────────────────────── */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl max-h-[92vh] overflow-y-auto shadow-2xl">
+        <ModalShell onClose={closeEdit} title={t("profile.editProfile")} className="max-h-[92vh] max-w-md overflow-y-auto">
             {/* Modal header */}
             <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
               <h2 className="text-xl font-black text-gray-800">{t("profile.editProfile")}</h2>
               <button
                 onClick={closeEdit}
+                aria-label={t("common.close")}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition"
               >
                 <X size={18} />
@@ -724,8 +657,7 @@ export function ProfileView({ nickname, currentUserNick, onClose }: Props) {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

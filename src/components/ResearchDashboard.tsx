@@ -76,7 +76,7 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
         if (!cancelled) {
           setSummary((current) => (current?.provenance === "synthetic" ? current : null));
           setLoadError(
-            "Chưa có dữ liệu RCT thật từ máy chủ. Không có kết quả mô phỏng nào được hiển thị mặc định.",
+            "Chưa có dữ liệu nghiên cứu cho khoảng thời gian này.",
           );
           setLoading(false);
         }
@@ -108,17 +108,17 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
             Research Dashboard — RCT analytics
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Kết quả cohort thật chỉ xuất hiện khi API nghiên cứu đã được cấu hình và xác thực.
+            Theo dõi kết quả theo nhóm nghiên cứu và thời gian.
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${summary?.provenance === "live" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}
         >
           {summary?.provenance === "live"
-            ? "LIVE DATA"
+            ? "Dữ liệu nghiên cứu"
             : summary?.provenance === "synthetic"
-              ? "SYNTHETIC PREVIEW"
-              : "NO LIVE DATA"}
+              ? "Dữ liệu minh họa"
+              : "Chưa có dữ liệu"}
         </span>
         {summary?.provenance === "synthetic" && (
           <div className="flex items-center gap-2">
@@ -126,7 +126,7 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
               htmlFor="research-user-count"
               className="text-xs text-slate-500 dark:text-slate-400"
             >
-              N mô phỏng
+              Số người tham gia
             </label>
             <input
               id="research-user-count"
@@ -158,7 +158,7 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
             }}
             className="shrink-0 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-100"
           >
-            {syntheticPreview ? "Tắt mô phỏng" : "Mở mô phỏng minh họa"}
+            {syntheticPreview ? "Đóng dữ liệu minh họa" : "Xem dữ liệu minh họa"}
           </button>
         </div>
       )}

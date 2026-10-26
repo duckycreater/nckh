@@ -115,7 +115,7 @@ function ClanList({ onSelect, onCreate, onClose }: ClanListProps) {
                         <Trophy size={10} /> Lv.{clan.level}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Star size={10} /> {(clan.exp || 0).toLocaleString()} EXP
+                        <Star size={10} /> {(clan.exp || 0).toLocaleString()} điểm
                       </span>
                     </div>
                   </div>
@@ -336,7 +336,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft, onJoined }: Cl
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setDonateMsg(`Đã đóng góp ${amount} EXP!`);
+      setDonateMsg(`Đã đóng góp ${amount} điểm!`);
       fetchClan();
     } catch (err: unknown) {
       setDonateMsg(err instanceof Error ? err.message : String(err));
@@ -431,7 +431,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft, onJoined }: Cl
                 <Trophy size={11} /> Lv.{clan.level || 1}
               </span>
               <span className="flex items-center gap-1">
-                <Star size={11} /> {(clan.exp || 0).toLocaleString()} EXP
+                <Star size={11} /> {(clan.exp || 0).toLocaleString()} điểm
               </span>
             </div>
           </div>
@@ -448,7 +448,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft, onJoined }: Cl
           <div className="mb-1 flex items-center justify-between text-xs">
             <span className="font-bold text-slate-400">Mục tiêu tuần này</span>
             <span className="font-bold text-emerald-400">
-              {clan.weeklyDonations || 0} / {clan.weeklyGoal || 500} EXP
+              {clan.weeklyDonations || 0} / {clan.weeklyGoal || 500} điểm
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-800">
@@ -536,7 +536,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft, onJoined }: Cl
                     )}
                   </div>
                   <p className="text-[10px] text-slate-400">
-                    Đã đóng góp: {(m.expContributed || 0).toLocaleString()} EXP
+                    Đã đóng góp: {(m.expContributed || 0).toLocaleString()} điểm
                   </p>
                 </div>
               </div>
@@ -578,7 +578,7 @@ function ClanDetail({ clanId, userRole, userNick, onBack, onLeft, onJoined }: Cl
                       </p>
                       <p className="text-xs text-slate-400">
                         Phần thưởng:{" "}
-                        <span className="font-black text-amber-400">{q.reward} EXP</span>
+                        <span className="font-black text-amber-400">{q.reward} điểm</span>
                       </p>
                     </div>
                   </div>

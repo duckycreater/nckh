@@ -134,7 +134,7 @@ export const PrivacyDashboard: React.FC<PrivacyDashboardProps> = ({
         !loading && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
             {loadError
-              ? "Không thể tải phiên federated-learning đang hoạt động. Không có số liệu mô phỏng nào được hiển thị thay cho dữ liệu thật."
+              ? "Không thể tải trạng thái nghiên cứu lúc này. Vui lòng thử lại sau."
               : "Chưa có phiên federated-learning đang hoạt động."}
           </div>
         )

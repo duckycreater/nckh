@@ -43,7 +43,7 @@ test("auth, material cards, rewards navigation and retired Campaign route work e
   await page.locator("#login-pass").fill(password);
   await page.locator('form:has(#login-nick) button[type="submit"]').click();
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("button", { name: /Mở hồ sơ cá nhân|Open profile/i })).toBeVisible();
+  await expect(page.getByLabel(/Hồ sơ|Profile/i)).toBeVisible();
 
   const homeResources = await page.evaluate(() =>
     performance.getEntriesByType("resource").map((entry) => entry.name),
@@ -53,9 +53,9 @@ test("auth, material cards, rewards navigation and retired Campaign route work e
   await page.goto("/cards");
   await expect(page).toHaveURL(/\/cards$/);
   await expect(page.getByText(/Bộ sưu tập/i).first()).toBeVisible();
-  await expect(page.getByText(/Material Lab/i)).toBeVisible();
-  await expect(page.getByRole("button", { name: /Thử thách/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Đối kháng/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Hộ chiếu vật liệu/i })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Thử thách/i })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Đối kháng/i })).toBeVisible();
   await expect(page.getByText(/^Campaign$|^Chiến dịch$/i)).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("[object Object]");
 
@@ -65,7 +65,8 @@ test("auth, material cards, rewards navigation and retired Campaign route work e
   expect(cardResources.some((url) => /CardBattle|RoguelikeRun/i.test(url))).toBeFalsy();
 
   await page.goto("/craft");
-  await expect(page).toHaveURL(/\/craft$/);
+  await expect(page).toHaveURL(/\/rewards$/);
+  await expect(page.getByRole("heading", { name: /^(Phần thưởng|Rewards)$/i })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("[object Object]");
 
   await page.goto("/world-map");
@@ -77,18 +78,102 @@ test("auth, material cards, rewards navigation and retired Campaign route work e
 test("PWA control files and icons are served with production-safe responses", async ({
   request,
 }) => {
-  const [manifest, serviceWorker, icon, deepLink] = await Promise.all([
+  const [manifest, serviceWorker, cleanupWorker, icon, deepLink] = await Promise.all([
     request.get("/manifest.webmanifest"),
     request.get("/sw.js"),
+    request.get("/sw-legacy-cleanup.js"),
     request.get("/icons/icon-192.png"),
     request.get("/cards"),
   ]);
 
   expect(manifest.ok()).toBeTruthy();
   expect(serviceWorker.ok()).toBeTruthy();
+  expect(cleanupWorker.ok()).toBeTruthy();
   expect(icon.ok()).toBeTruthy();
   expect(icon.headers()["content-type"]).toMatch(/^image\/png/);
   expect(deepLink.ok()).toBeTruthy();
   expect(await deepLink.text()).toContain('<div id="root"></div>');
   expect(serviceWorker.headers()["cache-control"]).toContain("no-store");
+  const [serviceWorkerSource, cleanupWorkerSource] = await Promise.all([
+    serviceWorker.text(),
+    cleanupWorker.text(),
+  ]);
+  expect(serviceWorkerSource).toContain("v6-industrial-lab");
+  expect(cleanupWorkerSource).toContain("v6-industrial-lab");
+  expect(cleanupWorkerSource).not.toContain('CACHE_VERSION = "v4"');
+});
+
+test("production worker installs and removes caches from an older deployment", async ({
+  browser,
+  baseURL,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "One real Chromium worker profile is sufficient.");
+  test.setTimeout(60_000);
+  expect(baseURL).toBeTruthy();
+
+  const context = await browser.newContext({ serviceWorkers: "allow" });
+  const page = await context.newPage();
+  await page.goto(baseURL!);
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    await caches.open("bmo-app-shell-v4");
+    await caches.open("bmo-images-v5");
+  });
+
+  const cleanupNavigation = page.waitForNavigation({ waitUntil: "domcontentloaded" });
+  await Promise.all([
+    cleanupNavigation.catch(() => undefined),
+    page
+      .evaluate(async () => {
+        const current = await navigator.serviceWorker.ready;
+        await current.unregister();
+        const next = await navigator.serviceWorker.register("/sw.js?cleanup-test=1", {
+          scope: "/",
+          updateViaCache: "none",
+        });
+        const worker = next.installing ?? next.waiting ?? next.active;
+        if (worker && worker.state !== "activated") {
+          await new Promise<void>((resolve, reject) => {
+            const timeout = window.setTimeout(
+              () => reject(new Error("Worker activation timed out")),
+              20_000,
+            );
+            if (worker.state === "installed") worker.postMessage({ type: "SKIP_WAITING" });
+            worker.addEventListener("statechange", () => {
+              if (worker.state === "installed") worker.postMessage({ type: "SKIP_WAITING" });
+              if (worker.state === "activated") {
+                window.clearTimeout(timeout);
+                resolve();
+              }
+            });
+          });
+        }
+      })
+      .catch(() => undefined),
+  ]);
+  await expect(page.locator("#root")).toBeAttached({ timeout: 10_000 });
+  await expect
+    .poll(
+      async () => {
+        try {
+          return await page.evaluate(async () => caches.keys());
+        } catch {
+          return ["__worker_navigation_in_progress__"];
+        }
+      },
+      { timeout: 15_000 },
+    )
+    .not.toEqual(expect.arrayContaining(["bmo-app-shell-v4", "bmo-images-v5"]));
+
+  const workerState = await page.evaluate(async () => {
+    const active = await navigator.serviceWorker.ready;
+    const names = await caches.keys();
+    return {
+      scriptUrl: active.active?.scriptURL ?? "",
+      cacheNames: names,
+    };
+  });
+  expect(workerState.scriptUrl).toContain("/sw.js");
+  expect(workerState.cacheNames.some((name) => name.includes("v6-industrial-lab"))).toBeTruthy();
+  await context.close();
 });

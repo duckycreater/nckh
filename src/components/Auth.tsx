@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { Leaf, LockKeyhole, ScanLine, ShieldCheck, Sparkles } from "lucide-react";
-import { BMO_ASSETS } from "../lib/bmoAssets";
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -47,7 +46,6 @@ export function Auth({ onLogin }: AuthProps) {
   const isVietnamese = i18n.resolvedLanguage?.startsWith("vi") ?? true;
   const productCopy = isVietnamese
     ? {
-        eyebrow: "HỆ THỐNG PHÂN LOẠI RÁC TẠI TRƯỜNG",
         title: "Nhận diện rác. Phản hồi ngay. Ghi nhận rõ ràng.",
         description:
           "BMO kết nối camera, mô hình nhận diện và hệ thống điểm để hướng dẫn học sinh phân loại rác.",
@@ -57,10 +55,8 @@ export function Auth({ onLogin }: AuthProps) {
           "Lưu lịch sử, điểm số và tiến bộ cá nhân",
         ],
         privacy: "Kết quả được ghi nhận theo tài khoản và thời gian thực.",
-        badge: "DỰ ÁN KHKT 2026–2027 · BMO ROBOT",
       }
     : {
-        eyebrow: "SCHOOL WASTE-SORTING SYSTEM",
         title: "Recognize waste. Respond instantly. Keep a clear record.",
         description:
           "BMO connects a camera, a recognition model and a points system to guide students through waste sorting.",
@@ -70,7 +66,6 @@ export function Auth({ onLogin }: AuthProps) {
           "Keep personal history, points and progress",
         ],
         privacy: "Results are recorded by account and timestamp.",
-        badge: "SCIENCE PROJECT 2026–2027 · BMO ROBOT",
       };
 
   // Check for remember token on mount
@@ -348,44 +343,28 @@ export function Auth({ onLogin }: AuthProps) {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,#062e28_0%,#0b5b48_48%,#0e7c5b_100%)] px-4 py-6 sm:px-8 lg:py-10">
-      <div className="pointer-events-none absolute -left-24 top-12 h-72 w-72 rounded-full bg-emerald-300/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 right-0 h-96 w-96 rounded-full bg-cyan-200/10 blur-3xl" />
-
-      <div className="relative mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center gap-10 lg:min-h-[calc(100vh-5rem)] lg:grid-cols-[minmax(0,1.1fr)_minmax(390px,0.72fr)]">
-        <section className="relative hidden min-h-[690px] max-w-2xl overflow-hidden rounded-[36px] border border-emerald-100/20 px-10 py-12 text-white shadow-[0_30px_90px_rgba(0,20,15,0.32)] lg:flex lg:flex-col lg:justify-center">
-          <img
-            src={BMO_ASSETS.authHero}
-            alt=""
-            aria-hidden="true"
-            width={1536}
-            height={1024}
-            fetchPriority="high"
-            decoding="async"
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(3,35,29,0.96)_0%,rgba(4,67,53,0.84)_52%,rgba(4,47,36,0.28)_100%)]" />
-          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
+    <div className="min-h-screen bg-[var(--background)] px-4 py-5 sm:px-8 lg:py-8">
+      <div className="mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-6xl overflow-hidden rounded-[14px] border border-[var(--border-strong)] bg-[var(--surface)] lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[minmax(0,1.08fr)_minmax(390px,0.72fr)]">
+        <section className="relative hidden overflow-hidden bg-[var(--graphite)] px-10 py-12 text-white lg:flex lg:min-h-[690px] lg:flex-col lg:justify-center">
+          <div className="scan-grid pointer-events-none absolute inset-0 opacity-50" />
+          <div className="pointer-events-none absolute bottom-10 right-10 grid w-60 grid-cols-3 gap-2 opacity-80">
+            {(["plastic", "paper", "glass", "metal", "organic", "hazard"] as const).map((category, index) => (
+              <div key={category} data-material={category} className={`material-pattern material-${category} h-20 rounded-[8px] border border-white/15 ${index === 0 || index === 5 ? "col-span-2" : ""}`} />
+            ))}
+          </div>
           <div className="relative z-10 flex h-full flex-col justify-center">
             <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
+              <div className="material-pattern material-organic flex h-11 w-11 items-center justify-center rounded-[8px] border border-white/20" data-material="organic">
                 <Leaf size={26} aria-hidden="true" />
               </div>
               <div>
-                <p className="text-xl font-black tracking-tight">BMO EcoQuest</p>
-                <p className="text-[11px] font-bold tracking-[0.18em] text-emerald-100">
-                  {productCopy.eyebrow}
-                </p>
+                <p className="text-lg font-semibold tracking-tight">BMO Material Lab</p>
               </div>
             </div>
-
-            <span className="mb-5 w-fit rounded-full border border-emerald-100/30 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 backdrop-blur">
-              {productCopy.badge}
-            </span>
-            <h1 className="max-w-xl text-4xl font-black leading-[1.08] tracking-[-0.035em] xl:text-5xl">
+            <h1 className="max-w-xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] xl:text-5xl">
               {productCopy.title}
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-emerald-50/85">
+            <p className="mt-5 max-w-xl text-base leading-7 text-[#bdc7c1]">
               {productCopy.description}
             </p>
 
@@ -393,8 +372,8 @@ export function Auth({ onLogin }: AuthProps) {
               {productCopy.features.map((feature, index) => {
                 const FeatureIcon = [ScanLine, ShieldCheck, Sparkles][index];
                 return (
-                  <div key={feature} className="flex items-center gap-3 text-sm font-semibold">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
+                  <div key={feature} className="flex items-center gap-3 text-sm font-medium text-[#d9dfdb]">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/15 bg-white/[0.04] text-[var(--signal)]">
                       <FeatureIcon size={18} aria-hidden="true" />
                     </span>
                     <span>{feature}</span>
@@ -403,28 +382,25 @@ export function Auth({ onLogin }: AuthProps) {
               })}
             </div>
 
-            <div className="mt-9 flex items-center gap-2 text-xs text-emerald-100/80">
+            <div className="mt-9 flex items-center gap-2 text-xs text-[#8f9d95]">
               <LockKeyhole size={15} aria-hidden="true" />
               <span>{productCopy.privacy}</span>
             </div>
           </div>
         </section>
 
-        <section className="relative mx-auto max-h-[calc(100vh-3rem)] w-full max-w-[440px] overflow-y-auto rounded-[28px] border border-white/70 bg-white/95 p-6 text-center shadow-[0_30px_80px_rgba(0,25,20,0.35)] backdrop-blur-xl sm:p-8">
+        <section className="mx-auto max-h-[calc(100vh-2.5rem)] w-full max-w-[470px] overflow-y-auto bg-[var(--surface)] p-6 text-center sm:p-9 lg:max-h-[calc(100vh-4rem)]">
           <div className="mb-6 flex items-center justify-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+            <div className="material-pattern material-organic flex h-10 w-10 items-center justify-center rounded-[8px] text-white" data-material="organic">
               <Leaf size={22} aria-hidden="true" />
             </div>
             <div className="text-left">
-              <p className="font-black leading-tight text-emerald-950">BMO EcoQuest</p>
-              <p className="text-[10px] font-bold tracking-[0.12em] text-emerald-700">
-                {productCopy.badge}
-              </p>
+              <p className="font-semibold leading-tight text-[var(--graphite)]">BMO Material Lab</p>
             </div>
           </div>
           {view === "login" && (
             <div className="animate-[fadeIn_0.4s_ease-out]">
-              <h2 className="mt-0 text-2xl font-black tracking-tight text-emerald-950">
+              <h2 className="mt-0 text-2xl font-semibold tracking-[-0.025em] text-[var(--graphite)]">
                 {t("auth.lookupScore")}
               </h2>
               <p className="mb-6 mt-2 text-sm leading-6 text-slate-500">

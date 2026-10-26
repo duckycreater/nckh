@@ -170,7 +170,7 @@ export function DailyChallenges({ userId, progress, onRefresh }: Props) {
             exit={{ opacity: 0 }}
             className="mx-4 mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2"
           >
-            <span className="text-amber-500 font-bold text-sm">+{toast.points} EXP</span>
+            <span className="text-amber-500 font-bold text-sm">+{toast.points} điểm</span>
             <span className="text-xs text-amber-700">{toast.text}</span>
           </motion.div>
         )}

@@ -1,15 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
-  Check,
-  ChevronDown,
   ChevronRight,
   Copy,
   Gamepad2,
   Layers3,
   Loader2,
-  Plus,
   RefreshCw,
+  Search,
   ScanLine,
   ShieldCheck,
   Swords,
@@ -22,11 +20,12 @@ import type {
   WasteCategory,
 } from "../../shared/materialCards";
 import { getAuthHeaders } from "../lib/auth";
-import { Badge, Button } from "../lib/ui";
+import { Badge, Button, ErrorRetry, ModalHeader, ModalShell, Tabs } from "../lib/ui";
+import { toUserMessage } from "../lib/userFacingError";
+import { MATERIAL_LABELS, MaterialVisual } from "./MaterialVisual";
 
 interface MaterialCardsProps {
   actorNick: string;
-  points: number;
   refreshKey?: number;
   onScan: () => void;
 }
@@ -50,11 +49,7 @@ const ACTIONS: Array<{ id: SortingAction; label: string }> = [
 ];
 
 function parseError(value: unknown, fallback: string) {
-  if (value && typeof value === "object" && "error" in value) {
-    const message = (value as { error?: unknown }).error;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
+  return toUserMessage(value, fallback);
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -73,108 +68,94 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function CardImage({ card, compact = false }: { card: MaterialCard; compact?: boolean }) {
-  const category = CATEGORY[card.category];
-  if (card.imageUrl) {
-    return (
-      <img
-        src={card.imageUrl}
-        alt={card.objectName}
-        loading="lazy"
-        className={`${compact ? "h-16 w-16" : "aspect-[4/3] w-full"} object-cover`}
-      />
-    );
-  }
   return (
-    <div
-      className={`${compact ? "h-16 w-16" : "aspect-[4/3] w-full"} flex items-center justify-center bg-slate-900`}
-    >
-      <span
-        className={`flex ${compact ? "h-9 w-9 text-sm" : "h-16 w-16 text-xl"} items-center justify-center rounded-2xl ${category.accent} font-black text-white`}
-      >
-        {category.mark}
-      </span>
-    </div>
+    <MaterialVisual
+      category={card.category}
+      imageUrl={card.imageUrl}
+      objectName={card.objectName}
+      propertyIds={card.properties.map((property) => property.id)}
+      className={compact ? "h-16 w-16 min-h-0 rounded-[8px]" : "aspect-[4/3] w-full min-h-0"}
+    />
   );
 }
 
 function CollectionCard({
   card,
-  selected,
-  onSelect,
+  onOpen,
 }: {
   card: MaterialCard;
-  selected: boolean;
-  onSelect: () => void;
+  onOpen: (trigger: HTMLButtonElement) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const category = CATEGORY[card.category];
+  const visibleProperties = card.properties.filter((property) => property.value === true).slice(0, 2);
   return (
-    <article
-      className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition duration-200 motion-reduce:transition-none ${selected ? "border-cyan-500 ring-2 ring-cyan-100" : "border-slate-200 hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-y-0"}`}
-    >
+    <article className="overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] transition-colors hover:border-[var(--border-strong)]">
       <div className="relative">
         <CardImage card={card} />
-        <span
-          className={`absolute left-3 top-3 rounded-full ${category.accent} px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-white`}
-        >
-          {category.label}
+        <span className="absolute bottom-3 left-3 rounded-[6px] border border-white/25 bg-black/55 px-2 py-1 text-[10px] font-semibold text-white">
+          {MATERIAL_LABELS[card.category]}
         </span>
-        <button
-          onClick={onSelect}
-          className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border text-sm shadow ${selected ? "border-cyan-400 bg-cyan-500 text-white" : "border-white/60 bg-slate-950/75 text-white"}`}
-          aria-label={selected ? "Bỏ khỏi bộ đấu" : "Thêm vào bộ đấu"}
-        >
-          {selected ? <Check size={16} /> : <Plus size={16} />}
-        </button>
       </div>
       <div className="p-4">
-        <h3 className="truncate text-base font-black text-slate-950">{card.objectName}</h3>
-        <p className="mt-1 text-xs text-slate-500">
+        <h3 className="truncate text-base font-semibold text-[var(--graphite)]">{card.objectName}</h3>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
           Thẻ từ lần quét · {new Date(card.createdAt).toLocaleDateString("vi-VN")}
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl bg-slate-100 p-3">
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">
-              Nội tại
-            </p>
-            <p className="mt-1 text-xs font-bold text-slate-800">{card.passive.name}</p>
-          </div>
-          <div className="rounded-2xl bg-slate-950 p-3 text-white">
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-300">
-              Chủ động
-            </p>
-            <p className="mt-1 text-xs font-bold">{card.active.name}</p>
-          </div>
+        <div className="mt-4 flex min-h-7 flex-wrap gap-1.5">
+          {visibleProperties.map((property) => (
+            <Badge key={property.id} tone={property.source === "visual_observation" ? "accent" : "default"}>
+              {property.label}
+            </Badge>
+          ))}
         </div>
-        <button
-          onClick={() => setExpanded((value) => !value)}
-          className="mt-3 flex w-full items-center justify-between border-t border-slate-100 pt-3 text-xs font-bold text-slate-600"
-        >
-          Căn cứ kỹ năng{" "}
-          <ChevronDown size={15} className={`transition ${expanded ? "rotate-180" : ""}`} />
-        </button>
-        {expanded && (
-          <div className="mt-3 space-y-3 text-xs leading-5 text-slate-600">
-            <p>
-              <strong className="text-slate-900">{card.passive.name}:</strong> {card.passive.rule}
-            </p>
-            <p>
-              <strong className="text-slate-900">{card.active.name}:</strong> {card.active.rule}
-            </p>
-            <ul className="space-y-1 border-t border-slate-100 pt-3">
-              {card.properties
-                .filter((property) => property.value === true)
-                .map((property) => (
-                  <li key={property.id}>
-                    • {property.label} —{" "}
-                    {property.source === "visual_observation" ? "từ ảnh" : "từ thư viện"}
-                  </li>
-                ))}
-            </ul>
-          </div>
-        )}
+        <Button onClick={(event) => onOpen(event.currentTarget)} variant="ghost" size="sm" className="mt-4 w-full">
+          Xem hộ chiếu <ChevronRight size={15} />
+        </Button>
       </div>
     </article>
+  );
+}
+
+function CardDetail({ card, onClose, returnFocus }: { card: MaterialCard; onClose: () => void; returnFocus: HTMLElement | null }) {
+  return (
+    <ModalShell onClose={onClose} returnFocus={returnFocus} title={`Hộ chiếu ${card.objectName}`} className="max-h-[calc(100dvh-2rem)] max-w-4xl overflow-y-auto">
+      <ModalHeader title={card.objectName} subtitle={`${MATERIAL_LABELS[card.category]} · ${new Date(card.createdAt).toLocaleDateString("vi-VN")}`} onClose={onClose} />
+      <div className="grid gap-0 md:grid-cols-[0.85fr_1.15fr]">
+        <CardImage card={card} />
+        <div className="space-y-5 p-5 sm:p-6">
+          <section>
+            <h3 className="text-sm font-semibold text-[var(--graphite)]">Thuộc tính</h3>
+            <ul className="mt-3 space-y-3">
+              {card.properties.filter((property) => property.value === true).map((property) => (
+                <li key={property.id} className="border-b border-[var(--border-subtle)] pb-3 text-sm last:border-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <strong>{property.label}</strong>
+                    <Badge>{property.source === "visual_observation" ? "Quan sát từ ảnh" : property.source === "material_library" ? "Thư viện vật liệu" : "Chưa xác định"}</Badge>
+                  </div>
+                  <p className="mt-1 leading-6 text-[var(--text-muted)]">{property.evidence}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="grid gap-3 sm:grid-cols-2">
+            {[{ label: "Nội tại", ability: card.passive }, { label: "Chủ động", ability: card.active }].map(({ label, ability }) => (
+              <div key={label} className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4">
+                <p className="text-xs font-semibold text-[var(--text-muted)]">{label}</p>
+                <p className="mt-2 font-semibold text-[var(--graphite)]">{ability.name}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{ability.description}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{ability.rule}</p>
+              </div>
+            ))}
+          </section>
+          <details className="border-t border-[var(--border-subtle)] pt-4 text-xs text-[var(--text-muted)]">
+            <summary className="cursor-pointer font-semibold text-[var(--text-secondary)]">Thông tin chi tiết</summary>
+            <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div><dt>Phiên bản quy tắc</dt><dd className="font-telemetry mt-1 text-[var(--graphite)]">{card.rulesetVersion}</dd></div>
+              <div><dt>Mã hộ chiếu</dt><dd className="font-telemetry mt-1 break-all text-[var(--graphite)]">{card.id}</dd></div>
+            </dl>
+          </details>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -209,7 +190,7 @@ function Challenge({ cards }: { cards: MaterialCard[] }) {
   };
   return (
     <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-[14px] border border-slate-200 bg-white">
         <CardImage card={card} />
         <div className="p-5">
           <Badge tone="default">{CATEGORY[card.category].label}</Badge>
@@ -223,7 +204,7 @@ function Challenge({ cards }: { cards: MaterialCard[] }) {
           </p>
         </div>
       </div>
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7">
+      <div className="rounded-[14px] border border-slate-200 bg-white p-5 sm:p-7">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
@@ -243,7 +224,7 @@ function Challenge({ cards }: { cards: MaterialCard[] }) {
               <button
                 key={action.id}
                 onClick={() => answer(action.id)}
-                className={`rounded-2xl border p-4 text-left text-sm font-bold transition ${isExpected ? "border-emerald-400 bg-emerald-50 text-emerald-900" : isSelected ? "border-red-300 bg-red-50 text-red-800" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-cyan-400"}`}
+                className={`rounded-[10px] border p-4 text-left text-sm font-bold transition ${isExpected ? "border-emerald-400 bg-emerald-50 text-emerald-900" : isSelected ? "border-red-300 bg-red-50 text-red-800" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-cyan-400"}`}
               >
                 {action.label}
               </button>
@@ -252,7 +233,7 @@ function Challenge({ cards }: { cards: MaterialCard[] }) {
         </div>
         {selected && (
           <div
-            className={`mt-5 rounded-2xl p-4 text-sm leading-6 ${selected === expected ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"}`}
+            className={`mt-5 rounded-[10px] p-4 text-sm leading-6 ${selected === expected ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"}`}
           >
             <strong>{selected === expected ? "Đúng." : "Chưa đúng."}</strong>{" "}
             {contaminated
@@ -281,7 +262,7 @@ function Challenge({ cards }: { cards: MaterialCard[] }) {
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+    <div className="rounded-[14px] border border-dashed border-slate-300 bg-white p-10 text-center">
       <Layers3 className="mx-auto text-slate-300" size={38} />
       <h3 className="mt-4 text-lg font-black text-slate-900">{title}</h3>
       <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{description}</p>
@@ -406,7 +387,7 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
   if (!match)
     return (
       <div className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6">
+        <div className="rounded-[14px] border border-slate-200 bg-white p-6">
           <Gamepad2 className="text-cyan-600" />
           <h3 className="mt-4 text-xl font-black text-slate-950">Luyện tập 5 vòng</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -417,7 +398,7 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
             {busy ? <Loader2 className="animate-spin" size={16} /> : null}Bắt đầu với máy
           </Button>
         </div>
-        <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6 text-white">
+        <div className="rounded-[14px] border border-slate-800 bg-slate-950 p-6 text-white">
           <Swords className="text-cyan-300" />
           <h3 className="mt-4 text-xl font-black">Đối kháng bất đồng bộ</h3>
           <p className="mt-2 text-sm leading-6 text-slate-300">
@@ -460,7 +441,7 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
           </div>
         </div>
         {error && (
-          <p role="alert" className="lg:col-span-2 rounded-2xl bg-red-50 p-4 text-sm text-red-800">
+          <p role="alert" className="lg:col-span-2 rounded-[10px] bg-red-50 p-4 text-sm text-red-800">
             {error}
           </p>
         )}
@@ -468,7 +449,7 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
     );
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7">
+    <div className="rounded-[14px] border border-slate-200 bg-white p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
@@ -509,12 +490,12 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
         </p>
       )}
       {error && (
-        <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm text-red-800">
+        <p role="alert" className="mt-4 rounded-[10px] bg-red-50 p-4 text-sm text-red-800">
           {error}
         </p>
       )}
       {match.status === "completed" ? (
-        <div className="mt-6 rounded-3xl bg-slate-950 p-7 text-center text-white">
+        <div className="mt-6 rounded-[14px] bg-slate-950 p-7 text-center text-white">
           <ShieldCheck className="mx-auto text-cyan-300" size={34} />
           <p className="mt-3 text-3xl font-black">
             {match.result === "win" ? "Thắng" : match.result === "loss" ? "Thua" : "Hòa"}
@@ -530,7 +511,7 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
         <>
           <div className="mt-6 grid gap-3 lg:grid-cols-3">
             {round.objects.map((object: MaterialScenarioObject) => (
-              <div key={object.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={object.id} className="rounded-[10px] border border-slate-200 bg-slate-50 p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
                   {object.condition === "dirty"
                     ? "Dính bẩn"
@@ -586,7 +567,7 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
           </div>
         </>
       ) : (
-        <div className="mt-6 rounded-2xl bg-amber-50 p-5 text-sm text-amber-900">
+        <div className="mt-6 rounded-[10px] bg-amber-50 p-5 text-sm text-amber-900">
           Bạn đã hoàn thành lượt của mình. Kết quả được chốt khi đối thủ hoàn tất.
         </div>
       )}
@@ -594,13 +575,17 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
   );
 }
 
-export function MaterialCards({ actorNick, points, refreshKey = 0, onScan }: MaterialCardsProps) {
+export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCardsProps) {
   const [section, setSection] = useState<Section>("collection");
   const [cards, setCards] = useState<MaterialCard[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deck, setDeck] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | WasteCategory>("all");
+  const [selectedCard, setSelectedCard] = useState<MaterialCard | null>(null);
+  const [detailTrigger, setDetailTrigger] = useState<HTMLElement | null>(null);
   const load = useCallback(
     async (append = false) => {
       setLoading(true);
@@ -628,6 +613,14 @@ export function MaterialCards({ actorNick, points, refreshKey = 0, onScan }: Mat
     () => deck.filter((id) => cards.some((card) => card.id === id)),
     [cards, deck],
   );
+  const filteredCards = useMemo(() => {
+    const normalized = search.trim().toLocaleLowerCase("vi-VN");
+    return cards.filter(
+      (card) =>
+        (categoryFilter === "all" || card.category === categoryFilter) &&
+        (!normalized || card.objectName.toLocaleLowerCase("vi-VN").includes(normalized)),
+    );
+  }, [cards, categoryFilter, search]);
   const toggle = (id: string) =>
     setDeck((current) =>
       current.includes(id)
@@ -639,32 +632,8 @@ export function MaterialCards({ actorNick, points, refreshKey = 0, onScan }: Mat
 
   return (
     <div className="space-y-5">
-      <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 text-white shadow-xl">
-        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-300">
-              Material Lab
-            </p>
-            <h2 className="mt-2 text-2xl font-black sm:text-3xl">
-              Học từ vật thể bạn thật sự tìm thấy
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              Không gacha, không chỉ số bịa. Mỗi kỹ năng truy ngược về thuộc tính quan sát hoặc quy
-              tắc vật liệu.
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Bộ thẻ đấu</p>
-              <p className="mt-1 font-black">{selectedCards.length}/3</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Điểm hiện có</p>
-              <p className="mt-1 font-black">{points.toLocaleString("vi-VN")}</p>
-            </div>
-          </div>
-        </div>
-        <div className="flex overflow-x-auto border-t border-white/10 p-2">
+      <div className="flex flex-col gap-4 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs className="grid w-full grid-cols-3 overflow-visible sm:flex sm:w-auto">
           {(
             [
               { id: "collection", label: "Bộ sưu tập", icon: Layers3 },
@@ -675,43 +644,84 @@ export function MaterialCards({ actorNick, points, refreshKey = 0, onScan }: Mat
             <button
               key={id}
               onClick={() => setSection(id)}
-              className={`flex min-w-fit flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${section === id ? "bg-white text-slate-950" : "text-slate-400 hover:text-white"}`}
+              role="tab"
+              aria-selected={section === id}
+              tabIndex={section === id ? 0 : -1}
+              className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[8px] border px-2 py-2.5 text-sm font-semibold transition-colors sm:min-w-fit sm:gap-2 sm:px-4 ${section === id ? "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--graphite)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--graphite)]"}`}
             >
               <Icon size={16} />
               {label}
             </button>
           ))}
+        </Tabs>
+        <div className="flex shrink-0 items-center gap-4 text-xs text-[var(--text-muted)]">
+          {section === "battle" && <span><strong className="font-telemetry text-[var(--graphite)]">{selectedCards.length}/3</strong> thẻ đã chọn</span>}
         </div>
       </div>
       {error && (
-        <p
-          role="alert"
-          className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-        >
-          {error}
-        </p>
+        <ErrorRetry message={error} onRetry={() => void load(false)} />
       )}
-      {section === "collection" && (
+      {!error && section === "collection" && (
         <>
+          {cards.length > 0 && (
+            <div className="grid gap-3 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-3 lg:grid-cols-[minmax(15rem,1fr)_auto]">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={16} />
+                <span className="sr-only">Tìm hộ chiếu vật liệu</span>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Tìm theo tên vật thể"
+                  className="min-h-11 w-full rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] pl-9 pr-3 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-ring)]"
+                />
+              </label>
+              <label className="sm:hidden">
+                <span className="sr-only">Lọc theo vật liệu</span>
+                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as "all" | WasteCategory)} className="min-h-11 w-full rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-ring)]">
+                  <option value="all">Tất cả vật liệu</option>
+                  {(Object.keys(CATEGORY) as WasteCategory[]).map((category) => <option key={category} value={category}>{CATEGORY[category].label}</option>)}
+                </select>
+              </label>
+              <div className="thin-scrollbar hidden gap-1 overflow-x-auto sm:flex" aria-label="Lọc theo vật liệu">
+                {(["all", ...Object.keys(CATEGORY)] as Array<"all" | WasteCategory>).map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => setCategoryFilter(category)}
+                    className={`min-h-11 shrink-0 rounded-[6px] border px-3 py-2 text-xs font-semibold transition-colors ${categoryFilter === category ? "border-[var(--graphite)] bg-[var(--graphite)] text-white" : "border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--border-strong)]"}`}
+                  >
+                    {category === "all" ? "Tất cả" : CATEGORY[category].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {loading && !cards.length ? (
             <div className="flex min-h-48 items-center justify-center">
               <Loader2 className="animate-spin text-cyan-600" />
             </div>
-          ) : cards.length ? (
+          ) : filteredCards.length ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {cards.map((card) => (
+              {filteredCards.map((card) => (
                 <CollectionCard
                   key={card.id}
                   card={card}
-                  selected={deck.includes(card.id)}
-                  onSelect={() => toggle(card.id)}
+                  onOpen={(trigger) => {
+                    setDetailTrigger(trigger);
+                    setSelectedCard(card);
+                  }}
                 />
               ))}
             </div>
+          ) : cards.length ? (
+            <EmptyState
+              title="Không tìm thấy hộ chiếu phù hợp"
+              description="Thử tên khác hoặc đổi bộ lọc vật liệu."
+            />
           ) : (
             <EmptyState
               title="Bộ sưu tập đang trống"
-              description="Thẻ chỉ được tạo từ một lần quét online đủ điều kiện. Mỗi lần quét tạo tối đa một thẻ."
+              description="Quét một vật thể đủ điều kiện để tạo hộ chiếu đầu tiên."
             />
           )}
           {cursor && (
@@ -726,14 +736,38 @@ export function MaterialCards({ actorNick, points, refreshKey = 0, onScan }: Mat
           )}
           <Button
             onClick={onScan}
-            className="fixed bottom-20 right-4 z-20 rounded-full shadow-xl sm:static sm:ml-auto sm:rounded-xl"
+            className="w-full sm:ml-auto sm:w-auto"
           >
-            <ScanLine size={17} /> Quét để tạo thẻ
+            <ScanLine size={17} /> Quét rác
           </Button>
         </>
       )}
-      {section === "challenge" && <Challenge cards={cards} />}
-      {section === "battle" && <Battle deck={selectedCards} actorNick={actorNick} />}
+      {!error && section === "challenge" && <Challenge cards={cards} />}
+      {!error && section === "battle" && (
+        <div className="space-y-5">
+          {cards.length > 0 && (
+            <section className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div><h3 className="font-semibold text-[var(--graphite)]">Chọn bộ ba thẻ</h3><p className="mt-1 text-sm text-[var(--text-muted)]">Bộ thẻ này được dùng khi tạo hoặc tham gia trận đối kháng.</p></div>
+                <span className="font-telemetry text-sm font-semibold">{selectedCards.length}/3</span>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {cards.map((card) => {
+                  const selected = deck.includes(card.id);
+                  return (
+                    <button key={card.id} type="button" onClick={() => toggle(card.id)} aria-pressed={selected} className={`flex min-h-16 items-center gap-3 rounded-[10px] border p-2 text-left ${selected ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--border-subtle)] bg-[var(--surface)]"}`}>
+                      <CardImage card={card} compact />
+                      <span className="min-w-0"><strong className="block truncate text-sm">{card.objectName}</strong><span className="mt-1 block text-xs text-[var(--text-muted)]">{MATERIAL_LABELS[card.category]}</span></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          <Battle deck={selectedCards} actorNick={actorNick} />
+        </div>
+      )}
+      {selectedCard && <CardDetail card={selectedCard} returnFocus={detailTrigger} onClose={() => setSelectedCard(null)} />}
     </div>
   );
 }

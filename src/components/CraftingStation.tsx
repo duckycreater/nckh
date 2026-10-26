@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Gift, Handshake, MapPin, ShieldCheck, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Gift, Handshake, MapPin, ShieldCheck, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Confetti from "react-confetti";
 import { UserProgress, RewardItem } from "../types";
 import {
   Badge,
@@ -19,6 +18,8 @@ import {
 import { getAuthHeaders } from "../lib/auth";
 import { parseRedeemInfo } from "../lib/redemption";
 import { isDisplayableImageUrl } from "../lib/media";
+import { setAppCriticalActivity } from "../services/appUpdateManager";
+import { toUserMessage } from "../lib/userFacingError";
 
 interface Props {
   points: number;
@@ -30,7 +31,6 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
   const [recipes, setRecipes] = useState<RewardItem[]>([]);
   const [craftingId, setCraftingId] = useState<string | number | null>(null);
   const [crafted, setCrafted] = useState<(string | number)[]>([]);
-  const [showConfetti, setShowConfetti] = useState(false);
   const [successItem, setSuccessItem] = useState<string | null>(null);
   const [showRedeemForm, setShowRedeemForm] = useState<string | number | null>(null);
   const [fullName, setFullName] = useState("");
@@ -40,6 +40,20 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [craftError, setCraftError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+
+  useEffect(() => {
+    setAppCriticalActivity("reward-redemption", craftingId !== null);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (craftingId === null) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      setAppCriticalActivity("reward-redemption", false);
+    };
+  }, [craftingId]);
 
   useEffect(() => {
     setLoading(true);
@@ -54,7 +68,7 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
         setLoading(false);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
+        setError(toUserMessage(err, "Không thể tải danh sách quà lúc này."));
         setLoading(false);
       });
   }, [refetchKey]);
@@ -101,7 +115,7 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
     recipientAddress: string,
   ) => {
     if (points < cost) {
-      setFormError("Bạn không còn đủ EXP để đổi món quà này.");
+      setFormError("Bạn không còn đủ điểm để đổi món quà này.");
       return false;
     }
     setCraftError(null);
@@ -122,15 +136,13 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
       }
       setCrafted((prev) => [...prev, recipeId]);
       setSuccessItem(itemName);
-      setShowConfetti(true);
       onRefresh?.(result.progress);
       window.setTimeout(() => {
-        setShowConfetti(false);
         setSuccessItem(null);
       }, 4000);
       return true;
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Đổi quà thất bại.";
+      const message = toUserMessage(caught, "Đổi quà thất bại. Vui lòng thử lại.");
       setCraftError(message);
       setFormError(message);
       return false;
@@ -143,57 +155,43 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
 
   return (
     <>
-      {showConfetti && (
-        <div className="fixed inset-0 z-[200] pointer-events-none">
-          <Confetti
-            numberOfPieces={280}
-            recycle={false}
-            run={true}
-            gravity={0.22}
-            colors={["#f59e0b", "#10b981", "#3b82f6", "#ec4899", "#8b5cf6", "#f97316"]}
-            tweenDuration={4000}
-          />
-        </div>
-      )}
-
       <AnimatePresence>
         {successItem && (
           <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.88 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[201] flex items-center justify-center p-4"
           >
-            <div className="fixed inset-0 -z-10 bg-slate-950/50 backdrop-blur-sm" />
+            <div className="fixed inset-0 -z-10 bg-slate-950/55" />
             <Card className="max-w-sm w-full p-8 text-center">
-              <div className="mb-3 text-5xl">🎉</div>
-              <h3 className="mb-2 text-2xl font-black text-slate-900">Đổi quà thành công!</h3>
-              <p className="font-bold text-slate-700">{successItem}</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              <CheckCircle2 className="mx-auto mb-4 text-[var(--primary)]" size={42} strokeWidth={1.5} />
+              <p className="font-telemetry text-[10px] font-semibold tracking-[0.16em] text-[var(--primary)]">GIAO DỊCH ĐÃ GHI NHẬN</p>
+              <h3 className="mb-2 mt-2 text-2xl font-semibold text-[var(--graphite)]">Đổi quà thành công</h3>
+              <p className="font-semibold text-[var(--graphite)]">{successItem}</p>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
                 Yêu cầu giao quà đã được ghi nhận và đang chờ xử lý.
               </p>
               <Button
                 onClick={() => {
-                  setShowConfetti(false);
                   setSuccessItem(null);
                 }}
                 className="mt-6 w-full"
                 size="lg"
               >
-                Tuyệt vời!
+                Đóng
               </Button>
             </Card>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Card className="overflow-hidden rounded-[28px] p-0">
-        <div className="border-b border-slate-100 bg-[linear-gradient(180deg,#fff,#f8fafc)] px-5 py-5">
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-5">
           <SectionHeading
-            eyebrow="Crafting"
-            title="Đổi quà thưởng"
-            subtitle="Dùng EXP tích luỹ để đổi quà tặng thực tế hoặc E-voucher."
-            action={<Badge tone="success">{points} EXP</Badge>}
+            title="Chọn phần thưởng"
+            subtitle="Chọn quà, kiểm tra địa chỉ rồi xác nhận giao dịch điểm."
+            action={<Badge tone="success">{points.toLocaleString("vi-VN")} điểm</Badge>}
           />
         </div>
 
@@ -219,10 +217,10 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                 const alreadyRedeemed = crafted.some((item) => String(item) === String(recipe.id));
 
                 return (
-                  <motion.div
+                  <motion.article
                     key={recipe.id}
                     layout
-                    className={`group relative overflow-hidden rounded-[26px] border transition-all ${isCrafting ? "border-amber-300 bg-amber-50/80" : "border-amber-100 bg-amber-50/50 hover:border-amber-200 hover:bg-amber-50"}`}
+                    className={`group relative overflow-hidden rounded-[10px] border transition-colors ${isCrafting ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--border-strong)]"}`}
                   >
                     <AnimatePresence>
                       {isCrafting && (
@@ -230,20 +228,15 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-[26px] bg-white/90 backdrop-blur-sm"
+                          className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-[10px] bg-[rgba(251,252,248,0.96)]"
                         >
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                          >
-                            <Sparkles size={36} className="text-amber-500 mb-3" />
-                          </motion.div>
-                          <p className="text-sm font-black uppercase tracking-widest text-amber-600 animate-pulse">
-                            Đang xử lý...
+                          <span className="mb-3 h-7 w-7 animate-spin rounded-full border-2 border-[var(--border-subtle)] border-t-[var(--primary)]" />
+                          <p className="font-telemetry text-xs font-semibold uppercase tracking-widest text-[var(--primary)]">
+                            Đang ghi giao dịch
                           </p>
-                          <div className="mt-4 h-2 w-32 overflow-hidden rounded-full bg-amber-100">
+                          <div className="mt-4 h-1 w-32 overflow-hidden rounded-full bg-[var(--surface-muted)]">
                             <motion.div
-                              className="h-full bg-amber-400"
+                              className="h-full bg-[var(--primary)]"
                               initial={{ width: 0 }}
                               animate={{ width: "100%" }}
                               transition={{ duration: 2.8, ease: "easeInOut" }}
@@ -254,17 +247,17 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                     </AnimatePresence>
 
                     <div className="flex flex-col gap-4 p-4 sm:flex-row">
-                      <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-[22px] border border-amber-100 bg-white shadow-sm sm:h-24 sm:w-24">
+                      <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] sm:h-24 sm:w-24">
                         {isDisplayableImageUrl(recipe.imageUrl) ? (
                           <img
                             src={recipe.imageUrl}
                             alt={recipe.name}
                             loading="lazy"
                             decoding="async"
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            className="h-full w-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-full items-center justify-center bg-amber-50 text-amber-500">
+                          <div className="flex h-full items-center justify-center bg-[var(--surface-muted)] text-[var(--primary)]">
                             <Gift size={34} />
                           </div>
                         )}
@@ -272,8 +265,8 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
 
                       <div className="flex flex-1 flex-col justify-between py-1">
                         <div>
-                          <h4 className="text-base font-black text-slate-900">{recipe.name}</h4>
-                          <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                          <h4 className="text-base font-semibold text-[var(--graphite)]">{recipe.name}</h4>
+                          <p className="mt-1 text-sm leading-relaxed text-[var(--text-muted)]">
                             {recipe.desc}
                           </p>
                         </div>
@@ -282,7 +275,7 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                             {recipe.ingredients.map((ing, i) => (
                               <span
                                 key={i}
-                                className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 shadow-sm"
+                                className="rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
                               >
                                 {ing}
                               </span>
@@ -292,11 +285,11 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-amber-100 bg-white/60 px-4 py-3 backdrop-blur-sm">
-                      <div className="text-xs font-bold text-slate-500">
+                    <div className="flex items-center justify-between border-t border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3">
+                      <div className="text-xs font-semibold text-[var(--text-muted)]">
                         Giá:{" "}
-                        <span className={canAfford ? "text-amber-600" : "text-red-500"}>
-                          {recipe.cost.toLocaleString("vi-VN")} EXP
+                        <span className={canAfford ? "text-[var(--primary)]" : "text-red-600"}>
+                          {recipe.cost.toLocaleString("vi-VN")} điểm
                         </span>
                       </div>
 
@@ -309,11 +302,7 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                           }}
                           disabled={!canAfford || alreadyRedeemed}
                           size="sm"
-                          className={
-                            canAfford
-                              ? "bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:from-amber-500 hover:to-orange-500"
-                              : ""
-                          }
+                          variant={canAfford ? "primary" : "ghost"}
                         >
                           <Handshake size={14} />
                           {alreadyRedeemed
@@ -324,7 +313,7 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                         </Button>
                       )}
                     </div>
-                  </motion.div>
+                  </motion.article>
                 );
               })
             )}
@@ -338,38 +327,39 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
             onClose={craftingId === null ? () => setShowRedeemForm(null) : undefined}
             className="max-w-sm overflow-hidden p-0"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-4 text-white">
+            <div className="flex items-center justify-between border-b border-white/10 bg-[var(--graphite)] px-5 py-4 text-white">
               <div className="flex items-center gap-3">
                 <Gift className="h-5 w-5" />
-                <h3 className="text-lg font-black">Xác nhận đổi quà</h3>
+                <h3 className="text-lg font-semibold">Kiểm tra và xác nhận</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowRedeemForm(null)}
                 disabled={craftingId !== null}
                 aria-label="Đóng biểu mẫu đổi quà"
-                className="rounded-full bg-white/20 p-1.5 transition hover:bg-white/30"
+                className="rounded-[6px] border border-white/15 bg-white/[0.06] p-1.5 transition hover:bg-white/10"
               >
                 <X size={16} />
               </button>
             </div>
             <form onSubmit={confirmRedeem} className="space-y-4 p-5">
               {selectedRecipe && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="font-black text-slate-900">{selectedRecipe.name}</p>
+                <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4">
+                  <p className="font-semibold text-[var(--graphite)]">{selectedRecipe.name}</p>
                   <div className="mt-2 flex items-center justify-between text-sm">
                     <span className="text-slate-600">
-                      Chi phí: {selectedRecipe.cost.toLocaleString("vi-VN")} EXP
+                      Chi phí: {selectedRecipe.cost.toLocaleString("vi-VN")} điểm
                     </span>
                     <span className="font-bold text-emerald-700">
-                      Còn {(points - selectedRecipe.cost).toLocaleString("vi-VN")} EXP
+                      Còn {(points - selectedRecipe.cost).toLocaleString("vi-VN")} điểm
                     </span>
                   </div>
                 </div>
               )}
               <div>
-                <FieldLabel>Họ và tên</FieldLabel>
+                <FieldLabel htmlFor="reward-recipient-name">Họ và tên</FieldLabel>
                 <Input
+                  id="reward-recipient-name"
                   required
                   minLength={2}
                   maxLength={100}
@@ -380,8 +370,9 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                 />
               </div>
               <div>
-                <FieldLabel>Địa chỉ nhận quà</FieldLabel>
+                <FieldLabel htmlFor="reward-recipient-address">Địa chỉ nhận quà</FieldLabel>
                 <TextArea
+                  id="reward-recipient-address"
                   required
                   minLength={10}
                   maxLength={300}

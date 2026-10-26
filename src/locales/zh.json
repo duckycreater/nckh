@@ -1560,5 +1560,99 @@
       "fallback": "事件",
       "recorded": "已记录。"
     }
+  },
+  "lab": {
+    "nav": {
+      "primary": "Primary navigation",
+      "secondary": "Secondary navigation",
+      "mobile": "Mobile navigation",
+      "home": "Overview",
+      "scan": "Scan",
+      "passports": "Passports",
+      "rewards": "Rewards",
+      "community": "Community",
+      "activities": "Activities",
+      "family": "Family",
+      "profile": "Profile",
+      "settings": "Settings",
+      "logout": "Log out",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu"
+    },
+    "shell": {
+      "status": "Material analysis workspace"
+    },
+    "home": {
+      "eyebrow": "Field desk / overview",
+      "title": "Hello, {name}",
+      "subtitle": "Turn a real object into traceable material evidence and a personal learning passport.",
+      "accountReady": "Workspace ready",
+      "scanCode": "ANALYSIS PIPELINE / 01",
+      "scanTitle": "Start with a real object.",
+      "scanDescription": "Capture one clear object. BMO separates visible evidence from material-library knowledge before offering a card.",
+      "startScan": "Start a new scan",
+      "flowLabel": "VERIFICATION FLOW",
+      "flowObserve": "Observe the object and visible condition",
+      "flowEvidence": "Match properties to their evidence source",
+      "flowPassport": "Review and create a Material Passport",
+      "passports": "Recent passports",
+      "coverage": "Material coverage",
+      "streak": "Learning streak",
+      "days": "days",
+      "collectionEyebrow": "Personal evidence",
+      "recentTitle": "Recently created passports",
+      "recentSubtitle": "Every card comes from an eligible scan and keeps its ruleset version.",
+      "openCollection": "Open collection",
+      "emptyCollection": "No Material Passports yet",
+      "emptyCollectionHint": "Scan one clear object to create the first passport.",
+      "coverageEyebrow": "Coverage map",
+      "coverageTitle": "Six material groups",
+      "nextActivity": "Continue learning"
+    },
+    "scan": {
+      "eyebrow": "Field capture / verified analysis",
+      "title": "Create a Material Passport",
+      "subtitle": "Capture one object, inspect the evidence and review the rule-derived abilities before spending points."
+    },
+    "cards": {
+      "eyebrow": "Evidence archive / personal collection",
+      "title": "Material Passports",
+      "subtitle": "Study real objects you scanned, solve sorting scenarios and use a three-card deck in asynchronous matches."
+    },
+    "rewards": {
+      "eyebrow": "Reward operations / transparent ledger",
+      "title": "Rewards",
+      "subtitle": "Review the item, delivery address and point transaction before confirming a redemption."
+    },
+    "community": {
+      "eyebrow": "Community / verified progress",
+      "title": "Leaderboard and groups",
+      "subtitle": "Compare learning progress without turning gift points into a wager.",
+      "openClan": "Open group"
+    },
+    "activities": {
+      "eyebrow": "Practice bay / supporting activities",
+      "title": "Activities",
+      "subtitle": "Daily missions and short exercises support the core scan-and-learn journey.",
+      "claim": "Daily reward",
+      "claimed": "Reward claimed"
+    },
+    "settings": {
+      "eyebrow": "Account system / preferences",
+      "title": "Settings",
+      "subtitle": "Manage your profile, language, security and data privacy."
+    },
+    "family": {
+      "eyebrow": "Learning group / household",
+      "title": "Family",
+      "subtitle": "Track sorting activities and shared challenges across household members."
+    },
+    "update": {
+      "title": "A new BMO version is ready",
+      "waiting": "The update will continue after the current scan or redemption finishes.",
+      "applying": "Switching to the new version…",
+      "countdown": "The app will update automatically in {seconds} seconds.",
+      "action": "Update"
+    }
   }
 }

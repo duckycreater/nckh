@@ -146,7 +146,7 @@ export function MilestoneProgress(props: { totalExpEarned: number; className?: s
         />
       </div>
       <div className="text-right text-[9px] text-gray-400">
-        {totalExpEarned.toLocaleString()} / {next.threshold.toLocaleString()} EXP
+        {totalExpEarned.toLocaleString()} / {next.threshold.toLocaleString()} điểm
       </div>
     </div>
   );

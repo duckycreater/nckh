@@ -2,12 +2,13 @@
 // and valid PWA icons. Workbox's cleanupOutdatedCaches only covers precache
 // entries, not custom runtime cache names.
 self.addEventListener('activate', (event) => {
+  const currentVersion = '__BMO_CACHE_VERSION__';
   const keep = new Set([
-    'bmo-app-shell-v4',
-    'bmo-fonts-v4',
-    'bmo-static-models-v4',
-    'bmo-api-data-v4',
-    'bmo-images-v4',
+    `bmo-app-shell-${currentVersion}`,
+    `bmo-fonts-${currentVersion}`,
+    `bmo-static-models-${currentVersion}`,
+    `bmo-api-data-${currentVersion}`,
+    `bmo-images-${currentVersion}`,
   ]);
 
   event.waitUntil((async () => {

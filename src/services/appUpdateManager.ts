@@ -1,6 +1,51 @@
 const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
+const AUTO_APPLY_SECONDS = 30;
 const RELOAD_GUARD_KEY = "bmo:last-worker-reload";
 const RELOAD_GUARD_MS = 15_000;
+
+export interface AppUpdateSnapshot {
+  available: boolean;
+  applying: boolean;
+  secondsRemaining: number;
+  deferredForActivity: boolean;
+}
+
+let snapshot: AppUpdateSnapshot = {
+  available: false,
+  applying: false,
+  secondsRemaining: AUTO_APPLY_SECONDS,
+  deferredForActivity: false,
+};
+let registration: ServiceWorkerRegistration | null = null;
+let countdown: number | null = null;
+const listeners = new Set<() => void>();
+const criticalActivities = new Set<string>();
+
+function emit(next: Partial<AppUpdateSnapshot>) {
+  snapshot = { ...snapshot, ...next };
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribeToAppUpdate(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getAppUpdateSnapshot() {
+  return snapshot;
+}
+
+export function hasAppCriticalActivity() {
+  return criticalActivities.size > 0;
+}
+
+export function setAppCriticalActivity(key: string, active: boolean) {
+  if (active) criticalActivities.add(key);
+  else criticalActivities.delete(key);
+  const blocked = criticalActivities.size > 0;
+  if (snapshot.available) emit({ deferredForActivity: blocked });
+  if (!blocked && snapshot.available && snapshot.secondsRemaining <= 0) applyAppUpdate();
+}
 
 function reloadForNewWorker(): void {
   const now = Date.now();
@@ -10,14 +55,47 @@ function reloadForNewWorker(): void {
   window.location.reload();
 }
 
+function stopCountdown() {
+  if (countdown !== null) window.clearInterval(countdown);
+  countdown = null;
+}
+
+function announceUpdate(nextRegistration: ServiceWorkerRegistration) {
+  registration = nextRegistration;
+  if (snapshot.available || snapshot.applying) return;
+  emit({
+    available: true,
+    applying: false,
+    secondsRemaining: AUTO_APPLY_SECONDS,
+    deferredForActivity: criticalActivities.size > 0,
+  });
+  stopCountdown();
+  countdown = window.setInterval(() => {
+    const nextSeconds = Math.max(0, snapshot.secondsRemaining - 1);
+    emit({ secondsRemaining: nextSeconds, deferredForActivity: criticalActivities.size > 0 });
+    if (nextSeconds === 0) {
+      stopCountdown();
+      if (criticalActivities.size === 0) applyAppUpdate();
+    }
+  }, 1000);
+}
+
+export function applyAppUpdate() {
+  if (!registration?.waiting || snapshot.applying) return;
+  if (criticalActivities.size > 0) {
+    emit({ secondsRemaining: 0, deferredForActivity: true });
+    return;
+  }
+  stopCountdown();
+  emit({ applying: true, deferredForActivity: false });
+  registration.waiting.postMessage({ type: "SKIP_WAITING" });
+}
+
 /**
  * Register the production service worker and actively look for deployments.
- *
- * Browsers are allowed to delay automatic service-worker update checks. We
- * explicitly check at startup, on reconnect, when a tab returns to the
- * foreground, and every five minutes while it remains open. A newly activated
- * worker takes control immediately and reloads an already-controlled page once
- * so HTML and hashed chunks always belong to the same deployment.
+ * A new worker is announced to the UI, then applied after a short countdown.
+ * Mutating scan/redemption operations can defer activation so a reload never
+ * interrupts a point transaction or discards a selected image.
  */
 export async function installAppUpdateManager(): Promise<void> {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
@@ -25,8 +103,6 @@ export async function installAppUpdateManager(): Promise<void> {
   let hadController = Boolean(navigator.serviceWorker.controller);
   let reloadStarted = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    // The first install may claim an uncontrolled page. It already loaded the
-    // current build, so only subsequent controller changes require a refresh.
     if (!hadController) {
       hadController = true;
       return;
@@ -37,39 +113,35 @@ export async function installAppUpdateManager(): Promise<void> {
   });
 
   try {
-    const registration = await navigator.serviceWorker.register("/sw.js", {
+    registration = await navigator.serviceWorker.register("/sw.js", {
       scope: "/",
       updateViaCache: "none",
     });
 
-    const activateWaitingWorker = () => {
-      if (registration.waiting && navigator.serviceWorker.controller) {
-        registration.waiting.postMessage({ type: "SKIP_WAITING" });
-      }
-    };
     const checkForUpdate = () => {
-      void registration.update().catch((error: unknown) => {
+      void registration?.update().catch((error: unknown) => {
         console.warn("[PWA] Update check failed", error);
       });
     };
 
-    activateWaitingWorker();
+    if (registration.waiting && navigator.serviceWorker.controller) announceUpdate(registration);
     registration.addEventListener("updatefound", () => {
-      const installing = registration.installing;
+      const installing = registration?.installing;
       installing?.addEventListener("statechange", () => {
-        if (installing.state === "installed") activateWaitingWorker();
+        if (installing.state === "installed" && navigator.serviceWorker.controller && registration) {
+          announceUpdate(registration);
+        }
       });
     });
 
     checkForUpdate();
     window.setInterval(checkForUpdate, UPDATE_INTERVAL_MS);
     window.addEventListener("online", checkForUpdate);
+    window.addEventListener("focus", checkForUpdate);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") checkForUpdate();
     });
   } catch (error) {
-    // The web app must still boot if service-worker registration is unavailable
-    // (private browsing policies, disabled storage, or an unsupported origin).
     console.warn("[PWA] Service worker registration failed", error);
   }
 }

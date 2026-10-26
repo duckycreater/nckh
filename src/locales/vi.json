@@ -135,8 +135,8 @@
     "backButton": "Quay lại",
     "levelTitle": "Cấp {level} · {title}",
     "streakDays": "🔥 {streak} ngày",
-    "commitment": "Cống hiến (EXP)",
-    "expToNext": "{exp} EXP đến cấp kế tiếp",
+    "commitment": "Tiến độ điểm",
+    "expToNext": "Còn {exp} điểm đến cấp kế tiếp",
     "streak": "Ngày streak",
     "level": "Cấp độ",
     "cardsOwned": "Thẻ đã mở",
@@ -1444,6 +1444,104 @@
       "score": "Điểm",
       "fallback": "Sự kiện",
       "recorded": "được ghi nhận."
+    }
+  },
+  "lab": {
+    "points": "điểm",
+    "navigation": {
+      "leaveWarning": "Một thao tác chưa hoàn tất. Bạn có chắc muốn rời trang?"
+    },
+    "nav": {
+      "primary": "Điều hướng chính",
+      "secondary": "Điều hướng phụ",
+      "mobile": "Điều hướng di động",
+      "home": "Tổng quan",
+      "scan": "Quét",
+      "passports": "Hộ chiếu",
+      "rewards": "Phần thưởng",
+      "community": "Cộng đồng",
+      "activities": "Hoạt động",
+      "family": "Gia đình",
+      "profile": "Hồ sơ",
+      "settings": "Cài đặt",
+      "logout": "Đăng xuất",
+      "openMenu": "Mở menu",
+      "closeMenu": "Đóng menu"
+    },
+    "shell": {
+      "status": "Không gian phân tích vật liệu"
+    },
+    "home": {
+      "title": "Chào {name}",
+      "subtitle": "Quét vật thể, xem hướng xử lý và lưu lại kiến thức về vật liệu.",
+      "scanTitle": "Bạn muốn phân loại vật thể nào?",
+      "scanDescription": "Chụp hoặc tải ảnh rõ nét để nhận diện vật liệu và xem hướng xử lý phù hợp.",
+      "startScan": "Quét rác",
+      "nextTitle": "Hoạt động tiếp theo",
+      "nextDescription": "Ôn lại kiến thức hoặc hoàn thành thử thách ngắn để duy trì tiến độ học tập.",
+      "recentTitle": "Hộ chiếu gần đây",
+      "recentSubtitle": "Các vật thể bạn đã quét và lưu vào bộ sưu tập.",
+      "openCollection": "Mở bộ sưu tập",
+      "emptyCollection": "Chưa có hộ chiếu vật liệu",
+      "emptyCollectionHint": "Quét rõ một vật thể để tạo hộ chiếu đầu tiên.",
+      "loadError": "Không thể tải hộ chiếu gần đây. Vui lòng thử lại.",
+      "nextActivity": "Mở hoạt động"
+    },
+    "scan": {
+      "title": "Quét rác",
+      "subtitle": "Nhận diện vật liệu, xem hướng xử lý và tạo hộ chiếu cho vật thể."
+    },
+    "scanner": {
+      "dialogTitle": "Quét rác",
+      "dialogSubtitle": "Chụp hoặc tải ảnh một vật thể để bắt đầu.",
+      "online": "Trực tuyến",
+      "offline": "Đang ngoại tuyến",
+      "imageDetails": "Thông tin về ảnh",
+      "imageDetailsBody": "Ảnh được xử lý để loại metadata trước khi gửi. Kết quả không thay thế phép đo thành phần, khối lượng hoặc thời gian phân hủy.",
+      "emptyTitle": "Chưa có kết quả phân tích",
+      "emptyDescription": "Chọn ảnh rõ nét của một vật thể, sau đó bắt đầu phân tích.",
+      "cardPreview": "Xem trước hộ chiếu",
+      "price": "Chi phí tạo",
+      "balanceAfter": "Số dư sau giao dịch: {points} điểm",
+      "technicalDetails": "Thông tin chi tiết",
+      "ruleset": "Phiên bản quy tắc",
+      "scanId": "Mã lần quét"
+    },
+    "cards": {
+      "title": "Hộ chiếu vật liệu",
+      "subtitle": "Xem bộ sưu tập, luyện xử lý tình huống và tham gia đối kháng."
+    },
+    "rewards": {
+      "title": "Phần thưởng",
+      "subtitle": "Đổi điểm lấy quà và theo dõi trạng thái giao dịch.",
+      "catalog": "Đổi quà",
+      "history": "Lịch sử"
+    },
+    "community": {
+      "title": "Bảng hạng và nhóm",
+      "subtitle": "Theo dõi tiến bộ và kết nối với cộng đồng.",
+      "openClan": "Mở nhóm"
+    },
+    "activities": {
+      "title": "Hoạt động",
+      "subtitle": "Nhiệm vụ ngày, câu hỏi và các hoạt động học tập ngắn.",
+      "claim": "Nhận thưởng ngày",
+      "claimed": "Đã nhận thưởng"
+    },
+    "settings": {
+      "title": "Cài đặt",
+      "subtitle": "Quản lý hồ sơ, ngôn ngữ, bảo mật và quyền riêng tư dữ liệu."
+    },
+    "family": {
+      "title": "Gia đình",
+      "subtitle": "Cùng theo dõi hoạt động phân loại và thử thách của các thành viên."
+    },
+    "update": {
+      "title": "Có phiên bản BMO mới",
+      "waiting": "Bản cập nhật đang chờ thao tác quét hoặc đổi quà hoàn tất.",
+      "applying": "Đang chuyển sang phiên bản mới…",
+      "countdown": "Ứng dụng sẽ tự cập nhật sau {seconds} giây.",
+      "action": "Cập nhật"
     }
   }
 }

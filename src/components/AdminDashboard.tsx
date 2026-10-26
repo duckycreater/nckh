@@ -12,7 +12,6 @@ import {
   Shield,
   RefreshCw,
   FlaskConical,
-  Eye,
   Trash2,
   Ban,
   Zap,
@@ -35,6 +34,7 @@ import {
   ModalShell,
   SectionHeading,
   TabButton,
+  Tabs,
   TextArea,
 } from "../lib/ui";
 import { showToast } from "../lib/toast";
@@ -58,6 +58,13 @@ interface AdminStats {
   researchActive7d?: number;
   researchActive1d?: number;
   experimentCount?: number;
+}
+
+interface AdminExperiment {
+  id: string;
+  name?: string;
+  description?: string;
+  status?: string;
 }
 
 interface UserDetail {
@@ -116,7 +123,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const [userSearch, setUserSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [userDetailLoading, setUserDetailLoading] = useState(false);
-  const [experiments, setExperiments] = useState<any[]>([]);
+  const [experiments, setExperiments] = useState<AdminExperiment[]>([]);
   const [expLoading, setExpLoading] = useState(false);
   const [newExp, setNewExp] = useState({
     id: "",
@@ -142,7 +149,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
 
   // Default spreadsheet ID - configurable via env var
   const DEFAULT_SPREADSHEET_ID =
-    (import.meta as any).env?.VITE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
+    import.meta.env.VITE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
 
   const loadStats = useCallback(async () => {
     try {
@@ -429,13 +436,13 @@ export function AdminDashboard({ user, onLogout }: Props) {
     <div className="min-h-screen bg-[var(--background)]">
       <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
         {/* ── Top bar ── */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--primary)] text-white font-black shadow-[var(--shadow-glow)]">
+            <div className="font-telemetry flex h-10 w-10 items-center justify-center rounded-[8px] bg-[var(--graphite)] font-semibold text-[var(--signal)]">
               B
             </div>
             <div>
-              <h1 className="text-lg font-black text-[var(--text-primary)]">
+              <h1 className="text-lg font-semibold text-[var(--text-primary)]">
                 {t("admin.dashboardTitle", "Dashboard quản trị")}
               </h1>
               <p className="text-xs text-[var(--text-muted)]">{user.name}</p>
@@ -443,32 +450,29 @@ export function AdminDashboard({ user, onLogout }: Props) {
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/research")}>
-              <Activity className="h-4 w-4" /> {t("admin.tabs.research")}
+              <Activity className="h-4 w-4" /> <span className="hidden sm:inline">{t("admin.tabs.research")}</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={onLogout}>
-              <LogOut className="h-4 w-4" /> {t("admin.logout", "Đăng xuất")}
+              <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">{t("admin.logout", "Đăng xuất")}</span>
             </Button>
           </div>
         </div>
 
         {/* ── Nav tabs ── */}
-        <Card className="rounded-2xl p-1.5">
-          <div className="grid grid-cols-3 gap-1 sm:grid-cols-9">
+        <Card className="overflow-hidden p-1.5">
+          <Tabs className="thin-scrollbar border-0 bg-transparent p-0" aria-label="Điều hướng quản trị">
             {tabs.map((tab) => (
-              <button
+              <TabButton
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all ${
-                  activeTab === tab.id
-                    ? "bg-[var(--primary)] text-white shadow-sm"
-                    : "text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
-                }`}
+                active={activeTab === tab.id}
+                className="flex items-center justify-center gap-1.5 text-xs"
               >
-                <span className="hidden sm:inline">{tab.icon}</span>
+                <span>{tab.icon}</span>
                 <span>{tab.label}</span>
-              </button>
+              </TabButton>
             ))}
-          </div>
+          </Tabs>
         </Card>
 
         {activeTab === "overview" && (
@@ -493,21 +497,17 @@ export function AdminDashboard({ user, onLogout }: Props) {
                     tone: "default" as const,
                   },
                 ].map((item) => (
-                  <Card key={item.label} className="rounded-[26px] p-5">
+                  <Card key={item.label} className="p-5">
                     <Badge tone={item.tone}>{item.label}</Badge>
-                    <p className="mt-4 text-3xl font-black text-slate-900">{item.value}</p>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Số liệu được đồng bộ từ các API quản trị hiện có.
-                    </p>
+                    <p className="font-telemetry mt-4 text-3xl font-semibold text-slate-900">{item.value}</p>
                   </Card>
                 ))}
               </div>
 
-              <Card className="rounded-[28px] p-6">
+              <Card className="p-6">
                 <SectionHeading
-                  eyebrow="Điều phối"
                   title="Thao tác nhanh"
-                  subtitle="Các lệnh thường dùng để làm mới dữ liệu, cập nhật rewards và đồng bộ nguồn ngoài."
+                subtitle="Làm mới dữ liệu, cập nhật phần thưởng và đồng bộ nguồn ngoài."
                 />
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <Button onClick={fetchRewards} variant="secondary">
@@ -526,26 +526,27 @@ export function AdminDashboard({ user, onLogout }: Props) {
               </Card>
             </div>
 
-            <Card className="rounded-[28px] p-6">
+            <Card className="p-6">
               <SectionHeading
-                eyebrow="Tín hiệu hệ thống"
                 title="Bức tranh hoạt động"
-                subtitle="Tóm lược nhanh những gì đang diễn ra để bạn nắm được mức độ sẵn sàng của hệ thống."
+                subtitle="Tóm tắt người dùng, phần thưởng và hoạt động nghiên cứu."
               />
-              <div className="mt-5 space-y-3">
+              <dl className="mt-5 space-y-2">
                 {[
-                  "Phần user, admin và research đang dùng chung design language mới.",
-                  "Toast đã thay thế dần cho các phản hồi dạng alert cũ.",
-                  "Luồng đồng bộ và cập nhật quyền có thể kiểm soát ngay từ dashboard này.",
-                ].map((item) => (
+                  ["Tài khoản đã tải", stats?.total ?? users.length],
+                  ["Phần thưởng đang cấu hình", rewards.length],
+                  ["Thí nghiệm đã tải", stats?.experimentCount ?? experiments.length],
+                  ["Hoạt động nghiên cứu 7 ngày", stats?.researchActive7d ?? "Chưa có dữ liệu"],
+                ].map(([label, value]) => (
                   <div
-                    key={item}
-                    className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600"
+                    key={String(label)}
+                    className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3"
                   >
-                    {item}
+                    <dt className="text-sm text-[var(--text-muted)]">{label}</dt>
+                    <dd className="font-telemetry text-sm font-semibold text-[var(--graphite)]">{value}</dd>
                   </div>
                 ))}
-              </div>
+              </dl>
             </Card>
           </div>
         )}

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   Camera,
@@ -23,12 +24,15 @@ import {
   remove as removePendingScan,
 } from "../services/pendingScanQueue";
 import type { User } from "../types";
+import { setAppCriticalActivity } from "../services/appUpdateManager";
+import { toUserMessage } from "../lib/userFacingError";
 
 interface AIScannerProps {
   user: User;
   onUpdatePoints: (newPoints: number) => void;
   onClose: () => void;
   onCardCreated?: (card: MaterialCard) => void;
+  mode?: "modal" | "page";
 }
 
 interface ScanResponse {
@@ -62,6 +66,21 @@ const SOURCE_LABEL = {
   unknown: "Chưa xác định",
 };
 
+const VERDICT_GUIDANCE: Record<Exclude<ScanAnalysis["verdict"], "single_waste">, { title: string; description: string }> = {
+  not_waste: {
+    title: "Không phát hiện một vật thể rác",
+    description: "Chụp lại một vật thể cần phân loại, đặt riêng trên nền rõ và đủ sáng.",
+  },
+  multiple_objects: {
+    title: "Ảnh có nhiều vật thể",
+    description: "Tách một vật thể vào giữa khung hình để thuộc tính và kỹ năng có căn cứ rõ ràng.",
+  },
+  uncertain: {
+    title: "Chưa đủ bằng chứng để kết luận",
+    description: "Chụp gần hơn, giữ ảnh nét và để lộ ký hiệu vật liệu nếu có.",
+  },
+};
+
 function errorMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "error" in payload) {
     const value = (payload as { error?: unknown }).error;
@@ -70,7 +89,14 @@ function errorMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AIScannerProps) {
+export function AIScanner({
+  user,
+  onUpdatePoints,
+  onClose,
+  onCardCreated,
+  mode = "modal",
+}: AIScannerProps) {
+  const { t } = useTranslation();
   const [image, setImage] = useState<string | null>(null);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [scanning, setScanning] = useState(false);
@@ -111,6 +137,23 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
 
   useEffect(() => () => stream?.getTracks().forEach((track) => track.stop()), [stream]);
 
+  useEffect(() => {
+    const hasUncommittedImage = Boolean(
+      image && (!response && !localPreview || response?.cardPreview && !createdCard),
+    );
+    setAppCriticalActivity("material-scan", scanning || creating || hasUncommittedImage);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!scanning && !creating && !hasUncommittedImage) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      setAppCriticalActivity("material-scan", false);
+    };
+  }, [createdCard, creating, image, localPreview, response, scanning]);
+
   const resetResult = () => {
     setResponse(null);
     setLocalPreview(null);
@@ -145,7 +188,7 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
           setImage(nextImage);
           resetResult();
         })
-        .catch((cause) => setError(cause instanceof Error ? cause.message : "Không đọc được ảnh."))
+        .catch((cause) => setError(toUserMessage(cause, "Không đọc được ảnh.")))
         .finally(() => URL.revokeObjectURL(url));
     };
     source.onerror = () => {
@@ -185,7 +228,7 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
       resetResult();
       closeCamera();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không chụp được ảnh.");
+      setError(toUserMessage(cause, "Không chụp được ảnh."));
     }
   };
 
@@ -244,6 +287,7 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ imageBase64: image, nickname: user.account_id, locale: "vi" }),
+        signal: AbortSignal.timeout(30_000),
       });
       const payload = (await request.json().catch(() => null)) as ScanResponse | null;
       if (!request.ok || !payload?.scan) {
@@ -254,7 +298,11 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
         onUpdatePoints(payload.points);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể kết nối máy chủ.");
+      setError(
+        cause instanceof DOMException && cause.name === "TimeoutError"
+          ? "Phân tích quá 30 giây. Ảnh của bạn vẫn còn ở đây; hãy thử gửi lại."
+          : toUserMessage(cause, "Không thể kết nối máy chủ."),
+      );
     } finally {
       setScanning(false);
     }
@@ -280,13 +328,13 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
         error?: string;
       } | null;
       if (!request.ok || !payload?.card) {
-        throw new Error(errorMessage(payload, `Không tạo được thẻ (HTTP ${request.status}).`));
+        throw new Error(errorMessage(payload, `Không tạo được hộ chiếu (HTTP ${request.status}).`));
       }
       setCreatedCard(payload.card);
       if (Number.isFinite(payload.points)) onUpdatePoints(payload.points as number);
       onCardCreated?.(payload.card);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không tạo được thẻ.");
+      setError(toUserMessage(cause, "Không tạo được hộ chiếu."));
     } finally {
       setCreating(false);
     }
@@ -308,26 +356,26 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
   const scanResult = response?.scan;
   const cardPreview = response?.cardPreview;
 
-  return (
-    <ModalShell
-      onClose={onClose}
-      title="Quét vật thể"
-      className="flex max-h-[calc(100dvh-1rem)] max-w-6xl flex-col overflow-hidden p-0"
+  const scannerContent = (
+    <div
+      className={
+        mode === "page"
+          ? "relative flex min-h-[660px] flex-col overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)]"
+          : "relative flex max-h-[calc(100dvh-1rem)] flex-col overflow-hidden"
+      }
     >
-      <ModalHeader
-        title="Tạo thẻ từ vật thể thật"
-        subtitle="Quan sát trước, đối chiếu quy tắc vật liệu, rồi mới quyết định tạo thẻ."
-        badge={
-          <Badge tone={online ? "success" : "warning"}>
-            {online ? "Đang online" : "Sơ bộ offline"}
-          </Badge>
-        }
-        onClose={onClose}
-      />
+      {mode === "modal" && (
+        <ModalHeader
+          title={t("lab.scanner.dialogTitle")}
+          subtitle={t("lab.scanner.dialogSubtitle")}
+          badge={<Badge tone={online ? "success" : "warning"}>{online ? t("lab.scanner.online") : t("lab.scanner.offline")}</Badge>}
+          onClose={onClose}
+        />
+      )}
 
       <div className="thin-scrollbar grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[0.88fr_1.12fr]">
         <section className="border-b border-slate-200 bg-slate-950 p-5 text-white lg:border-b-0 lg:border-r lg:p-7">
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900">
+          <div className="overflow-hidden rounded-[14px] border border-white/10 bg-slate-900">
             {image ? (
               <img
                 src={image}
@@ -380,17 +428,17 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
             {scanning
               ? "Đang phân tích…"
               : online
-                ? "Xác minh và xem trước thẻ"
+                ? "Phân tích vật thể"
                 : "Phân loại sơ bộ và lưu chờ"}
           </Button>
 
-          <p className="mt-3 text-xs leading-5 text-slate-400">
-            Ảnh được vẽ lại trước khi gửi để loại metadata. AI không đo chính xác thành phần hóa
-            học, khối lượng hay thời gian phân hủy.
-          </p>
+          <details className="mt-4 border-t border-white/10 pt-3 text-xs leading-5 text-slate-400">
+            <summary className="cursor-pointer font-semibold text-slate-300">{t("lab.scanner.imageDetails")}</summary>
+            <p className="mt-2">{t("lab.scanner.imageDetailsBody")}</p>
+          </details>
 
           {pending.length > 0 && (
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="mt-5 rounded-[10px] border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">
                 {pending.length} ảnh của bạn đang chờ
               </p>
@@ -408,7 +456,7 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
           {error && (
             <div
               role="alert"
-              className="mb-4 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+              className="mb-4 flex gap-3 rounded-[10px] border border-red-200 bg-red-50 p-4 text-sm text-red-800"
             >
               <AlertTriangle className="mt-0.5 shrink-0" size={18} />
               <span>{error}</span>
@@ -416,29 +464,15 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
           )}
 
           {!scanResult && !localPreview && !scanning && (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                Luồng kiểm chứng
-              </p>
-              <ol className="mt-5 space-y-4 text-sm text-slate-700">
-                {[
-                  "Nhận diện vật thể và trạng thái nhìn thấy",
-                  "Đối chiếu thuộc tính từ thư viện có phiên bản",
-                  "Xem kỹ năng và giá trước khi trả điểm",
-                ].map((item, index) => (
-                  <li key={item} className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                      {index + 1}
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ol>
+            <div className="flex min-h-52 flex-col items-center justify-center rounded-[14px] border border-dashed border-slate-300 bg-white p-8 text-center">
+              <ImageIcon size={28} className="text-slate-400" />
+              <h3 className="mt-4 font-semibold text-slate-950">{t("lab.scanner.emptyTitle")}</h3>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">{t("lab.scanner.emptyDescription")}</p>
             </div>
           )}
 
           {localPreview && (
-            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+            <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-6">
               <div className="flex items-center gap-2 text-amber-900">
                 <WifiOff size={18} />
                 <h3 className="font-black">Kết quả sơ bộ, chưa xác minh</h3>
@@ -448,7 +482,7 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
               </p>
               <p className="mt-2 text-sm leading-6 text-amber-900">
                 Độ tin cậy mô hình: {Math.round(localPreview.confidence * 100)}%. Mô hình local học
-                từ dữ liệu tổng hợp; kết quả này không cộng điểm và không tạo thẻ.
+                từ dữ liệu tổng hợp; kết quả này không cộng điểm và không tạo hộ chiếu.
               </p>
               <p className="mt-3 text-sm font-semibold text-amber-950">
                 Ảnh đã được lưu riêng cho tài khoản này. Khi online, mở lại ảnh chờ và bấm xác minh.
@@ -458,13 +492,10 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
 
           {scanResult && (
             <div className="space-y-4">
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="rounded-[14px] border border-slate-200 bg-white p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                      Kết quả đã kiểm tra schema
-                    </p>
-                    <h3 className="mt-2 text-2xl font-black text-slate-950">
+                    <h3 className="text-2xl font-semibold text-slate-950">
                       {scanResult.objectName}
                     </h3>
                     <p className="mt-1 text-sm font-semibold text-cyan-700">
@@ -476,12 +507,21 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
                   </Badge>
                 </div>
                 <p className="mt-4 text-sm leading-6 text-slate-600">{scanResult.description}</p>
+                {!scanResult.eligibleForCard && scanResult.verdict !== "single_waste" && (
+                  <div className="mt-4 rounded-[10px] border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                    <p className="font-semibold">{VERDICT_GUIDANCE[scanResult.verdict].title}</p>
+                    <p className="mt-1 text-sm leading-6">{VERDICT_GUIDANCE[scanResult.verdict].description}</p>
+                    <Button variant="ghost" size="sm" className="mt-3 border-amber-300 bg-amber-50" onClick={() => fileInput.current?.click()}>
+                      <Upload size={14} /> Chọn ảnh khác
+                    </Button>
+                  </div>
+                )}
                 {scanResult.uncertaintyReason && (
                   <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
                     {scanResult.uncertaintyReason}
                   </p>
                 )}
-                <div className="mt-4 rounded-2xl bg-slate-100 p-4 text-sm leading-6 text-slate-700">
+                <div className="mt-4 rounded-[10px] bg-slate-100 p-4 text-sm leading-6 text-slate-700">
                   <strong>Cách xử lý:</strong> {scanResult.disposalInstructions}
                 </div>
                 {response?.rewarded && (
@@ -492,7 +532,7 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
               </div>
 
               {scanResult.properties.length > 0 && (
-                <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                <div className="rounded-[14px] border border-slate-200 bg-white p-5">
                   <h4 className="font-black text-slate-950">Thuộc tính và căn cứ</h4>
                   <div className="mt-4 space-y-3">
                     {scanResult.properties.map((property) => (
@@ -516,12 +556,10 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
               )}
 
               {cardPreview && (
-                <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 text-white shadow-xl">
+                <div className="overflow-hidden rounded-[14px] border border-slate-800 bg-slate-950 text-white">
                   <div className="border-b border-white/10 p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">
-                      Xem trước thẻ · {cardPreview.rulesetVersion}
-                    </p>
-                    <h4 className="mt-2 text-xl font-black">{cardPreview.objectName}</h4>
+                    <p className="text-xs font-semibold text-cyan-300">{t("lab.scanner.cardPreview")}</p>
+                    <h4 className="mt-2 text-xl font-semibold">{cardPreview.objectName}</h4>
                   </div>
                   <div className="grid gap-3 p-5 sm:grid-cols-2">
                     {[
@@ -530,7 +568,7 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
                     ].map(({ label, ability }) => (
                       <div
                         key={label}
-                        className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                        className="rounded-[10px] border border-white/10 bg-white/5 p-4"
                       >
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
                           {label}
@@ -547,8 +585,11 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
                   </div>
                   <div className="flex flex-col gap-3 border-t border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-xs text-slate-400">Giá cố định</p>
+                      <p className="text-xs text-slate-400">{t("lab.scanner.price")}</p>
                       <p className="text-xl font-black">{cardPreview.cost} điểm</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {t("lab.scanner.balanceAfter", { points: Math.max(0, user.points - cardPreview.cost).toLocaleString("vi-VN") })}
+                      </p>
                     </div>
                     <Button
                       onClick={createCard}
@@ -563,9 +604,16 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
                         ? "Đã thêm vào bộ sưu tập"
                         : user.points < cardPreview.cost
                           ? "Không đủ điểm"
-                          : "Xác nhận tạo thẻ"}
+                          : "Tạo hộ chiếu"}
                     </Button>
                   </div>
+                  <details className="border-t border-white/10 px-5 py-4 text-xs text-slate-400">
+                    <summary className="cursor-pointer font-semibold text-slate-300">{t("lab.scanner.technicalDetails")}</summary>
+                    <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div><dt>{t("lab.scanner.ruleset")}</dt><dd className="font-telemetry mt-1 text-slate-200">{cardPreview.rulesetVersion}</dd></div>
+                      <div><dt>{t("lab.scanner.scanId")}</dt><dd className="font-telemetry mt-1 break-all text-slate-200">{scanResult.scanId}</dd></div>
+                    </dl>
+                  </details>
                 </div>
               )}
             </div>
@@ -597,6 +645,18 @@ export function AIScanner({ user, onUpdatePoints, onClose, onCardCreated }: AISc
           </div>
         </div>
       )}
+    </div>
+  );
+
+  if (mode === "page") return scannerContent;
+
+  return (
+    <ModalShell
+      onClose={onClose}
+      title="Quét vật thể"
+      className="max-w-6xl overflow-hidden p-0"
+    >
+      {scannerContent}
     </ModalShell>
   );
 }

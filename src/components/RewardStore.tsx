@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { UserCircle2, Hexagon, Sparkles, Check, Lock } from "lucide-react";
+import { UserCircle2, Hexagon, Check, Lock, Palette } from "lucide-react";
 import { UserProgress } from "../types";
-import { Badge, Button, Card, TabButton } from "../lib/ui";
+import { Button, Card, TabButton } from "../lib/ui";
 import { getAuthHeaders } from "../lib/auth";
 import { PROFILE_AVATARS, PROFILE_FRAMES } from "../lib/bmoAssets";
+import { MaterialFingerprint } from "./MaterialVisual";
+import type { WasteCategory } from "../../shared/materialCards";
+import { toUserMessage } from "../lib/userFacingError";
 
 interface Props {
   points: number;
@@ -47,31 +50,26 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
       setPurchaseCounts((current) => ({ ...current, [id]: 1 }));
       onRefresh?.(result.progress);
     } catch (error) {
-      setPurchaseError(error instanceof Error ? error.message : "Không thể mua vật phẩm lúc này.");
+      setPurchaseError(toUserMessage(error, "Không thể mua vật phẩm lúc này."));
     } finally {
       setPurchasingId(null);
     }
   };
 
   const items = activeTab === "avatar" ? PROFILE_AVATARS : PROFILE_FRAMES;
+  const materialCycle: WasteCategory[] = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
 
   return (
-    <Card className="overflow-hidden rounded-[28px] border-emerald-950/10 p-0 shadow-[0_24px_60px_rgba(4,47,36,0.12)]">
-      <div className="relative overflow-hidden border-b border-emerald-200/20 bg-[radial-gradient(circle_at_80%_0%,rgba(251,191,36,0.2),transparent_34%),linear-gradient(135deg,#052e28,#0b5b48)] px-5 py-5 text-white">
-        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
+    <Card className="overflow-hidden p-0">
+      <div className="border-b border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-300">
-              Eco Vault
-            </p>
-            <h2 className="text-xl font-black tracking-tight text-white">Cửa hàng điểm thưởng</h2>
-            <p className="mt-1 text-sm text-emerald-50/75">
+            <h2 className="text-xl font-semibold tracking-tight text-[var(--graphite)]">Tùy chỉnh hồ sơ</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
               Mở khóa avatar và khung hồ sơ để cá nhân hóa tài khoản của bạn.
             </p>
           </div>
-          <Badge tone="accent">
-            <Sparkles className="h-3.5 w-3.5" /> {points} EXP
-          </Badge>
+          <span className="font-telemetry rounded-[6px] border border-[var(--primary-border)] bg-[var(--primary-soft)] px-2.5 py-1.5 text-xs text-[var(--primary-strong)]">{points.toLocaleString("vi-VN")} điểm</span>
         </div>
       </div>
 
@@ -81,7 +79,7 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
             {purchaseError}
           </p>
         )}
-        <div className="mb-4 flex gap-2 rounded-[24px] bg-slate-100 p-1">
+        <div className="mb-4 flex gap-2 rounded-[12px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-1">
           <TabButton
             active={activeTab === "avatar"}
             onClick={() => setActiveTab("avatar")}
@@ -99,7 +97,7 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {items.map((item) => {
+          {items.map((item, index) => {
             const count = purchaseCounts[item.id] || 0;
             const owned = count > 0;
             const canAfford = points >= item.cost;
@@ -108,33 +106,27 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
             return (
               <Card
                 key={item.id}
-                className="group rounded-[24px] border border-emerald-100 bg-[linear-gradient(145deg,#ffffff,#f0fdf7)] p-4 transition duration-300 hover:-translate-y-1 hover:border-amber-300 hover:shadow-[0_16px_34px_rgba(4,120,87,0.14)]"
+                className="group border border-[var(--border-subtle)] bg-[var(--surface)] p-4 transition-colors hover:border-[var(--border-strong)]"
               >
                 <div className="relative flex h-full flex-col items-center justify-between text-center">
                   <div
-                    className={`absolute right-0 top-0 rounded-full p-1 ${owned ? "bg-emerald-500 text-white" : "bg-slate-800/70 text-white/80"}`}
+                    className={`absolute right-0 top-0 rounded-[6px] p-1 ${owned ? "bg-[var(--primary)] text-white" : "bg-[var(--graphite)] text-white/80"}`}
                   >
                     {owned ? <Check size={11} /> : <Lock size={11} />}
                   </div>
 
                   {activeTab === "avatar" ? (
-                    <div className="relative mb-3 mt-2 h-24 w-24 overflow-hidden rounded-full bg-[radial-gradient(circle,#ecfdf5,#bbf7d0)] ring-2 ring-amber-300/70 shadow-[0_10px_28px_rgba(4,120,87,0.24)]">
-                      <img
-                        src={(item as (typeof PROFILE_AVATARS)[number]).imageSrc}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
-                      />
+                    <div data-material={materialCycle[index % materialCycle.length]} className={`material-pattern material-${materialCycle[index % materialCycle.length]} relative mb-3 mt-2 h-24 w-24 overflow-hidden rounded-[10px] border border-[var(--border-subtle)] p-2 text-white`}>
+                      <MaterialFingerprint category={materialCycle[index % materialCycle.length]} seed={item.id} />
                     </div>
                   ) : (
                     <div
-                      className={`mb-3 mt-2 h-20 w-20 rounded-full bg-[radial-gradient(circle,#d1fae5,#0f766e)] ${String((item as (typeof PROFILE_FRAMES)[number]).previewClass)}`}
-                    />
+                      className={`mb-3 mt-2 grid h-20 w-20 place-items-center rounded-[10px] border-2 border-[var(--primary)] bg-[var(--surface-muted)] ${String((item as (typeof PROFILE_FRAMES)[number]).previewClass)}`}
+                    ><Palette size={22} className="text-[var(--primary)]" /></div>
                   )}
 
                   <div>
-                    <p className="text-sm font-black text-slate-800">{item.name}</p>
+                    <p className="text-sm font-semibold text-[var(--graphite)]">{item.name}</p>
                     {owned && (
                       <p className="mt-1 text-[11px] font-bold text-emerald-600">
                         Đã sở hữu{count > 1 ? ` x${count}` : ""}
@@ -147,7 +139,7 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
                     loading={isPurchasing}
                     onClick={() => handlePurchase(item.id, item.cost)}
                     size="sm"
-                    className={`mt-4 w-full ${canAfford && !owned ? "bg-violet-600 hover:bg-violet-700 text-white" : ""}`}
+                    className="mt-4 w-full"
                     variant={canAfford && !owned ? "secondary" : "ghost"}
                   >
                     {isPurchasing
@@ -155,8 +147,8 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
                       : owned
                         ? "Đã sở hữu"
                         : canAfford
-                          ? `${item.cost.toLocaleString("vi-VN")} EXP`
-                          : `Cần ${item.cost.toLocaleString("vi-VN")} EXP`}
+                          ? `${item.cost.toLocaleString("vi-VN")} điểm`
+                          : `Cần ${item.cost.toLocaleString("vi-VN")} điểm`}
                   </Button>
                 </div>
               </Card>

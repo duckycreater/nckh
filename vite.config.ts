@@ -1,10 +1,25 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "path";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { PWA_CACHE_VERSION } from "./shared/pwa";
 
-const CACHE_VERSION = "v5-material-cards";
+const CACHE_VERSION = PWA_CACHE_VERSION;
+
+function injectServiceWorkerCacheVersion() {
+  return {
+    name: "bmo-sw-cache-version",
+    apply: "build" as const,
+    closeBundle() {
+      const cleanupFile = path.resolve(__dirname, "dist/sw-legacy-cleanup.js");
+      if (!existsSync(cleanupFile)) return;
+      const source = readFileSync(cleanupFile, "utf8");
+      writeFileSync(cleanupFile, source.replaceAll("__BMO_CACHE_VERSION__", CACHE_VERSION));
+    },
+  };
+}
 
 /**
  * vite.config.ts
@@ -24,7 +39,7 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: "autoUpdate",
+        registerType: "prompt",
         strategies: "generateSW",
         // Registration is handled by appUpdateManager so every foreground
         // visit explicitly checks /sw.js instead of waiting for the browser's
@@ -66,7 +81,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          skipWaiting: true,
+          skipWaiting: false,
           clientsClaim: true,
           // Force a one-time cache namespace migration after the app moved
           // from Google Fonts to self-hosted fonts. Otherwise an older
@@ -91,10 +106,10 @@ export default defineConfig(() => {
               },
             },
             {
-              // Self-hosted Roboto woff2 subsets — large files, cache
+              // Self-hosted IBM Plex woff2 subsets — cache them aggressively
               // aggressively so the offline cold-start still renders text
               // correctly on first paint.
-              urlPattern: /\/fonts\/.*\.woff2$/,
+              urlPattern: ({ request }) => request.destination === "font",
               handler: "CacheFirst",
               options: {
                 cacheName: `bmo-fonts-${CACHE_VERSION}`,
@@ -153,7 +168,19 @@ export default defineConfig(() => {
           // including while the network is healthy.
           navigateFallback: "/index.html",
           navigateFallbackDenylist: [/^\/api\//],
-          globPatterns: ["**/*.{js,css,html,svg,png,webp,ico,woff,woff2}"],
+          // Keep only the boot shell offline. Lazy routes, locale packs and ML
+          // runtimes are cached after intentional use instead of delaying the
+          // first PWA install with several megabytes of unrelated code.
+          globPatterns: [
+            "index.html",
+            "manifest.webmanifest",
+            "offline.html",
+            "icons/*.png",
+            "assets/index-*.{js,css}",
+            "assets/ibm-plex-sans-*.woff2",
+            "assets/ibm-plex-mono-*-400-normal-*.woff2",
+            "assets/ibm-plex-mono-*-600-normal-*.woff2",
+          ],
           // Hero portraits are loaded only when a card is visible. Keeping the
           // full roster out of the install precache prevents a multi-megabyte
           // first visit and avoids old artwork getting stuck in the app shell.
@@ -172,6 +199,7 @@ export default defineConfig(() => {
         },
         devOptions: { enabled: false },
       }),
+      injectServiceWorkerCacheVersion(),
     ],
     resolve: {
       alias: {

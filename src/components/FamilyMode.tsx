@@ -27,6 +27,10 @@ import {
   Target,
   UserPlus,
   LogOut,
+  Camera,
+  Recycle,
+  Flame,
+  Globe2,
 } from "lucide-react";
 import { familyService } from "../services/familyService";
 import type { Family, FamilyMember, FamilyChallenge, FamilyCarbonStats } from "../types/family";
@@ -36,16 +40,17 @@ interface Props {
   user: User;
   isOpen: boolean;
   onClose: () => void;
+  mode?: "modal" | "page";
 }
 
 const CHALLENGE_TYPES = [
-  { id: "total_scans", label: "Tổng lượt quét tuần", icon: "📸", unit: "lượt" },
-  { id: "category_diversity", label: "Số loại rác phân loại", icon: "♻️", unit: "loại" },
-  { id: "streak_combined", label: "Tổng streak cả nhà", icon: "🔥", unit: "ngày" },
-  { id: "co2_saved", label: "CO2 tiết kiệm (kg)", icon: "🌍", unit: "kg CO₂" },
+  { id: "total_scans", label: "Tổng lượt quét tuần", icon: Camera, unit: "lượt" },
+  { id: "category_diversity", label: "Số loại rác phân loại", icon: Recycle, unit: "loại" },
+  { id: "streak_combined", label: "Tổng streak cả nhà", icon: Flame, unit: "ngày" },
+  { id: "co2_saved", label: "CO2 tiết kiệm (kg)", icon: Globe2, unit: "kg CO₂" },
 ] as const;
 
-export function FamilyMode({ user, isOpen, onClose }: Props) {
+export function FamilyMode({ user: _user, isOpen, onClose, mode = "modal" }: Props) {
   const [family, setFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [challenges, setChallenges] = useState<FamilyChallenge[]>([]);
@@ -136,40 +141,39 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-3"
-        onClick={onClose}
+        className={mode === "page" ? "relative" : "fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-3"}
+        onClick={mode === "modal" ? onClose : undefined}
       >
         <motion.div
           initial={{ scale: 0.95, y: 10 }}
           animate={{ scale: 1, y: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
+          className={mode === "page" ? "relative w-full overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)]" : "relative w-full max-w-2xl overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[var(--shadow-medium)]"}
         >
-          <div className="border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-cyan-50 px-5 py-4 dark:border-slate-800 dark:from-emerald-950/30 dark:to-cyan-950/30">
+          <div className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] px-5 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[var(--graphite)] text-[var(--signal)]">
                   <Users size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-50">
+                  <h3 className="text-base font-semibold text-[var(--graphite)]">
                     Family Mode
                   </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                  <p className="text-xs text-[var(--text-muted)]">
                     Phân loại rác cùng gia đình
                   </p>
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700"
-              >
-                <X size={18} />
-              </button>
+              {mode === "modal" && (
+                <button onClick={onClose} aria-label="Đóng chế độ gia đình" className="rounded-[6px] p-1.5 hover:bg-slate-200">
+                  <X size={18} />
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="max-h-[75vh] overflow-y-auto p-4">
+          <div className={mode === "page" ? "p-4" : "max-h-[75vh] overflow-y-auto p-4"}>
             {loading ? (
               <div className="py-12 text-center text-sm text-slate-500">Đang tải...</div>
             ) : !family ? (
@@ -182,7 +186,7 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
                     </p>
                     <button
                       onClick={() => setCreateMode(true)}
-                      className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 px-4 py-3 text-sm font-bold text-white hover:from-emerald-700 hover:to-cyan-700"
+                      className="w-full rounded-[10px] border border-[var(--primary)] bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--primary-strong)]"
                     >
                       <Plus size={16} className="inline -mt-0.5 mr-1" /> Tạo gia đình mới
                     </button>
@@ -268,7 +272,7 @@ export function FamilyMode({ user, isOpen, onClose }: Props) {
               /* ─── In a family ─────────────────────────────────────── */
               <div className="space-y-4">
                 {/* Family header */}
-                <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-emerald-50/40 p-4 dark:border-slate-700 dark:from-slate-800/40 dark:to-emerald-900/10">
+                <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4">
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="text-base font-bold text-slate-900 dark:text-slate-50">
@@ -368,7 +372,7 @@ function OverviewTab({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid gap-2 min-[420px]:grid-cols-3">
         <Stat
           icon={<Users size={14} />}
           label="Thành viên"
@@ -428,14 +432,14 @@ function MembersTab({ members }: { members: FamilyMember[] }) {
           return (
             <div
               key={m.userId}
-              className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
+              className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 text-sm font-bold text-white">
+              <div className="material-pattern material-organic flex h-9 w-9 items-center justify-center rounded-[8px] border border-[var(--border-strong)] text-sm font-semibold text-white" data-material="organic">
                 {m.userId.slice(0, 2).toUpperCase()}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="max-w-full truncate text-sm font-semibold text-slate-800 dark:text-slate-200">
                     {m.userId}
                   </span>
                   <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:bg-slate-700 dark:text-slate-300">
@@ -447,11 +451,11 @@ function MembersTab({ members }: { members: FamilyMember[] }) {
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500"
+                    className="h-full rounded-full bg-[var(--primary)]"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="mt-0.5 flex justify-between text-[10px] text-slate-500">
+                <div className="mt-1 flex flex-wrap justify-between gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
                   <span>{m.contributionsWeekly} lượt tuần này</span>
                   <span>Tổng: {m.contributionsTotal}</span>
                 </div>
@@ -464,7 +468,7 @@ function MembersTab({ members }: { members: FamilyMember[] }) {
 }
 
 function ChallengesTab({
-  familyId,
+  familyId: _familyId,
   challenges,
   onCreateMode,
 }: {
@@ -494,13 +498,14 @@ function ChallengesTab({
       {active.map((c) => {
         const pct = Math.min(100, (c.progress / c.target) * 100);
         const typeMeta = CHALLENGE_TYPES.find((t) => t.id === c.type);
+        const TypeIcon = typeMeta?.icon ?? Target;
         return (
           <div
             key={c.id}
             className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
           >
             <div className="flex items-start gap-3">
-              <div className="text-2xl">{typeMeta?.icon}</div>
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] bg-[var(--primary-soft)] text-[var(--primary)]"><TypeIcon size={17} /></div>
               <div className="flex-1">
                 <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
                   {c.title}
@@ -508,7 +513,7 @@ function ChallengesTab({
                 <div className="text-xs text-slate-500">{c.description}</div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500"
+                    className="h-full rounded-full bg-[var(--primary)]"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -543,7 +548,7 @@ function CarbonTab({ carbon }: { carbon: FamilyCarbonStats | null }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-cyan-50 p-4 dark:border-emerald-800/40 dark:from-emerald-900/20 dark:to-cyan-900/20">
+      <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--primary-soft)] p-4">
         <div className="flex items-baseline justify-between">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
@@ -740,22 +745,25 @@ function CreateChallengeForm({
             rows={2}
           />
           <div className="grid grid-cols-2 gap-2">
-            {CHALLENGE_TYPES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setType(t.id)}
-                className={`rounded-lg border-2 p-2 text-left text-xs ${
-                  type === t.id
-                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
-                    : "border-slate-200 dark:border-slate-700"
-                }`}
-              >
-                <div className="text-lg">{t.icon}</div>
-                <div className="font-bold">{t.label}</div>
-              </button>
-            ))}
+            {CHALLENGE_TYPES.map((t) => {
+              const TypeIcon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setType(t.id)}
+                  className={`rounded-lg border-2 p-2 text-left text-xs ${
+                    type === t.id
+                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
+                >
+                  <TypeIcon size={17} className="mb-1 text-[var(--primary)]" />
+                  <div className="font-bold">{t.label}</div>
+                </button>
+              );
+            })}
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid gap-2 min-[480px]:grid-cols-3">
             <div>
               <label
                 htmlFor="family-challenge-target"
@@ -794,7 +802,7 @@ function CreateChallengeForm({
                 htmlFor="family-challenge-reward"
                 className="text-[10px] uppercase text-slate-500"
               >
-                EXP/người
+                điểm/người
               </label>
               <input
                 id="family-challenge-reward"

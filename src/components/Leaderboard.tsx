@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
-import Confetti from "react-confetti";
-import { useWindowSize } from "react-use";
 import { useTranslation } from "react-i18next";
-import { Badge, Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
+import { Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
 import { formatNumber } from "../lib/format";
-import { Minus, TrendingUp, TrendingDown, Trophy } from "lucide-react";
+import { CalendarDays, Medal, Minus, TrendingUp, TrendingDown, Trophy, UsersRound } from "lucide-react";
 
 interface LeaderboardEntry {
   name: string;
@@ -32,14 +30,9 @@ type LbTab = "total" | "weekly" | "monthly" | "clans";
 type SortKey = "total" | "weekly" | "monthly";
 
 const PODIUM_BG: Record<number, string> = {
-  0: "from-amber-300 via-amber-200 to-amber-100",
-  1: "from-slate-300 via-slate-200 to-slate-100",
-  2: "from-orange-300 via-orange-200 to-orange-100",
-};
-const PODIUM_CROWN: Record<number, string> = {
-  0: "👑",
-  1: "🥈",
-  2: "🥉",
+  0: "border-[#a88939] bg-[#c7aa5b]",
+  1: "border-[#89918d] bg-[#aeb5b1]",
+  2: "border-[#9b6b42] bg-[#b9875d]",
 };
 const PODIUM_HEIGHT: Record<number, string> = {
   0: "h-32",
@@ -65,13 +58,11 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
     { name: string; tag: string; exp: number; member_count: number }[]
   >([]);
   const [currentRank, setCurrentRank] = useState<number | null>(null);
-  const { width, height } = useWindowSize();
-
-  const LB_TABS: { key: LbTab; label: string; emoji: string }[] = [
-    { key: "total", label: t("leaderboard.total"), emoji: "🏆" },
-    { key: "weekly", label: t("leaderboard.weekly"), emoji: "📅" },
-    { key: "monthly", label: t("leaderboard.monthly"), emoji: "🗓️" },
-    { key: "clans", label: t("leaderboard.clan"), emoji: "⚔️" },
+  const LB_TABS = [
+    { key: "total" as const, label: t("leaderboard.total"), icon: Trophy },
+    { key: "weekly" as const, label: t("leaderboard.weekly"), icon: CalendarDays },
+    { key: "monthly" as const, label: t("leaderboard.monthly"), icon: Medal },
+    { key: "clans" as const, label: t("leaderboard.clan"), icon: UsersRound },
   ];
 
   const sortKey: SortKey = activeTab === "clans" ? "total" : activeTab;
@@ -114,7 +105,6 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
     fetchBoard();
   }, [refreshTrigger, refetchKey, activeTab, t]);
 
-  const isTop1 = currentUser && users[0] && users[0].nick === currentUser;
 
   const rankedUsers = React.useMemo(() => {
     if (activeTab === "clans") return [];
@@ -185,7 +175,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
     const isCurrent = user.nick === currentUser;
     return (
       <div
-        className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition-all ${isCurrent ? "border-amber-200 bg-amber-50 shadow-sm ring-2 ring-amber-100" : "border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200"}`}
+        className={`flex items-center justify-between rounded-[10px] border px-4 py-3 transition-colors ${isCurrent ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--border-strong)]"}`}
       >
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-black text-slate-500">
@@ -244,10 +234,8 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
               <div
                 className={`relative flex h-10 w-10 items-center justify-center rounded-full text-lg ${isCurrent ? "ring-4 ring-amber-300" : ""}`}
               >
-                <div
-                  className={`absolute inset-0 rounded-full bg-gradient-to-br ${PODIUM_BG[pos]}`}
-                />
-                <span className="relative z-10">{PODIUM_CROWN[pos]}</span>
+                <div className={`absolute inset-0 rounded-[8px] border ${PODIUM_BG[pos]}`} />
+                <span className="font-telemetry relative z-10 text-sm font-semibold text-white">{String(pos + 1).padStart(2, "0")}</span>
               </div>
               <div className={`relative mt-1.5 ${PODIUM_NAME_TOP[pos]} flex flex-col items-center`}>
                 <p
@@ -260,7 +248,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                 </p>
               </div>
               <div
-                className={`relative mt-1 w-full rounded-t-2xl rounded-b-lg bg-gradient-to-b ${PODIUM_BG[pos]} flex flex-col items-center justify-end pb-3 pt-4 ${PODIUM_HEIGHT[pos]}`}
+                className={`relative mt-1 flex w-full flex-col items-center justify-end rounded-t-[10px] rounded-b-[6px] border pb-3 pt-4 ${PODIUM_BG[pos]} ${PODIUM_HEIGHT[pos]}`}
               >
                 <p className="text-xl font-black text-white drop-shadow-sm">{pos + 1}</p>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-white/80">
@@ -282,10 +270,10 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
     const nextUser = restUsers[currentRank - 4];
     const pointsToNext = nextUser ? getScoreDisplay(nextUser) - getScoreDisplay(myEntry) : 0;
     return (
-      <div className="sticky bottom-0 z-20 mt-4 rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 shadow-lg">
+      <div className="sticky bottom-0 z-20 mt-4 rounded-[10px] border border-[var(--border-strong)] bg-[var(--surface)] p-4 shadow-[var(--shadow-panel)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-lg font-black text-white shadow">
+            <div className="font-telemetry flex h-12 w-12 items-center justify-center rounded-[8px] bg-[var(--graphite)] text-sm font-semibold text-[var(--signal)]">
               #{currentRank}
             </div>
             <div>
@@ -316,15 +304,11 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
 
   return (
     <>
-      {isTop1 && (
-        <div key="confetti-celebration" className="pointer-events-none fixed inset-0 z-50">
-          <Confetti width={width} height={height} numberOfPieces={260} recycle={false} />
-        </div>
-      )}
-
-      <Card className="rounded-[28px] p-0 border-0 shadow-none">
+      <Card className="border-0 p-0 shadow-none">
         <div className="mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
-          {LB_TABS.map((tab) => (
+          {LB_TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
             <TabButton
               key={tab.key}
               active={activeTab === tab.key}
@@ -334,10 +318,11 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
               }}
               className="shrink-0 gap-1.5 whitespace-nowrap px-4 py-2"
             >
-              <span>{tab.emoji}</span>
+              <Icon size={15} />
               <span>{tab.label}</span>
             </TabButton>
-          ))}
+            );
+          })}
         </div>
 
         {loading ? (
@@ -364,13 +349,13 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                 return (
                   <div
                     key={clan.tag || index}
-                    className={`flex items-center justify-between rounded-[20px] border px-4 py-3 transition ${isTop3 ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}
+                    className={`flex items-center justify-between rounded-[10px] border px-4 py-3 transition-colors ${isTop3 ? "border-[var(--border-strong)] bg-[var(--surface-muted)]" : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--border-strong)]"}`}
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${isTop3 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-500"}`}
                       >
-                        {isTop3 ? PODIUM_CROWN[index] : `#${index + 1}`}
+                        #{index + 1}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate font-bold text-slate-800">{clan.name}</p>
@@ -385,7 +370,7 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                     <div className="text-right">
                       <p className="font-black text-violet-600">{fmt(clan.exp)}</p>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        EXP
+                        điểm
                       </p>
                     </div>
                   </div>

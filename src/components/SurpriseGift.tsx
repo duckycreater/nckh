@@ -117,7 +117,7 @@ export function SurpriseGift({ streakDays, onClaim, onClose }: SurpriseGiftProps
 
               <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2">
                 <Zap size={14} className="text-emerald-500 fill-emerald-400" />
-                <span className="text-sm font-semibold text-emerald-700">+{tier.reward} EXP</span>
+                <span className="text-sm font-semibold text-emerald-700">+{tier.reward} điểm</span>
               </div>
 
               <button

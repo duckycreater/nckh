@@ -11,7 +11,7 @@ import {
   FileCheck,
   Zap,
 } from "lucide-react";
-import { Badge, Button, Card, EmptyState, LoadingSpinner, TabButton } from "../lib/ui";
+import { Badge, Button, Card, EmptyState, ErrorRetry, LoadingSpinner, TabButton } from "../lib/ui";
 import { getAuthHeaders } from "../lib/auth";
 
 interface RewardTransaction {
@@ -69,16 +69,19 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "earn" | "spend">("all");
   const [showAll, setShowAll] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [txRes, sumRes] = await Promise.all([
         fetch(`/api/reward-history/${userId}`, { headers: getAuthHeaders() }),
         fetch(`/api/reward-summary/${userId}`, { headers: getAuthHeaders() }),
       ]);
 
-      if (txRes.ok && (txRes.headers.get("content-type") || "").includes("application/json")) {
+      if (!txRes.ok || !sumRes.ok) throw new Error("Không thể tải lịch sử giao dịch.");
+      if ((txRes.headers.get("content-type") || "").includes("application/json")) {
         const data = await txRes.json();
         setTransactions(Array.isArray(data) ? data : []);
       } else {
@@ -93,8 +96,7 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
       }
     } catch (e) {
       console.error("[RewardHistory] Failed to load:", e);
-      setTransactions([]);
-      setSummary(null);
+      setError(e instanceof Error ? e.message : "Không thể tải lịch sử giao dịch.");
     } finally {
       setLoading(false);
     }
@@ -113,14 +115,14 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
   const hiddenCount = Math.max(0, filtered.length - 8);
 
   return (
-    <Card className="rounded-[28px] p-5">
+    <Card className="p-5">
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
-          <h3 className="flex items-center gap-2 text-xl font-black text-slate-900">
-            <Clock size={20} className="text-indigo-500" />
-            Lịch sử điểm thưởng
+          <h3 className="flex items-center gap-2 text-xl font-semibold text-[var(--graphite)]">
+            <Clock size={20} className="text-[var(--primary)]" />
+            Lịch sử giao dịch
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
             Theo dõi biến động điểm và số dư hiện tại:{" "}
             <span className="font-black text-emerald-600">{currentBalance}</span>
           </p>
@@ -131,16 +133,18 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
         </Button>
       </div>
 
-      {summary && (
+      {error && <ErrorRetry message={error} onRetry={() => void loadData()} />}
+
+      {!error && summary && (
         <div className="mb-4 grid grid-cols-3 gap-3">
-          <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 p-3 text-center">
+          <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-center">
             <div className="mb-1 flex items-center justify-center gap-1">
               <TrendingUp size={14} className="text-emerald-500" />
               <span className="text-[10px] font-bold uppercase text-emerald-600">Kiếm được</span>
             </div>
             <div className="text-lg font-black text-emerald-600">+{summary.totalEarned}</div>
           </div>
-          <div className="rounded-[22px] border border-red-100 bg-red-50 p-3 text-center">
+          <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-center">
             <div className="mb-1 flex items-center justify-center gap-1">
               <TrendingDown size={14} className="text-red-500" />
               <span className="text-[10px] font-bold uppercase text-red-600">Đã tiêu</span>
@@ -148,7 +152,7 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
             <div className="text-lg font-black text-red-600">-{summary.totalSpent}</div>
           </div>
           <div
-            className={`rounded-[22px] border p-3 text-center ${summary.netChange >= 0 ? "border-blue-100 bg-blue-50" : "border-slate-100 bg-slate-50"}`}
+            className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-center"
           >
             <div className="mb-1 flex items-center justify-center gap-1">
               {summary.netChange > 0 ? (
@@ -174,7 +178,7 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
         </div>
       )}
 
-      <div className="mb-4 flex gap-2 rounded-[24px] bg-slate-100 p-1">
+      {!error && <div className="mb-4 flex gap-2 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-1">
         {(
           [
             { id: "all", label: "Tất cả" },
@@ -194,9 +198,9 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
             {f.label}
           </TabButton>
         ))}
-      </div>
+      </div>}
 
-      {loading ? (
+      {!error && (loading ? (
         <LoadingSpinner message="Đang tải lịch sử điểm..." />
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -209,11 +213,11 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
             {displayTransactions.map((tx, i) => (
               <div
                 key={tx.id ?? `tx-${i}`}
-                className="flex items-center justify-between rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3 transition hover:bg-white"
+                className="flex items-center justify-between rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)]"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div
-                    className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${tx.transaction_type === "earn" ? "bg-emerald-100" : tx.transaction_type === "spend" ? "bg-red-100" : "bg-slate-100"}`}
+                    className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[8px] ${tx.transaction_type === "earn" ? "bg-emerald-100" : tx.transaction_type === "spend" ? "bg-red-100" : "bg-slate-100"}`}
                   >
                     {tx.transaction_type === "earn" ? (
                       <TrendingUp size={14} className="text-emerald-600" />
@@ -256,7 +260,7 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
             </Button>
           )}
         </>
-      )}
+      ))}
     </Card>
   );
 }

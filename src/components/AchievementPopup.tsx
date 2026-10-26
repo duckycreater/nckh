@@ -146,7 +146,7 @@ export function AchievementPopup() {
                   >
                     <Star size={10} className="fill-emerald-400 text-emerald-400" />
                     <span className="text-xs font-black text-emerald-300">
-                      +{active.achievement.expReward} EXP
+                      +{active.achievement.expReward} điểm
                     </span>
                   </motion.div>
                 </div>
@@ -178,7 +178,7 @@ export function AchievementPopup() {
             transition={{ duration: 1.5, delay: 0.2 }}
             className="absolute left-1/2 -translate-x-1/2 top-full mt-1 whitespace-nowrap text-lg font-black text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]"
           >
-            +{active.achievement.expReward} EXP
+            +{active.achievement.expReward} điểm
           </motion.div>
         </motion.div>
       </AnimatePresence>

@@ -1633,5 +1633,110 @@
       "fallback": "Event",
       "recorded": "was recorded."
     }
+  },
+  "lab": {
+    "points": "points",
+    "navigation": {
+      "leaveWarning": "An action is still in progress. Are you sure you want to leave?"
+    },
+    "nav": {
+      "primary": "Primary navigation",
+      "secondary": "Secondary navigation",
+      "mobile": "Mobile navigation",
+      "home": "Overview",
+      "scan": "Scan",
+      "passports": "Passports",
+      "rewards": "Rewards",
+      "community": "Community",
+      "activities": "Activities",
+      "family": "Family",
+      "profile": "Profile",
+      "settings": "Settings",
+      "logout": "Log out",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu"
+    },
+    "shell": {
+      "status": "Material analysis workspace"
+    },
+    "home": {
+      "title": "Hello, {name}",
+      "subtitle": "Scan objects, review handling guidance and save what you learn about materials.",
+      "scanTitle": "What would you like to sort?",
+      "scanDescription": "Take or upload a clear photo to identify the material and see the appropriate handling guidance.",
+      "startScan": "Scan waste",
+      "nextTitle": "Up next",
+      "nextDescription": "Review what you learned or complete a short activity to keep making progress.",
+      "recentTitle": "Recently created passports",
+      "recentSubtitle": "Objects you scanned and saved to your collection.",
+      "openCollection": "Open collection",
+      "emptyCollection": "No Material Passports yet",
+      "emptyCollectionHint": "Scan one clear object to create the first passport.",
+      "loadError": "Recent passports could not be loaded. Please try again.",
+      "nextActivity": "Open activities"
+    },
+    "scan": {
+      "eyebrow": "Field capture / verified analysis",
+      "title": "Create a Material Passport",
+      "subtitle": "Capture one object, inspect the evidence and review the rule-derived abilities before spending points."
+    },
+    "scanner": {
+      "dialogTitle": "Scan waste",
+      "dialogSubtitle": "Take or upload a photo of one object to begin.",
+      "online": "Online",
+      "offline": "Offline",
+      "imageDetails": "About your image",
+      "imageDetailsBody": "Image metadata is removed before upload. Results do not replace measurements of composition, weight or decomposition time.",
+      "emptyTitle": "No analysis yet",
+      "emptyDescription": "Choose a clear photo of one object, then start the analysis.",
+      "cardPreview": "Passport preview",
+      "price": "Creation cost",
+      "balanceAfter": "Balance after transaction: {points} points",
+      "technicalDetails": "Details",
+      "ruleset": "Ruleset version",
+      "scanId": "Scan ID"
+    },
+    "cards": {
+      "eyebrow": "Evidence archive / personal collection",
+      "title": "Material Passports",
+      "subtitle": "Study real objects you scanned, solve sorting scenarios and use a three-card deck in asynchronous matches."
+    },
+    "rewards": {
+      "eyebrow": "Reward operations / transparent ledger",
+      "title": "Rewards",
+      "subtitle": "Redeem points for rewards and track your transactions.",
+      "catalog": "Redeem",
+      "history": "History"
+    },
+    "community": {
+      "eyebrow": "Community / verified progress",
+      "title": "Leaderboard and groups",
+      "subtitle": "Compare learning progress without turning gift points into a wager.",
+      "openClan": "Open group"
+    },
+    "activities": {
+      "eyebrow": "Practice bay / supporting activities",
+      "title": "Activities",
+      "subtitle": "Daily missions and short exercises support the core scan-and-learn journey.",
+      "claim": "Daily reward",
+      "claimed": "Reward claimed"
+    },
+    "settings": {
+      "eyebrow": "Account system / preferences",
+      "title": "Settings",
+      "subtitle": "Manage your profile, language, security and data privacy."
+    },
+    "family": {
+      "eyebrow": "Learning group / household",
+      "title": "Family",
+      "subtitle": "Track sorting activities and shared challenges across household members."
+    },
+    "update": {
+      "title": "A new BMO version is ready",
+      "waiting": "The update will continue after the current scan or redemption finishes.",
+      "applying": "Switching to the new version…",
+      "countdown": "The app will update automatically in {seconds} seconds.",
+      "action": "Update"
+    }
   }
 }

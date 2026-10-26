@@ -166,7 +166,7 @@ export function VirtualGarden({ points, onReward }: Props) {
             <Leaf className="fill-emerald-400" /> Trạm Cứu Hộ Thú Cưng
           </h3>
           <p className="text-xs font-bold text-blue-600/70 mb-8 uppercase tracking-widest relative z-10">
-            Nuôi rùa biển bằng EXP
+            Nuôi rùa biển bằng điểm
           </p>
 
           <div className="relative h-40 flex items-end justify-center w-full mb-6 relative z-10">
@@ -273,8 +273,8 @@ export function VirtualGarden({ points, onReward }: Props) {
               </motion.div>
             </div>
             <div className="flex justify-between text-[10px] font-bold uppercase text-blue-700/70 mb-4 px-1">
-              <span>{points} EXP</span>
-              <span>{stage.target} EXP</span>
+              <span>{points} điểm</span>
+              <span>{stage.target} điểm</span>
             </div>
 
             <motion.button
@@ -285,7 +285,7 @@ export function VirtualGarden({ points, onReward }: Props) {
               className="w-full bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white px-6 py-3 rounded-2xl font-black shadow-[0_4px_15px_-3px_rgba(16,185,129,0.4)] disabled:opacity-70 flex items-center justify-center gap-2 transition-all"
             >
               <Sparkles size={18} className="fill-emerald-200" />
-              {cleaned ? "Biển đã sạch!" : "Dọn rác đại dương (+5–15 EXP)"}
+              {cleaned ? "Biển đã sạch!" : "Dọn rác đại dương (+5–15 điểm)"}
             </motion.button>
           </motion.div>
         </>

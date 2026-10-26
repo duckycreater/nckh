@@ -2,14 +2,16 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../lib/i18n";
-import { Globe, Shield, X } from "lucide-react";
-import { useTheme } from "../App";
+import { ArrowRight, Check, FlaskConical, Globe, LockKeyhole, Search, Shield, X } from "lucide-react";
 import { ContributeToDataset } from "./ContributeToDataset";
 import { PrivacyBudgetMeter } from "./PrivacyBudgetMeter";
 import { AuditTimeline } from "./AuditTimeline";
 import { getAuthHeaders, getAuthToken } from "../lib/auth";
 import { PROFILE_AVATARS, PROFILE_FRAMES } from "../lib/bmoAssets";
 import type { PrivacyDashboardProps } from "./PrivacyDashboard";
+import { MaterialFingerprint } from "./MaterialVisual";
+import type { WasteCategory } from "../../shared/materialCards";
+import { TabButton, Tabs } from "../lib/ui";
 
 interface SettingsProps {
   user: User;
@@ -18,7 +20,6 @@ interface SettingsProps {
 
 export function Settings({ user, onUpdate }: SettingsProps) {
   const { t } = useTranslation();
-  const { theme, toggle } = useTheme();
   const [activeTab, setActiveTab] = useState<
     "appearance" | "name" | "password" | "language" | "privacy"
   >("appearance");
@@ -42,6 +43,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
   const purchased = user.progress?.purchased || [];
   const hasPurchased = (id: string) => purchased.includes(id) || purchased.includes(Number(id));
+  const materialCycle: WasteCategory[] = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
 
   useEffect(() => {
     setSelectedAvatar(user.selectedAvatar || "");
@@ -157,73 +159,55 @@ export function Settings({ user, onUpdate }: SettingsProps) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Tab navigation */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        <button
+      <Tabs className="thin-scrollbar">
+        <TabButton
+          active={activeTab === "appearance"}
           onClick={() => setActiveTab("appearance")}
-          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === "appearance"
-              ? "bg-white text-emerald-600 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
         >
           {t("settings.display")}
-        </button>
-        <button
+        </TabButton>
+        <TabButton
+          active={activeTab === "name"}
           onClick={() => setActiveTab("name")}
-          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === "name"
-              ? "bg-white text-emerald-600 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
         >
           {t("settings.displayName")}
-        </button>
-        <button
+        </TabButton>
+        <TabButton
+          active={activeTab === "password"}
           onClick={() => setActiveTab("password")}
-          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === "password"
-              ? "bg-white text-emerald-600 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
         >
           {t("settings.password")}
-        </button>
-        <button
+        </TabButton>
+        <TabButton
+          active={activeTab === "language"}
           onClick={() => setActiveTab("language")}
-          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === "language"
-              ? "bg-white text-emerald-600 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
+          className="flex items-center justify-center gap-1.5"
         >
           <Globe size={15} />
           <span>Ngôn ngữ</span>
-        </button>
-        <button
+        </TabButton>
+        <TabButton
+          active={activeTab === "privacy"}
           onClick={() => setActiveTab("privacy")}
-          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1 ${
-            activeTab === "privacy"
-              ? "bg-white text-emerald-600 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
+          className="flex items-center justify-center gap-1.5"
         >
           <Shield size={15} />
           <span>Quyền riêng tư</span>
-        </button>
-      </div>
+        </TabButton>
+      </Tabs>
 
       {/* Appearance tab */}
       {activeTab === "appearance" && (
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+        <div className="space-y-6 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:p-6 md:p-8">
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">Avatar</h3>
             <p className="text-xs text-gray-500 mb-3">
               Chọn avatar để hiển thị trên hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.
             </p>
-            <div className="grid grid-cols-3 gap-3">
-              {PROFILE_AVATARS.map((av) => {
+            <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-3">
+              {PROFILE_AVATARS.map((av, index) => {
                 const owned = hasPurchased(av.id);
                 const active = selectedAvatar === av.id;
                 return (
@@ -231,32 +215,26 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                     key={av.id}
                     disabled={!owned}
                     onClick={() => setSelectedAvatar(active ? "" : av.id)}
-                    className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                    className={`relative flex flex-col items-center gap-2 rounded-[10px] border p-4 transition-colors ${
                       active
-                        ? "border-emerald-500 bg-emerald-50"
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)]"
                         : owned
                           ? "border-gray-200 bg-gray-50 hover:border-gray-300"
                           : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
                     }`}
                   >
                     {!owned && (
-                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">
-                        🔒
+                      <span className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-[6px] bg-gray-200 text-gray-600">
+                        <LockKeyhole size={12} aria-label="Chưa sở hữu" />
                       </span>
                     )}
                     {active && (
-                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                        ✓
+                      <span className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-[6px] bg-[var(--primary)] text-white">
+                        <Check size={13} aria-label="Đang chọn" />
                       </span>
                     )}
-                    <span className="h-16 w-16 overflow-hidden rounded-full bg-emerald-50 ring-1 ring-emerald-200">
-                      <img
-                        src={av.imageSrc}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-contain"
-                      />
+                    <span data-material={materialCycle[index % materialCycle.length]} className={`material-pattern material-${materialCycle[index % materialCycle.length]} h-16 w-16 overflow-hidden rounded-[8px] border border-[var(--border-subtle)] p-1 text-white`}>
+                      <MaterialFingerprint category={materialCycle[index % materialCycle.length]} seed={av.id} />
                     </span>
                     <span className="text-xs font-bold text-gray-700 text-center">{av.name}</span>
                   </button>
@@ -270,7 +248,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
             <p className="text-xs text-gray-500 mb-3">
               Chọn khung để trang trí hồ sơ. Mua tại Cửa Hàng Điểm Thưởng.
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-3">
               {PROFILE_FRAMES.map((fr) => {
                 const owned = hasPurchased(fr.id);
                 const active = selectedFrame === fr.id;
@@ -279,22 +257,22 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                     key={fr.id}
                     disabled={!owned}
                     onClick={() => setSelectedFrame(active ? "" : fr.id)}
-                    className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                    className={`relative flex flex-col items-center gap-2 rounded-[10px] border p-4 transition-colors ${
                       active
-                        ? "border-emerald-500 bg-emerald-50"
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)]"
                         : owned
                           ? "border-gray-200 bg-gray-50 hover:border-gray-300"
                           : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
                     }`}
                   >
                     {!owned && (
-                      <span className="absolute top-1 right-1 text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold">
-                        🔒
+                      <span className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-[6px] bg-gray-200 text-gray-600">
+                        <LockKeyhole size={12} aria-label="Chưa sở hữu" />
                       </span>
                     )}
                     {active && (
-                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                        ✓
+                      <span className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-[6px] bg-[var(--primary)] text-white">
+                        <Check size={13} aria-label="Đang chọn" />
                       </span>
                     )}
                     <div
@@ -307,37 +285,6 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                 );
               })}
             </div>
-          </div>
-
-          {/* Dark mode toggle */}
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
-              Chế độ giao diện
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Chọn chế độ sáng hoặc tối cho ứng dụng.
-            </p>
-            <button
-              onClick={toggle}
-              className="relative flex items-center gap-3 w-full p-4 rounded-2xl border-2 transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-            >
-              <span className="text-2xl">{theme === "dark" ? "🌙" : "☀️"}</span>
-              <div className="text-left flex-1">
-                <div className="font-bold text-gray-900 dark:text-gray-100">
-                  {theme === "dark" ? "Chế độ Tối" : "Chế độ Sáng"}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {theme === "dark" ? "Giao diện tối, giảm mỏi mắt" : "Giao diện sáng mặc định"}
-                </div>
-              </div>
-              <div
-                className={`relative w-12 h-6 rounded-full transition-colors ${theme === "dark" ? "bg-emerald-500" : "bg-gray-300"}`}
-              >
-                <div
-                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${theme === "dark" ? "translate-x-6" : "translate-x-0.5"}`}
-                />
-              </div>
-            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -361,7 +308,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
       {/* Name tab */}
       {activeTab === "name" && (
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+        <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-6 md:p-8">
           <h3 className="text-xl font-bold text-gray-900 mb-6">Đổi tên hiển thị</h3>
           {nameErr && <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{nameErr}</p>}
           {nameMsg && (
@@ -403,7 +350,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
       {/* Password tab */}
       {activeTab === "password" && (
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+        <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-6 md:p-8">
           <h3 className="text-xl font-bold text-gray-900 mb-6">Đổi mật khẩu</h3>
           {passErr && <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{passErr}</p>}
           {passMsg && (
@@ -470,7 +417,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
       {/* Language tab */}
       {activeTab === "language" && (
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+        <div className="space-y-6 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-6 md:p-8">
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">Ngôn ngữ</h3>
             <p className="text-xs text-gray-500 mb-4">Chọn ngôn ngữ hiển thị cho ứng dụng.</p>
@@ -488,13 +435,13 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                       : "border-gray-200 bg-gray-50 hover:border-gray-300"
                   }`}
                 >
-                  <span className="text-2xl">{language.flag}</span>
+                  <span className="font-telemetry grid h-9 w-11 place-items-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface)] text-[11px] font-semibold uppercase text-[var(--text-muted)]">{language.code}</span>
                   <div className="text-left">
                     <div className="font-bold text-gray-900">{language.label}</div>
                   </div>
                   {lang === language.code && (
-                    <span className="ml-auto bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      ✓
+                    <span className="ml-auto grid h-7 w-7 place-items-center rounded-[6px] bg-[var(--primary)] text-white">
+                      <Check size={14} aria-label="Đang sử dụng" />
                     </span>
                   )}
                 </button>
@@ -505,7 +452,7 @@ export function Settings({ user, onUpdate }: SettingsProps) {
       )}
       {/* Privacy & Data tab */}
       {activeTab === "privacy" && (
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+        <div className="space-y-6 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-6 md:p-8">
           <PrivacyTabContent user={user} />
         </div>
       )}
@@ -561,10 +508,10 @@ function PrivacyTabContent({ user }: { user: User }) {
       </div>
 
       {/* Dataset contribution card */}
-      <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-blue-50 p-5">
+      <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-5">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h4 className="text-sm font-bold text-emerald-900 mb-1">🌍 Đóng góp cho Khoa học Mở</h4>
+            <h4 className="mb-1 flex items-center gap-2 text-sm font-bold text-emerald-900"><FlaskConical size={16} /> Đóng góp cho Khoa học Mở</h4>
             <p className="text-xs text-emerald-800/80">
               Cho phép ảnh phân loại rác của bạn được đưa vào TDN-Waste-World — dataset mở phục vụ
               nghiên cứu toàn cầu.
@@ -613,7 +560,7 @@ function PrivacyTabContent({ user }: { user: User }) {
 
       {/* Privacy guarantees */}
       <div className="space-y-2">
-        <h4 className="text-sm font-bold text-gray-900">🛡️ Cam kết của chúng tôi</h4>
+        <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900"><Shield size={16} className="text-[var(--primary)]" /> Cam kết của chúng tôi</h4>
         <ul className="text-xs text-gray-600 space-y-1.5 ml-4 list-disc">
           <li>Ảnh được xóa EXIF (GPS, model camera, timestamp) trước khi upload</li>
           <li>
@@ -632,12 +579,11 @@ function PrivacyTabContent({ user }: { user: User }) {
       {/* Federated Learning transparency */}
       <button
         onClick={() => setShowPrivacyDashboard(true)}
-        className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-left text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+        className="flex w-full items-center gap-3 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3 text-left text-sm font-semibold text-[var(--graphite)] transition-colors hover:border-[var(--border-strong)]"
       >
-        🔍 Xem Trung tâm Quyền riêng tư →
-        <span className="block text-[10px] font-normal opacity-70">
-          BMO đã học gì từ bạn? Model version? DP ε/δ?
-        </span>
+        <Search size={17} className="text-[var(--primary)]" />
+        <span className="flex-1">Xem Trung tâm Quyền riêng tư<span className="block text-[10px] font-normal opacity-70">BMO đã học gì từ bạn? Model version? DP ε/δ?</span></span>
+        <ArrowRight size={16} />
       </button>
 
       {/* Privacy budget meter + audit trail (visible, not modal) */}
@@ -681,14 +627,14 @@ function PrivacyDashboardWrapper({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-label="Trung tâm quyền riêng tư"
-      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/70 p-4"
     >
       <div className="mx-auto max-w-5xl pt-8 sm:pt-14">
         <div className="mb-3 flex justify-end">
           <button
             onClick={onClose}
             aria-label="Đóng trung tâm quyền riêng tư"
-            className="rounded-full bg-white p-2 text-slate-700 shadow-lg transition hover:bg-slate-100"
+            className="rounded-[8px] border border-[var(--border-subtle)] bg-white p-2 text-slate-700 transition hover:bg-slate-100"
           >
             <X className="h-5 w-5" />
           </button>
