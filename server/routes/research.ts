@@ -361,14 +361,30 @@ researchRouter.get("/leaderboard/:type", async (req, res) => {
 
   try {
     let query = "";
+    let params: unknown[] = [weekStart];
     switch (type) {
       case "weekly":
         query = `
-           SELECT ws.user_id, ru.username, ws.points_earned as score, ws.sessions_count
+           SELECT ws.user_id, ru.username AS name, ru.username AS nick,
+                  ws.points_earned AS score, ws.points_earned AS weekly_points,
+                  ws.sessions_count
           FROM weekly_scores ws
           JOIN research_users ru ON ws.user_id = ru.user_id
           WHERE ws.week_start = $1
           ORDER BY ws.points_earned DESC LIMIT 20`;
+        break;
+      case "monthly":
+        query = `
+          SELECT ws.user_id, ru.username AS name, ru.username AS nick,
+                 SUM(ws.points_earned)::int AS score,
+                 SUM(ws.points_earned)::int AS monthly_points,
+                 SUM(ws.sessions_count)::int AS sessions_count
+          FROM weekly_scores ws
+          JOIN research_users ru ON ws.user_id = ru.user_id
+          WHERE ws.week_start >= CURRENT_DATE - INTERVAL '30 days'
+          GROUP BY ws.user_id, ru.username
+          ORDER BY monthly_points DESC LIMIT 20`;
+        params = [];
         break;
       case "consistency":
         query = `
@@ -397,7 +413,7 @@ researchRouter.get("/leaderboard/:type", async (req, res) => {
       default:
         return res.status(400).json({ error: "Invalid leaderboard type" });
     }
-    const { rows } = await db.query(query, [weekStart]);
+    const { rows } = await db.query(query, params);
     res.json(rows);
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });

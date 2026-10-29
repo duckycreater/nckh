@@ -19,7 +19,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getVietnamDayKey } from "../../src/lib/dayKey.ts";
-import { getDailyChallengeIds, getDailyChallengeReward } from "../../src/lib/dailyChallenges.ts";
+import { getDailyChallengeIds } from "../../src/lib/dailyChallenges.ts";
+import { defaultSchoolClasses } from "../../shared/school.ts";
+
+const TEST_CLASS = defaultSchoolClasses().find((schoolClass) => schoolClass.name === "10A1")!;
+const GRADE_EIGHT_CLASS = defaultSchoolClasses().find((schoolClass) => schoolClass.name === "8A1")!;
 
 const expect = (v: unknown) => ({
   toBe: (x: unknown) => assert.deepStrictEqual(v, x),
@@ -72,6 +76,9 @@ before(async () => {
           hasPlayed: false,
           account_id: "legacy-card-account",
           role: "user",
+          fullName: "Legacy Cards Student",
+          classId: TEST_CLASS.id,
+          classGrade: TEST_CLASS.name,
           progress: {
             flashcardsRead: [1],
             flashcardCounts: { "1": 2 },
@@ -164,6 +171,8 @@ describe("E2E: login → scan garbage", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         reg_name: "Scan Student",
+        reg_full_name: "Scan Student",
+        reg_class_id: TEST_CLASS.id,
         reg_nickname: nickname,
         reg_password: password,
       }),
@@ -175,14 +184,19 @@ describe("E2E: login → scan garbage", () => {
       body: JSON.stringify({ login_nickname: nickname, login_password: password }),
     });
     expect(login.status).toBe(200);
-    const token = (await login.json()).token;
+    const loginBody = await login.json();
+    const token = loginBody.token;
     const auth = { Authorization: `Bearer ${token}` };
+    const profileByUuid = await fetch(url(`/api/user/${loginBody.user_id}`), {
+      headers: auth,
+    });
+    expect(profileByUuid.status).toBe(200);
     const tinyImage =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
     const r = await fetch(url("/api/scan-garbage"), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth },
-      body: JSON.stringify({ image: tinyImage }),
+      body: JSON.stringify({ image: tinyImage, requestId: crypto.randomUUID() }),
     });
     expect(r.status).toBe(200);
     const body = await r.json();
@@ -215,6 +229,67 @@ describe("E2E: login → scan garbage", () => {
     const collection = await fetch(url("/api/material-cards"), { headers: auth });
     expect(collection.status).toBe(200);
     expect((await collection.json()).cards.length).toBe(1);
+  });
+  it("does not award grade 8 points before the student profile is verified", async (t) => {
+    if (!booted) return t.skip();
+    const nickname = `grade8_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const password = "StrongPass123!";
+    const registered = await fetch(url("/api/register"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reg_name: "Grade Eight Student",
+        reg_full_name: "Nguyễn Văn A",
+        reg_class_id: GRADE_EIGHT_CLASS.id,
+        reg_nickname: nickname,
+        reg_password: password,
+      }),
+    });
+    expect(registered.status).toBe(200);
+    const login = await fetch(url("/api/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ login_nickname: nickname, login_password: password }),
+    });
+    const loginBody = await login.json();
+    expect(loginBody.profile_verification_status).toBe("pending");
+    expect(loginBody.can_earn_points).toBe(false);
+    const scan = await fetch(url("/api/scan-garbage"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${loginBody.token}`,
+      },
+      body: JSON.stringify({
+        image:
+          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+        requestId: crypto.randomUUID(),
+      }),
+    });
+    expect(scan.status).toBe(200);
+    const scanBody = await scan.json();
+    expect(scanBody.rewarded).toBe(false);
+    expect(scanBody.pointsEarned).toBe(0);
+    expect(scanBody.rewardReason).toBe("profile_verification_required");
+
+    const verified = await fetch(
+      url(`/api/admin/users/${loginBody.user_id}/profile-verification`),
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-key": "bmo-e2e-admin-key",
+        },
+        body: JSON.stringify({ status: "verified" }),
+      },
+    );
+    expect(verified.status).toBe(200);
+    const wheel = await fetch(url("/api/daily-wheel"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${loginBody.token}` },
+    });
+    expect(wheel.status).toBe(200);
+    expect((await wheel.json()).earnedPoints).toBeGreaterThanOrEqual(1);
   });
   it("GET /api/admin/stats rejects without admin key (401/403)", async (t) => {
     if (!booted) return t.skip();
@@ -353,6 +428,8 @@ describe("E2E: login → scan garbage", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         reg_name: "Gacha Test",
+        reg_full_name: "Gacha Test Student",
+        reg_class_id: TEST_CLASS.id,
         reg_nickname: nick,
         reg_password: password,
       }),
@@ -421,7 +498,6 @@ describe("E2E: login → scan garbage", () => {
     expect(profileBody.totalExpEarned).toBe(0);
 
     const challengeId = getDailyChallengeIds(getVietnamDayKey())[0]!;
-    const challengeReward = getDailyChallengeReward(challengeId)!;
     const claimChallenge = () =>
       fetch(url("/api/user-progress"), {
         method: "POST",
@@ -431,14 +507,16 @@ describe("E2E: login → scan garbage", () => {
     const firstClaim = await claimChallenge();
     expect(firstClaim.status).toBe(200);
     const firstClaimBody = await firstClaim.json();
-    expect(firstClaimBody.earnedPoints).toBe(challengeReward);
-    expect(firstClaimBody.points).toBe(challengeReward);
+    expect(firstClaimBody.verificationRequired).toBe(true);
+    expect(firstClaimBody.earnedPoints).toBe(0);
+    expect(firstClaimBody.points).toBe(0);
 
     const duplicateClaim = await claimChallenge();
     expect(duplicateClaim.status).toBe(200);
     const duplicateClaimBody = await duplicateClaim.json();
+    expect(duplicateClaimBody.verificationRequired).toBe(true);
     expect(duplicateClaimBody.earnedPoints).toBe(0);
-    expect(duplicateClaimBody.points).toBe(challengeReward);
+    expect(duplicateClaimBody.points).toBe(0);
 
     const invalidToday = [1, 2, 3, 4, 5, 6, 7].find(
       (id) => !getDailyChallengeIds(getVietnamDayKey()).includes(id),
@@ -484,7 +562,7 @@ describe("E2E: login → scan garbage", () => {
     const firstPurchase = await purchase();
     expect(firstPurchase.status).toBe(200);
     const firstPurchaseBody = await firstPurchase.json();
-    expect(firstPurchaseBody.points).toBe(challengeReward + 50);
+    expect(firstPurchaseBody.points).toBe(50);
 
     const duplicatePurchase = await purchase();
     expect(duplicatePurchase.status).toBe(409);
@@ -512,8 +590,8 @@ describe("E2E: login → scan garbage", () => {
     const firstRedemption = await redeem();
     expect(firstRedemption.status).toBe(200);
     const firstRedemptionBody = await firstRedemption.json();
-    expect(firstRedemptionBody.points).toBe(challengeReward + 550);
-    expect(firstRedemptionBody.totalExpEarned).toBe(challengeReward + 2100);
+    expect(firstRedemptionBody.points).toBe(550);
+    expect(firstRedemptionBody.totalExpEarned).toBe(2100);
     expect(firstRedemptionBody.progress.crafted.includes("1")).toBe(true);
     expect(typeof firstRedemptionBody.redemptionId).toBe("string");
     expect(firstRedemptionBody.status).toBe("pending");

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Request, Response } from "express";
+import type { Request, RequestHandler, Response } from "express";
 import { z } from "zod";
 import { getRequestNick, requireAuth } from "../auth.js";
 import type { MatchState } from "../../shared/materialCards.js";
@@ -10,6 +10,7 @@ import {
   getMaterialMatch,
   joinMaterialMatch,
   listMaterialCards,
+  listMaterialMatches,
   submitMaterialMatch,
   type LocalEconomyAdapter,
 } from "../services/materialCards.js";
@@ -31,10 +32,15 @@ const SubmitRoundBody = z.object({
       z.object({
         objectId: z.string().trim().min(1).max(40),
         action: z.enum(["recycle", "compost", "special_collection", "residual"]),
+        steps: z
+          .array(z.enum(["clean", "dry", "protect"]))
+          .max(3)
+          .default([]),
       }),
     )
     .length(3),
   abilityCardId: z.string().max(80).optional(),
+  abilityTargetId: z.string().trim().min(1).max(40).optional(),
 });
 
 const JoinMatchBody = z.object({
@@ -43,6 +49,7 @@ const JoinMatchBody = z.object({
 
 export interface MaterialCardsRouterDependencies {
   getLocalEconomy: (nick: string) => LocalEconomyAdapter | undefined;
+  requireCompleteProfile?: RequestHandler;
 }
 
 function statusFor(error: MaterialCardError): number {
@@ -87,7 +94,8 @@ function matchView(match: MatchState, actorId: string): MatchState {
       playerScore: match.opponentScore,
       opponentScore: match.playerScore,
       result: match.result === "win" ? "loss" : match.result === "loss" ? "win" : match.result,
-      ratingDelta: -match.ratingDelta,
+      ratingDelta: match.opponentRatingDelta ?? 0,
+      opponentRatingDelta: match.ratingDelta,
     };
   }
   return isCreator
@@ -97,19 +105,27 @@ function matchView(match: MatchState, actorId: string): MatchState {
 
 export function materialCardsRouter(deps: MaterialCardsRouterDependencies): Router {
   const router = Router();
+  const completeProfile = deps.requireCompleteProfile ?? ((_req, _res, next) => next());
   router.get("/material-cards", requireAuth, async (req, res) => {
     try {
       const rawLimit = Number(req.query.limit ?? 24);
       const limit = Number.isFinite(rawLimit) ? rawLimit : 24;
       const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
-      const result = await listMaterialCards(getRequestNick(req), limit, cursor);
+      const search = typeof req.query.search === "string" ? req.query.search : "";
+      const rawCategory = typeof req.query.category === "string" ? req.query.category : "";
+      const category = ["plastic", "paper", "glass", "metal", "organic", "hazard"].includes(
+        rawCategory,
+      )
+        ? (rawCategory as import("../../shared/materialCards.js").WasteCategory)
+        : undefined;
+      const result = await listMaterialCards(getRequestNick(req), limit, cursor, search, category);
       res.json(result);
     } catch (error) {
       sendError(res, error);
     }
   });
 
-  router.post("/material-cards", requireAuth, async (req, res) => {
+  router.post("/material-cards", requireAuth, completeProfile, async (req, res) => {
     const parsed = CreateCardBody.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Dữ liệu tạo thẻ không hợp lệ.", code: "invalid_body" });
@@ -129,7 +145,7 @@ export function materialCardsRouter(deps: MaterialCardsRouterDependencies): Rout
     }
   });
 
-  router.post("/material-matches", requireAuth, async (req, res) => {
+  router.post("/material-matches", requireAuth, completeProfile, async (req, res) => {
     const parsed = CreateMatchBody.safeParse(req.body ?? {});
     if (!parsed.success) {
       return res
@@ -154,6 +170,16 @@ export function materialCardsRouter(deps: MaterialCardsRouterDependencies): Rout
     }
   });
 
+  router.get("/material-matches", requireAuth, async (req, res) => {
+    try {
+      const nick = getRequestNick(req).trim().toLowerCase();
+      const matches = await listMaterialMatches(nick);
+      res.json({ matches: matches.map((match) => matchView(match, nick)) });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
   router.get("/material-matches/:matchId", requireAuth, async (req, res) => {
     try {
       const nick = getRequestNick(req);
@@ -164,7 +190,7 @@ export function materialCardsRouter(deps: MaterialCardsRouterDependencies): Rout
     }
   });
 
-  router.post("/material-matches/:matchId/join", requireAuth, async (req, res) => {
+  router.post("/material-matches/:matchId/join", requireAuth, completeProfile, async (req, res) => {
     const parsed = JoinMatchBody.safeParse(req.body);
     if (!parsed.success) {
       return res
@@ -185,25 +211,30 @@ export function materialCardsRouter(deps: MaterialCardsRouterDependencies): Rout
     }
   });
 
-  router.post("/material-matches/:matchId/rounds", requireAuth, async (req, res) => {
-    const parsed = SubmitRoundBody.safeParse(req.body);
-    if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ error: "Lựa chọn của vòng đấu không hợp lệ.", code: "invalid_body" });
-    }
-    try {
-      const nick = getRequestNick(req);
-      const match = await submitMaterialMatch({
-        matchId: String(req.params.matchId),
-        actorId: nick.trim().toLowerCase(),
-        submission: parsed.data,
-      });
-      res.json({ match: matchView(match, nick) });
-    } catch (error) {
-      sendError(res, error);
-    }
-  });
+  router.post(
+    "/material-matches/:matchId/rounds",
+    requireAuth,
+    completeProfile,
+    async (req, res) => {
+      const parsed = SubmitRoundBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res
+          .status(400)
+          .json({ error: "Lựa chọn của vòng đấu không hợp lệ.", code: "invalid_body" });
+      }
+      try {
+        const nick = getRequestNick(req);
+        const match = await submitMaterialMatch({
+          matchId: String(req.params.matchId),
+          actorId: nick.trim().toLowerCase(),
+          submission: parsed.data,
+        });
+        res.json({ match: matchView(match, nick) });
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
 
   return router;
 }

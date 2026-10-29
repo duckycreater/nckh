@@ -31,6 +31,7 @@ import {
   Recycle,
   Flame,
   Globe2,
+  AlertCircle,
 } from "lucide-react";
 import { familyService } from "../services/familyService";
 import type { Family, FamilyMember, FamilyChallenge, FamilyCarbonStats } from "../types/family";
@@ -63,11 +64,13 @@ export function FamilyMode({ user: _user, isOpen, onClose, mode = "modal" }: Pro
   const [inviteCode, setInviteCode] = useState("");
   const [createChallengeMode, setCreateChallengeMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const myFamily = await familyService.getMyFamily().catch(() => null);
+      const myFamily = await familyService.getMyFamily();
       if (!myFamily) {
         setFamily(null);
         setMembers([]);
@@ -82,6 +85,10 @@ export function FamilyMode({ user: _user, isOpen, onClose, mode = "modal" }: Pro
       ]);
       setChallenges(ch);
       setCarbon(st);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Không thể tải dữ liệu gia đình lúc này.",
+      );
     } finally {
       setLoading(false);
     }
@@ -176,6 +183,21 @@ export function FamilyMode({ user: _user, isOpen, onClose, mode = "modal" }: Pro
           <div className={mode === "page" ? "p-4" : "max-h-[75vh] overflow-y-auto p-4"}>
             {loading ? (
               <div className="py-12 text-center text-sm text-slate-500">Đang tải...</div>
+            ) : loadError ? (
+              <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-10 text-center">
+                <AlertCircle size={28} className="text-amber-600" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold text-[var(--graphite)]">Không thể tải dữ liệu gia đình</p>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">{loadError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  className="min-h-11 rounded-[8px] bg-[var(--graphite)] px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Thử lại
+                </button>
+              </div>
             ) : !family ? (
               /* ─── No family yet — create or join ───────────────────── */
               <div className="space-y-4">

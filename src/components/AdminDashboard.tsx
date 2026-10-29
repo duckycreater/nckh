@@ -20,6 +20,7 @@ import {
   Database,
   FileSpreadsheet,
   Server,
+  PackageCheck,
 } from "lucide-react";
 import { User, RewardItem } from "../types";
 import {
@@ -45,6 +46,7 @@ import { QuizConfigPanel } from "./admin/QuizConfigPanel";
 import { SheetsSyncPanel } from "./admin/SheetsSyncPanel";
 import { ResearchPanel } from "./admin/ResearchPanel";
 import { SystemPanel } from "./admin/SystemPanel";
+import { OperationsPanel } from "./admin/OperationsPanel";
 
 interface Props {
   user: User;
@@ -112,7 +114,15 @@ export function AdminDashboard({ user, onLogout }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "rewards" | "users" | "experiments" | "quiz" | "sheets" | "research" | "system"
+    | "overview"
+    | "operations"
+    | "rewards"
+    | "users"
+    | "experiments"
+    | "quiz"
+    | "sheets"
+    | "research"
+    | "system"
   >("overview");
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -299,7 +309,11 @@ export function AdminDashboard({ user, onLogout }: Props) {
     await fetch(`/api/admin/users/${nick}/role`, {
       ...authHeaders(),
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        ...authHeaders().headers,
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      },
       body: JSON.stringify({ role: newRole }),
     });
     fetchUsers();
@@ -311,10 +325,14 @@ export function AdminDashboard({ user, onLogout }: Props) {
   };
 
   const handlePointsAdjust = async (nick: string, delta: number, reason: string) => {
-    await fetch(`/api/admin/users/${nick}/adjust-points`, {
+    await fetch("/api/admin/users/" + encodeURIComponent(nick) + "/adjust-points", {
       ...authHeaders(),
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        ...authHeaders().headers,
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      },
       body: JSON.stringify({ delta, reason }),
     });
     fetchUsers();
@@ -333,7 +351,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
     await fetch(`/api/admin/users/${nick}/suspend`, {
       ...authHeaders(),
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...authHeaders().headers, "Content-Type": "application/json" },
       body: JSON.stringify({ suspended }),
     });
     fetchUsers();
@@ -358,7 +376,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
       const res = await fetch("/api/admin/sync-sheets", {
         ...authHeaders(),
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...authHeaders().headers, "Content-Type": "application/json" },
         body: JSON.stringify({ spreadsheetId: DEFAULT_SPREADSHEET_ID }),
       });
       const data = await res.json();
@@ -390,7 +408,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
     await fetch("/api/experiments", {
       ...authHeaders(),
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...authHeaders().headers, "Content-Type": "application/json" },
       body: JSON.stringify({ ...newExp, metrics: ["engagement", "retention"] }),
     });
     setShowNewExp(false);
@@ -421,6 +439,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
     { id: "overview", label: t("admin.tabs.overview"), icon: <BarChart3 className="h-4 w-4" /> },
     { id: "rewards", label: t("admin.tabs.rewards"), icon: <Gift className="h-4 w-4" /> },
     { id: "users", label: t("admin.tabs.users"), icon: <Users className="h-4 w-4" /> },
+    { id: "operations", label: "Vận hành", icon: <PackageCheck className="h-4 w-4" /> },
     {
       id: "experiments",
       label: t("admin.tabs.experiments"),
@@ -722,6 +741,8 @@ export function AdminDashboard({ user, onLogout }: Props) {
             </Card>
           </div>
         )}
+
+        {activeTab === "operations" && <OperationsPanel />}
 
         {activeTab === "experiments" && (
           <Card className="rounded-[28px] p-6">

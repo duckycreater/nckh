@@ -47,10 +47,11 @@ export async function enqueue(
   endpoint: string,
   body: unknown,
   ownerId: string,
+  requestId?: string,
 ): Promise<PendingScan> {
   if (!ownerId.trim()) throw new Error("ownerId is required for an offline scan");
   const db = await openDb();
-  const id = crypto.randomUUID();
+  const id = requestId?.trim() || crypto.randomUUID();
   const record: PendingScan = {
     id,
     endpoint,
@@ -61,7 +62,7 @@ export async function enqueue(
   };
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
-    tx.objectStore(STORE).add(record);
+    tx.objectStore(STORE).put(record);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -131,13 +132,29 @@ export async function replay(
         await remove(p.id);
         sent++;
       } else {
+        await markAttempt(p);
         failed++;
       }
     } catch {
+      await markAttempt(p);
       failed++;
     }
   }
   return { sent, failed };
+}
+
+async function markAttempt(record: PendingScan): Promise<void> {
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put({ ...record, attempts: record.attempts + 1 });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // The original draft remains untouched when IndexedDB is unavailable.
+  }
 }
 
 export async function remove(id: string): Promise<void> {

@@ -88,12 +88,19 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
             setUsers(data);
           } else {
             const res = await fetch(`/api/research/leaderboard/${activeTab}`);
-            if (res.ok) {
-              const data = await res.json();
-              setUsers(data);
-            } else {
-              setUsers([]);
-            }
+            if (!res.ok) throw new Error(t("leaderboard.loadError"));
+            const data = await res.json();
+            setUsers(
+              (Array.isArray(data) ? data : []).map((entry: Record<string, unknown>) => ({
+                ...entry,
+                name: String(entry.name ?? entry.username ?? "Học sinh"),
+                nick: String(entry.nick ?? entry.user_id ?? ""),
+                points: Number(entry.points ?? entry.score ?? 0),
+                score: Number(entry.score ?? 0),
+                weekly_points: Number(entry.weekly_points ?? entry.score ?? 0),
+                monthly_points: Number(entry.monthly_points ?? entry.score ?? 0),
+              })),
+            );
           }
         }
       } catch (err: unknown) {

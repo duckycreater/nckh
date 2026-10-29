@@ -19,6 +19,59 @@ const API_BASE =
     (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL) ||
   "";
 
+function numberValue(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeFamily(raw: Record<string, unknown>): Family {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? ""),
+    inviteCode: String(raw.inviteCode ?? raw.invite_code ?? ""),
+    createdBy: String(raw.createdBy ?? raw.created_by ?? ""),
+    createdAt: numberValue(raw.createdAt ?? raw.created_at),
+    avatarSeed: String(raw.avatarSeed ?? raw.avatar_seed ?? ""),
+    region: String(raw.region ?? "VN"),
+    householdSize: numberValue(raw.householdSize ?? raw.household_size),
+    weeklyGoal: numberValue(raw.weeklyGoal ?? raw.weekly_goal),
+  };
+}
+
+function normalizeMember(raw: Record<string, unknown>): FamilyMember {
+  return {
+    familyId: String(raw.familyId ?? raw.family_id ?? ""),
+    userId: String(raw.userId ?? raw.user_id ?? ""),
+    role: (raw.role as FamilyMember["role"]) || "guest",
+    joinedAt: numberValue(raw.joinedAt ?? raw.joined_at),
+    contributionsWeekly: numberValue(raw.contributionsWeekly ?? raw.contributions_weekly),
+    contributionsTotal: numberValue(raw.contributionsTotal ?? raw.contributions_total),
+    isActive: Boolean(raw.isActive ?? raw.is_active),
+  };
+}
+
+function normalizeChallenge(raw: Record<string, unknown>): FamilyChallenge {
+  return {
+    id: String(raw.id ?? ""),
+    familyId: String(raw.familyId ?? raw.family_id ?? ""),
+    title: String(raw.title ?? ""),
+    description: String(raw.description ?? ""),
+    type: raw.type as FamilyChallenge["type"],
+    target: numberValue(raw.target),
+    progress: numberValue(raw.progress),
+    startAt: numberValue(raw.startAt ?? raw.start_at),
+    endAt: numberValue(raw.endAt ?? raw.end_at),
+    reward: numberValue(raw.reward),
+    completed: Boolean(raw.completed),
+    createdBy: String(raw.createdBy ?? raw.created_by ?? ""),
+  };
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+  return typeof body?.error === "string" ? body.error : fallback;
+}
+
 class FamilyService {
   /** Create a new family. Creator becomes parent automatically. */
   async createFamily(name: string, region: string): Promise<Family> {
@@ -30,8 +83,8 @@ class FamilyService {
       },
       body: JSON.stringify({ name, region }),
     });
-    if (!r.ok) throw new Error((await r.json()).error || "Create failed");
-    return r.json();
+    if (!r.ok) throw new Error(await readApiError(r, "Không thể tạo gia đình."));
+    return normalizeFamily((await r.json()) as Record<string, unknown>);
   }
 
   /** Get the current user's family (returns null if not in any). */
@@ -42,8 +95,15 @@ class FamilyService {
       },
     });
     if (r.status === 404) return null;
-    if (!r.ok) throw new Error("Fetch failed");
-    return r.json();
+    if (!r.ok) throw new Error(await readApiError(r, "Không thể tải dữ liệu gia đình."));
+    const body = (await r.json()) as {
+      family: Record<string, unknown>;
+      members?: Record<string, unknown>[];
+    };
+    return {
+      family: normalizeFamily(body.family),
+      members: (body.members ?? []).map(normalizeMember),
+    };
   }
 
   /** Join an existing family using invite code. */
@@ -56,8 +116,8 @@ class FamilyService {
       },
       body: JSON.stringify({ inviteCode: inviteCode.toUpperCase() }),
     });
-    if (!r.ok) throw new Error((await r.json()).error || "Join failed");
-    return r.json();
+    if (!r.ok) throw new Error(await readApiError(r, "Không thể tham gia gia đình."));
+    return normalizeFamily((await r.json()) as Record<string, unknown>);
   }
 
   /** Leave the current family. Creator cannot leave if sole parent. */
@@ -78,9 +138,11 @@ class FamilyService {
         Authorization: `Bearer ${getAuthToken()}`,
       },
     });
-    if (!r.ok) return [];
+    if (!r.ok) throw new Error(await readApiError(r, "Không thể tải thử thách gia đình."));
     const { challenges } = await r.json();
-    return challenges || [];
+    return Array.isArray(challenges)
+      ? challenges.map((challenge) => normalizeChallenge(challenge as Record<string, unknown>))
+      : [];
   }
 
   /** Create a new challenge (parent only). */
@@ -98,7 +160,7 @@ class FamilyService {
     });
     if (!r.ok) throw new Error("Create challenge failed");
     const { challenge } = await r.json();
-    return challenge;
+    return normalizeChallenge(challenge as Record<string, unknown>);
   }
 
   /** Get the weekly carbon stats for a family. */

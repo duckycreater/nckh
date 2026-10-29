@@ -32,6 +32,15 @@ interface RewardSummary {
   txCount: number;
 }
 
+interface RedemptionRecord {
+  id: string;
+  reward: { name: string };
+  cost: number;
+  status: "pending" | "approved" | "fulfilled" | "cancelled";
+  createdAt: number;
+  refundedAt: number | null;
+}
+
 const SOURCE_ICONS: Record<string, React.ReactNode> = {
   scan: <Zap size={14} className="text-emerald-500" />,
   quiz: <FileCheck size={14} className="text-blue-500" />,
@@ -66,6 +75,7 @@ interface RewardHistoryProps {
 export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: RewardHistoryProps) {
   const [transactions, setTransactions] = useState<RewardTransaction[]>([]);
   const [summary, setSummary] = useState<RewardSummary | null>(null);
+  const [redemptions, setRedemptions] = useState<RedemptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "earn" | "spend">("all");
   const [showAll, setShowAll] = useState(false);
@@ -75,12 +85,15 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
     setLoading(true);
     setError(null);
     try {
-      const [txRes, sumRes] = await Promise.all([
+      const [txRes, sumRes, redemptionRes] = await Promise.all([
         fetch(`/api/reward-history/${userId}`, { headers: getAuthHeaders() }),
         fetch(`/api/reward-summary/${userId}`, { headers: getAuthHeaders() }),
+        fetch("/api/redemptions", { headers: getAuthHeaders() }),
       ]);
 
-      if (!txRes.ok || !sumRes.ok) throw new Error("Không thể tải lịch sử giao dịch.");
+      if (!txRes.ok || !sumRes.ok || !redemptionRes.ok) {
+        throw new Error("Không thể tải lịch sử giao dịch.");
+      }
       if ((txRes.headers.get("content-type") || "").includes("application/json")) {
         const data = await txRes.json();
         setTransactions(Array.isArray(data) ? data : []);
@@ -94,6 +107,10 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
       } else {
         setSummary(null);
       }
+      const redemptionPayload = (await redemptionRes.json()) as {
+        redemptions?: RedemptionRecord[];
+      };
+      setRedemptions(redemptionPayload.redemptions ?? []);
     } catch (e) {
       console.error("[RewardHistory] Failed to load:", e);
       setError(e instanceof Error ? e.message : "Không thể tải lịch sử giao dịch.");
@@ -134,6 +151,52 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
       </div>
 
       {error && <ErrorRetry message={error} onRetry={() => void loadData()} />}
+
+      {!error && redemptions.length > 0 && (
+        <section className="mb-5">
+          <h4 className="text-sm font-semibold text-[var(--graphite)]">Đơn đổi quà</h4>
+          <div className="mt-3 space-y-2">
+            {redemptions.slice(0, 8).map((redemption) => {
+              const statusLabel =
+                redemption.status === "pending"
+                  ? "Chờ duyệt"
+                  : redemption.status === "approved"
+                    ? "Đã duyệt"
+                    : redemption.status === "fulfilled"
+                      ? "Đã hoàn tất"
+                      : "Đã hủy";
+              return (
+                <div
+                  key={redemption.id}
+                  className="flex flex-col gap-2 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--graphite)]">
+                      {redemption.reward.name}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      {new Date(redemption.createdAt).toLocaleString("vi-VN")} ·{" "}
+                      {redemption.cost} điểm
+                    </p>
+                  </div>
+                  <Badge
+                    tone={
+                      redemption.status === "fulfilled"
+                        ? "success"
+                        : redemption.status === "cancelled"
+                          ? "warning"
+                          : "default"
+                    }
+                  >
+                    {statusLabel}
+                    {redemption.refundedAt ? " · Đã hoàn điểm" : ""}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {!error && summary && (
         <div className="mb-4 grid grid-cols-3 gap-3">

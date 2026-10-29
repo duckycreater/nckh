@@ -6,6 +6,8 @@ import {
   Check,
   ChevronRight,
   Image as ImageIcon,
+  Flag,
+  History,
   Loader2,
   Save,
   ShieldCheck,
@@ -49,6 +51,16 @@ interface LocalPreview {
   confidence: number;
   abstained: boolean;
   latencyMs: number;
+}
+
+interface ScanHistoryItem {
+  id: string;
+  imageUrl: string | null;
+  analysis: ScanAnalysis;
+  cardPreview: CardPreview | null;
+  cardId: string | null;
+  createdAt: number;
+  expiresAt: number;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -108,16 +120,45 @@ export function AIScanner({
   const [localPreview, setLocalPreview] = useState<LocalPreview | null>(null);
   const [createdCard, setCreatedCard] = useState<MaterialCard | null>(null);
   const [pending, setPending] = useState<PendingScan[]>([]);
+  const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("classification_incorrect");
+  const [reportNote, setReportNote] = useState("");
+  const [reporting, setReporting] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const video = useRef<HTMLVideoElement>(null);
+  const scanRequestId = useRef<string>(crypto.randomUUID());
+  const stableUserId = user.userId || user.account_id;
 
   const refreshPending = useCallback(
-    async () => setPending(await listPendingScans(user.account_id)),
-    [user.account_id],
+    async () => setPending(await listPendingScans(stableUserId)),
+    [stableUserId],
   );
+
+  const refreshHistory = useCallback(async () => {
+    try {
+      const request = await fetch("/api/material-scans?limit=12", {
+        headers: getAuthHeaders(),
+      });
+      const payload = (await request.json().catch(() => null)) as {
+        scans?: ScanHistoryItem[];
+        error?: string;
+      } | null;
+      if (!request.ok || !payload?.scans) {
+        throw new Error(errorMessage(payload, "Không tải được nhật ký quét."));
+      }
+      setScanHistory(payload.scans);
+      setHistoryError(null);
+    } catch (cause) {
+      setHistoryError(toUserMessage(cause, "Không tải được nhật ký quét."));
+    }
+  }, []);
 
   useEffect(() => {
     void refreshPending();
+    void refreshHistory();
     const becameOnline = () => setOnline(true);
     const becameOffline = () => setOnline(false);
     window.addEventListener("online", becameOnline);
@@ -126,7 +167,7 @@ export function AIScanner({
       window.removeEventListener("online", becameOnline);
       window.removeEventListener("offline", becameOffline);
     };
-  }, [refreshPending]);
+  }, [refreshHistory, refreshPending]);
 
   useEffect(() => {
     if (video.current && stream) {
@@ -159,6 +200,9 @@ export function AIScanner({
     setLocalPreview(null);
     setCreatedCard(null);
     setError(null);
+    setReportOpen(false);
+    setReportNote("");
+    setReportSent(false);
   };
 
   const normalizeImage = async (source: CanvasImageSource, width: number, height: number) => {
@@ -185,6 +229,7 @@ export function AIScanner({
     source.onload = () => {
       void normalizeImage(source, source.naturalWidth, source.naturalHeight)
         .then((nextImage) => {
+          scanRequestId.current = crypto.randomUUID();
           setImage(nextImage);
           resetResult();
         })
@@ -222,6 +267,7 @@ export function AIScanner({
   const capture = async () => {
     if (!video.current || !video.current.videoWidth) return;
     try {
+      scanRequestId.current = crypto.randomUUID();
       setImage(
         await normalizeImage(video.current, video.current.videoWidth, video.current.videoHeight),
       );
@@ -263,10 +309,13 @@ export function AIScanner({
 
   const queueForVerification = async () => {
     if (!image) return;
+    const requestId = scanRequestId.current || crypto.randomUUID();
+    scanRequestId.current = requestId;
     await enqueuePendingScan(
       "/api/scan-garbage",
-      { imageBase64: image, nickname: user.account_id, locale: "vi" },
-      user.account_id,
+      { imageBase64: image, requestId, locale: "vi" },
+      stableUserId,
+      requestId,
     );
     await refreshPending();
   };
@@ -278,15 +327,25 @@ export function AIScanner({
     setResponse(null);
     setCreatedCard(null);
     try {
+      await queueForVerification().catch(() => undefined);
       if (!online) {
-        await analyzeLocally(image);
-        await queueForVerification();
+        try {
+          await analyzeLocally(image);
+        } catch (cause) {
+          setError(
+            `${toUserMessage(cause, "Không thể nhận diện sơ bộ.")} Ảnh vẫn được lưu để xác minh khi có mạng.`,
+          );
+        }
         return;
       }
       const request = await fetch("/api/scan-garbage", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ imageBase64: image, nickname: user.account_id, locale: "vi" }),
+        body: JSON.stringify({
+          imageBase64: image,
+          requestId: scanRequestId.current,
+          locale: "vi",
+        }),
         signal: AbortSignal.timeout(30_000),
       });
       const payload = (await request.json().catch(() => null)) as ScanResponse | null;
@@ -294,6 +353,9 @@ export function AIScanner({
         throw new Error(errorMessage(payload, `Không thể xác minh ảnh (HTTP ${request.status}).`));
       }
       setResponse(payload);
+      await removePendingScan(scanRequestId.current).catch(() => undefined);
+      await refreshPending();
+      await refreshHistory();
       if (typeof payload.points === "number" && Number.isFinite(payload.points)) {
         onUpdatePoints(payload.points);
       }
@@ -319,7 +381,7 @@ export function AIScanner({
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           scanId: preview.scanId,
-          idempotencyKey: `create-card:${user.account_id}:${preview.scanId}`,
+          idempotencyKey: `create-card:${stableUserId}:${preview.scanId}`,
         }),
       });
       const payload = (await request.json().catch(() => null)) as {
@@ -333,6 +395,7 @@ export function AIScanner({
       setCreatedCard(payload.card);
       if (Number.isFinite(payload.points)) onUpdatePoints(payload.points as number);
       onCardCreated?.(payload.card);
+      await refreshHistory();
     } catch (cause) {
       setError(toUserMessage(cause, "Không tạo được hộ chiếu."));
     } finally {
@@ -342,14 +405,57 @@ export function AIScanner({
 
   const restorePending = async (record: PendingScan) => {
     try {
-      const body = JSON.parse(record.body) as { imageBase64?: string };
+      const body = JSON.parse(record.body) as { imageBase64?: string; requestId?: string };
       if (!body.imageBase64) throw new Error();
+      scanRequestId.current = body.requestId || record.id;
       setImage(body.imageBase64);
       resetResult();
-      await removePendingScan(record.id);
-      await refreshPending();
     } catch {
       setError("Bản quét chờ không còn hợp lệ.");
+    }
+  };
+
+  const restoreHistory = (record: ScanHistoryItem) => {
+    scanRequestId.current = record.id;
+    setImage(record.imageUrl);
+    setLocalPreview(null);
+    setCreatedCard(null);
+    setError(null);
+    setReportOpen(false);
+    setReportSent(false);
+    setResponse({
+      scan: record.analysis,
+      cardPreview: record.cardPreview,
+      rewarded: false,
+      rewardAmount: 0,
+      points: user.points,
+    });
+  };
+
+  const reportScan = async () => {
+    if (!scanResult || reporting) return;
+    setReporting(true);
+    setError(null);
+    try {
+      const request = await fetch(
+        "/api/material-scans/" + encodeURIComponent(scanResult.scanId) + "/report",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ reason: reportReason, note: reportNote.trim() }),
+        },
+      );
+      const payload = (await request.json().catch(() => null)) as { error?: string } | null;
+      if (!request.ok) {
+        throw new Error(errorMessage(payload, "Không gửi được góp ý."));
+      }
+      setReportSent(true);
+      setReportOpen(false);
+      setReportNote("");
+    } catch (cause) {
+      setError(toUserMessage(cause, "Không gửi được góp ý."));
+    } finally {
+      setReporting(false);
     }
   };
 
@@ -529,6 +635,50 @@ export function AIScanner({
                     +{response.rewardAmount} điểm cho lần nhận diện hợp lệ.
                   </p>
                 )}
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  {reportSent ? (
+                    <p className="text-sm font-semibold text-emerald-700">
+                      Cảm ơn bạn. Kết quả đã được gửi để xem xét.
+                    </p>
+                  ) : reportOpen ? (
+                    <div className="space-y-3">
+                      <select
+                        value={reportReason}
+                        onChange={(event) => setReportReason(event.target.value)}
+                        className="min-h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm"
+                        aria-label="Lý do báo kết quả sai"
+                      >
+                        <option value="classification_incorrect">Nhận diện sai vật thể hoặc vật liệu</option>
+                        <option value="properties_incorrect">Thuộc tính chưa chính xác</option>
+                        <option value="disposal_incorrect">Hướng xử lý chưa phù hợp</option>
+                      </select>
+                      <textarea
+                        value={reportNote}
+                        onChange={(event) => setReportNote(event.target.value.slice(0, 1000))}
+                        placeholder="Mô tả thêm để người duyệt có thể kiểm tra"
+                        rows={3}
+                        className="w-full resize-y rounded-[10px] border border-slate-200 p-3 text-sm outline-none focus:border-emerald-600"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" onClick={() => void reportScan()} disabled={reporting}>
+                          {reporting && <Loader2 className="animate-spin" size={14} />}
+                          Gửi góp ý
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setReportOpen(false)}>
+                          Hủy
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setReportOpen(true)}
+                      className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-950"
+                    >
+                      <Flag size={15} /> Báo kết quả chưa chính xác
+                    </button>
+                  )}
+                </div>
               </div>
 
               {scanResult.properties.length > 0 && (
@@ -618,6 +768,70 @@ export function AIScanner({
               )}
             </div>
           )}
+
+          <div className="mt-5 rounded-[14px] border border-slate-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <History size={17} className="text-emerald-700" />
+                  <h3 className="font-semibold text-slate-950">Nhật ký quét</h3>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Mở lại kết quả để xem chi tiết hoặc tiếp tục tạo hộ chiếu.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => void refreshHistory()}>
+                Làm mới
+              </Button>
+            </div>
+            {historyError ? (
+              <div className="mt-4 rounded-[10px] border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <p>{historyError}</p>
+                <button
+                  type="button"
+                  className="mt-2 font-semibold underline"
+                  onClick={() => void refreshHistory()}
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : scanHistory.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500">Chưa có lần quét nào.</p>
+            ) : (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {scanHistory.map((record) => (
+                  <button
+                    key={record.id}
+                    type="button"
+                    onClick={() => restoreHistory(record)}
+                    className="flex min-h-16 items-center gap-3 rounded-[10px] border border-slate-200 p-2.5 text-left transition-colors hover:border-emerald-500"
+                  >
+                    {record.imageUrl ? (
+                      <img
+                        src={record.imageUrl}
+                        alt=""
+                        className="h-12 w-12 rounded-md bg-slate-100 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 text-slate-400">
+                        <ImageIcon size={18} />
+                      </div>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-slate-900">
+                        {record.analysis.objectName}
+                      </span>
+                      <span className="mt-1 block text-xs text-slate-500">
+                        {new Date(record.createdAt).toLocaleDateString("vi-VN")}
+                        {record.cardId ? " · Đã tạo hộ chiếu" : " · Chưa tạo hộ chiếu"}
+                      </span>
+                    </span>
+                    <ChevronRight size={15} className="shrink-0 text-slate-400" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       </div>
 

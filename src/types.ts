@@ -17,10 +17,15 @@ export interface User {
   nick: string;
   name: string;
   account_id: string;
+  userId?: string;
   points: number;
   email?: string;
   fullName?: string;
   classGrade?: string;
+  classId?: string;
+  profileVerificationStatus?: "unverified" | "pending" | "verified" | "rejected" | "skipped";
+  canEarnPoints?: boolean;
+  pointEligibilityReason?: string | null;
   hasPlayed?: boolean;
   progress?: UserProgress;
   role?: string;

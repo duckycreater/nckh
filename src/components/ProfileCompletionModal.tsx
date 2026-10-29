@@ -1,22 +1,40 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { GraduationCap, X } from "lucide-react";
 
 interface ProfileCompletionModalProps {
   user: User;
-  onSaved: (updates: { fullName?: string; classGrade?: string }) => void;
+  onSaved: (updates: {
+    fullName?: string;
+    classGrade?: string;
+    classId?: string;
+    profileVerificationStatus?: User["profileVerificationStatus"];
+    canEarnPoints?: boolean;
+    pointEligibilityReason?: string | null;
+  }) => void;
   onDismiss?: () => void;
 }
-
-const CLASS_GRADES = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
 export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileCompletionModalProps) {
   const { t } = useTranslation();
   const [fullName, setFullName] = useState(user.fullName || "");
-  const [classGrade, setClassGrade] = useState(user.classGrade || "");
+  const [classId, setClassId] = useState(user.classId || "");
+  const [schoolClasses, setSchoolClasses] = useState<
+    Array<{ id: string; name: string; schoolYear: string }>
+  >([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/classes")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("class_catalog_unavailable");
+        return response.json();
+      })
+      .then((body) => setSchoolClasses(Array.isArray(body.classes) ? body.classes : []))
+      .catch(() => setError("Không thể tải danh mục lớp. Vui lòng thử lại."));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,8 +43,8 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
       setError(t("auth.passwordMinChars"));
       return;
     }
-    if (!fullName.trim() && !classGrade) {
-      setError(t("auth.classGradeHint"));
+    if (fullName.trim().length < 2 || !classId) {
+      setError("Vui lòng nhập họ tên và chọn lớp.");
       return;
     }
     setSubmitting(true);
@@ -42,7 +60,7 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
         body: JSON.stringify({
           nickname: user.account_id,
           full_name: fullName.trim() || null,
-          class_grade: classGrade || null,
+          class_id: classId,
         }),
       });
       const data = await res.json();
@@ -52,7 +70,11 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
       }
       onSaved({
         fullName: data.full_name || fullName.trim() || undefined,
-        classGrade: data.class_grade || classGrade || undefined,
+        classGrade: data.class_grade || undefined,
+        classId: data.class_id || classId,
+        profileVerificationStatus: data.profile_verification_status,
+        canEarnPoints: data.can_earn_points,
+        pointEligibilityReason: data.point_eligibility_reason,
       });
     } catch {
       setError(t("auth.connectionError"));
@@ -61,8 +83,29 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
     }
   };
 
-  const handleSkip = () => {
-    if (onDismiss) onDismiss();
+  const handleSkip = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/profile/meta/skip", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || t("auth.connectionError"));
+      onSaved({
+        profileVerificationStatus: data.profile_verification_status || "skipped",
+        canEarnPoints: false,
+        pointEligibilityReason: data.point_eligibility_reason || "profile_verification_required",
+      });
+      onDismiss?.();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("auth.connectionError"));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -86,7 +129,7 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
           {onDismiss && (
             <button
               type="button"
-              onClick={handleSkip}
+              onClick={() => void handleSkip()}
               aria-label={t("common.close")}
               className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
             >
@@ -110,9 +153,15 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
               onChange={(e) => setFullName(e.target.value)}
               placeholder={t("auth.fullNamePlaceholder")}
               autoComplete="name"
+              required
               className="w-full rounded-lg border-2 border-slate-200 bg-slate-50 p-3 text-[15px] outline-none transition-colors focus:border-emerald-500 focus:bg-white"
             />
             <p className="mt-1 text-[11px] text-slate-500">{t("auth.fullNameHint")}</p>
+          </div>
+
+          <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-5 text-amber-950">
+            <p className="font-semibold">{t("auth.verificationNoticeTitle")}</p>
+            <p className="mt-1">{t("auth.verificationNotice")}</p>
           </div>
 
           <div>
@@ -124,14 +173,15 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
             </label>
             <select
               id="profile-class"
-              value={classGrade}
-              onChange={(e) => setClassGrade(e.target.value)}
+              value={classId}
+              onChange={(e) => setClassId(e.target.value)}
+              required
               className="w-full rounded-lg border-2 border-slate-200 bg-slate-50 p-3 text-[15px] outline-none transition-colors focus:border-emerald-500 focus:bg-white appearance-none cursor-pointer"
             >
               <option value="">{t("auth.classGradePlaceholder")}</option>
-              {CLASS_GRADES.map((grade) => (
-                <option key={grade} value={grade}>
-                  Lớp {grade}
+              {schoolClasses.map((schoolClass) => (
+                <option key={schoolClass.id} value={schoolClass.id}>
+                  {schoolClass.name} · {schoolClass.schoolYear}
                 </option>
               ))}
             </select>
@@ -151,7 +201,7 @@ export function ProfileCompletionModal({ user, onSaved, onDismiss }: ProfileComp
             {onDismiss && (
               <button
                 type="button"
-                onClick={handleSkip}
+                onClick={() => void handleSkip()}
                 disabled={submitting}
                 className="rounded-lg border-2 border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >

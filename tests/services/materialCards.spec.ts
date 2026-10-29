@@ -134,6 +134,94 @@ describe("material card transaction", () => {
     ).toThrow(/không thuộc bộ thẻ/i);
   });
 
+  it("does not apply paper compaction to wet paper", () => {
+    const round = {
+      index: 0,
+      actionBudget: 5,
+      transportBudget: 3,
+      objects: [
+        { id: "wet-paper", label: "Giấy ướt", category: "paper" as const, condition: "wet" as const },
+        { id: "plastic", label: "Chai", category: "plastic" as const, condition: "clean" as const },
+        { id: "metal", label: "Lon", category: "metal" as const, condition: "clean" as const },
+      ],
+    };
+    const choices = round.objects.map((object) => ({
+      objectId: object.id,
+      action: expectedActionForScenario(object),
+    }));
+    const base = materialCardTestUtils.scoreSubmission(round, { roundIndex: 0, choices }, []);
+    const withSkill = materialCardTestUtils.scoreSubmission(
+      round,
+      {
+        roundIndex: 0,
+        choices,
+        abilityCardId: "paper-card",
+        abilityTargetId: "wet-paper",
+      },
+      [{ id: "paper-card", category: "paper", abilityName: "Ép phẳng", sample: false }],
+    );
+    expect(withSkill).toBe(base);
+  });
+
+  it("uses processing state, resources, and an explainable score", () => {
+    const round = {
+      index: 0,
+      actionBudget: 5,
+      transportBudget: 3,
+      objects: [
+        {
+          id: "wet-paper",
+          label: "Giấy ướt",
+          category: "paper" as const,
+          condition: "wet" as const,
+          transportCost: 1 as const,
+        },
+        {
+          id: "broken-glass",
+          label: "Ly vỡ",
+          category: "glass" as const,
+          condition: "broken" as const,
+          transportCost: 1 as const,
+        },
+        {
+          id: "battery",
+          label: "Pin",
+          category: "hazard" as const,
+          condition: "clean" as const,
+          transportCost: 1 as const,
+        },
+      ],
+    };
+    const evaluation = materialCardTestUtils.evaluateSubmission(round, {
+      roundIndex: 0,
+      choices: [
+        { objectId: "wet-paper", action: "recycle", steps: ["dry"] },
+        { objectId: "broken-glass", action: "recycle", steps: ["protect"] },
+        { objectId: "battery", action: "special_collection", steps: [] },
+      ],
+    });
+    expect(evaluation.safety).toBe(evaluation.safetyMax);
+    expect(evaluation.correctness).toBe(evaluation.correctnessMax);
+    expect(evaluation.actionsUsed).toBe(2);
+    expect(evaluation.transportUsed).toBe(3);
+    expect(evaluation.log).toHaveLength(3);
+  });
+
+  it("rejects processing actions beyond the server-owned round budget", () => {
+    const round = materialCardTestUtils.buildRounds("budget-seed")[0]!;
+    const choices = round.objects.map((object) => ({
+      objectId: object.id,
+      action: expectedActionForScenario(object),
+      steps: ["clean", "dry", "protect"] as const,
+    }));
+    expect(() =>
+      materialCardTestUtils.evaluateSubmission(round, {
+        roundIndex: round.index,
+        choices: choices.map((choice) => ({ ...choice, steps: [...choice.steps] })),
+      }),
+    ).toThrow(/Vượt quá 5 lượt/i);
+  });
+
   it("normalizes match identities and blocks case-variant self challenges", async () => {
     await expect(
       createMaterialMatch({

@@ -22,6 +22,59 @@ CREATE TABLE IF NOT EXISTS research_users (
 -- already existed before these profile fields were introduced.
 ALTER TABLE research_users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255);
 ALTER TABLE research_users ADD COLUMN IF NOT EXISTS class_grade VARCHAR(20);
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS nickname VARCHAR(100);
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS class_id VARCHAR(64);
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS points_balance INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS total_exp_earned INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS profile_verification_status VARCHAR(20) NOT NULL DEFAULT 'unverified';
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS profile_updated_at TIMESTAMPTZ;
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS profile_verified_at TIMESTAMPTZ;
+ALTER TABLE research_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS school_classes (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(30) NOT NULL,
+  grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 12),
+  school_year VARCHAR(9) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS student_profile_verifications (
+  user_id VARCHAR(255) PRIMARY KEY,
+  submitted_full_name VARCHAR(255),
+  class_id VARCHAR(64),
+  class_grade VARCHAR(20),
+  status VARCHAR(20) NOT NULL DEFAULT 'unverified'
+    CHECK (status IN ('unverified', 'pending', 'verified', 'rejected', 'skipped')),
+  rejection_reason TEXT,
+  submitted_at TIMESTAMPTZ,
+  verified_at TIMESTAMPTZ,
+  verified_by VARCHAR(255),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  FOREIGN KEY (user_id) REFERENCES research_users(user_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_profile_verifications_status
+  ON student_profile_verifications(status, updated_at DESC);
+
+-- Durable authentication state. account_id is the stable UUID; nick remains
+-- only the login/display handle for compatibility with older clients.
+CREATE TABLE IF NOT EXISTS session_tokens (
+  token VARCHAR(128) PRIMARY KEY,
+  nick VARCHAR(100) NOT NULL,
+  account_id UUID,
+  is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE session_tokens ADD COLUMN IF NOT EXISTS account_id UUID;
+CREATE INDEX IF NOT EXISTS idx_session_tokens_expires ON session_tokens(expires_at);
+
+CREATE TABLE IF NOT EXISTS revoked_users (
+  nick VARCHAR(100) PRIMARY KEY,
+  revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Rewards catalog for admin-managed redeemables
 CREATE TABLE IF NOT EXISTS rewards (
@@ -284,6 +337,11 @@ export async function runSchema(): Promise<void> {
     } catch (e) {
       console.error("[Schema] Error running:", stmt.substring(0, 50) + "...", (e as Error).message);
     }
+  }
+  try {
+    await db.query("NOTIFY pgrst, 'reload schema';");
+  } catch (e) {
+    console.warn("[Schema] Could not request PostgREST schema reload:", (e as Error).message);
   }
   console.log("[Schema] Database schema applied.");
 }

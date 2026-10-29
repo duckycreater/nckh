@@ -9,7 +9,12 @@ export async function registerStudent(page: Page, label = "Browser Visual") {
   await page.getByRole("button", { name: /Đăng ký ngay|Register now/i }).click();
   await page.locator("#reg-name").fill(label);
   await page.locator("#reg-full-name").fill("Nguyễn Minh QA");
-  await page.locator("#reg-class").selectOption("10");
+  const firstClassId = await page
+    .locator('#reg-class option:not([value=""])')
+    .first()
+    .getAttribute("value");
+  expect(firstClassId).toBeTruthy();
+  await page.locator("#reg-class").selectOption(firstClassId!);
   await page.locator("#reg-nick").fill(nickname);
   await page.locator("#reg-email").fill(`${nickname}@example.test`);
   await page.locator("#reg-pass").fill(password);
@@ -34,7 +39,8 @@ export async function openStudentSession(page: Page, label = "Browser Visual", p
     hasPlayed: false,
     progress: {},
     fullName: "Nguyễn Minh QA",
-    classGrade: "10",
+    classGrade: "10A1",
+    classId: "2026-10a1",
   };
   await page.route("**/api/user/visual-student", async (route) => route.fulfill({ json: user }));
   await page.goto("/");

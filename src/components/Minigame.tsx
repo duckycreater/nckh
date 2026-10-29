@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { User } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, Brain, CheckCircle, ChevronRight, Award, Clock, Zap } from "lucide-react";
+import { Gamepad2, Brain, ChevronRight, Award, Clock, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getAuthHeaders } from "../lib/auth";
 
@@ -28,16 +28,13 @@ export function Minigame({ user, onComplete }: MinigameProps) {
   const [submitting, setSubmitting] = useState(false);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [submitError, setSubmitError] = useState("");
+  const [sessionId, setSessionId] = useState("");
 
   const [timeLeft, setTimeLeft] = useState(QUIZ_TIME);
-  const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const correctAnswers = useRef<Map<number, string>>(new Map());
-  const [revealedCorrect, setRevealedCorrect] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchExam = async () => {
@@ -46,14 +43,9 @@ export function Minigame({ user, onComplete }: MinigameProps) {
         const data = await res.json();
         setStatus(data.status);
         setMsg(data.message);
+        setSessionId(typeof data.sessionId === "string" ? data.sessionId : "");
         if (data.questions) {
           setQuestions(data.questions);
-          data.questions.forEach((q: Question) => {
-            correctAnswers.current.set(
-              q.id,
-              q.options.find((o) => o.key === q.options[0].key)?.key || "A",
-            );
-          });
         }
       } catch {
         setStatus("ERROR");
@@ -82,17 +74,14 @@ export function Minigame({ user, onComplete }: MinigameProps) {
   const startQuiz = () => {
     setShowQuiz(true);
     setTimeLeft(QUIZ_TIME);
-    setCombo(0);
     setMaxCombo(0);
     setCorrectCount(0);
     setAnswers([]);
     setCurrentQuestionIdx(0);
-    setRevealedCorrect(null);
     setIsRunning(true);
   };
 
   const handleSelect = (qId: number, choice: string) => {
-    if (revealedCorrect !== null) return;
     setAnswers((prev) => {
       const exist = prev.findIndex((a) => a.id === qId);
       if (exist >= 0) {
@@ -102,24 +91,8 @@ export function Minigame({ user, onComplete }: MinigameProps) {
       }
       return [...prev, { id: qId, choice }];
     });
-
-    const correct = correctAnswers.current.get(qId);
-    if (choice === correct) {
-      setCombo((prev) => prev + 1);
-      setMaxCombo((prev) => Math.max(prev, combo + 1));
-      setCorrectCount((prev) => prev + 1);
-      setRevealedCorrect(qId);
-      setTimeout(() => {
-        setRevealedCorrect(null);
-        if (currentQuestionIdx < questions.length - 1) setCurrentQuestionIdx((prev) => prev + 1);
-      }, 600);
-    } else {
-      setCombo(0);
-      setRevealedCorrect(qId);
-      setTimeout(() => {
-        setRevealedCorrect(null);
-        if (currentQuestionIdx < questions.length - 1) setCurrentQuestionIdx((prev) => prev + 1);
-      }, 1000);
+    if (currentQuestionIdx < questions.length - 1) {
+      setTimeout(() => setCurrentQuestionIdx((prev) => prev + 1), 160);
     }
   };
 
@@ -135,10 +108,19 @@ export function Minigame({ user, onComplete }: MinigameProps) {
       const res = await fetch("/api/exam/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ nickname: user.account_id, userAnswers: answers }),
+        body: JSON.stringify({ sessionId, userAnswers: answers }),
       });
       const data = await res.json();
       if (data.success) {
+        const answerResults = Array.isArray(data.results) ? data.results : [];
+        let streak = 0;
+        let bestStreak = 0;
+        for (const answer of answerResults) {
+          streak = answer.correct ? streak + 1 : 0;
+          bestStreak = Math.max(bestStreak, streak);
+        }
+        setCorrectCount(Number(data.correctCount) || 0);
+        setMaxCombo(bestStreak);
         setStatus("DONE");
         const earned = data.newTotal - user.points;
         setMsg(t("minigame.completed", { exp: earned, maxCombo }));
@@ -155,7 +137,6 @@ export function Minigame({ user, onComplete }: MinigameProps) {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   const timerColor = timeLeft <= 20 ? "#ef4444" : timeLeft <= 60 ? "#f59e0b" : "#0f8f68";
-  const timerBg = timeLeft <= 20 ? "#fee2e2" : timeLeft <= 60 ? "#fef3c7" : "#d1fae5";
 
   if (status === "LOADING") {
     return (
@@ -185,6 +166,9 @@ export function Minigame({ user, onComplete }: MinigameProps) {
             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 mt-2 flex flex-col items-center gap-2 w-full">
               <Award size={28} className="text-amber-500" />
               <p className="font-medium text-gray-700 text-sm">{msg}</p>
+              <p className="text-xs font-semibold text-gray-600">
+                {correctCount}/{questions.length} câu đúng
+              </p>
               {maxCombo > 1 && (
                 <p className="text-xs font-bold text-emerald-600">
                   {t("minigame.comboMax", { maxCombo })}
@@ -201,7 +185,7 @@ export function Minigame({ user, onComplete }: MinigameProps) {
                   {t("minigame.timeLimit", { minutes: QUIZ_TIME / 60 })}
                 </span>
                 <span>·</span>
-                <span className="text-emerald-600">{t("minigame.comboSystem")}</span>
+                <span className="text-emerald-600">Chấm điểm trên máy chủ</span>
               </div>
             </div>
           )}
@@ -232,12 +216,10 @@ export function Minigame({ user, onComplete }: MinigameProps) {
                 total: questions.length,
               })}
             </div>
-            {combo > 0 && (
-              <div className="flex items-center gap-1">
-                <Zap size={14} className="text-amber-500 fill-amber-400" />
-                <span className="text-xs font-bold text-amber-600">x{combo}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <Zap size={14} className="text-amber-500" />
+              {answers.length}/{questions.length}
+            </div>
           </div>
 
           {/* Timer bar */}
@@ -269,64 +251,34 @@ export function Minigame({ user, onComplete }: MinigameProps) {
                   const isSelected =
                     answers.find((a) => a.id === questions[currentQuestionIdx].id)?.choice ===
                     opt.key;
-                  const isCorrect =
-                    revealedCorrect === questions[currentQuestionIdx].id &&
-                    opt.key === correctAnswers.current.get(questions[currentQuestionIdx].id);
-                  const isWrong =
-                    revealedCorrect === questions[currentQuestionIdx].id &&
-                    isSelected &&
-                    opt.key !== correctAnswers.current.get(questions[currentQuestionIdx].id);
-
                   let bg = "bg-white";
                   let border = "border-gray-200";
                   let textColor = "text-gray-700";
-                  let dotColor = "bg-gray-200";
 
-                  if (isCorrect) {
-                    bg = "bg-emerald-50";
-                    border = "border-emerald-300";
-                    textColor = "text-emerald-800";
-                    dotColor = "bg-emerald-500";
-                  } else if (isWrong) {
-                    bg = "bg-red-50";
-                    border = "border-red-300";
-                    textColor = "text-red-700";
-                    dotColor = "bg-red-500";
-                  } else if (isSelected) {
+                  if (isSelected) {
                     bg = "bg-emerald-50";
                     border = "border-emerald-200";
                     textColor = "text-emerald-800";
-                    dotColor = "bg-emerald-500";
                   }
 
                   return (
                     <motion.div
                       key={opt.key}
-                      whileHover={!revealedCorrect ? { scale: 1.01 } : {}}
-                      whileTap={!revealedCorrect ? { scale: 0.99 } : {}}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                       onClick={() => handleSelect(questions[currentQuestionIdx].id, opt.key)}
                       className={`p-3 rounded-xl cursor-pointer border flex items-center gap-3 transition-all ${bg} ${border}`}
                     >
                       <div
-                        className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${isCorrect ? "bg-emerald-100 text-emerald-700" : isWrong ? "bg-red-100 text-red-700" : isSelected ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
+                        className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${isSelected ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
                       >
-                        {isCorrect ? <CheckCircle size={12} /> : opt.key}
+                        {opt.key}
                       </div>
                       <span
                         className={`text-sm flex-1 ${textColor} ${isSelected ? "font-semibold" : ""}`}
                       >
                         {opt.text}
                       </span>
-                      {isCorrect && (
-                        <span className="text-[10px] font-bold text-emerald-600">
-                          {t("minigame.correct")}
-                        </span>
-                      )}
-                      {isWrong && (
-                        <span className="text-[10px] font-bold text-red-600">
-                          {t("minigame.wrong")}
-                        </span>
-                      )}
                     </motion.div>
                   );
                 })}
@@ -336,9 +288,6 @@ export function Minigame({ user, onComplete }: MinigameProps) {
 
           {/* Stats */}
           <div className="flex items-center justify-center gap-5 mb-3 text-xs text-gray-400 font-medium">
-            <span>
-              ✓ <span className="text-emerald-600">{correctCount}</span>
-            </span>
             <span>
               {t("minigame.answered", { answered: answers.length, total: questions.length })}
             </span>

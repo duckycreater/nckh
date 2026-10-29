@@ -36,6 +36,8 @@ import {
 } from "../server/services/scanRewards";
 import {
   MaterialCardError,
+  getMaterialScan,
+  listMaterialScans,
   makeCardPreview,
   saveMaterialScan,
 } from "../server/services/materialCards";
@@ -116,6 +118,17 @@ import { getDailyChallengeIds, getDailyChallengeReward } from "../src/lib/dailyC
 import { resolveGameplayRewardClaim } from "../src/lib/gameplayRewards.js";
 import { parseRedeemInfo, type RedeemInfo } from "../src/lib/redemption.js";
 import { normalizeCardOwnership } from "../src/lib/cardOwnership.js";
+import {
+  canProfileEarnPoints,
+  isGradeEightClass,
+  normalizeStudentName,
+  type ProfileVerificationStatus,
+} from "../shared/profileStandardization.js";
+import {
+  syncProfileVerification,
+  syncResearchProfile,
+  syncSchoolClasses,
+} from "../server/services/profileStandardization.js";
 import { SHARD_CARD_REWARDS, SHARD_ITEM_COSTS, SHARD_XP_REWARDS } from "../src/lib/shardShop.js";
 import {
   deliverEmail,
@@ -126,8 +139,23 @@ import {
 import {
   enqueueEmail,
   getEmailOutboxSummary,
+  recordEmailDeliveryEvent,
   startEmailOutboxWorker,
 } from "../server/services/emailOutbox.js";
+import {
+  buildQuizEditionId,
+  buildQuizSessionId,
+  gradeQuizSession,
+  type QuizSessionQuestion,
+} from "../server/services/quizSession.js";
+import { defaultSchoolClasses, isValidSchoolClass, type SchoolClass } from "../shared/school.js";
+import {
+  createRedemption,
+  listRedemptions,
+  updateRedemptionStatus,
+  RedemptionError,
+  type RedemptionStatus,
+} from "../server/services/redemptions.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -203,6 +231,24 @@ function canAccessUserScope(req: express.Request, requestedId: string): boolean 
     .trim()
     .toLowerCase();
   return normalized.length > 0 && (normalized === authNick || normalized === authUserId);
+}
+
+async function requireCompleteProfile(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
+  if ((req as any).isAdmin) return next();
+  const nick = String((req as any).userNick || "");
+  const user = await getUser(nick);
+  if (!user) return res.status(404).json({ error: "Không tìm thấy tài khoản." });
+  if (!user.fullName?.trim() || !user.classId) {
+    return res.status(428).json({
+      error: "Hoàn tất họ tên và lớp trước khi ghi nhận tiến trình mới.",
+      code: "profile_incomplete",
+    });
+  }
+  next();
 }
 
 // ─── Admin Auth Middleware ───────────────────────────────────────────────────
@@ -295,7 +341,17 @@ app.use(
 // A 10 MB image becomes roughly 13.4 MB when base64 encoded.  The bounded
 // parser leaves headroom for JSON metadata without allowing an untrusted
 // client to allocate tens of megabytes per request.
-app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "16mb" }));
+app.use(
+  express.json({
+    limit: process.env.JSON_BODY_LIMIT || "16mb",
+    verify: (request, _response, buffer) => {
+      const path = (request as express.Request).originalUrl || request.url || "";
+      if (path.startsWith("/api/webhooks/resend")) {
+        (request as express.Request & { rawBody?: string }).rawBody = buffer.toString("utf8");
+      }
+    },
+  }),
+);
 // Provider webhooks (Twilio/Africa's Talking) post form-encoded payloads.
 // Keep their parser limit much smaller than the image JSON limit above.
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
@@ -356,6 +412,36 @@ const emailSender: EmailSender | null =
     : emailProvider === "resend" && resend
       ? async (message) => resend.emails.send(message)
       : null;
+
+app.post("/api/webhooks/resend", async (req, res) => {
+  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET?.trim();
+  if (!resend || !webhookSecret) {
+    return res.status(503).json({ error: "Webhook email chưa được cấu hình." });
+  }
+  const rawBody = (req as express.Request & { rawBody?: string }).rawBody;
+  const id = req.header("svix-id") || "";
+  const timestamp = req.header("svix-timestamp") || "";
+  const signature = req.header("svix-signature") || "";
+  if (!rawBody || !id || !timestamp || !signature) {
+    return res.status(400).json({ error: "Webhook không hợp lệ." });
+  }
+  try {
+    const event = resend.webhooks.verify({
+      payload: rawBody,
+      headers: { id, timestamp, signature },
+      webhookSecret,
+    });
+    if (event.type === "email.delivered") {
+      await recordEmailDeliveryEvent(event.data.email_id, "delivered");
+    } else if (event.type === "email.bounced" || event.type === "email.failed") {
+      await recordEmailDeliveryEvent(event.data.email_id, "bounced");
+    }
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    console.warn("[resend-webhook] rejected:", (error as Error).message);
+    return res.status(400).json({ error: "Chữ ký webhook không hợp lệ." });
+  }
+});
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -615,12 +701,20 @@ interface User {
   email?: string;
   fullName?: string;
   classGrade?: string;
+  classId?: string;
+  profileVerificationStatus?: ProfileVerificationStatus;
+  profileUpdatedAt?: number;
+  profileVerifiedAt?: number;
+  profileVerifiedBy?: string;
+  profileRejectionReason?: string;
   points: number;
   /** Lifetime progression currency. Spending points must never reduce this. */
   totalExpEarned?: number;
   hasPlayed: boolean;
   account_id: string;
   role?: string;
+  roleBeforeSuspension?: "user" | "admin";
+  disabled?: boolean;
   progress?: UserProgress;
   selectedAvatar?: string;
   selectedFrame?: string;
@@ -683,6 +777,151 @@ function applyPointDelta(user: User, rawDelta: number): void {
   const delta = Math.trunc(Number(rawDelta) || 0);
   user.points = Math.max(0, user.points + delta);
   if (delta > 0) user.totalExpEarned = (user.totalExpEarned || 0) + delta;
+}
+
+function pointEligibility(user: User): {
+  canEarnPoints: boolean;
+  reason: "profile_verification_required" | null;
+} {
+  const canEarnPoints = canProfileEarnPoints(user);
+  return {
+    canEarnPoints,
+    reason: canEarnPoints ? null : "profile_verification_required",
+  };
+}
+
+function applyEarnedPoints(user: User, rawDelta: number): number {
+  const delta = Math.max(0, Math.trunc(Number(rawDelta) || 0));
+  if (delta === 0 || !pointEligibility(user).canEarnPoints) return 0;
+  applyPointDelta(user, delta);
+  return delta;
+}
+
+function publicProfileStatus(user: User) {
+  const eligibility = pointEligibility(user);
+  return {
+    profile_verification_status: user.profileVerificationStatus || "unverified",
+    profileVerificationStatus: user.profileVerificationStatus || "unverified",
+    can_earn_points: eligibility.canEarnPoints,
+    canEarnPoints: eligibility.canEarnPoints,
+    point_eligibility_reason: eligibility.reason,
+    pointEligibilityReason: eligibility.reason,
+  };
+}
+
+async function syncUserResearchProfile(user: User): Promise<void> {
+  await syncResearchProfile({
+    accountId: user.account_id,
+    nickname: user.nick,
+    displayName: user.name,
+    fullName: user.fullName,
+    classId: user.classId,
+    classGrade: user.classGrade,
+    role: user.role,
+    points: user.points,
+    totalExpEarned: user.totalExpEarned,
+    profileVerificationStatus: user.profileVerificationStatus,
+    profileUpdatedAt: user.profileUpdatedAt,
+    profileVerifiedAt: user.profileVerifiedAt,
+  });
+}
+
+async function commitPointMutation(input: {
+  nickname: string;
+  delta?: number;
+  targetBalance?: number;
+  source: string;
+  reason: string;
+  idempotencyKey: string;
+}): Promise<{
+  oldPoints: number;
+  newPoints: number;
+  appliedDelta: number;
+  totalExpEarned: number;
+}> {
+  const nickname = input.nickname.trim().toLowerCase();
+  const safeKey = input.idempotencyKey.trim().slice(0, 160);
+  const transactionId = crypto
+    .createHash("sha256")
+    .update(nickname + ":" + safeKey)
+    .digest("hex")
+    .slice(0, 40);
+  if (db) {
+    const userRef = db.collection("users").doc(nickname);
+    const transactionRef = db.collection("point_transactions").doc(transactionId);
+    return db.runTransaction(async (transaction) => {
+      const [existing, userSnapshot] = await Promise.all([
+        transaction.get(transactionRef),
+        transaction.get(userRef),
+      ]);
+      if (!userSnapshot.exists) throw new Error("USER_NOT_FOUND");
+      if (existing.exists) {
+        const record = existing.data() as {
+          balanceBefore: number;
+          balanceAfter: number;
+          amount: number;
+          totalExpEarned: number;
+        };
+        return {
+          oldPoints: record.balanceBefore,
+          newPoints: record.balanceAfter,
+          appliedDelta: record.amount,
+          totalExpEarned: record.totalExpEarned,
+        };
+      }
+      const user = normalizeUserEconomy(userSnapshot.data() as User);
+      const oldPoints = user.points;
+      const requestedDelta =
+        input.targetBalance === undefined
+          ? Math.trunc(Number(input.delta) || 0)
+          : Math.max(0, Math.trunc(Number(input.targetBalance) || 0)) - oldPoints;
+      const newPoints = Math.max(0, oldPoints + requestedDelta);
+      const appliedDelta = newPoints - oldPoints;
+      const totalExpEarned = (user.totalExpEarned || 0) + (appliedDelta > 0 ? appliedDelta : 0);
+      transaction.update(userRef, { points: newPoints, totalExpEarned });
+      transaction.create(transactionRef, {
+        id: transactionId,
+        accountId: user.account_id,
+        nickname,
+        type: appliedDelta >= 0 ? "earn" : "spend",
+        source: input.source,
+        reason: input.reason,
+        amount: appliedDelta,
+        balanceBefore: oldPoints,
+        balanceAfter: newPoints,
+        totalExpEarned,
+        idempotencyKey: safeKey,
+        createdAt: Date.now(),
+      });
+      return { oldPoints, newPoints, appliedDelta, totalExpEarned };
+    });
+  }
+
+  const release = await acquireRewardLock(nickname);
+  try {
+    const user = await getUser(nickname);
+    if (!user) throw new Error("USER_NOT_FOUND");
+    const oldPoints = user.points;
+    const requestedDelta =
+      input.targetBalance === undefined
+        ? Math.trunc(Number(input.delta) || 0)
+        : Math.max(0, Math.trunc(Number(input.targetBalance) || 0)) - oldPoints;
+    applyPointDelta(user, requestedDelta);
+    await saveUser(user);
+    await logRewardTransaction(user.account_id, "adjustment", user.points - oldPoints, {
+      reason: input.reason,
+      source: input.source,
+      pointsBalance: user.points,
+    });
+    return {
+      oldPoints,
+      newPoints: user.points,
+      appliedDelta: user.points - oldPoints,
+      totalExpEarned: user.totalExpEarned || 0,
+    };
+  } finally {
+    release();
+  }
 }
 
 interface RedemptionRequest {
@@ -833,6 +1072,43 @@ let dynamicConfig: any = {
   ThoiGianKetThuc: null,
 };
 
+interface StoredQuizSession {
+  id: string;
+  editionId: string;
+  accountId: string;
+  nickname: string;
+  questions: QuizSessionQuestion[];
+  createdAt: number;
+  expiresAt: number;
+  submittedAt: number | null;
+  result: ReturnType<typeof gradeQuizSession> | null;
+  resultingBalance: number | null;
+  pointsAwarded?: number;
+}
+
+const localQuizSessions = new Map<string, StoredQuizSession>();
+
+async function listSchoolClasses(includeInactive = false): Promise<SchoolClass[]> {
+  let classes: SchoolClass[] = defaultSchoolClasses();
+  if (db) {
+    const snapshot = await db.collection("school_classes").get();
+    const storedClasses = snapshot.docs
+      .map((document) => document.data() as SchoolClass)
+      .filter(isValidSchoolClass);
+    const merged = new Map(classes.map((schoolClass) => [schoolClass.id, schoolClass]));
+    for (const schoolClass of storedClasses) merged.set(schoolClass.id, schoolClass);
+    classes = [...merged.values()];
+  }
+  return classes
+    .filter((schoolClass) => includeInactive || schoolClass.active)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "vi"));
+}
+
+async function findActiveSchoolClass(classId: string): Promise<SchoolClass | null> {
+  const classes = await listSchoolClasses(false);
+  return classes.find((schoolClass) => schoolClass.id === classId) ?? null;
+}
+
 // Load data fallback
 if (fs.existsSync(DB_FILE)) {
   try {
@@ -887,15 +1163,31 @@ async function logRewardTransaction(
 
 async function getUser(nick: string): Promise<User | undefined> {
   const normNick = (nick || "").trim().toLowerCase();
-  if (!isValidNickname(normNick)) return undefined;
+  const isAccountId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    normNick,
+  );
+  if (!isValidNickname(normNick) && !isAccountId) return undefined;
   if (db) {
-    const doc = await db.collection("users").doc(normNick).get();
-    if (doc.exists) {
-      const user = doc.data() as User;
-      return normalizeUserEconomy(user);
+    if (isValidNickname(normNick)) {
+      const doc = await db.collection("users").doc(normNick).get();
+      if (doc.exists) {
+        const user = doc.data() as User;
+        return normalizeUserEconomy(user);
+      }
+    }
+    if (isAccountId) {
+      const result = await db
+        .collection("users")
+        .where("account_id", "==", normNick)
+        .limit(1)
+        .get();
+      if (!result.empty) return normalizeUserEconomy(result.docs[0].data() as User);
     }
   }
-  const user = users.find((u) => u.nick.toLowerCase() === normNick);
+  const user = users.find(
+    (candidate) =>
+      candidate.nick.toLowerCase() === normNick || candidate.account_id?.toLowerCase() === normNick,
+  );
   return user ? normalizeUserEconomy(user) : undefined;
 }
 
@@ -1036,6 +1328,9 @@ async function saveUser(user: User, isNew: boolean = false): Promise<void> {
     }
     saveData();
   }
+  runInBackground("user-profile-sync", async () => {
+    await syncUserResearchProfile(user);
+  });
 }
 
 async function saveUserAndProgress(
@@ -1052,6 +1347,9 @@ async function saveUserAndProgress(
     batch.set(db.collection("user_progress").doc(normalizedNickname), progress, { merge: true });
     try {
       await batch.commit();
+      runInBackground("user-progress-profile-sync", async () => {
+        await syncUserResearchProfile(user);
+      });
       return;
     } catch (error) {
       console.error(`[saveUserAndProgress] Atomic write failed for ${normalizedNickname}:`, error);
@@ -1088,13 +1386,16 @@ async function creditScanReward(
         const snapshot = await transaction.get(userRef);
         if (!snapshot.exists) return;
         const user = normalizeUserEconomy(snapshot.data() as User);
-        const reward = decideScanReward(
+        const decision = decideScanReward(
           nickname,
           user.scanRewardHistory,
           imageHash,
           Date.now(),
           materialProfile,
         );
+        const reward: ScanRewardDecision = pointEligibility(user).canEarnPoints
+          ? decision
+          : { ...decision, awarded: 0, reason: "profile_verification_required" };
         user.scanRewardHistory = reward.history;
         if (reward.awarded > 0) applyPointDelta(user, reward.awarded);
         transaction.set(
@@ -1106,6 +1407,25 @@ async function creditScanReward(
           },
           { merge: true },
         );
+        if (reward.awarded > 0) {
+          const ledgerId = crypto
+            .createHash("sha256")
+            .update(`${user.account_id}:${imageHash}`)
+            .digest("hex")
+            .slice(0, 40);
+          transaction.set(db!.collection("point_transactions").doc(`scan_${ledgerId}`), {
+            id: `scan_${ledgerId}`,
+            accountId: user.account_id,
+            nickname: user.nick,
+            type: "earn",
+            source: "scan",
+            reason: "Phân tích vật thể hợp lệ",
+            amount: reward.awarded,
+            balanceAfter: user.points,
+            idempotencyKey: imageHash,
+            createdAt: Date.now(),
+          });
+        }
         result = { ...reward, points: user.points, accountId: user.account_id };
       });
       return result;
@@ -1119,13 +1439,16 @@ async function creditScanReward(
         accountId: null,
       };
     }
-    const reward = decideScanReward(
+    const decision = decideScanReward(
       nickname,
       user.scanRewardHistory,
       imageHash,
       Date.now(),
       materialProfile,
     );
+    const reward: ScanRewardDecision = pointEligibility(user).canEarnPoints
+      ? decision
+      : { ...decision, awarded: 0, reason: "profile_verification_required" };
     user.scanRewardHistory = reward.history;
     if (reward.awarded > 0) applyPointDelta(user, reward.awarded);
     await saveUser(user);
@@ -1265,7 +1588,14 @@ app.post("/api/robot", async (req, res) => {
 
     const user = await getUser(nickname);
     if (user) {
-      applyPointDelta(user, 10);
+      if (!pointEligibility(user).canEarnPoints) {
+        return res.status(403).json({
+          result: "error",
+          code: "profile_verification_required",
+          message: "Hồ sơ cần được xác minh trước khi nhận điểm.",
+        });
+      }
+      applyEarnedPoints(user, 10);
       await saveUser(user);
       writeGoogleSheetsLog(
         "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q",
@@ -1286,7 +1616,133 @@ app.post("/api/robot", async (req, res) => {
   }
 });
 
-// 2. Auth APIs
+// 2. Auth and school profile APIs
+app.get("/api/classes", async (_req, res) => {
+  try {
+    res.json({ classes: await listSchoolClasses(false) });
+  } catch (error) {
+    console.error("[classes] list failed:", error);
+    res.status(503).json({ error: "Không thể tải danh mục lớp lúc này." });
+  }
+});
+
+app.get("/api/admin/classes", requireAdmin, async (_req, res) => {
+  try {
+    res.json({ classes: await listSchoolClasses(true) });
+  } catch (error) {
+    res.status(503).json({ error: (error as Error).message });
+  }
+});
+
+app.put("/api/admin/classes/:id", requireAdmin, async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Firestore chưa sẵn sàng." });
+  const candidate: SchoolClass = {
+    id: getRouteParam(req.params.id).trim().toLowerCase(),
+    name: String(req.body?.name ?? "").trim(),
+    grade: Number(req.body?.grade),
+    schoolYear: String(req.body?.schoolYear ?? "").trim(),
+    active: req.body?.active !== false,
+    sortOrder: Number.isFinite(Number(req.body?.sortOrder)) ? Number(req.body.sortOrder) : 0,
+  };
+  if (!isValidSchoolClass(candidate)) {
+    return res.status(400).json({ error: "Thông tin lớp không hợp lệ." });
+  }
+  await db.collection("school_classes").doc(candidate.id).set(candidate, { merge: false });
+  runInBackground("sync-school-class", async () => {
+    await syncSchoolClasses([candidate]);
+  });
+  res.json({ schoolClass: candidate });
+});
+
+app.get("/api/admin/class-progress", requireAdmin, async (req, res) => {
+  try {
+    const requestedClassId =
+      typeof req.query.classId === "string" ? req.query.classId.trim().toLowerCase() : "";
+    const [classes, users] = await Promise.all([listSchoolClasses(true), getAllUsers()]);
+    const allowedClassIds = new Set(classes.map((schoolClass) => schoolClass.id));
+    if (requestedClassId && !allowedClassIds.has(requestedClassId)) {
+      return res.status(400).json({ error: "Lớp không hợp lệ." });
+    }
+    const students = users
+      .filter((candidate) => candidate.role !== "admin")
+      .filter((candidate) => !requestedClassId || candidate.classId === requestedClassId)
+      .map((candidate) => ({
+        accountId: candidate.account_id,
+        nick: candidate.nick,
+        fullName: candidate.fullName || null,
+        displayName: candidate.name,
+        classId: candidate.classId || null,
+        profileComplete: Boolean(candidate.fullName?.trim() && candidate.classId),
+        profileVerificationStatus: candidate.profileVerificationStatus || "unverified",
+        canEarnPoints: pointEligibility(candidate).canEarnPoints,
+        spendablePoints: Math.max(0, Math.trunc(Number(candidate.points) || 0)),
+        lifetimeExperience: Math.max(0, Math.trunc(Number(candidate.totalExpEarned) || 0)),
+        verifiedScans: Array.isArray(candidate.scanRewardHistory)
+          ? candidate.scanRewardHistory.length
+          : 0,
+        disabled: Boolean(candidate.disabled || candidate.role === "suspended"),
+      }))
+      .sort((left, right) =>
+        String(left.fullName || left.displayName).localeCompare(
+          String(right.fullName || right.displayName),
+          "vi",
+        ),
+      );
+    res.json({ classes, students });
+  } catch (error) {
+    console.error("[class-progress]", error);
+    res.status(503).json({ error: "Không thể tải tiến bộ theo lớp lúc này." });
+  }
+});
+
+app.patch("/api/admin/users/:accountId/profile-verification", requireAdmin, async (req, res) => {
+  const accountId = getRouteParam(req.params.accountId).trim().toLowerCase();
+  const status = req.body?.status;
+  const rejectionReason = normalizeStudentName(req.body?.reason).slice(0, 300);
+  if (status !== "verified" && status !== "rejected") {
+    return res.status(400).json({ error: "Trạng thái xác minh không hợp lệ." });
+  }
+  try {
+    const user = await getUser(accountId);
+    if (!user) return res.status(404).json({ error: "Không tìm thấy học sinh." });
+    if (!user.fullName?.trim() || !user.classId) {
+      return res.status(409).json({ error: "Hồ sơ chưa có đủ họ tên và lớp để xác minh." });
+    }
+    const adminNick = String((req as typeof req & { userNick?: string }).userNick || "admin");
+    const updatedAt = Date.now();
+    user.profileVerificationStatus = status;
+    user.profileUpdatedAt = updatedAt;
+    user.profileRejectionReason =
+      status === "rejected" ? rejectionReason || "Thông tin chưa khớp." : undefined;
+    user.profileVerifiedAt = status === "verified" ? updatedAt : undefined;
+    user.profileVerifiedBy = status === "verified" ? adminNick : undefined;
+    await saveUser(user);
+    runInBackground("admin-profile-verification", async () => {
+      await syncUserResearchProfile(user);
+      await syncProfileVerification({
+        accountId: user.account_id,
+        fullName: user.fullName,
+        classId: user.classId,
+        classGrade: user.classGrade,
+        status,
+        rejectionReason: user.profileRejectionReason,
+        submittedAt: user.profileUpdatedAt,
+        verifiedAt: user.profileVerifiedAt,
+        verifiedBy: user.profileVerifiedBy,
+      });
+    });
+    return res.json({
+      success: true,
+      accountId: user.account_id,
+      status,
+      ...publicProfileStatus(user),
+    });
+  } catch (error) {
+    console.error("[profile-verification] update failed:", error);
+    return res.status(500).json({ error: "Không thể cập nhật xác minh lúc này." });
+  }
+});
+
 app.post("/api/login", async (req, res) => {
   const login_nickname =
     typeof req.body?.login_nickname === "string" ? req.body.login_nickname.trim() : "";
@@ -1306,6 +1762,12 @@ app.post("/api/login", async (req, res) => {
   }
 
   if (user) {
+    if (user.disabled || user.role === "suspended" || isUserDisabled(user.nick)) {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản đã bị tạm khóa. Vui lòng liên hệ quản trị viên.",
+      });
+    }
     // Layer 2.1 — verify password with bcrypt; auto-migrate legacy plaintext
     // to a bcrypt hash on first successful login so legacy data.json users
     // keep working without leaving cleartext in the DB.
@@ -1333,18 +1795,10 @@ app.post("/api/login", async (req, res) => {
       const accountId = user.account_id;
       // Research enrichment must never delay the authentication response.
       runInBackground("login-research", async () => {
+        await syncUserResearchProfile(user);
         if (isDbConnected()) {
-          const { getDb } = await import("../server/db.js");
-          const db = getDb();
-          if (db) {
-            await db.query(
-              `INSERT INTO research_users (user_id, username, full_name, class_grade)
-               VALUES ($1, $2, $3, $4)
-               ON CONFLICT (user_id) DO UPDATE SET
-                 username = EXCLUDED.username,
-                 last_active = NOW()`,
-              [accountId, user.name, user.fullName || null, user.classGrade || null],
-            );
+          const researchDb = getDb();
+          if (researchDb) {
             const existingProfile = await personalityEngine.getPersonality(accountId);
             if (existingProfile === "friendly") {
               await personalityEngine.assignPersonality(accountId, 1);
@@ -1380,9 +1834,12 @@ app.post("/api/login", async (req, res) => {
         selectedFrame: user.selectedFrame,
         full_name: user.fullName || null,
         class_grade: user.classGrade || null,
+        class_id: user.classId || null,
+        profile_complete: Boolean(user.fullName?.trim() && user.classId),
         email: user.email || null,
         lastWheelClaimDate: user.lastWheelClaimDate || null,
         claimedStreakGifts: user.claimedStreakGifts || [],
+        ...publicProfileStatus(user),
         message: "Đăng nhập thành công!",
       });
     } else {
@@ -1394,15 +1851,24 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/register", async (req, res) => {
-  const { reg_name, reg_nickname, reg_password, reg_email, reg_class_grade, reg_full_name } =
-    req.body ?? {};
+  const {
+    reg_name,
+    reg_nickname,
+    reg_password,
+    reg_email,
+    reg_class_id,
+    reg_class_grade,
+    reg_full_name,
+    reg_profile_skipped,
+  } = req.body ?? {};
   const cleanField = (value: unknown) => (typeof value === "string" ? value.trim() : "");
   const name = cleanField(reg_name);
   const nick = cleanField(reg_nickname);
   const pass = typeof reg_password === "string" ? reg_password : "";
   const email = cleanField(reg_email).toLowerCase();
-  const classGrade = cleanField(reg_class_grade);
+  const classId = cleanField(reg_class_id || reg_class_grade).toLowerCase();
   const fullName = cleanField(reg_full_name);
+  const profileSkipped = reg_profile_skipped === true;
 
   if (name.length < 2 || name.length > 50) {
     return res.status(400).json({
@@ -1431,14 +1897,19 @@ app.post("/api/register", async (req, res) => {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ success: false, message: "Email không hợp lệ!" });
   }
-  if (classGrade && !/^(?:[1-9]|1[0-2])$/.test(classGrade)) {
-    return res.status(400).json({ success: false, message: "Lớp không hợp lệ (1-12)!" });
-  }
-  if (fullName.length > 100) {
+  if (!profileSkipped && (fullName.length < 2 || fullName.length > 100)) {
     return res.status(400).json({
       success: false,
-      message: "Họ tên quá dài (tối đa 100 ký tự)!",
+      message: "Họ tên phải dài từ 2 đến 100 ký tự!",
     });
+  }
+  const schoolClass = profileSkipped
+    ? null
+    : await findActiveSchoolClass(classId).catch(() => null);
+  if (!profileSkipped && !schoolClass) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Vui lòng chọn một lớp đang hoạt động." });
   }
 
   let existing;
@@ -1476,13 +1947,22 @@ app.post("/api/register", async (req, res) => {
     console.error("[register] password hashing failed:", e?.message || e);
     return res.status(500).json({ success: false, message: "Không thể tạo tài khoản lúc này." });
   }
-  const newUser = {
+  const profileVerificationStatus: ProfileVerificationStatus = profileSkipped
+    ? "skipped"
+    : isGradeEightClass(schoolClass?.name)
+      ? "pending"
+      : "unverified";
+  const profileUpdatedAt = Date.now();
+  const newUser: User = {
     name,
     nick,
     pass: passwordHash,
     email,
-    classGrade,
-    fullName,
+    classGrade: schoolClass?.name,
+    classId: schoolClass?.id,
+    fullName: profileSkipped ? undefined : fullName,
+    profileVerificationStatus,
+    profileUpdatedAt,
     points: 0,
     totalExpEarned: 0,
     hasPlayed: false,
@@ -1498,24 +1978,23 @@ app.post("/api/register", async (req, res) => {
 
   // Research enrichment is best-effort and runs after the account is durable.
   runInBackground("register-research", async () => {
+    await syncUserResearchProfile(newUser);
+    await syncProfileVerification({
+      accountId,
+      fullName: newUser.fullName,
+      classId: newUser.classId,
+      classGrade: newUser.classGrade,
+      status: profileVerificationStatus,
+      submittedAt: profileSkipped ? null : profileUpdatedAt,
+    });
     if (isDbConnected()) {
-      const { getDb } = await import("../server/db.js");
-      const db = getDb();
-      if (db) {
-        await db.query(
-          `INSERT INTO research_users (user_id, username, full_name, class_grade)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (user_id) DO UPDATE SET
-             username = EXCLUDED.username,
-             full_name = COALESCE(EXCLUDED.full_name, research_users.full_name),
-             class_grade = COALESCE(EXCLUDED.class_grade, research_users.class_grade)`,
-          [accountId, name, fullName || null, classGrade || null],
-        );
+      const researchDb = getDb();
+      if (researchDb) {
         await personalityEngine.assignPersonality(accountId, 1);
         await eventLogger.log(accountId, "register", {
           timestamp: new Date().toISOString(),
-          class_grade: classGrade || null,
-          full_name: fullName || null,
+          class_grade: newUser.classGrade || null,
+          profile_verification_status: profileVerificationStatus,
         });
       }
     }
@@ -1525,6 +2004,7 @@ app.post("/api/register", async (req, res) => {
     success: true,
     message: "Đăng ký thành công! Hãy đăng nhập.",
     account_id: accountId,
+    ...publicProfileStatus(newUser),
   });
 });
 
@@ -1714,6 +2194,13 @@ app.post("/api/daily-wheel", requireAuth, async (req, res) => {
   try {
     const user = await getUser(nickname);
     if (!user) return err(res, 404, "error.notFound", req as any);
+    if (!pointEligibility(user).canEarnPoints) {
+      return res.status(403).json({
+        success: false,
+        code: "profile_verification_required",
+        message: "Hồ sơ cần được xác minh trước khi nhận điểm.",
+      });
+    }
 
     const today = getVietnamDayKey();
     if (user.lastWheelClaimDate === today) {
@@ -1722,7 +2209,7 @@ app.post("/api/daily-wheel", requireAuth, async (req, res) => {
 
     const segmentIndex = selectDailyWheelIndex();
     const earnedPoints = DAILY_WHEEL_REWARDS[segmentIndex];
-    applyPointDelta(user, earnedPoints);
+    applyEarnedPoints(user, earnedPoints);
     user.lastWheelClaimDate = today;
     await saveUser(user);
 
@@ -1763,6 +2250,13 @@ app.post("/api/streak-gift", requireAuth, async (req, res) => {
 
     const user = await getUser(nickname);
     if (!user) return err(res, 404, "error.notFound", req as any);
+    if (!pointEligibility(user).canEarnPoints) {
+      return res.status(403).json({
+        success: false,
+        code: "profile_verification_required",
+        message: "Hồ sơ cần được xác minh trước khi nhận điểm.",
+      });
+    }
     const progress = (await getGameProgress(nickname)) ?? user.progress;
     if ((progress?.streakDays || 0) < milestone) {
       return res.status(403).json({ success: false, message: "Bạn chưa đạt mốc streak này." });
@@ -1779,7 +2273,7 @@ app.post("/api/streak-gift", requireAuth, async (req, res) => {
       });
     }
 
-    applyPointDelta(user, earnedPoints);
+    applyEarnedPoints(user, earnedPoints);
     user.claimedStreakGifts = [...claimed, milestone].sort((a, b) => a - b);
     await saveUser(user);
 
@@ -1824,6 +2318,13 @@ app.post("/api/reward", requireAuth, async (req, res) => {
     }
     const user = await getUser(nickname);
     if (user) {
+      if (claim.points > 0 && !pointEligibility(user).canEarnPoints) {
+        return res.status(403).json({
+          success: false,
+          code: "profile_verification_required",
+          message: "Hồ sơ cần được xác minh trước khi nhận điểm.",
+        });
+      }
       const today = getVietnamDayKey();
       if (user.gameplayRewardDates?.[claim.dailyScope] === today) {
         return res.json({ success: true, duplicate: true, points: user.points, earnedPoints: 0 });
@@ -1876,7 +2377,8 @@ app.post("/api/reward", requireAuth, async (req, res) => {
         reservation = null;
         return res.status(409).json({ success: false, message: "Không đủ điểm." });
       }
-      applyPointDelta(user, effectivePoints);
+      if (effectivePoints > 0) applyEarnedPoints(user, effectivePoints);
+      else applyPointDelta(user, effectivePoints);
       user.gameplayRewardDates = {
         ...(user.gameplayRewardDates ?? {}),
         [claim.dailyScope]: today,
@@ -1996,19 +2498,24 @@ app.post("/api/profile/meta", requireAuth, async (req, res) => {
   // Layer 2.3 — only allow updating YOUR OWN profile metadata. The
   // client-supplied `nickname` is ignored in favour of the token's nick.
   const nickname = (req as any).userNick as string;
-  const { full_name, class_grade } = req.body ?? {};
+  const { full_name, class_id } = req.body ?? {};
   const nick = nickname.trim();
 
   if (!nick) {
     return res.status(400).json({ success: false, message: "Thiếu tên tài khoản." });
   }
-  const cleanedFullName = (full_name || "").trim();
-  const cleanedClass = (class_grade || "").trim();
-  if (cleanedClass && !/^([1-9]|1[0-2])$/.test(cleanedClass)) {
-    return res.status(400).json({ success: false, message: "Lớp không hợp lệ (1-12)." });
+  const cleanedFullName = normalizeStudentName(full_name);
+  const cleanedClassId = String(class_id || "")
+    .trim()
+    .toLowerCase();
+  if (cleanedFullName.length < 2 || cleanedFullName.length > 100) {
+    return res.status(400).json({ success: false, message: "Họ tên phải dài từ 2 đến 100 ký tự." });
   }
-  if (cleanedFullName.length > 100) {
-    return res.status(400).json({ success: false, message: "Họ tên quá dài (tối đa 100 ký tự)." });
+  const schoolClass = await findActiveSchoolClass(cleanedClassId).catch(() => null);
+  if (!schoolClass) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Vui lòng chọn một lớp đang hoạt động." });
   }
 
   try {
@@ -2016,38 +2523,72 @@ app.post("/api/profile/meta", requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản." });
     }
-    if (cleanedFullName) user.fullName = cleanedFullName;
-    if (cleanedClass) user.classGrade = cleanedClass;
+    user.fullName = cleanedFullName;
+    user.classId = schoolClass.id;
+    user.classGrade = schoolClass.name;
+    user.profileVerificationStatus = isGradeEightClass(schoolClass.name) ? "pending" : "unverified";
+    user.profileUpdatedAt = Date.now();
+    delete user.profileVerifiedAt;
+    delete user.profileVerifiedBy;
+    delete user.profileRejectionReason;
     await saveUser(user);
 
-    // Mirror the profile metadata into the research DB so dashboards see it.
-    if (isDbConnected()) {
-      try {
-        const { getDb } = await import("../server/db.js");
-        const db = getDb();
-        if (db && user.account_id) {
-          await db.query(
-            `UPDATE research_users
-             SET full_name = COALESCE($2, full_name),
-                 class_grade = COALESCE($3, class_grade)
-             WHERE user_id = $1`,
-            [user.account_id, user.fullName || null, user.classGrade || null],
-          );
-        }
-      } catch (e) {
-        console.warn("[profile/meta] research_users sync failed:", (e as Error).message);
-      }
-    }
+    runInBackground("profile-meta-research", async () => {
+      await syncUserResearchProfile(user);
+      await syncProfileVerification({
+        accountId: user.account_id,
+        fullName: user.fullName,
+        classId: user.classId,
+        classGrade: user.classGrade,
+        status: user.profileVerificationStatus || "unverified",
+        submittedAt: user.profileUpdatedAt,
+      });
+    });
 
     return res.json({
       success: true,
       message: "Đã cập nhật hồ sơ.",
       full_name: user.fullName || null,
       class_grade: user.classGrade || null,
+      class_id: user.classId || null,
+      profile_complete: true,
+      ...publicProfileStatus(user),
     });
   } catch (e) {
     console.error("[profile/meta] error:", (e as Error).message);
     return res.status(500).json({ success: false, message: "Lỗi server." });
+  }
+});
+
+app.post("/api/profile/meta/skip", requireAuth, async (req, res) => {
+  const nickname = (req as typeof req & { userNick?: string }).userNick || "";
+  try {
+    const user = await getUser(nickname);
+    if (!user)
+      return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản." });
+    user.profileVerificationStatus = "skipped";
+    user.profileUpdatedAt = Date.now();
+    delete user.profileVerifiedAt;
+    delete user.profileVerifiedBy;
+    await saveUser(user);
+    runInBackground("profile-skip-research", async () => {
+      await syncUserResearchProfile(user);
+      await syncProfileVerification({
+        accountId: user.account_id,
+        fullName: user.fullName,
+        classId: user.classId,
+        classGrade: user.classGrade,
+        status: "skipped",
+      });
+    });
+    return res.json({
+      success: true,
+      message: "Đã bỏ qua. Bạn có thể hoàn thiện hồ sơ sau.",
+      ...publicProfileStatus(user),
+    });
+  } catch (error) {
+    console.error("[profile/meta/skip] error:", error);
+    return res.status(500).json({ success: false, message: "Không thể lưu lựa chọn lúc này." });
   }
 });
 
@@ -2227,10 +2768,15 @@ app.post("/api/avatar/upload", requireAuth, upload.single("image"), async (req, 
 // 3. Leaderboard
 app.get("/api/leaderboard", async (req, res) => {
   const allUsers = await getAllUsers();
-  const sortedUsers = [...allUsers].sort((a, b) => b.points - a.points);
-  const top10 = sortedUsers
-    .slice(0, 10)
-    .map((u) => ({ name: u.name, points: u.points, nick: u.nick }));
+  const sortedUsers = [...allUsers].sort(
+    (a, b) => (b.totalExpEarned ?? b.points) - (a.totalExpEarned ?? a.points),
+  );
+  const top10 = sortedUsers.slice(0, 10).map((u) => ({
+    name: u.name,
+    points: u.totalExpEarned ?? u.points,
+    spendablePoints: u.points,
+    nick: u.nick,
+  }));
   res.json(top10);
 });
 
@@ -2260,6 +2806,14 @@ const defaultRewards = [
     borderClass: "border-emerald-300 hover:border-emerald-500",
   },
 ];
+
+async function loadRewardCatalog(): Promise<RewardRecord[]> {
+  if (isRewardsDbConfigured()) return listRewards();
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Kho quà chưa được cấu hình.");
+  }
+  return defaultRewards.map((reward) => ({ ...reward, id: String(reward.id) }));
+}
 
 function parseAdminReward(
   value: unknown,
@@ -2318,7 +2872,7 @@ app.get("/api/rewards", async (req, res) => {
   try {
     if (isRewardsDbConfigured()) {
       try {
-        const rewards = await listRewards();
+        const rewards = await loadRewardCatalog();
         if (rewards.length === 0) {
           for (const rw of defaultRewards) {
             await upsertReward({
@@ -2339,14 +2893,138 @@ app.get("/api/rewards", async (req, res) => {
         return res.json(rewards);
       } catch (dbError) {
         console.error("[rewards:get] Supabase error:", dbError);
+        return res.status(503).json({ error: "Kho quà tạm thời không khả dụng." });
       }
     }
-
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({ error: "Kho quà chưa được cấu hình." });
+    }
+    res.setHeader("X-BMO-Data-Source", "development-defaults");
     res.json(defaultRewards);
   } catch (e) {
     console.error("[rewards:get] Error:", e);
-    res.json(defaultRewards);
+    res.status(503).json({ error: "Kho quà tạm thời không khả dụng." });
   }
+});
+
+function redemptionErrorStatus(error: unknown): number {
+  if (!(error instanceof RedemptionError)) return 500;
+  if (error.code === "user_not_found" || error.code === "redemption_not_found") return 404;
+  if (error.code === "insufficient_points" || error.code === "invalid_transition") return 409;
+  return 503;
+}
+
+app.post("/api/redemptions", requireAuth, requireCompleteProfile, async (req, res) => {
+  const nickname = (req as any).userNick as string;
+  const rewardId = String(req.body?.rewardId ?? "").trim();
+  const idempotencyKey = String(
+    req.headers["idempotency-key"] ?? req.body?.idempotencyKey ?? "",
+  ).trim();
+  if (!/^[A-Za-z0-9:_-]{8,160}$/.test(idempotencyKey)) {
+    return res.status(400).json({ error: "Thiếu mã giao dịch hợp lệ." });
+  }
+  const parsedRecipient = parseRedeemInfo(req.body?.recipient);
+  if (!parsedRecipient.success) {
+    return res.status(400).json({ error: parsedRecipient.message });
+  }
+  try {
+    const [user, rewards] = await Promise.all([getUser(nickname), loadRewardCatalog()]);
+    if (!user) return res.status(404).json({ error: "Không tìm thấy tài khoản." });
+    const reward = rewards.find((candidate) => String(candidate.id) === rewardId);
+    if (!reward || !Number.isInteger(reward.cost) || reward.cost <= 0) {
+      return res.status(400).json({ error: "Phần thưởng không hợp lệ." });
+    }
+    const outcome = await createRedemption({
+      ownerId: user.account_id,
+      ownerNick: user.nick,
+      reward,
+      recipient: parsedRecipient.data,
+      idempotencyKey,
+    });
+    if (outcome.created) {
+      runInBackground("redemption-email", async () => {
+        await sendCraftEmail(user, reward.id, reward.name, parsedRecipient.data);
+      });
+    }
+    return res.status(outcome.created ? 201 : 200).json({
+      success: true,
+      created: outcome.created,
+      redemption: outcome.redemption,
+      points: outcome.balance,
+    });
+  } catch (error) {
+    console.error("[redemptions:create]", error);
+    return res.status(redemptionErrorStatus(error)).json({
+      error: error instanceof Error ? error.message : "Không thể đổi quà lúc này.",
+    });
+  }
+});
+
+app.get("/api/redemptions", requireAuth, async (req, res) => {
+  try {
+    const user = await getUser((req as any).userNick as string);
+    if (!user) return res.status(404).json({ error: "Không tìm thấy tài khoản." });
+    res.json({ redemptions: await listRedemptions(user.account_id) });
+  } catch (error) {
+    res.status(redemptionErrorStatus(error)).json({
+      error: error instanceof Error ? error.message : "Không thể tải lịch sử đổi quà.",
+    });
+  }
+});
+
+app.get("/api/admin/redemptions", requireAdmin, async (_req, res) => {
+  try {
+    res.json({ redemptions: await listRedemptions() });
+  } catch (error) {
+    res.status(redemptionErrorStatus(error)).json({ error: (error as Error).message });
+  }
+});
+
+app.patch("/api/admin/redemptions/:id/status", requireAdmin, async (req, res) => {
+  const status = String(req.body?.status ?? "") as RedemptionStatus;
+  if (!["approved", "fulfilled", "cancelled"].includes(status)) {
+    return res.status(400).json({ error: "Trạng thái đơn không hợp lệ." });
+  }
+  try {
+    res.json({ redemption: await updateRedemptionStatus(getRouteParam(req.params.id), status) });
+  } catch (error) {
+    res.status(redemptionErrorStatus(error)).json({ error: (error as Error).message });
+  }
+});
+
+app.get("/api/notifications", requireAuth, async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Dịch vụ thông báo chưa sẵn sàng." });
+  const userId = String((req as any).userId || "");
+  const snapshot = await db
+    .collection("notifications")
+    .where("userId", "==", userId)
+    .limit(100)
+    .get();
+  const notifications = snapshot.docs
+    .map((document) => document.data())
+    .sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
+  res.json({ notifications });
+});
+
+app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Dịch vụ thông báo chưa sẵn sàng." });
+  const ref = db.collection("notifications").doc(getRouteParam(req.params.id));
+  await db
+    .runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists || snapshot.data()?.userId !== (req as any).userId) {
+        throw new Error("NOTIFICATION_NOT_FOUND");
+      }
+      transaction.update(ref, { readAt: Date.now() });
+    })
+    .catch((error) => {
+      if ((error as Error).message !== "NOTIFICATION_NOT_FOUND") throw error;
+    });
+  const snapshot = await ref.get();
+  if (!snapshot.exists || snapshot.data()?.userId !== (req as any).userId) {
+    return res.status(404).json({ error: "Không tìm thấy thông báo." });
+  }
+  res.json({ notification: snapshot.data() });
 });
 
 app.post("/api/rewards", requireAdmin, async (req, res) => {
@@ -2384,6 +3062,13 @@ app.post("/api/cards/fuse", requireAuth, async (req, res) => {
     if (!user || !progress) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
+    if (!pointEligibility(user).canEarnPoints) {
+      return res.status(403).json({
+        success: false,
+        code: "profile_verification_required",
+        error: "Hồ sơ cần được xác minh trước khi nhận điểm.",
+      });
+    }
 
     const count = progress.flashcardCounts?.[String(cardId)] || 0;
     if (count < 3) {
@@ -2402,7 +3087,7 @@ app.post("/api/cards/fuse", requireAuth, async (req, res) => {
     // Award bonus XP equivalent
     const serverCard = generateServerCard(cardId);
     const xpReward = Math.floor((serverCard.atk + serverCard.hp) * 2);
-    applyPointDelta(user, xpReward);
+    applyEarnedPoints(user, xpReward);
 
     await saveUserAndProgress(nickname, user, progress);
 
@@ -2515,13 +3200,20 @@ app.post("/api/shards/purchase", requireAuth, async (req, res) => {
         .json({ success: false, error: `Need ${cost} shards. You have ${currentShards}.` });
     }
 
+    if (itemId.startsWith("xp_") && !pointEligibility(user).canEarnPoints) {
+      return res.status(403).json({
+        success: false,
+        code: "profile_verification_required",
+        error: "Hồ sơ cần được xác minh trước khi nhận điểm.",
+      });
+    }
     progress.shards = currentShards - cost;
 
     // Handle XP boost — add directly to user points
     if (itemId.startsWith("xp_")) {
       const def = SHARD_XP_REWARDS[itemId as keyof typeof SHARD_XP_REWARDS];
       const xpBonus = def?.xpBonus || 0;
-      applyPointDelta(user, xpBonus);
+      applyEarnedPoints(user, xpBonus);
       await saveUserAndProgress(nickname, user, progress);
       return res.json({
         success: true,
@@ -2774,6 +3466,9 @@ app.get("/api/map-data", async (req, res) => {
 
 app.get("/api/user/:nick", requireAuth, async (req, res) => {
   const requestedNick = getRouteParam(req.params.nick);
+  if (!canAccessUserScope(req, requestedNick)) {
+    return res.status(403).json({ message: "Bạn không có quyền xem hồ sơ này." });
+  }
   const user = await getUser(requestedNick);
   const progress = await getGameProgress(requestedNick);
   if (user) {
@@ -2782,12 +3477,21 @@ app.get("/api/user/:nick", requireAuth, async (req, res) => {
       points: user.points,
       totalExpEarned: user.totalExpEarned,
       hasPlayed: user.hasPlayed,
+      email: user.email || null,
+      fullName: user.fullName || null,
+      full_name: user.fullName || null,
+      classGrade: user.classGrade || null,
+      class_grade: user.classGrade || null,
+      classId: user.classId || null,
+      class_id: user.classId || null,
+      profileComplete: Boolean(user.fullName?.trim() && user.classId),
       progress: progress || user.progress || null,
       selectedAvatar: user.selectedAvatar,
       selectedFrame: user.selectedFrame,
       shards: progress?.shards ?? user.progress?.shards ?? user.shards ?? 0,
       lastWheelClaimDate: user.lastWheelClaimDate || null,
       claimedStreakGifts: user.claimedStreakGifts || [],
+      ...publicProfileStatus(user),
     });
   } else {
     res.status(404).json({ message: "Not found" });
@@ -2808,12 +3512,12 @@ app.get("/api/user-progress", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/user-progress", requireAuth, async (req, res) => {
+app.post("/api/user-progress", requireAuth, requireCompleteProfile, async (req, res) => {
   const nickname = (req as any).userNick as string;
   const releaseLock = await acquireRewardLock(nickname);
   try {
     // Layer 2.3 — progress mutations target the authenticated user.
-    const { type, data, redeemInfo } = req.body ?? {};
+    const { type, data, redeemInfo, idempotencyKey } = req.body ?? {};
     console.log(`[user-progress] type=${type} data=${data} nickname=${nickname}`);
 
     // Read progress from dedicated user_progress collection (not users/{nick})
@@ -2896,11 +3600,51 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
       ) {
         return res.status(400).json({ success: false, message: "Thử thách không hợp lệ." });
       }
+      const isVerifiedScanChallenge = challengeId === 3;
+      const hasVerifiedEvent =
+        isVerifiedScanChallenge &&
+        (user.scanRewardHistory ?? []).some((entry) => getVietnamDayKey(entry.at) === todayStr);
+      if (!hasVerifiedEvent) {
+        if (db) {
+          await db
+            .collection("users")
+            .doc(nickname.toLowerCase())
+            .collection("self_reported_activities")
+            .doc(`${todayStr}_${challengeId}`)
+            .set(
+              {
+                challengeId,
+                day: todayStr,
+                status: "pending_verification",
+                createdAt: Date.now(),
+              },
+              { merge: true },
+            );
+        }
+        return res.json({
+          success: true,
+          verificationRequired: true,
+          earnedPoints: 0,
+          message: isVerifiedScanChallenge
+            ? "Hãy hoàn thành một lần quét hợp lệ trước khi nhận thưởng."
+            : "Hoạt động đã được ghi nhận và đang chờ xác nhận.",
+          progress,
+          points: user.points,
+          totalExpEarned: user.totalExpEarned,
+        });
+      }
       if (!progress.challengesCompleted.includes(challengeId)) {
+        if (!pointEligibility(user).canEarnPoints) {
+          return res.status(403).json({
+            success: false,
+            code: "profile_verification_required",
+            message: "Hồ sơ cần được xác minh trước khi nhận điểm.",
+          });
+        }
         progress.challengesCompleted.push(challengeId);
         progressReward = challengeReward;
         if (progress.challengesCompleted.length === 3) progressReward += 25;
-        applyPointDelta(user, progressReward);
+        applyEarnedPoints(user, progressReward);
       }
     } else if (type === "craft") {
       progress.crafted = progress.crafted || [];
@@ -2910,6 +3654,42 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
       }
       const normalizedRedeemInfo = parsedRedeemInfo.data;
       const rewardId = String(data ?? "").trim();
+      if (db) {
+        const requestKey = String(idempotencyKey ?? "").trim();
+        if (!/^[A-Za-z0-9:_-]{8,160}$/.test(requestKey)) {
+          return res.status(400).json({
+            success: false,
+            message: "Ứng dụng cũ thiếu mã giao dịch. Vui lòng tải lại trang rồi thử lại.",
+          });
+        }
+        const rewards = await loadRewardCatalog();
+        const reward = rewards.find((item) => String(item.id) === rewardId);
+        if (!reward) {
+          return res.status(400).json({ success: false, message: "Vật phẩm không hợp lệ." });
+        }
+        const outcome = await createRedemption({
+          ownerId: user.account_id,
+          ownerNick: user.nick,
+          reward,
+          recipient: normalizedRedeemInfo,
+          idempotencyKey: requestKey,
+        });
+        if (outcome.created) {
+          runInBackground("legacy-redemption-email", async () => {
+            await sendCraftEmail(user, reward.id, reward.name, normalizedRedeemInfo);
+          });
+        }
+        const currentProgress = (await getGameProgress(nickname)) ?? progress;
+        return res.json({
+          success: true,
+          progress: currentProgress,
+          points: outcome.balance,
+          totalExpEarned: user.totalExpEarned,
+          redemptionId: outcome.redemption.id,
+          status: outcome.redemption.status,
+          created: outcome.created,
+        });
+      }
       if (progress.crafted.some((item) => String(item) === rewardId)) {
         return res.status(409).json({ success: false, message: "Vật phẩm đã được đổi." });
       }
@@ -2937,17 +3717,7 @@ app.post("/api/user-progress", requireAuth, async (req, res) => {
       };
       user.redemptionRequests = [...(user.redemptionRequests ?? []), redemptionRequest];
       await saveUserAndProgress(nickname, user, progress);
-      const craftHistoryWrite = db
-        ? db.collection("users").doc(nickname.toLowerCase()).collection("craft_history").add({
-            timestamp: new Date().toISOString(),
-            craftedItemId: rewardId,
-            redemptionId: redemptionRequest.id,
-            itemName: redemptionRequest.itemName,
-            cost: craftCost,
-            redeemInfo: normalizedRedeemInfo,
-            status: redemptionRequest.status,
-          })
-        : Promise.resolve();
+      const craftHistoryWrite = Promise.resolve();
       await Promise.allSettled([
         craftHistoryWrite,
         logRewardTransaction(user.account_id, "spend", -craftCost, {
@@ -3079,11 +3849,6 @@ app.get("/api/exam/:nick", requireAuth, async (req, res) => {
     return;
   }
 
-  if (user.hasPlayed) {
-    res.json({ status: "PLAYED", message: "✅ Bạn đã hoàn thành minigame." });
-    return;
-  }
-
   // Date format: DD/MM/YYYY HH:mm:ss
   const parseDateStr = (dateStr: string) => {
     if (!dateStr) return null;
@@ -3145,15 +3910,64 @@ app.get("/api/exam/:nick", requireAuth, async (req, res) => {
     return;
   }
 
-  const qs = dynamicQuestions.map((q) => ({
+  const questionSnapshot: QuizSessionQuestion[] = dynamicQuestions.map((q) => ({
     id: q.id,
     content: q.content,
     options: q.options,
+    correctKey: q.correctKey,
+    points: q.points,
   }));
+  const editionId = buildQuizEditionId(
+    questionSnapshot,
+    startDt?.getTime() ?? null,
+    endDt?.getTime() ?? null,
+  );
+  const sessionId = buildQuizSessionId(user.account_id, editionId);
+  const expiresAt = Math.min(
+    endDt?.getTime() ?? Number.POSITIVE_INFINITY,
+    Date.now() + 15 * 60 * 1000,
+  );
+  const quizSession: StoredQuizSession = {
+    id: sessionId,
+    editionId,
+    accountId: user.account_id,
+    nickname: user.nick.toLowerCase(),
+    questions: questionSnapshot,
+    createdAt: Date.now(),
+    expiresAt,
+    submittedAt: null,
+    result: null,
+    resultingBalance: null,
+  };
+  let persistedSession = quizSession;
+  if (db) {
+    const sessionRef = db.collection("quiz_sessions").doc(sessionId);
+    persistedSession = await db.runTransaction(async (transaction) => {
+      const existing = await transaction.get(sessionRef);
+      if (existing.exists) return existing.data() as StoredQuizSession;
+      transaction.create(sessionRef, quizSession);
+      return quizSession;
+    });
+  } else if (!localQuizSessions.has(sessionId)) {
+    localQuizSessions.set(sessionId, quizSession);
+  } else {
+    persistedSession = localQuizSessions.get(sessionId) ?? quizSession;
+  }
+  if (persistedSession.submittedAt) {
+    return res.json({
+      status: "PLAYED",
+      message: "✅ Bạn đã hoàn thành bài kiểm tra này.",
+      result: persistedSession.result,
+    });
+  }
   res.json({
     status: "OPEN",
     message: "🔥 Minigame bắt đầu!",
-    questions: qs,
+    sessionId,
+    expiresAt,
+    questions: questionSnapshot.map(
+      ({ correctKey: _correctKey, points: _points, ...question }) => question,
+    ),
     config: dynamicConfig,
   });
 });
@@ -3211,80 +4025,184 @@ async function writeGoogleSheetsLog(
   }
 }
 
-app.post("/api/exam/submit", requireAuth, async (req, res) => {
-  // Layer 2.3 — exam answers and grading credit to the authenticated user.
+app.post("/api/exam/submit", requireAuth, requireCompleteProfile, async (req, res) => {
   const nickname = (req as any).userNick as string;
-  const { userAnswers } = req.body ?? {};
-  const user = await getUser(nickname);
-
-  if (!user) {
-    res.json({
+  const sessionId = typeof req.body?.sessionId === "string" ? req.body.sessionId.trim() : "";
+  const userAnswers = req.body?.userAnswers;
+  if (!/^[a-f0-9]{40}$/.test(sessionId)) {
+    return res.status(400).json({
       success: false,
-      message: "Lỗi: Không tìm thấy user để cộng điểm.",
+      message: "Phiên bài kiểm tra không hợp lệ. Vui lòng tải lại bài.",
     });
-    return;
   }
 
-  if (user.hasPlayed) {
-    res.json({ success: false, message: "Bạn đã nộp bài trước đó!" });
-    return;
-  }
+  let result: ReturnType<typeof gradeQuizSession>;
+  let newTotal = 0;
+  let accountId = "";
+  let newlySubmitted = false;
+  let pointsAwarded = 0;
 
-  let totalScore = 0;
-  let correctCount = 0;
-
-  for (const ans of userAnswers || []) {
-    // ans format: { id: number, choice: string }
-    const q = dynamicQuestions.find((dq) => dq.id === ans.id);
-    if (q) {
-      if (ans.choice.toUpperCase() === q.correctKey.toUpperCase()) {
-        totalScore += q.points;
-        correctCount++;
+  try {
+    if (db) {
+      const sessionRef = db.collection("quiz_sessions").doc(sessionId);
+      const userRef = db.collection("users").doc(nickname.toLowerCase());
+      const outcome = await db.runTransaction(async (transaction) => {
+        const [sessionSnapshot, userSnapshot] = await Promise.all([
+          transaction.get(sessionRef),
+          transaction.get(userRef),
+        ]);
+        if (!sessionSnapshot.exists) throw new Error("QUIZ_SESSION_NOT_FOUND");
+        if (!userSnapshot.exists) throw new Error("USER_NOT_FOUND");
+        const session = sessionSnapshot.data() as StoredQuizSession;
+        const storedUser = normalizeUserEconomy(userSnapshot.data() as User);
+        if (
+          session.nickname !== nickname.toLowerCase() ||
+          session.accountId !== storedUser.account_id
+        ) {
+          throw new Error("QUIZ_SESSION_FORBIDDEN");
+        }
+        if (session.submittedAt && session.result && session.resultingBalance !== null) {
+          return {
+            result: session.result,
+            newTotal: session.resultingBalance,
+            accountId: storedUser.account_id,
+            newlySubmitted: false,
+            pointsAwarded: Math.max(0, Math.trunc(Number(session.pointsAwarded) || 0)),
+          };
+        }
+        if (session.expiresAt < Date.now()) throw new Error("QUIZ_SESSION_EXPIRED");
+        const graded = gradeQuizSession(session.questions, userAnswers);
+        const awarded = pointEligibility(storedUser).canEarnPoints ? graded.totalScore : 0;
+        const points = storedUser.points + awarded;
+        const totalExpEarned = (storedUser.totalExpEarned ?? storedUser.points) + awarded;
+        const submittedAt = Date.now();
+        transaction.set(userRef, { points, totalExpEarned, hasPlayed: true }, { merge: true });
+        transaction.set(
+          sessionRef,
+          {
+            submittedAt,
+            result: graded,
+            resultingBalance: points,
+            pointsAwarded: awarded,
+          },
+          { merge: true },
+        );
+        if (awarded > 0) {
+          transaction.create(db!.collection("point_transactions").doc(`quiz_${sessionId}`), {
+            id: `quiz_${sessionId}`,
+            accountId: storedUser.account_id,
+            nickname: storedUser.nick,
+            type: "earn",
+            source: "quiz",
+            amount: awarded,
+            balanceAfter: points,
+            createdAt: submittedAt,
+            idempotencyKey: sessionId,
+          });
+        }
+        transaction.create(userRef.collection("exam_history").doc(sessionId), {
+          sessionId,
+          editionId: session.editionId,
+          timestamp: new Date(submittedAt).toISOString(),
+          answers: graded.results.map(({ id, choice }) => ({ id, choice })),
+          totalScore: graded.totalScore,
+          maxScore: graded.maxScore,
+          correctCount: graded.correctCount,
+        });
+        return {
+          result: graded,
+          newTotal: points,
+          accountId: storedUser.account_id,
+          newlySubmitted: true,
+          pointsAwarded: awarded,
+        };
+      });
+      ({ result, newTotal, accountId, newlySubmitted, pointsAwarded } = outcome);
+    } else {
+      const releaseLock = await acquireRewardLock(nickname);
+      try {
+        const session = localQuizSessions.get(sessionId);
+        const user = await getUser(nickname);
+        if (!session) throw new Error("QUIZ_SESSION_NOT_FOUND");
+        if (!user) throw new Error("USER_NOT_FOUND");
+        if (session.nickname !== nickname.toLowerCase() || session.accountId !== user.account_id) {
+          throw new Error("QUIZ_SESSION_FORBIDDEN");
+        }
+        if (session.submittedAt && session.result && session.resultingBalance !== null) {
+          result = session.result;
+          newTotal = session.resultingBalance;
+          accountId = user.account_id;
+          pointsAwarded = Math.max(0, Math.trunc(Number(session.pointsAwarded) || 0));
+        } else {
+          if (session.expiresAt < Date.now()) throw new Error("QUIZ_SESSION_EXPIRED");
+          result = gradeQuizSession(session.questions, userAnswers);
+          pointsAwarded = applyEarnedPoints(user, result.totalScore);
+          user.hasPlayed = true;
+          await saveUser(user);
+          session.submittedAt = Date.now();
+          session.result = result;
+          session.resultingBalance = user.points;
+          session.pointsAwarded = pointsAwarded;
+          localQuizSessions.set(sessionId, session);
+          newTotal = user.points;
+          accountId = user.account_id;
+          newlySubmitted = true;
+        }
+      } finally {
+        releaseLock();
       }
     }
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "QUIZ_SUBMIT_FAILED";
+    const messages: Record<string, string> = {
+      QUIZ_SESSION_NOT_FOUND: "Không tìm thấy phiên bài kiểm tra. Vui lòng tải lại.",
+      QUIZ_SESSION_EXPIRED: "Phiên bài kiểm tra đã hết hạn. Vui lòng bắt đầu lại.",
+      QUIZ_SESSION_FORBIDDEN: "Phiên bài kiểm tra không thuộc tài khoản này.",
+      USER_NOT_FOUND: "Không tìm thấy tài khoản.",
+    };
+    return res.status(code === "QUIZ_SESSION_FORBIDDEN" ? 403 : 409).json({
+      success: false,
+      message: messages[code] ?? "Không thể nộp bài lúc này.",
+    });
   }
 
-  applyPointDelta(user, totalScore);
-  user.hasPlayed = true;
-  await saveUser(user);
-
-  if (db && nickname) {
-    try {
-      await db
-        .collection("users")
-        .doc(nickname.toLowerCase())
-        .collection("exam_history")
-        .add({
-          timestamp: new Date().toISOString(),
-          answers: userAnswers || [],
-          totalScore: totalScore,
-          correctCount: correctCount,
+  if (newlySubmitted) {
+    runInBackground("quiz-research-log", async () => {
+      await eventLogger.logQuiz(
+        accountId,
+        true,
+        pointsAwarded,
+        result.correctCount,
+        result.results.length,
+      );
+      if (pointsAwarded > 0)
+        await logRewardTransaction(accountId, "earn", pointsAwarded, {
+          reason: "Hoàn thành bài kiểm tra",
+          source: "quiz",
+          pointsBalance: newTotal,
         });
-    } catch (e) {
-      console.warn("[submit-answers] exam history write failed:", (e as Error).message);
-    }
+      await writeGoogleSheetsLog(
+        "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q",
+        nickname,
+        "Hoàn thành bài kiểm tra",
+        pointsAwarded,
+      );
+    });
   }
 
-  // Research: Log quiz completion
-  await eventLogger.logQuiz(nickname, true, totalScore, correctCount, dynamicQuestions.length);
-  await logRewardTransaction(user.account_id, "earn", totalScore, {
-    reason: "Hoàn thành bài kiểm tra",
-    source: "quiz",
-    pointsBalance: user.points,
-  });
-
-  // Write to Logs sheet!
-  writeGoogleSheetsLog(
-    "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q",
-    nickname,
-    "Hoàn thành bài kiểm tra",
-    totalScore,
-  );
-
-  res.json({
+  return res.json({
     success: true,
-    message: `🎉 Đúng ${correctCount} câu. Cộng ${totalScore} điểm.`,
-    newTotal: user.points,
+    alreadySubmitted: !newlySubmitted,
+    message:
+      pointsAwarded > 0
+        ? `Đúng ${result.correctCount}/${result.results.length} câu. Cộng ${pointsAwarded} điểm.`
+        : `Đúng ${result.correctCount}/${result.results.length} câu. Hồ sơ cần được xác minh để nhận điểm.`,
+    score: result.totalScore,
+    earnedPoints: pointsAwarded,
+    maxScore: result.maxScore,
+    correctCount: result.correctCount,
+    results: result.results,
+    newTotal,
   });
 });
 
@@ -3397,7 +4315,58 @@ app.post("/api/chat", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/scan-garbage", requireAuth, async (req, res) => {
+app.get("/api/material-scans", requireAuth, async (req, res) => {
+  const ownerId = String((req as any).userId || "");
+  const limit = Number(req.query.limit ?? 30);
+  const scans = await listMaterialScans(ownerId, Number.isFinite(limit) ? limit : 30);
+  res.json({
+    scans: scans.map((scan) => ({
+      id: scan.id,
+      imageUrl: scan.imageUrl,
+      analysis: scan.analysis,
+      cardPreview: scan.preview,
+      cardId: scan.cardId,
+      createdAt: scan.createdAt,
+      expiresAt: scan.expiresAt,
+    })),
+  });
+});
+
+app.post("/api/material-scans/:scanId/report", requireAuth, async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Dịch vụ góp ý chưa sẵn sàng." });
+  const scanId = getRouteParam(req.params.scanId);
+  const scan = await getMaterialScan(scanId);
+  if (!scan) return res.status(404).json({ error: "Không tìm thấy lần quét." });
+  if (scan.ownerId !== (req as any).userId) {
+    return res.status(403).json({ error: "Lần quét không thuộc tài khoản này." });
+  }
+  const reason = String(req.body?.reason ?? "").trim();
+  const note = String(req.body?.note ?? "").trim();
+  if (!reason || reason.length > 80 || note.length > 1000) {
+    return res.status(400).json({ error: "Nội dung góp ý không hợp lệ." });
+  }
+  const id = crypto
+    .createHash("sha256")
+    .update(`${scan.ownerId}:${scanId}`)
+    .digest("hex")
+    .slice(0, 40);
+  await db.collection("scan_reports").doc(id).set(
+    {
+      id,
+      scanId,
+      ownerId: scan.ownerId,
+      reason,
+      note,
+      status: "pending",
+      updatedAt: Date.now(),
+      createdAt: Date.now(),
+    },
+    { merge: true },
+  );
+  res.status(202).json({ success: true, reportId: id });
+});
+
+app.post("/api/scan-garbage", requireAuth, requireCompleteProfile, async (req, res) => {
   try {
     const {
       imageBase64: bodyImageBase64,
@@ -3406,12 +4375,43 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
       locale,
       geoLat,
       geoLng,
+      requestId,
     } = req.body ?? {};
     const nickname = (req as any).userNick as string;
     const accountId = (req as any).userId as string;
+    const stableRequestId = typeof requestId === "string" ? requestId.trim() : "";
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        stableRequestId,
+      )
+    ) {
+      return res.status(400).json({
+        error: "Thiếu mã lần quét hợp lệ. Vui lòng tải lại trang và thử lại.",
+        code: "invalid_scan_request_id",
+      });
+    }
     const imageBase64 = bodyImageBase64 ?? image;
     if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
       return err(res, 400, "error.scan.noText", req as any);
+    }
+    const existingScan = await getMaterialScan(stableRequestId);
+    if (existingScan) {
+      if (existingScan.ownerId !== accountId) {
+        return res.status(403).json({ error: "Lần quét không thuộc tài khoản này." });
+      }
+      const currentUser = await getUser(nickname);
+      return res.json({
+        analysis: existingScan.analysis.description,
+        scan: existingScan.analysis,
+        cardPreview: existingScan.preview,
+        rewarded: false,
+        points: currentUser?.points ?? null,
+        pointsEarned: 0,
+        rewardAmount: 0,
+        rewardReason: "request_replayed",
+        rewardCap: getScanRewardConfig(),
+        replayed: true,
+      });
     }
     const deterministicTestResponse =
       process.env.NODE_ENV === "test" ? process.env.BMO_TEST_SCAN_RESPONSE : undefined;
@@ -3455,49 +4455,52 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
     // Compute image hash for dedup + provenance
     const imageHash = DatasetCuratorClass.hashImage(base64Data);
 
-    const scanId = crypto.randomUUID();
+    const scanId = stableRequestId;
 
     const response = deterministicTestResponse
       ? { text: deterministicTestResponse }
       : await Promise.race([
-      ai!.models.generateContent({
-        model: "gemini-2.5-flash",
-        config: {
-          responseMimeType: "application/json",
-          responseJsonSchema: MATERIAL_SCAN_RESPONSE_SCHEMA,
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: MATERIAL_SCAN_PROMPT }, { inlineData: { data: base64Data, mimeType } }],
-          },
-        ],
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () =>
-            reject(
-              new Error(
-                "AI_TIMEOUT: Gemini request timed out after 30s (possibly blocked in Vietnam)",
-              ),
+          ai!.models.generateContent({
+            model: "gemini-2.5-flash",
+            config: {
+              responseMimeType: "application/json",
+              responseJsonSchema: MATERIAL_SCAN_RESPONSE_SCHEMA,
+            },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: MATERIAL_SCAN_PROMPT },
+                  { inlineData: { data: base64Data, mimeType } },
+                ],
+              },
+            ],
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    "AI_TIMEOUT: Gemini request timed out after 30s (possibly blocked in Vietnam)",
+                  ),
+                ),
+              30_000,
             ),
-          30_000,
-        ),
-      ),
-    ]).catch((err: any) => {
-      // Ensure we always respond — don't let AI errors cascade
-      const isTimeout = err?.message?.includes("AI_TIMEOUT") || err?.name === "AbortError";
-      console.error(
-        isTimeout ? "Gemini timeout (network blocked?)" : "Gemini error:",
-        err?.message,
-      );
-      res.status(isTimeout ? 504 : 500).json({
-        error: isTimeout
-          ? "AI đang bận hoặc không thể kết nối. Vui lòng thử lại sau hoặc dùng chế độ Local AI."
-          : "Lỗi AI: " + (err?.message || "Unknown"),
-      });
-      throw err; // rethrow so we skip the rest
-    });
+          ),
+        ]).catch((err: any) => {
+          // Ensure we always respond — don't let AI errors cascade
+          const isTimeout = err?.message?.includes("AI_TIMEOUT") || err?.name === "AbortError";
+          console.error(
+            isTimeout ? "Gemini timeout (network blocked?)" : "Gemini error:",
+            err?.message,
+          );
+          res.status(isTimeout ? 504 : 500).json({
+            error: isTimeout
+              ? "AI đang bận hoặc không thể kết nối. Vui lòng thử lại sau hoặc dùng chế độ Local AI."
+              : "Lỗi AI: " + (err?.message || "Unknown"),
+          });
+          throw err; // rethrow so we skip the rest
+        });
 
     const rawAnalysis = response?.text || "";
     const latencyMs = Date.now() - startTime;
@@ -3662,7 +4665,12 @@ app.post("/api/scan-garbage", requireAuth, async (req, res) => {
     }
     if (nickname) {
       eventLogger
-        .logGarbageScan(nickname, scanAnalysis.eligibleForCard, predictedCategory || "uncertain", undefined)
+        .logGarbageScan(
+          nickname,
+          scanAnalysis.eligibleForCard,
+          predictedCategory || "uncertain",
+          undefined,
+        )
         .catch(() => {});
     }
 
@@ -3961,21 +4969,23 @@ app.put("/api/admin/users/:nick/points", requireAdmin, async (req, res) => {
   try {
     const nick = getRouteParam(req.params.nick);
     const { points, reason } = req.body;
-    if (typeof points !== "number") {
+    if (!Number.isSafeInteger(points) || points < 0) {
       return err(res, 400, "error.validationFailed", req as any);
     }
-    const user = await getUser(nick);
-    if (!user) return err(res, 404, "error.notFound", req as any);
-    const oldPoints = user.points;
-    applyPointDelta(user, Math.max(0, points) - oldPoints);
-    await saveUser(user);
-    await logRewardTransaction(user.account_id, "adjustment", points - oldPoints, {
-      reason: reason || "Admin adjustment",
-      source: "admin",
-      pointsBalance: user.points,
+    const result = await commitPointMutation({
+      nickname: nick,
+      targetBalance: points,
+      source: "admin_adjustment",
+      reason: String(reason || "Admin adjustment").slice(0, 240),
+      idempotencyKey: String(
+        req.headers["idempotency-key"] || req.body?.idempotencyKey || crypto.randomUUID(),
+      ),
     });
-    res.json({ success: true, oldPoints, newPoints: user.points });
+    res.json({ success: true, oldPoints: result.oldPoints, newPoints: result.newPoints });
   } catch (e) {
+    if ((e as Error).message === "USER_NOT_FOUND") {
+      return err(res, 404, "error.notFound", req as any);
+    }
     res.status(500).json({ error: (e as Error).message });
   }
 });
@@ -3985,21 +4995,28 @@ app.post("/api/admin/users/:nick/adjust-points", requireAdmin, async (req, res) 
   try {
     const nick = getRouteParam(req.params.nick);
     const { delta, reason } = req.body;
-    if (typeof delta !== "number") {
+    if (!Number.isSafeInteger(delta) || Math.abs(delta) > 1_000_000) {
       return err(res, 400, "error.validationFailed", req as any);
     }
-    const user = await getUser(nick);
-    if (!user) return err(res, 404, "error.notFound", req as any);
-    const oldPoints = user.points;
-    applyPointDelta(user, delta);
-    await saveUser(user);
-    await logRewardTransaction(user.account_id, "adjustment", delta, {
-      reason: reason || "Admin adjustment",
-      source: "admin",
-      pointsBalance: user.points,
+    const result = await commitPointMutation({
+      nickname: nick,
+      delta,
+      source: "admin_adjustment",
+      reason: String(reason || "Admin adjustment").slice(0, 240),
+      idempotencyKey: String(
+        req.headers["idempotency-key"] || req.body?.idempotencyKey || crypto.randomUUID(),
+      ),
     });
-    res.json({ success: true, oldPoints, delta, newPoints: user.points });
+    res.json({
+      success: true,
+      oldPoints: result.oldPoints,
+      delta: result.appliedDelta,
+      newPoints: result.newPoints,
+    });
   } catch (e) {
+    if ((e as Error).message === "USER_NOT_FOUND") {
+      return err(res, 404, "error.notFound", req as any);
+    }
     res.status(500).json({ error: (e as Error).message });
   }
 });
@@ -4011,7 +5028,17 @@ app.put("/api/admin/users/:nick/suspend", requireAdmin, async (req, res) => {
     const { suspended } = req.body;
     const user = await getUser(nick);
     if (!user) return err(res, 404, "error.notFound", req as any);
-    user.role = suspended ? "suspended" : nick.toLowerCase().startsWith("admin") ? "admin" : "user";
+    if (suspended) {
+      user.roleBeforeSuspension = user.role === "admin" ? "admin" : "user";
+      user.role = "suspended";
+      user.disabled = true;
+      disableUser(user.nick);
+    } else {
+      user.role = user.roleBeforeSuspension === "admin" ? "admin" : "user";
+      delete user.roleBeforeSuspension;
+      user.disabled = false;
+      enableUser(user.nick);
+    }
     await saveUser(user);
     res.json({ success: true, message: suspended ? `Đã suspend ${nick}` : `Đã unsuspend ${nick}` });
   } catch (e) {
@@ -4030,7 +5057,11 @@ app.post("/api/admin/users/:nick/disable", requireAdmin, async (req, res) => {
     if (!nick || typeof nick !== "string" || nick.length > 64) {
       return err(res, 400, "error.validationFailed", req as any);
     }
-    disableUser(nick);
+    const user = await getUser(nick);
+    if (!user) return err(res, 404, "error.notFound", req as any);
+    disableUser(user.nick);
+    user.disabled = true;
+    await saveUser(user);
     // Audit log
     try {
       await eventLogger.log(req.body.actor || "admin", "user_disabled", {
@@ -4056,7 +5087,11 @@ app.post("/api/admin/users/:nick/enable", requireAdmin, async (req, res) => {
     if (!nick || typeof nick !== "string" || nick.length > 64) {
       return err(res, 400, "error.validationFailed", req as any);
     }
-    enableUser(nick);
+    const user = await getUser(nick);
+    if (!user) return err(res, 404, "error.notFound", req as any);
+    enableUser(user.nick);
+    user.disabled = false;
+    await saveUser(user);
     try {
       await eventLogger.log(req.body.actor || "admin", "user_enabled", { target: nick });
     } catch (e) {
@@ -4666,11 +5701,14 @@ async function startServer(): Promise<Server> {
   // startServer() (right before app.listen) so they don't shadow
   // the per-domain routers mounted below.
 
-  // Auto-sync Google Sheets Data initially and every 15 minutes (push DB → Sheets + pull Sheets → DB)
+  // Optional Google Sheets export. This writes external data, so production
+  // operators must opt in explicitly instead of triggering it on every boot.
   const SPREADSHEET_ID =
     process.env.GOOGLE_SPREADSHEET_ID || "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q";
   const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+  const AUTO_SYNC_ENABLED = process.env.GOOGLE_SHEETS_AUTO_SYNC_ENABLED === "true";
   let syncErrorLogged = false;
+  let initialSyncTimer: NodeJS.Timeout | null = null;
   let syncIntervalHandle: NodeJS.Timeout | null = null;
   let lastSyncTime: string | null = null;
   let lastSyncResult: any = null;
@@ -4699,14 +5737,20 @@ async function startServer(): Promise<Server> {
     }
   };
 
-  // Run once after 3s, then every 15 minutes
-  const initialSyncTimer = setTimeout(startAutoSync, 3000);
-  initialSyncTimer.unref();
-  syncIntervalHandle = setInterval(startAutoSync, AUTO_SYNC_INTERVAL_MS);
-  syncIntervalHandle.unref();
+  if (AUTO_SYNC_ENABLED) {
+    // Run once after 3s, then every 15 minutes.
+    initialSyncTimer = setTimeout(startAutoSync, 3000);
+    initialSyncTimer.unref();
+    syncIntervalHandle = setInterval(startAutoSync, AUTO_SYNC_INTERVAL_MS);
+    syncIntervalHandle.unref();
+  }
 
   // Cleanup on shutdown
   const stopAutoSync = () => {
+    if (initialSyncTimer) {
+      clearTimeout(initialSyncTimer);
+      initialSyncTimer = null;
+    }
     if (syncIntervalHandle) {
       clearInterval(syncIntervalHandle);
       syncIntervalHandle = null;
@@ -4765,6 +5809,7 @@ async function startServer(): Promise<Server> {
   app.use(
     "/api",
     materialCardsRouter({
+      requireCompleteProfile,
       getLocalEconomy: (nick) =>
         process.env.NODE_ENV === "production" && !process.env.BMO_DATA_FILE?.trim()
           ? undefined
@@ -4860,17 +5905,31 @@ async function startServer(): Promise<Server> {
     ) {
       return err(res, 403, "error.forbidden", req as any);
     }
-    const db = getDb();
-    if (!db) return res.json([]);
+    if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
     try {
-      const { rows } = await db.query(
-        `SELECT transaction_type, amount, reason, source, multiplier, points_balance, created_at
-         FROM reward_transactions
-         WHERE user_id = $1
-         ORDER BY created_at DESC
-         LIMIT 50`,
-        [user.account_id],
-      );
+      const snapshot = await db
+        .collection("point_transactions")
+        .where("accountId", "==", user.account_id)
+        .limit(200)
+        .get();
+      const rows = snapshot.docs
+        .map((document) => {
+          const value = document.data();
+          return {
+            id: document.id,
+            transaction_type: value.type ?? (Number(value.amount) >= 0 ? "earn" : "spend"),
+            amount: Number(value.amount) || 0,
+            reason: value.reason ?? null,
+            source: value.source ?? null,
+            multiplier: Number(value.multiplier) || 1,
+            points_balance: Number.isFinite(Number(value.balanceAfter))
+              ? Number(value.balanceAfter)
+              : null,
+            created_at: new Date(Number(value.createdAt) || Date.now()).toISOString(),
+          };
+        })
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 50);
       res.json(rows);
     } catch (e) {
       err(res, 500, "error.internal", req as any);
@@ -4887,19 +5946,25 @@ async function startServer(): Promise<Server> {
     ) {
       return err(res, 403, "error.forbidden", req as any);
     }
-    const db = getDb();
-    if (!db) return res.json({ totalEarned: 0, totalSpent: 0, netChange: 0, txCount: 0 });
+    if (!db) return err(res, 503, "error.databaseUnavailable", req as any);
     try {
-      const { rows } = await db.query(
-        `SELECT transaction_type, amount FROM reward_transactions
-         WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '30 days'`,
-        [user.account_id],
-      );
+      const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const snapshot = await db
+        .collection("point_transactions")
+        .where("accountId", "==", user.account_id)
+        .limit(1000)
+        .get();
+      const rows = snapshot.docs
+        .map(
+          (document) => document.data() as { type?: string; amount?: number; createdAt?: number },
+        )
+        .filter((row) => Number(row.createdAt) >= cutoff);
       let totalEarned = 0,
         totalSpent = 0;
-      for (const r of rows as { transaction_type: string; amount: number }[]) {
-        if (r.transaction_type === "earn") totalEarned += r.amount;
-        else totalSpent += Math.abs(r.amount);
+      for (const r of rows) {
+        const amount = Number(r.amount) || 0;
+        if (r.type === "earn" || amount > 0) totalEarned += Math.abs(amount);
+        else totalSpent += Math.abs(amount);
       }
       res.json({
         totalEarned,

@@ -25,8 +25,13 @@ export function Auth({ onLogin }: AuthProps) {
 
   // Register states
   const [regName, setRegName] = useState("");
+  const [regNameEdited, setRegNameEdited] = useState(false);
   const [regFullName, setRegFullName] = useState("");
   const [regClassGrade, setRegClassGrade] = useState("");
+  const [skipProfileStandardization, setSkipProfileStandardization] = useState(false);
+  const [schoolClasses, setSchoolClasses] = useState<
+    Array<{ id: string; name: string; schoolYear: string }>
+  >([]);
   const [regNick, setRegNick] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPass, setRegPass] = useState("");
@@ -84,6 +89,24 @@ export function Auth({ onLogin }: AuthProps) {
     }
   }, []);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/classes")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("class_catalog_unavailable");
+        return response.json();
+      })
+      .then((body) => {
+        if (!cancelled && Array.isArray(body.classes)) setSchoolClasses(body.classes);
+      })
+      .catch(() => {
+        if (!cancelled) setSchoolClasses([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const switchView = (newView: ViewState) => {
     setView(newView);
     setMessage(null);
@@ -135,12 +158,19 @@ export function Auth({ onLogin }: AuthProps) {
             nick: data.account_id,
             name: data.nickname,
             account_id: data.account_id,
+            userId: data.user_id,
             points: data.points,
             totalExpEarned: progressData.totalExpEarned ?? data.totalExpEarned ?? data.points,
             role: data.role,
             email: data.email ?? progressData.email,
             fullName: data.full_name ?? progressData.full_name ?? progressData.fullName,
             classGrade: data.class_grade ?? progressData.class_grade ?? progressData.classGrade,
+            classId: data.class_id ?? progressData.class_id ?? progressData.classId,
+            profileVerificationStatus:
+              data.profile_verification_status ?? progressData.profileVerificationStatus,
+            canEarnPoints: data.can_earn_points ?? progressData.canEarnPoints,
+            pointEligibilityReason:
+              data.point_eligibility_reason ?? progressData.point_eligibility_reason,
             selectedAvatar: progressData.selectedAvatar ?? data.selectedAvatar,
             selectedFrame: progressData.selectedFrame ?? data.selectedFrame,
             customAvatarUrl: progressData.customAvatarUrl ?? data.customAvatarUrl,
@@ -155,12 +185,17 @@ export function Auth({ onLogin }: AuthProps) {
             nick: data.account_id,
             name: data.nickname,
             account_id: data.account_id,
+            userId: data.user_id,
             points: data.points,
             totalExpEarned: data.totalExpEarned ?? data.points,
             role: data.role,
             email: data.email,
             fullName: data.full_name,
             classGrade: data.class_grade,
+            classId: data.class_id,
+            profileVerificationStatus: data.profile_verification_status,
+            canEarnPoints: data.can_earn_points,
+            pointEligibilityReason: data.point_eligibility_reason,
             selectedAvatar: data.selectedAvatar,
             selectedFrame: data.selectedFrame,
             customAvatarUrl: data.customAvatarUrl,
@@ -191,6 +226,10 @@ export function Auth({ onLogin }: AuthProps) {
       setMessage({ text: t("auth.displayNameHint"), type: "error" });
       return;
     }
+    if (!skipProfileStandardization && (regFullName.trim().length < 2 || !regClassGrade)) {
+      setMessage({ text: t("auth.profileRequired"), type: "error" });
+      return;
+    }
     setLoading(true);
     setMessage(null);
     try {
@@ -200,10 +239,11 @@ export function Auth({ onLogin }: AuthProps) {
         body: JSON.stringify({
           reg_name: regName,
           reg_full_name: regFullName,
-          reg_class_grade: regClassGrade,
+          reg_class_id: regClassGrade,
           reg_nickname: regNick,
           reg_password: regPass,
           reg_email: regEmail,
+          reg_profile_skipped: skipProfileStandardization,
         }),
       });
       const data = await res.json();
@@ -213,8 +253,10 @@ export function Auth({ onLogin }: AuthProps) {
           setView("login");
           setLoginNick(regNick);
           setRegName("");
+          setRegNameEdited(false);
           setRegFullName("");
           setRegClassGrade("");
+          setSkipProfileStandardization(false);
           setRegNick("");
           setRegEmail("");
           setRegPass("");
@@ -348,13 +390,22 @@ export function Auth({ onLogin }: AuthProps) {
         <section className="relative hidden overflow-hidden bg-[var(--graphite)] px-10 py-12 text-white lg:flex lg:min-h-[690px] lg:flex-col lg:justify-center">
           <div className="scan-grid pointer-events-none absolute inset-0 opacity-50" />
           <div className="pointer-events-none absolute bottom-10 right-10 grid w-60 grid-cols-3 gap-2 opacity-80">
-            {(["plastic", "paper", "glass", "metal", "organic", "hazard"] as const).map((category, index) => (
-              <div key={category} data-material={category} className={`material-pattern material-${category} h-20 rounded-[8px] border border-white/15 ${index === 0 || index === 5 ? "col-span-2" : ""}`} />
-            ))}
+            {(["plastic", "paper", "glass", "metal", "organic", "hazard"] as const).map(
+              (category, index) => (
+                <div
+                  key={category}
+                  data-material={category}
+                  className={`material-pattern material-${category} h-20 rounded-[8px] border border-white/15 ${index === 0 || index === 5 ? "col-span-2" : ""}`}
+                />
+              ),
+            )}
           </div>
           <div className="relative z-10 flex h-full flex-col justify-center">
             <div className="mb-8 flex items-center gap-3">
-              <div className="material-pattern material-organic flex h-11 w-11 items-center justify-center rounded-[8px] border border-white/20" data-material="organic">
+              <div
+                className="material-pattern material-organic flex h-11 w-11 items-center justify-center rounded-[8px] border border-white/20"
+                data-material="organic"
+              >
                 <Leaf size={26} aria-hidden="true" />
               </div>
               <div>
@@ -372,7 +423,10 @@ export function Auth({ onLogin }: AuthProps) {
               {productCopy.features.map((feature, index) => {
                 const FeatureIcon = [ScanLine, ShieldCheck, Sparkles][index];
                 return (
-                  <div key={feature} className="flex items-center gap-3 text-sm font-medium text-[#d9dfdb]">
+                  <div
+                    key={feature}
+                    className="flex items-center gap-3 text-sm font-medium text-[#d9dfdb]"
+                  >
                     <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/15 bg-white/[0.04] text-[var(--signal)]">
                       <FeatureIcon size={18} aria-hidden="true" />
                     </span>
@@ -391,7 +445,10 @@ export function Auth({ onLogin }: AuthProps) {
 
         <section className="mx-auto max-h-[calc(100vh-2.5rem)] w-full max-w-[470px] overflow-y-auto bg-[var(--surface)] p-6 text-center sm:p-9 lg:max-h-[calc(100vh-4rem)]">
           <div className="mb-6 flex items-center justify-center gap-3 lg:hidden">
-            <div className="material-pattern material-organic flex h-10 w-10 items-center justify-center rounded-[8px] text-white" data-material="organic">
+            <div
+              className="material-pattern material-organic flex h-10 w-10 items-center justify-center rounded-[8px] text-white"
+              data-material="organic"
+            >
               <Leaf size={22} aria-hidden="true" />
             </div>
             <div className="text-left">
@@ -518,7 +575,10 @@ export function Auth({ onLogin }: AuthProps) {
                     aria-required="true"
                     aria-describedby="reg-name-hint"
                     value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
+                    onChange={(e) => {
+                      setRegNameEdited(true);
+                      setRegName(e.target.value);
+                    }}
                     placeholder={t("auth.displayNamePlaceholder")}
                     className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                   />
@@ -536,10 +596,16 @@ export function Auth({ onLogin }: AuthProps) {
                   <input
                     id="reg-full-name"
                     type="text"
-                    aria-required="false"
+                    required={!skipProfileStandardization}
+                    aria-required={!skipProfileStandardization}
                     aria-describedby="reg-full-name-hint"
                     value={regFullName}
-                    onChange={(e) => setRegFullName(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setRegFullName(value);
+                      if (!regNameEdited) setRegName(value);
+                    }}
+                    disabled={skipProfileStandardization}
                     placeholder={t("auth.fullNamePlaceholder")}
                     className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none"
                   />
@@ -556,22 +622,37 @@ export function Auth({ onLogin }: AuthProps) {
                   </label>
                   <select
                     id="reg-class"
-                    aria-required="false"
+                    required={!skipProfileStandardization}
+                    aria-required={!skipProfileStandardization}
                     aria-describedby="reg-class-hint"
                     value={regClassGrade}
                     onChange={(e) => setRegClassGrade(e.target.value)}
+                    disabled={skipProfileStandardization}
                     className="w-full p-3 border-2 border-[var(--border-subtle)] rounded-lg text-[15px] bg-[var(--surface-muted)] transition-colors focus:border-[var(--text-muted)] focus:bg-white outline-none appearance-none cursor-pointer"
                   >
                     <option value="">{t("auth.classGradePlaceholder")}</option>
-                    {[...Array(12)].map((_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>
-                        Lớp {i + 1}
+                    {schoolClasses.map((schoolClass) => (
+                      <option key={schoolClass.id} value={schoolClass.id}>
+                        {schoolClass.name} · {schoolClass.schoolYear}
                       </option>
                     ))}
                   </select>
                   <p id="reg-class-hint" className="text-[11px] text-[var(--text-muted)] mt-1">
                     {t("auth.classGradeHint")}
                   </p>
+                </div>
+                <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                  <p className="font-semibold">{t("auth.verificationNoticeTitle")}</p>
+                  <p className="mt-1 leading-5">{t("auth.verificationNotice")}</p>
+                  <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={skipProfileStandardization}
+                      onChange={(event) => setSkipProfileStandardization(event.target.checked)}
+                      className="h-4 w-4 accent-emerald-700"
+                    />
+                    <span className="font-medium">{t("auth.skipProfileStandardization")}</span>
+                  </label>
                 </div>
                 <div>
                   <label

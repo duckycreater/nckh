@@ -7,9 +7,15 @@ import {
   type TransactionalEmail,
 } from "./emailDelivery.js";
 
-type OutboxStatus = "queued" | "sending" | "accepted" | "failed";
+export type OutboxStatus =
+  | "queued"
+  | "sending"
+  | "accepted"
+  | "delivered"
+  | "bounced"
+  | "failed";
 
-interface EmailOutboxDocument {
+export interface EmailOutboxDocument {
   id: string;
   kind: string;
   message: TransactionalEmail;
@@ -21,6 +27,8 @@ interface EmailOutboxDocument {
   updatedAt: number;
   nextAttemptAt: number;
   acceptedAt: number | null;
+  deliveredAt: number | null;
+  leaseExpiresAt: number | null;
 }
 
 export type EmailQueueResult =
@@ -30,6 +38,7 @@ export type EmailQueueResult =
 
 const COLLECTION = "email_outbox";
 const MAX_ATTEMPTS = 5;
+const SEND_LEASE_MS = 2 * 60 * 1000;
 const memoryOutbox = new Map<string, EmailOutboxDocument>();
 
 function retryDelay(attempts: number) {
@@ -61,7 +70,9 @@ async function claim(id: string): Promise<EmailOutboxDocument | null> {
       const document = snapshot.data() as EmailOutboxDocument;
       if (
         document.status === "accepted" ||
-        document.status === "sending" ||
+        document.status === "delivered" ||
+        document.status === "bounced" ||
+        (document.status === "sending" && (document.leaseExpiresAt ?? Infinity) > Date.now()) ||
         document.attempts >= MAX_ATTEMPTS ||
         document.nextAttemptAt > Date.now()
       ) {
@@ -72,6 +83,7 @@ async function claim(id: string): Promise<EmailOutboxDocument | null> {
         status: "sending" as const,
         attempts: document.attempts + 1,
         updatedAt: Date.now(),
+        leaseExpiresAt: Date.now() + SEND_LEASE_MS,
       };
       transaction.set(ref, next, { merge: false });
       return next;
@@ -81,7 +93,9 @@ async function claim(id: string): Promise<EmailOutboxDocument | null> {
   if (
     !document ||
     document.status === "accepted" ||
-    document.status === "sending" ||
+    document.status === "delivered" ||
+    document.status === "bounced" ||
+    (document.status === "sending" && (document.leaseExpiresAt ?? Infinity) > Date.now()) ||
     document.attempts >= MAX_ATTEMPTS ||
     document.nextAttemptAt > Date.now()
   ) {
@@ -92,6 +106,7 @@ async function claim(id: string): Promise<EmailOutboxDocument | null> {
     status: "sending" as const,
     attempts: document.attempts + 1,
     updatedAt: Date.now(),
+    leaseExpiresAt: Date.now() + SEND_LEASE_MS,
   };
   memoryOutbox.set(id, structuredClone(next));
   return next;
@@ -114,6 +129,7 @@ export async function processEmailOutboxItem(
           lastError: null,
           updatedAt: now,
           acceptedAt: now,
+          leaseExpiresAt: null,
           nextAttemptAt: 0,
         }
       : {
@@ -122,6 +138,7 @@ export async function processEmailOutboxItem(
           lastError:
             delivery.status === "failed" ? delivery.reason : "provider_or_recipient_not_configured",
           updatedAt: now,
+          leaseExpiresAt: null,
           nextAttemptAt: now + retryDelay(claimed.attempts),
         };
   await save(next);
@@ -150,6 +167,8 @@ export async function enqueueEmail(
     updatedAt: now,
     nextAttemptAt: now,
     acceptedAt: null,
+    deliveredAt: null,
+    leaseExpiresAt: null,
   };
   await save(document);
   const processed = await processEmailOutboxItem(document.id, sender);
@@ -173,16 +192,28 @@ export async function retryDueEmails(sender: EmailSender | null): Promise<number
   const now = Date.now();
   const db = getFirestore();
   const documents = db
-    ? (await db.collection(COLLECTION).limit(50).get()).docs.map(
-        (snapshot) => snapshot.data() as EmailOutboxDocument,
-      )
+    ? (
+        await Promise.all(
+          (["queued", "failed", "sending"] as const).map((status) =>
+            // Keep deployment independent from a composite Firestore index.
+            // Status has an automatic single-field index; due-time and lease
+            // checks happen below before the batch is capped.
+            db.collection(COLLECTION).where("status", "==", status).get(),
+          ),
+        )
+      ).flatMap((result) => result.docs.map((snapshot) => snapshot.data() as EmailOutboxDocument))
     : [...memoryOutbox.values()];
-  const due = documents.filter(
-    (document) =>
-      (document.status === "queued" || document.status === "failed") &&
-      document.attempts < MAX_ATTEMPTS &&
-      document.nextAttemptAt <= now,
-  );
+  const due = documents
+    .filter(
+      (document) =>
+        (document.status === "queued" ||
+          document.status === "failed" ||
+          (document.status === "sending" && (document.leaseExpiresAt ?? 0) <= now)) &&
+        document.attempts < MAX_ATTEMPTS &&
+        document.nextAttemptAt <= now,
+    )
+    .sort((left, right) => left.nextAttemptAt - right.nextAttemptAt)
+    .slice(0, 50);
   await Promise.all(due.map((document) => processEmailOutboxItem(document.id, sender)));
   return due.length;
 }
@@ -217,10 +248,54 @@ export async function getEmailOutboxSummary() {
       (document) => document.status === "failed" && document.attempts >= MAX_ATTEMPTS,
     ).length,
     accepted: documents.filter((document) => document.status === "accepted").length,
+    delivered: documents.filter((document) => document.status === "delivered").length,
+    bounced: documents.filter((document) => document.status === "bounced").length,
+    sending: documents.filter((document) => document.status === "sending").length,
   };
+}
+
+/** Provider webhooks call this after signature verification. "accepted" only
+ * means that the provider took responsibility for a message; delivery and
+ * bounce are deliberately recorded as separate terminal states. */
+export async function recordEmailDeliveryEvent(
+  providerMessageId: string,
+  event: "delivered" | "bounced",
+): Promise<boolean> {
+  const normalizedId = providerMessageId.trim();
+  if (!normalizedId) return false;
+  const db = getFirestore();
+  let document: EmailOutboxDocument | null = null;
+  if (db) {
+    const result = await db
+      .collection(COLLECTION)
+      .where("providerMessageId", "==", normalizedId)
+      .limit(1)
+      .get();
+    document = result.empty ? null : (result.docs[0].data() as EmailOutboxDocument);
+  } else {
+    document =
+      [...memoryOutbox.values()].find((item) => item.providerMessageId === normalizedId) ?? null;
+  }
+  if (!document) return false;
+  // Webhooks are commonly delivered more than once. Replaying the same event
+  // must be a no-op and a delivered message must never be downgraded.
+  if (document.status === "delivered" || document.status === event) return true;
+  const now = Date.now();
+  await save({
+    ...document,
+    status: event,
+    updatedAt: now,
+    deliveredAt: event === "delivered" ? now : document.deliveredAt,
+    leaseExpiresAt: null,
+    nextAttemptAt: 0,
+  });
+  return true;
 }
 
 export const emailOutboxTestUtils = {
   reset: () => memoryOutbox.clear(),
   list: () => [...memoryOutbox.values()].map((document) => structuredClone(document)),
+  seed: (documents: EmailOutboxDocument[]) => {
+    for (const document of documents) memoryOutbox.set(document.id, structuredClone(document));
+  },
 };

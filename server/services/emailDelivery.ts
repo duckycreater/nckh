@@ -31,6 +31,7 @@ export interface EmailConfigurationStatus {
   fromConfigured: boolean;
   notificationRecipientConfigured: boolean;
   publicAppUrlConfigured: boolean;
+  webhookConfigured: boolean;
 }
 
 export function getConfiguredEmailProvider(
@@ -43,8 +44,8 @@ export function getConfiguredEmailProvider(
   const resendConfigured = Boolean(env.RESEND_API_KEY?.trim());
   if (requested === "smtp" && smtpConfigured) return "smtp";
   if (requested === "resend" && resendConfigured) return "resend";
-  if (!requested && smtpConfigured) return "smtp";
   if (!requested && resendConfigured) return "resend";
+  if (!requested && smtpConfigured) return "smtp";
   return null;
 }
 
@@ -60,6 +61,7 @@ export function getEmailConfigurationStatus(
     ),
     notificationRecipientConfigured: Boolean(env.PURCHASE_NOTIFICATION_EMAIL?.trim()),
     publicAppUrlConfigured: Boolean(env.PUBLIC_APP_URL?.trim()),
+    webhookConfigured: Boolean(env.RESEND_WEBHOOK_SECRET?.trim()),
   };
 }
 

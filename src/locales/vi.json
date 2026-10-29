@@ -91,7 +91,14 @@
     "completeProfileSubtitle": "Vui lòng xác nhận họ tên và lớp để tiếp tục.",
     "completeProfileLater": "Để sau",
     "completeProfileSave": "Lưu hồ sơ",
-    "profileSaved": "Đã lưu hồ sơ."
+    "profileSaved": "Đã lưu hồ sơ.",
+    "profileRequired": "Vui lòng nhập họ tên và chọn lớp, hoặc chọn bỏ qua lúc này.",
+    "verificationNoticeTitle": "Xác minh thông tin học sinh",
+    "verificationNotice": "Hãy nhập đúng họ tên và lớp. Hồ sơ sai, chưa được xác minh hoặc bị bỏ qua sẽ không được cộng điểm.",
+    "skipProfileStandardization": "Bỏ qua lúc này (chưa thể nhận điểm)",
+    "profileVerificationPendingTitle": "Hồ sơ chưa được xác minh",
+    "profileVerificationPendingBody": "Bạn vẫn có thể sử dụng ứng dụng, nhưng chưa thể nhận điểm cho đến khi thông tin được duyệt.",
+    "completeProfileAction": "Hoàn thiện hồ sơ"
   },
   "settings": {
     "settings": "Cài đặt",
@@ -421,15 +428,7 @@
   "streakCalendar": {
     "history": "Lịch Sử Check-in",
     "last7Days": "7 ngày gần nhất",
-    "weekdays": [
-      "T2",
-      "T3",
-      "T4",
-      "T5",
-      "T6",
-      "T7",
-      "CN"
-    ]
+    "weekdays": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
   },
   "surpriseGift": {
     "openning": "Đang mở quà...",

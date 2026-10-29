@@ -131,9 +131,9 @@ export function parseMaterialScanAnalysis(raw: string, scanId: string): ScanAnal
           source: "visual_observation" as const,
           evidence: "Dấu hiệu quan sát được trong ảnh; chưa đủ để xác định nhóm vật liệu.",
         })),
-    uncertaintyReason: eligibleForCard
-      ? null
-      : value.uncertaintyReason || "Ảnh chưa đủ căn cứ để xác thực một vật thể rác.",
+    uncertaintyReason:
+      value.uncertaintyReason ||
+      (eligibleForCard ? null : "Ảnh chưa đủ căn cứ để xác thực một vật thể rác."),
     eligibleForCard,
     knowledgeBaseVersion: MATERIAL_KNOWLEDGE_VERSION,
   };

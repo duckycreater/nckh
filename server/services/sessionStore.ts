@@ -60,6 +60,9 @@ export type SessionPersistence = {
   insert: (token: string, rec: SessionRecord) => Promise<void>;
   delete: (token: string) => Promise<void>;
   sweep: () => Promise<void>;
+  disableUser?: (nick: string) => Promise<void>;
+  enableUser?: (nick: string) => Promise<void>;
+  listDisabledUsers?: () => Promise<string[]>;
 };
 
 let persistence: SessionPersistence = {
@@ -68,13 +71,14 @@ let persistence: SessionPersistence = {
     if (!db) return;
     try {
       await db.query(
-        `INSERT INTO session_tokens (token, nick, is_admin, expires_at, created_at)
-         VALUES ($1, $2, $3, to_timestamp($4 / 1000.0), NOW())
+        `INSERT INTO session_tokens (token, nick, account_id, is_admin, expires_at, created_at)
+         VALUES ($1, $2, $3, $4, to_timestamp($5 / 1000.0), NOW())
          ON CONFLICT (token) DO UPDATE SET
            nick = EXCLUDED.nick,
+           account_id = EXCLUDED.account_id,
            is_admin = EXCLUDED.is_admin,
            expires_at = EXCLUDED.expires_at`,
-        [token, rec.nick, rec.isAdmin, rec.expires],
+        [token, rec.nick, rec.accountId ?? null, rec.isAdmin, rec.expires],
       );
     } catch (e) {
       console.warn(
@@ -100,6 +104,26 @@ let persistence: SessionPersistence = {
     } catch {
       // best-effort sweep
     }
+  },
+  async disableUser(nick) {
+    const db = getDb();
+    if (!db) return;
+    await db.query(
+      `INSERT INTO revoked_users (nick, revoked_at) VALUES ($1, NOW())
+       ON CONFLICT (nick) DO UPDATE SET revoked_at = EXCLUDED.revoked_at`,
+      [nick.toLowerCase()],
+    );
+  },
+  async enableUser(nick) {
+    const db = getDb();
+    if (!db) return;
+    await db.query(`DELETE FROM revoked_users WHERE nick = $1`, [nick.toLowerCase()]);
+  },
+  async listDisabledUsers() {
+    const db = getDb();
+    if (!db) return [];
+    const { rows } = await db.query(`SELECT nick FROM revoked_users`);
+    return rows.map((row) => String(row.nick));
   },
 };
 
@@ -165,6 +189,7 @@ export function validateSessionToken(token: string | undefined | null): SessionR
 /** Layer 2.10 — revoke a user's access immediately (admin tool). */
 export function disableUser(nick: string): void {
   revokedUsers.add(nick.toLowerCase());
+  void persistence.disableUser?.(nick);
   // Eagerly purge any cached tokens for this nick so concurrent
   // requests can't squeeze through between the Set update and the
   // next `validateSessionToken` call.
@@ -174,6 +199,7 @@ export function disableUser(nick: string): void {
 /** Layer 2.10 — restore a previously disabled user. */
 export function enableUser(nick: string): void {
   revokedUsers.delete(nick.toLowerCase());
+  void persistence.enableUser?.(nick);
 }
 
 /** Layer 2.10 — test seam. Returns true if the nick is currently
@@ -215,7 +241,7 @@ export async function initSessionStore(): Promise<void> {
   if (db) {
     try {
       const { rows } = await db.query(
-        `SELECT token, nick, is_admin,
+        `SELECT token, nick, account_id, is_admin,
                 EXTRACT(EPOCH FROM expires_at) * 1000 AS expires
          FROM session_tokens
          WHERE expires_at > NOW()
@@ -227,6 +253,7 @@ export async function initSessionStore(): Promise<void> {
           cache.set(row.token, {
             nick: row.nick,
             isAdmin: row.is_admin === true,
+            accountId: typeof row.account_id === "string" ? row.account_id : undefined,
             expires: Number(row.expires),
           });
         }
@@ -237,6 +264,15 @@ export async function initSessionStore(): Promise<void> {
         (e as Error).message,
       );
     }
+  }
+  try {
+    const disabled = await persistence.listDisabledUsers?.();
+    if (disabled) {
+      revokedUsers.clear();
+      for (const nick of disabled) revokedUsers.add(nick.toLowerCase());
+    }
+  } catch (error) {
+    console.warn("[sessionStore] disabled-user restore failed:", (error as Error).message);
   }
   await persistence.sweep();
 }

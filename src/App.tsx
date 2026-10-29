@@ -117,7 +117,8 @@ export default function App() {
       }
 
       try {
-        const response = await fetch(`/api/user/${encodeURIComponent(parsed.account_id)}`, {
+        const identity = parsed.userId || parsed.nick || parsed.account_id;
+        const response = await fetch(`/api/user/${encodeURIComponent(identity)}`, {
           headers: getAuthHeaders(),
         });
         if (response.ok) {
@@ -147,7 +148,7 @@ export default function App() {
   }, []);
 
   // Phase 2: bootstrap on-device trainer + auto-pull global model updates.
-  const userAccountId = user?.account_id;
+  const userAccountId = user?.userId || user?.account_id;
   useEffect(() => {
     if (!userAccountId) return;
     let cancelled = false;
@@ -183,12 +184,25 @@ export default function App() {
     setUser(loggedInUser);
   };
 
-  const handleProfileUpdates = (updates: { fullName?: string; classGrade?: string }) => {
+  const handleProfileUpdates = (updates: {
+    fullName?: string;
+    classGrade?: string;
+    classId?: string;
+    profileVerificationStatus?: User["profileVerificationStatus"];
+    canEarnPoints?: boolean;
+    pointEligibilityReason?: string | null;
+  }) => {
     setUser((prev) => {
       if (!prev) return prev;
       const next: User = { ...prev };
       if (updates.fullName !== undefined) next.fullName = updates.fullName;
       if (updates.classGrade !== undefined) next.classGrade = updates.classGrade;
+      if (updates.classId !== undefined) next.classId = updates.classId;
+      if (updates.profileVerificationStatus !== undefined)
+        next.profileVerificationStatus = updates.profileVerificationStatus;
+      if (updates.canEarnPoints !== undefined) next.canEarnPoints = updates.canEarnPoints;
+      if (updates.pointEligibilityReason !== undefined)
+        next.pointEligibilityReason = updates.pointEligibilityReason;
       localStorage.setItem("user_session", JSON.stringify(next));
       return next;
     });
@@ -196,16 +210,19 @@ export default function App() {
 
   const handleDismissProfileCompletion = () => {
     if (!user) return;
-    const next: User = { ...user, fullName: user.fullName, classGrade: user.classGrade };
-    localStorage.setItem("profile_meta_skipped", next.account_id);
-    setUser(next);
+    localStorage.setItem("profile_meta_skipped", user.account_id);
   };
 
   const requiresProfileCompletion =
     !!user &&
     !user.role?.toLowerCase().includes("admin") &&
-    !user.fullName &&
-    !user.classGrade &&
+    user.profileVerificationStatus !== "pending" &&
+    user.profileVerificationStatus !== "verified" &&
+    user.profileVerificationStatus !== "skipped" &&
+    (!user.fullName ||
+      !user.classId ||
+      /^8A(?:[1-9]|10)$/i.test(user.classGrade || "") ||
+      user.profileVerificationStatus === "rejected") &&
     localStorage.getItem("profile_meta_skipped") !== user.account_id;
 
   const handleLogout = () => {

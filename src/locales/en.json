@@ -91,7 +91,14 @@
     "completeProfileSubtitle": "Please confirm your full name and class to continue.",
     "completeProfileLater": "Later",
     "completeProfileSave": "Save profile",
-    "profileSaved": "Profile saved."
+    "profileSaved": "Profile saved.",
+    "profileRequired": "Enter your full name and class, or choose to skip for now.",
+    "verificationNoticeTitle": "Student information verification",
+    "verificationNotice": "Enter your correct full name and class. Incorrect, unverified or skipped profiles cannot earn points.",
+    "skipProfileStandardization": "Skip for now (points unavailable)",
+    "profileVerificationPendingTitle": "Profile not verified",
+    "profileVerificationPendingBody": "You can continue using the app, but cannot earn points until your information is approved.",
+    "completeProfileAction": "Complete profile"
   },
   "settings": {
     "settings": "Settings",
@@ -421,15 +428,7 @@
   "streakCalendar": {
     "history": "Check-in History",
     "last7Days": "Last 7 days",
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ]
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "surpriseGift": {
     "openning": "Opening gift...",

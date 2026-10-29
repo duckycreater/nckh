@@ -72,6 +72,7 @@ describe("email delivery", () => {
       fromConfigured: true,
       notificationRecipientConfigured: true,
       publicAppUrlConfigured: true,
+      webhookConfigured: false,
     });
   });
 
@@ -87,5 +88,15 @@ describe("email delivery", () => {
       configured: true,
       fromConfigured: true,
     });
+  });
+
+  it("prefers the HTTPS provider when both providers are configured implicitly", () => {
+    expect(
+      getEmailConfigurationStatus({
+        RESEND_API_KEY: "resend-secret",
+        SMTP_USER: "ops@example.com",
+        SMTP_PASS: "smtp-secret",
+      }),
+    ).toMatchObject({ provider: "resend", configured: true });
   });
 });

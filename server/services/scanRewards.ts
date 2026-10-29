@@ -13,7 +13,13 @@ export interface ScanRewardEntry {
 export interface ScanRewardDecision {
   awarded: number;
   totalToday: number;
-  reason: "ok" | "capped" | "profile_capped" | "duplicate" | "no_user";
+  reason:
+    | "ok"
+    | "capped"
+    | "profile_capped"
+    | "duplicate"
+    | "no_user"
+    | "profile_verification_required";
   history: ScanRewardEntry[];
 }
 

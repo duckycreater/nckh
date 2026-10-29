@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CheckCircle2, Gift, Handshake, MapPin, ShieldCheck, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserProgress, RewardItem } from "../types";
@@ -40,6 +40,7 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [craftError, setCraftError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+  const redemptionRequestKey = useRef<string | null>(null);
 
   useEffect(() => {
     setAppCriticalActivity("reward-redemption", craftingId !== null);
@@ -120,23 +121,29 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
     }
     setCraftError(null);
     setCraftingId(recipeId);
+    redemptionRequestKey.current ||= crypto.randomUUID();
     try {
-      const response = await fetch("/api/user-progress", {
+      const response = await fetch("/api/redemptions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": redemptionRequestKey.current,
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({
-          type: "craft",
-          data: recipeId,
-          redeemInfo: { fullName: recipientName, address: recipientAddress },
+          rewardId: recipeId,
+          recipient: { fullName: recipientName, address: recipientAddress },
+          idempotencyKey: redemptionRequestKey.current,
         }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.success) {
-        throw new Error(result?.message || "Đổi quà thất bại.");
+        throw new Error(result?.error || result?.message || "Đổi quà thất bại.");
       }
       setCrafted((prev) => [...prev, recipeId]);
       setSuccessItem(itemName);
-      onRefresh?.(result.progress);
+      redemptionRequestKey.current = null;
+      onRefresh?.();
       window.setTimeout(() => {
         setSuccessItem(null);
       }, 4000);
@@ -214,7 +221,9 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
               recipes.map((recipe) => {
                 const isCrafting = craftingId === recipe.id;
                 const canAfford = points >= recipe.cost;
-                const alreadyRedeemed = crafted.some((item) => String(item) === String(recipe.id));
+                const hasPreviousRequest = crafted.some(
+                  (item) => String(item) === String(recipe.id),
+                );
 
                 return (
                   <motion.article
@@ -300,16 +309,12 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                             setFormError(null);
                             setCraftError(null);
                           }}
-                          disabled={!canAfford || alreadyRedeemed}
+                          disabled={!canAfford}
                           size="sm"
                           variant={canAfford ? "primary" : "ghost"}
                         >
                           <Handshake size={14} />
-                          {alreadyRedeemed
-                            ? "Đã gửi yêu cầu"
-                            : canAfford
-                              ? "Đổi ngay"
-                              : "Chưa đủ điểm"}
+                          {canAfford ? (hasPreviousRequest ? "Đổi thêm" : "Đổi ngay") : "Chưa đủ điểm"}
                         </Button>
                       )}
                     </div>

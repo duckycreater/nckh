@@ -20,6 +20,53 @@ let registration: ServiceWorkerRegistration | null = null;
 let countdown: number | null = null;
 const listeners = new Set<() => void>();
 const criticalActivities = new Set<string>();
+const tabId = typeof crypto !== "undefined" ? crypto.randomUUID() : String(Math.random());
+const remoteActivity = new Map<string, number>();
+const ACTIVITY_TTL_MS = 10_000;
+let activityChannel: BroadcastChannel | null = null;
+
+function ensureActivityCoordination() {
+  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined" || activityChannel) {
+    return;
+  }
+  activityChannel = new BroadcastChannel("bmo-critical-activity-v1");
+  activityChannel.addEventListener("message", (event) => {
+    const message = event.data as { tabId?: unknown; active?: unknown; timestamp?: unknown };
+    if (typeof message.tabId !== "string" || message.tabId === tabId) return;
+    if (message.active === true) remoteActivity.set(message.tabId, Number(message.timestamp) || Date.now());
+    else remoteActivity.delete(message.tabId);
+    updateDeferredState();
+  });
+  window.setInterval(() => {
+    const now = Date.now();
+    for (const [remoteTab, timestamp] of remoteActivity) {
+      if (now - timestamp > ACTIVITY_TTL_MS) remoteActivity.delete(remoteTab);
+    }
+    if (criticalActivities.size > 0) {
+      activityChannel?.postMessage({ tabId, active: true, timestamp: now });
+    }
+    updateDeferredState();
+  }, 3_000);
+  window.addEventListener("pagehide", () => {
+    activityChannel?.postMessage({ tabId, active: false, timestamp: Date.now() });
+  });
+}
+
+function activityBlocked(): boolean {
+  const now = Date.now();
+  for (const [remoteTab, timestamp] of remoteActivity) {
+    if (now - timestamp > ACTIVITY_TTL_MS) remoteActivity.delete(remoteTab);
+  }
+  return criticalActivities.size > 0 || remoteActivity.size > 0;
+}
+
+function updateDeferredState() {
+  const blocked = activityBlocked();
+  if (snapshot.available && snapshot.deferredForActivity !== blocked) {
+    emit({ deferredForActivity: blocked });
+  }
+  if (!blocked && snapshot.available && snapshot.secondsRemaining <= 0) applyAppUpdate();
+}
 
 function emit(next: Partial<AppUpdateSnapshot>) {
   snapshot = { ...snapshot, ...next };
@@ -36,15 +83,19 @@ export function getAppUpdateSnapshot() {
 }
 
 export function hasAppCriticalActivity() {
-  return criticalActivities.size > 0;
+  return activityBlocked();
 }
 
 export function setAppCriticalActivity(key: string, active: boolean) {
+  ensureActivityCoordination();
   if (active) criticalActivities.add(key);
   else criticalActivities.delete(key);
-  const blocked = criticalActivities.size > 0;
-  if (snapshot.available) emit({ deferredForActivity: blocked });
-  if (!blocked && snapshot.available && snapshot.secondsRemaining <= 0) applyAppUpdate();
+  activityChannel?.postMessage({
+    tabId,
+    active: criticalActivities.size > 0,
+    timestamp: Date.now(),
+  });
+  updateDeferredState();
 }
 
 function reloadForNewWorker(): void {
@@ -67,22 +118,22 @@ function announceUpdate(nextRegistration: ServiceWorkerRegistration) {
     available: true,
     applying: false,
     secondsRemaining: AUTO_APPLY_SECONDS,
-    deferredForActivity: criticalActivities.size > 0,
+    deferredForActivity: activityBlocked(),
   });
   stopCountdown();
   countdown = window.setInterval(() => {
     const nextSeconds = Math.max(0, snapshot.secondsRemaining - 1);
-    emit({ secondsRemaining: nextSeconds, deferredForActivity: criticalActivities.size > 0 });
+    emit({ secondsRemaining: nextSeconds, deferredForActivity: activityBlocked() });
     if (nextSeconds === 0) {
       stopCountdown();
-      if (criticalActivities.size === 0) applyAppUpdate();
+      if (!activityBlocked()) applyAppUpdate();
     }
   }, 1000);
 }
 
 export function applyAppUpdate() {
   if (!registration?.waiting || snapshot.applying) return;
-  if (criticalActivities.size > 0) {
+  if (activityBlocked()) {
     emit({ secondsRemaining: 0, deferredForActivity: true });
     return;
   }
@@ -99,6 +150,7 @@ export function applyAppUpdate() {
  */
 export async function installAppUpdateManager(): Promise<void> {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
+  ensureActivityCoordination();
 
   let hadController = Boolean(navigator.serviceWorker.controller);
   let reloadStarted = false;

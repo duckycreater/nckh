@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   BookOpen,
   ChevronRight,
@@ -7,6 +7,7 @@ import {
   Layers3,
   Loader2,
   RefreshCw,
+  Scale,
   Search,
   ScanLine,
   ShieldCheck,
@@ -16,6 +17,7 @@ import type {
   MatchState,
   MaterialCard,
   MaterialScenarioObject,
+  ProcessingAction,
   SortingAction,
   WasteCategory,
 } from "../../shared/materialCards";
@@ -46,6 +48,12 @@ const ACTIONS: Array<{ id: SortingAction; label: string }> = [
   { id: "compost", label: "Ủ hữu cơ" },
   { id: "special_collection", label: "Thu gom riêng" },
   { id: "residual", label: "Rác còn lại" },
+];
+
+const PROCESSING_ACTIONS: Array<{ id: ProcessingAction; label: string }> = [
+  { id: "clean", label: "Làm sạch" },
+  { id: "dry", label: "Làm khô" },
+  { id: "protect", label: "Bảo vệ" },
 ];
 
 function parseError(value: unknown, fallback: string) {
@@ -82,9 +90,13 @@ function CardImage({ card, compact = false }: { card: MaterialCard; compact?: bo
 function CollectionCard({
   card,
   onOpen,
+  compareSelected,
+  onToggleCompare,
 }: {
   card: MaterialCard;
   onOpen: (trigger: HTMLButtonElement) => void;
+  compareSelected: boolean;
+  onToggleCompare: () => void;
 }) {
   const visibleProperties = card.properties.filter((property) => property.value === true).slice(0, 2);
   return (
@@ -96,7 +108,24 @@ function CollectionCard({
         </span>
       </div>
       <div className="p-4">
-        <h3 className="truncate text-base font-semibold text-[var(--graphite)]">{card.objectName}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="min-w-0 truncate text-base font-semibold text-[var(--graphite)]">
+            {card.objectName}
+          </h3>
+          <button
+            type="button"
+            aria-pressed={compareSelected}
+            onClick={onToggleCompare}
+            className={
+              "inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-semibold " +
+              (compareSelected
+                ? "border-emerald-700 bg-emerald-50 text-emerald-800"
+                : "border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-strong)]")
+            }
+          >
+            <Scale size={13} /> So sánh
+          </button>
+        </div>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           Thẻ từ lần quét · {new Date(card.createdAt).toLocaleDateString("vi-VN")}
         </p>
@@ -154,6 +183,88 @@ function CardDetail({ card, onClose, returnFocus }: { card: MaterialCard; onClos
             </dl>
           </details>
         </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+function ComparePassports({
+  cards,
+  onClose,
+}: {
+  cards: MaterialCard[];
+  onClose: () => void;
+}) {
+  const properties = Array.from(
+    new Map(
+      cards
+        .flatMap((card) => card.properties)
+        .map((property) => [property.id, property.label] as const),
+    ),
+  );
+  return (
+    <ModalShell
+      onClose={onClose}
+      title="So sánh hộ chiếu"
+      className="max-h-[calc(100dvh-2rem)] max-w-6xl overflow-y-auto"
+    >
+      <ModalHeader
+        title="So sánh hộ chiếu"
+        subtitle="Đối chiếu vật liệu, tình trạng và cách kỹ năng được hình thành."
+        onClose={onClose}
+      />
+      <div className="space-y-6 p-5 sm:p-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {cards.map((card) => (
+            <div key={card.id} className="min-w-0 rounded-[10px] border border-slate-200 p-3">
+              <CardImage card={card} compact />
+              <h3 className="mt-3 truncate text-sm font-semibold text-slate-950">
+                {card.objectName}
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">{MATERIAL_LABELS[card.category]}</p>
+            </div>
+          ))}
+        </div>
+        <section>
+          <h3 className="text-sm font-semibold text-slate-950">Thuộc tính</h3>
+          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+            {properties.map(([propertyId, label]) => (
+              <div key={propertyId} className="py-3">
+                <p className="mb-2 text-xs font-semibold text-slate-500">{label}</p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {cards.map((card) => {
+                    const property = card.properties.find((item) => item.id === propertyId);
+                    return (
+                      <div
+                        key={card.id}
+                        className="rounded-md bg-slate-50 p-2 text-xs leading-5 text-slate-700"
+                      >
+                        {property?.value === true
+                          ? property.source === "visual_observation"
+                            ? "Quan sát từ ảnh"
+                            : "Theo thư viện vật liệu"
+                          : property?.value === false
+                            ? "Không phù hợp"
+                            : "Chưa xác định"}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-slate-950">Kỹ năng chủ động</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {cards.map((card) => (
+              <div key={card.id} className="rounded-[10px] border border-slate-200 p-3">
+                <p className="text-sm font-semibold text-slate-950">{card.active.name}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-600">{card.active.rule}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </ModalShell>
   );
@@ -272,10 +383,13 @@ function EmptyState({ title, description }: { title: string; description: string
 
 function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
   const [match, setMatch] = useState<MatchState | null>(null);
+  const [recentMatches, setRecentMatches] = useState<MatchState[]>([]);
   const [opponent, setOpponent] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [choices, setChoices] = useState<Record<string, SortingAction>>({});
+  const [processing, setProcessing] = useState<Record<string, ProcessingAction[]>>({});
   const [abilityCardId, setAbilityCardId] = useState("");
+  const [abilityTargetId, setAbilityTargetId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const actorIsOpponent = Boolean(
@@ -290,9 +404,30 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
     (candidate) => !ownSubmissions.some((item) => item.roundIndex === candidate.index),
   );
   const ownDeck = actorIsOpponent ? (match?.opponentDeck ?? []) : (match?.playerDeck ?? []);
+  const lastEvaluation = ownSubmissions
+    .slice()
+    .sort((left, right) => left.roundIndex - right.roundIndex)
+    .at(-1)?.evaluation;
+  const processingUsed = Object.values(processing).reduce(
+    (total, steps) => total + steps.length,
+    0,
+  );
   const matchId = match?.id;
   const matchMode = match?.mode;
   const matchStatus = match?.status;
+
+  const loadMatches = useCallback(async () => {
+    try {
+      const payload = await api<{ matches: MatchState[] }>("/api/material-matches");
+      setRecentMatches(payload.matches);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không tải được danh sách trận.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!match) void loadMatches();
+  }, [loadMatches, match]);
 
   const refreshMatch = useCallback(async () => {
     if (!matchId) return;
@@ -329,7 +464,9 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
       });
       setMatch(payload.match);
       setChoices({});
+      setProcessing({});
       setAbilityCardId("");
+      setAbilityTargetId("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không tạo được trận.");
     } finally {
@@ -351,6 +488,9 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
       );
       setMatch(payload.match);
       setChoices({});
+      setProcessing({});
+      setAbilityCardId("");
+      setAbilityTargetId("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không vào được trận.");
     } finally {
@@ -370,13 +510,17 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
           choices: round.objects.map((object) => ({
             objectId: object.id,
             action: choices[object.id],
+            steps: processing[object.id] ?? [],
           })),
           ...(abilityCardId ? { abilityCardId } : {}),
+          ...(abilityCardId && abilityTargetId ? { abilityTargetId } : {}),
         }),
       });
       setMatch(payload.match);
       setChoices({});
+      setProcessing({});
       setAbilityCardId("");
+      setAbilityTargetId("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không gửi được lượt chơi.");
     } finally {
@@ -386,13 +530,50 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
 
   if (!match)
     return (
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="space-y-5">
+        {recentMatches.length > 0 && (
+          <div className="rounded-[14px] border border-slate-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-black text-slate-950">Trận của bạn</h3>
+                <p className="mt-1 text-sm text-slate-500">Tiếp tục lời mời và trận đang chơi sau khi tải lại trang.</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => void loadMatches()}>
+                <RefreshCw size={15} /> Làm mới
+              </Button>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {recentMatches.slice(0, 6).map((savedMatch) => (
+                <button
+                  key={savedMatch.id}
+                  type="button"
+                  onClick={() => setMatch(savedMatch)}
+                  className="min-h-11 rounded-[10px] border border-slate-200 p-3 text-left transition-colors hover:border-emerald-500"
+                >
+                  <span className="block text-xs font-bold uppercase text-slate-400">
+                    {savedMatch.status === "active"
+                      ? "Đang chơi"
+                      : savedMatch.status === "waiting"
+                        ? "Đang chờ"
+                        : savedMatch.status === "completed"
+                          ? "Đã xong"
+                          : "Hết hạn"}
+                  </span>
+                  <span className="mt-1 block font-mono text-sm text-slate-800">
+                    {savedMatch.id.slice(0, 8)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-[14px] border border-slate-200 bg-white p-6">
           <Gamepad2 className="text-cyan-600" />
           <h3 className="mt-4 text-xl font-black text-slate-950">Luyện tập 5 vòng</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Ba vật thể mỗi vòng, ngân sách ba hành động. Nếu chưa đủ thẻ, hệ thống cho mượn bộ mẫu
-            nhưng không ghi thành sở hữu.
+            Mỗi vòng có năm lượt xử lý và ba đơn vị vận chuyển. An toàn được ưu tiên trước độ chính
+            xác và hiệu quả. Bộ mẫu chỉ dùng trong luyện tập, không ghi thành sở hữu.
           </p>
           <Button className="mt-5 w-full" onClick={() => void create("practice")} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" size={16} /> : null}Bắt đầu với máy
@@ -445,6 +626,7 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
             {error}
           </p>
         )}
+        </div>
       </div>
     );
 
@@ -494,6 +676,33 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
           {error}
         </p>
       )}
+      {lastEvaluation && match.status !== "completed" && (
+        <div className="mt-4 grid gap-3 rounded-[10px] border border-slate-200 bg-slate-50 p-4 sm:grid-cols-3">
+          <div>
+            <span className="text-xs font-bold text-slate-500">An toàn</span>
+            <p className="mt-1 font-mono text-lg font-bold text-slate-950">
+              {lastEvaluation.safety}/{lastEvaluation.safetyMax}
+            </p>
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-500">Phân luồng đúng</span>
+            <p className="mt-1 font-mono text-lg font-bold text-slate-950">
+              {lastEvaluation.correctness}/{lastEvaluation.correctnessMax}
+            </p>
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-500">Hiệu quả</span>
+            <p className="mt-1 font-mono text-lg font-bold text-slate-950">
+              {lastEvaluation.efficiency}
+            </p>
+          </div>
+          <ul className="space-y-1 text-xs leading-5 text-slate-600 sm:col-span-3">
+            {lastEvaluation.log.map((entry, index) => (
+              <li key={entry + index}>• {entry}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {match.status === "completed" ? (
         <div className="mt-6 rounded-[14px] bg-slate-950 p-7 text-center text-white">
           <ShieldCheck className="mx-auto text-cyan-300" size={34} />
@@ -509,6 +718,17 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
         </div>
       ) : round ? (
         <>
+          <div className="mt-6 flex flex-wrap items-center gap-3 rounded-[10px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+            <span className="font-bold text-slate-900">
+              Xử lý {processingUsed}/{round.actionBudget}
+            </span>
+            <span className="h-4 w-px bg-slate-300" />
+            <span className="text-slate-600">
+              Vận chuyển{" "}
+              {round.objects.reduce((sum, object) => sum + (object.transportCost ?? 1), 0)}/
+              {round.transportBudget}
+            </span>
+          </div>
           <div className="mt-6 grid gap-3 lg:grid-cols-3">
             {round.objects.map((object: MaterialScenarioObject) => (
               <div key={object.id} className="rounded-[10px] border border-slate-200 bg-slate-50 p-4">
@@ -522,6 +742,39 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
                         : "Sạch"}
                 </p>
                 <h4 className="mt-2 font-black text-slate-900">{object.label}</h4>
+                <div className="mt-4 flex flex-wrap gap-2" aria-label={"Xử lý " + object.label}>
+                  {PROCESSING_ACTIONS.map((step) => {
+                    const selected = (processing[object.id] ?? []).includes(step.id);
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={!selected && processingUsed >= round.actionBudget}
+                        onClick={() =>
+                          setProcessing((current) => {
+                            const currentSteps = current[object.id] ?? [];
+                            return {
+                              ...current,
+                              [object.id]: selected
+                                ? currentSteps.filter((item) => item !== step.id)
+                                : [...currentSteps, step.id],
+                            };
+                          })
+                        }
+                        className={
+                          "min-h-9 rounded-md border px-2.5 text-xs font-bold transition-colors " +
+                          (selected
+                            ? "border-emerald-700 bg-emerald-50 text-emerald-800"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-400") +
+                          " disabled:cursor-not-allowed disabled:opacity-40"
+                        }
+                      >
+                        {step.label}
+                      </button>
+                    );
+                  })}
+                </div>
                 <select
                   value={choices[object.id] ?? ""}
                   onChange={(event) =>
@@ -545,22 +798,48 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
             ))}
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <select
-              value={abilityCardId}
-              onChange={(event) => setAbilityCardId(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
-            >
-              <option value="">Không dùng kỹ năng vòng này</option>
-              {ownDeck.map((card) => (
-                <option key={card.id} value={card.id}>
-                  {card.abilityName} · {CATEGORY[card.category].label}
-                  {card.sample ? " (thẻ mẫu)" : ""}
-                </option>
-              ))}
-            </select>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                value={abilityCardId}
+                onChange={(event) => {
+                  setAbilityCardId(event.target.value);
+                  if (!event.target.value) setAbilityTargetId("");
+                }}
+                className="min-h-11 rounded-[10px] border border-slate-200 bg-white px-4 text-sm"
+                aria-label="Kỹ năng sử dụng"
+              >
+                <option value="">Không dùng kỹ năng vòng này</option>
+                {ownDeck.map((card) => (
+                  <option key={card.id} value={card.id}>
+                    {card.abilityName} · {CATEGORY[card.category].label}
+                    {card.sample ? " (thẻ mẫu)" : ""}
+                  </option>
+                ))}
+              </select>
+              {abilityCardId && (
+                <select
+                  value={abilityTargetId}
+                  onChange={(event) => setAbilityTargetId(event.target.value)}
+                  className="min-h-11 rounded-[10px] border border-slate-200 bg-white px-4 text-sm"
+                  aria-label="Vật thể nhận kỹ năng"
+                >
+                  <option value="">Chọn vật thể nhận kỹ năng</option>
+                  {round.objects.map((object) => (
+                    <option key={object.id} value={object.id}>
+                      {object.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
             <Button
               onClick={() => void submit()}
-              disabled={busy || round.objects.some((object) => !choices[object.id])}
+              disabled={
+                busy ||
+                processingUsed > round.actionBudget ||
+                round.objects.some((object) => !choices[object.id]) ||
+                Boolean(abilityCardId && !abilityTargetId)
+              }
             >
               {busy ? <Loader2 className="animate-spin" size={16} /> : null}Khóa lựa chọn
             </Button>
@@ -586,15 +865,19 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
   const [categoryFilter, setCategoryFilter] = useState<"all" | WasteCategory>("all");
   const [selectedCard, setSelectedCard] = useState<MaterialCard | null>(null);
   const [detailTrigger, setDetailTrigger] = useState<HTMLElement | null>(null);
+  const [compareCards, setCompareCards] = useState<MaterialCard[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
   const load = useCallback(
     async (append = false) => {
       setLoading(true);
       setError(null);
       try {
-        const query =
-          append && cursor ? `?limit=24&cursor=${encodeURIComponent(cursor)}` : "?limit=24";
+        const params = new URLSearchParams({ limit: "24" });
+        if (append && cursor) params.set("cursor", cursor);
+        if (search.trim()) params.set("search", search.trim());
+        if (categoryFilter !== "all") params.set("category", categoryFilter);
         const payload = await api<{ cards: MaterialCard[]; nextCursor: string | null }>(
-          `/api/material-cards${query}`,
+          `/api/material-cards?${params.toString()}`,
         );
         setCards((current) => (append ? [...current, ...payload.cards] : payload.cards));
         setCursor(payload.nextCursor);
@@ -604,29 +887,29 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
         setLoading(false);
       }
     },
-    [cursor],
+    [categoryFilter, cursor, search],
   );
   useEffect(() => {
-    void load(false);
-  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const selectedCards = useMemo(
-    () => deck.filter((id) => cards.some((card) => card.id === id)),
-    [cards, deck],
-  );
-  const filteredCards = useMemo(() => {
-    const normalized = search.trim().toLocaleLowerCase("vi-VN");
-    return cards.filter(
-      (card) =>
-        (categoryFilter === "all" || card.category === categoryFilter) &&
-        (!normalized || card.objectName.toLocaleLowerCase("vi-VN").includes(normalized)),
-    );
-  }, [cards, categoryFilter, search]);
+    const timer = window.setTimeout(() => void load(false), 250);
+    return () => window.clearTimeout(timer);
+  }, [refreshKey, search, categoryFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedCards = deck;
+  const filteredCards = cards;
+  const hasActiveFilter = Boolean(search.trim() || categoryFilter !== "all");
   const toggle = (id: string) =>
     setDeck((current) =>
       current.includes(id)
         ? current.filter((value) => value !== id)
         : current.length < 3
           ? [...current, id]
+          : current,
+    );
+  const toggleCompare = (card: MaterialCard) =>
+    setCompareCards((current) =>
+      current.some((item) => item.id === card.id)
+        ? current.filter((item) => item.id !== card.id)
+        : current.length < 3
+          ? [...current, card]
           : current,
     );
 
@@ -663,7 +946,7 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
       )}
       {!error && section === "collection" && (
         <>
-          {cards.length > 0 && (
+          {(cards.length > 0 || hasActiveFilter) && (
             <div className="grid gap-3 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-3 lg:grid-cols-[minmax(15rem,1fr)_auto]">
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={16} />
@@ -696,6 +979,25 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
               </div>
             </div>
           )}
+          {compareCards.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-[10px] border border-emerald-200 bg-emerald-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-emerald-950">
+                Đã chọn {compareCards.length}/3 hộ chiếu để so sánh
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setCompareOpen(true)}
+                  disabled={compareCards.length < 2}
+                >
+                  <Scale size={14} /> So sánh
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setCompareCards([])}>
+                  Bỏ chọn
+                </Button>
+              </div>
+            </div>
+          )}
           {loading && !cards.length ? (
             <div className="flex min-h-48 items-center justify-center">
               <Loader2 className="animate-spin text-cyan-600" />
@@ -706,6 +1008,8 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
                 <CollectionCard
                   key={card.id}
                   card={card}
+                  compareSelected={compareCards.some((item) => item.id === card.id)}
+                  onToggleCompare={() => toggleCompare(card)}
                   onOpen={(trigger) => {
                     setDetailTrigger(trigger);
                     setSelectedCard(card);
@@ -713,7 +1017,7 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
                 />
               ))}
             </div>
-          ) : cards.length ? (
+          ) : hasActiveFilter ? (
             <EmptyState
               title="Không tìm thấy hộ chiếu phù hợp"
               description="Thử tên khác hoặc đổi bộ lọc vật liệu."
@@ -768,6 +1072,9 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
         </div>
       )}
       {selectedCard && <CardDetail card={selectedCard} returnFocus={detailTrigger} onClose={() => setSelectedCard(null)} />}
+      {compareOpen && (
+        <ComparePassports cards={compareCards} onClose={() => setCompareOpen(false)} />
+      )}
     </div>
   );
 }

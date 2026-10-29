@@ -63,6 +63,20 @@ function generateAvatarSeed(): string {
 export function familyRouter(): Router {
   const router = Router();
 
+  async function requireFamilyMembership(
+    db: NonNullable<ReturnType<typeof getDb>>,
+    userNick: string,
+    familyId: string,
+  ): Promise<boolean> {
+    const result = await db.query(
+      `SELECT 1 FROM family_members
+       WHERE user_id = $1 AND family_id = $2 AND is_active = TRUE
+       LIMIT 1`,
+      [userNick, familyId],
+    );
+    return result.rows.length > 0;
+  }
+
   // POST /api/family
   router.post("/", requireAuth, async (req, res) => {
     try {
@@ -220,8 +234,12 @@ export function familyRouter(): Router {
   router.get("/:id/challenges", requireAuth, async (req, res) => {
     try {
       const familyId = req.params.id;
+      const userNick = (req as any).userNick as string;
       const db = getDb();
-      if (!db) return res.json({ challenges: [] });
+      if (!db) return res.status(503).json({ error: "DB unavailable" });
+      if (!(await requireFamilyMembership(db, userNick, familyId))) {
+        return res.status(403).json({ error: "Bạn không thuộc gia đình này." });
+      }
 
       const { rows } = await db.query(
         `SELECT id, family_id, title, description, type, target, progress,
@@ -286,8 +304,12 @@ export function familyRouter(): Router {
   router.get("/:id/carbon", requireAuth, async (req, res) => {
     try {
       const familyId = req.params.id;
+      const userNick = (req as any).userNick as string;
       const db = getDb();
-      if (!db) return res.json({});
+      if (!db) return res.status(503).json({ error: "DB unavailable" });
+      if (!(await requireFamilyMembership(db, userNick, familyId))) {
+        return res.status(403).json({ error: "Bạn không thuộc gia đình này." });
+      }
 
       // Per-member + per-category for the past 7 days
       const { rows } = await db.query(
@@ -404,9 +426,13 @@ export function familyRouter(): Router {
   router.get("/:id/leaderboard", requireAuth, async (req, res) => {
     try {
       const familyId = req.params.id;
+      const userNick = (req as any).userNick as string;
       const db = getDb();
       if (!db) {
-        return res.json({ familyId, rank: 0, percentile: 0, totalFamilies: 0 });
+        return res.status(503).json({ error: "DB unavailable" });
+      }
+      if (!(await requireFamilyMembership(db, userNick, familyId))) {
+        return res.status(403).json({ error: "Bạn không thuộc gia đình này." });
       }
 
       // Compute this family's weekly CO2

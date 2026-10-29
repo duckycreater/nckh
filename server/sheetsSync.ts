@@ -528,6 +528,7 @@ export async function getSheetsSyncStatus() {
     syncHistory: syncHistory.slice(0, 20),
     spreadsheetId: DEFAULT_SPREADSHEET_ID,
     autoSyncIntervalMs: 15 * 60 * 1000,
+    autoSyncEnabled: process.env.GOOGLE_SHEETS_AUTO_SYNC_ENABLED === "true",
     isConfigured: !!(
       process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
     ),

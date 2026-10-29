@@ -18,13 +18,7 @@ import { getAuthHeaders } from "../lib/auth";
 import { getVietnamDayKey } from "../lib/dayKey";
 import type { GameplayRewardClaim } from "../lib/gameplayRewards";
 import type { MaterialCard } from "../../shared/materialCards";
-import {
-  ArrowRight,
-  Gift,
-  Layers3,
-  ScanLine,
-  Users,
-} from "lucide-react";
+import { ArrowRight, Gift, Layers3, ScanLine, Users } from "lucide-react";
 import { Button, Card, ErrorRetry, PageHeader, SectionHeading, TabButton, Tabs } from "../lib/ui";
 import { StudentAppShell } from "./StudentAppShell";
 import { MATERIAL_LABELS, MaterialVisual } from "./MaterialVisual";
@@ -74,6 +68,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   const { t } = useTranslation();
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
+  const stableUserId = user.userId || user.account_id;
 
   const validTabs = [
     "home",
@@ -132,7 +127,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(`/api/user/${user.account_id}`, { headers: getAuthHeaders() });
+        const res = await fetch(`/api/user/${user.nick}`, { headers: getAuthHeaders() });
         if (res.ok) {
           const data = await res.json();
           onUpdateUser({
@@ -158,7 +153,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
       }
     };
     fetchUser();
-  }, [refreshTrigger, user.account_id, onUpdateUser]);
+  }, [refreshTrigger, user.account_id, user.nick, onUpdateUser]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +286,28 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   return (
     <StudentAppShell user={user} onLogout={onLogout}>
       <div className="page-container">
+        {user.canEarnPoints === false && (
+          <div
+            role="status"
+            className="mb-4 flex flex-col gap-3 rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="font-semibold">{t("auth.profileVerificationPendingTitle")}</p>
+              <p className="mt-1 leading-5">{t("auth.profileVerificationPendingBody")}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="shrink-0"
+              onClick={() => {
+                localStorage.removeItem("profile_meta_skipped");
+                onUpdateUser({ profileVerificationStatus: "unverified" });
+              }}
+            >
+              {t("auth.completeProfileAction")}
+            </Button>
+          </div>
+        )}
         {activeTab === "home" && (
           <>
             <PageHeader
@@ -301,8 +318,12 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             <section className="grid gap-4 lg:grid-cols-[1.45fr_0.55fr]">
               <div className="relative overflow-hidden rounded-[14px] bg-[var(--graphite)] p-6 text-white sm:p-8">
                 <div className="relative z-10 max-w-2xl">
-                  <h2 className="text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">{t("lab.home.scanTitle")}</h2>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-[#c4ccc7] sm:text-base">{t("lab.home.scanDescription")}</p>
+                  <h2 className="text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
+                    {t("lab.home.scanTitle")}
+                  </h2>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-[#c4ccc7] sm:text-base">
+                    {t("lab.home.scanDescription")}
+                  </p>
                   <Button className="mt-6" size="lg" onClick={() => navigate("/scan")}>
                     <ScanLine size={18} /> {t("lab.home.startScan")}
                   </Button>
@@ -310,10 +331,18 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               </div>
               <Card padding="lg" className="flex flex-col justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[var(--graphite)]">{t("lab.home.nextTitle")}</p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("lab.home.nextDescription")}</p>
+                  <p className="text-sm font-semibold text-[var(--graphite)]">
+                    {t("lab.home.nextTitle")}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                    {t("lab.home.nextDescription")}
+                  </p>
                 </div>
-                <Button className="mt-6 w-full" variant="ghost" onClick={() => navigate("/activities")}>
+                <Button
+                  className="mt-6 w-full"
+                  variant="ghost"
+                  onClick={() => navigate("/activities")}
+                >
                   {t("lab.home.nextActivity")} <ArrowRight size={16} />
                 </Button>
               </Card>
@@ -332,20 +361,43 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 />
                 {recentCardsLoading ? (
                   <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {[0, 1, 2].map((item) => <div key={item} className="h-40 animate-pulse rounded-[10px] bg-[var(--surface-muted)]" />)}
+                    {[0, 1, 2].map((item) => (
+                      <div
+                        key={item}
+                        className="h-40 animate-pulse rounded-[10px] bg-[var(--surface-muted)]"
+                      />
+                    ))}
                   </div>
                 ) : recentCardsError ? (
                   <div className="mt-5">
-                    <ErrorRetry message={t("lab.home.loadError")} onRetry={() => setRefreshTrigger((value) => value + 1)} />
+                    <ErrorRetry
+                      message={t("lab.home.loadError")}
+                      onRetry={() => setRefreshTrigger((value) => value + 1)}
+                    />
                   </div>
                 ) : recentCards.length ? (
                   <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
                     {recentCards.slice(0, 6).map((card) => (
-                      <button key={card.id} type="button" onClick={() => navigate("/cards")} className="group overflow-hidden rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface)] text-left hover:border-[var(--border-strong)]">
-                        <MaterialVisual category={card.category} imageUrl={card.imageUrl} objectName={card.objectName} propertyIds={card.properties.map((property) => property.id)} className="aspect-[4/3] min-h-0" />
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => navigate("/cards")}
+                        className="group overflow-hidden rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface)] text-left hover:border-[var(--border-strong)]"
+                      >
+                        <MaterialVisual
+                          category={card.category}
+                          imageUrl={card.imageUrl}
+                          objectName={card.objectName}
+                          propertyIds={card.properties.map((property) => property.id)}
+                          className="aspect-[4/3] min-h-0"
+                        />
                         <div className="p-3">
-                          <p className="truncate text-sm font-semibold text-[var(--graphite)]">{card.objectName}</p>
-                          <p className="mt-1 text-[11px] text-[var(--text-muted)]">{MATERIAL_LABELS[card.category]}</p>
+                          <p className="truncate text-sm font-semibold text-[var(--graphite)]">
+                            {card.objectName}
+                          </p>
+                          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                            {MATERIAL_LABELS[card.category]}
+                          </p>
                         </div>
                       </button>
                     ))}
@@ -353,8 +405,12 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
                 ) : (
                   <div className="mt-5 flex min-h-44 flex-col items-start justify-center rounded-[10px] border border-dashed border-[var(--border-strong)] bg-[var(--surface-muted)] p-6">
                     <Layers3 className="text-[var(--primary)]" size={22} />
-                    <p className="mt-4 font-semibold text-[var(--graphite)]">{t("lab.home.emptyCollection")}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{t("lab.home.emptyCollectionHint")}</p>
+                    <p className="mt-4 font-semibold text-[var(--graphite)]">
+                      {t("lab.home.emptyCollection")}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      {t("lab.home.emptyCollectionHint")}
+                    </p>
                   </div>
                 )}
               </Card>
@@ -384,7 +440,11 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
           <>
             <PageHeader title={t("lab.cards.title")} subtitle={t("lab.cards.subtitle")} />
             <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
-              <LazyMaterialCards actorNick={user.nick} refreshKey={refreshTrigger} onScan={() => navigate("/scan")} />
+              <LazyMaterialCards
+                actorNick={user.nick}
+                refreshKey={refreshTrigger}
+                onScan={() => navigate("/scan")}
+              />
             </Suspense>
           </>
         )}
@@ -394,13 +454,31 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             <PageHeader title={t("lab.rewards.title")} subtitle={t("lab.rewards.subtitle")} />
             <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
               <Tabs className="mb-4 w-fit">
-                <TabButton active={rewardsTab === "catalog"} onClick={() => setRewardsTab("catalog")}>{t("lab.rewards.catalog")}</TabButton>
-                <TabButton active={rewardsTab === "history"} onClick={() => setRewardsTab("history")}>{t("lab.rewards.history")}</TabButton>
+                <TabButton
+                  active={rewardsTab === "catalog"}
+                  onClick={() => setRewardsTab("catalog")}
+                >
+                  {t("lab.rewards.catalog")}
+                </TabButton>
+                <TabButton
+                  active={rewardsTab === "history"}
+                  onClick={() => setRewardsTab("history")}
+                >
+                  {t("lab.rewards.history")}
+                </TabButton>
               </Tabs>
               {rewardsTab === "catalog" ? (
-                <LazyCraftingStation points={user.points} progress={user.progress} onRefresh={triggerRefresh} />
+                <LazyCraftingStation
+                  points={user.points}
+                  progress={user.progress}
+                  onRefresh={triggerRefresh}
+                />
               ) : (
-                <LazyRewardHistory userId={user.account_id} currentBalance={user.points} refreshKey={refreshTrigger} />
+                <LazyRewardHistory
+                  userId={stableUserId}
+                  currentBalance={user.points}
+                  refreshKey={refreshTrigger}
+                />
               )}
             </Suspense>
           </>
@@ -411,10 +489,18 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
             <PageHeader
               title={t("lab.community.title")}
               subtitle={t("lab.community.subtitle")}
-              action={<Button variant="ghost" onClick={() => setShowClanLobby(true)}><Users size={16} /> {t("lab.community.openClan")}</Button>}
+              action={
+                <Button variant="ghost" onClick={() => setShowClanLobby(true)}>
+                  <Users size={16} /> {t("lab.community.openClan")}
+                </Button>
+              }
             />
             <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
-              <LazyLeaderboard refreshTrigger={refreshTrigger} currentUser={user.account_id} onUserClick={(nickname) => setViewingProfile(nickname)} />
+              <LazyLeaderboard
+                refreshTrigger={refreshTrigger}
+                currentUser={user.account_id}
+                onUserClick={(nickname) => setViewingProfile(nickname)}
+              />
             </Suspense>
           </>
         )}
@@ -425,15 +511,24 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
               title={t("lab.activities.title")}
               subtitle={t("lab.activities.subtitle")}
               action={
-                <Button variant="soft" disabled={!dailyWheelAvailable} onClick={() => dailyWheelAvailable && setShowDailyWheel(true)}>
-                  <Gift size={16} /> {dailyWheelAvailable ? t("lab.activities.claim") : t("lab.activities.claimed")}
+                <Button
+                  variant="soft"
+                  disabled={!dailyWheelAvailable}
+                  onClick={() => dailyWheelAvailable && setShowDailyWheel(true)}
+                >
+                  <Gift size={16} />{" "}
+                  {dailyWheelAvailable ? t("lab.activities.claim") : t("lab.activities.claimed")}
                 </Button>
               }
             />
             <div className="grid gap-4 lg:grid-cols-12">
               <div className="space-y-4 lg:col-span-7">
-                <DailyChallenges userId={user.account_id} progress={user.progress} onRefresh={triggerRefresh} />
-                <AdaptiveRewardBanner userId={user.account_id} />
+                <DailyChallenges
+                  userId={user.account_id}
+                  progress={user.progress}
+                  onRefresh={triggerRefresh}
+                />
+                <AdaptiveRewardBanner userId={stableUserId} />
               </div>
               <div className="space-y-4 lg:col-span-5">
                 <Minigame user={user} onComplete={handleMinigameComplete} />
@@ -446,8 +541,17 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
         {activeTab === "profile" && (
           <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
             <div className="space-y-4">
-              <LazyProfileView embedded nickname={user.account_id} currentUserNick={user.account_id} onClose={() => navigate("/home")} />
-              <LazyRewardStore points={user.points} progress={user.progress} onRefresh={triggerRefresh} />
+              <LazyProfileView
+                embedded
+                nickname={stableUserId}
+                currentUserNick={stableUserId}
+                onClose={() => navigate("/home")}
+              />
+              <LazyRewardStore
+                points={user.points}
+                progress={user.progress}
+                onRefresh={triggerRefresh}
+              />
             </div>
           </Suspense>
         )}
@@ -473,14 +577,48 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
 
       <PointsToastContainer />
       <Suspense fallback={null}>
-        {viewingProfile && <LazyProfileView nickname={viewingProfile} currentUserNick={user.account_id} onClose={() => setViewingProfile(null)} />}
-        {showDailyWheel && <LazyDailyWheel lastSpinDate={lastWheelDate} onSpin={handleWheelSpin} onClose={() => setShowDailyWheel(false)} />}
-        {showSurpriseGift && <SurpriseGift streakDays={streakDays} onClaim={handleSurpriseClaim} onClose={() => setShowSurpriseGift(null)} />}
-        {showClanLobby && <LazyClanLobby userNick={user.account_id} onClose={() => setShowClanLobby(false)} />}
+        {viewingProfile && (
+          <LazyProfileView
+            nickname={viewingProfile}
+            currentUserNick={user.account_id}
+            onClose={() => setViewingProfile(null)}
+          />
+        )}
+        {showDailyWheel && (
+          <LazyDailyWheel
+            lastSpinDate={lastWheelDate}
+            onSpin={handleWheelSpin}
+            onClose={() => setShowDailyWheel(false)}
+          />
+        )}
+        {showSurpriseGift && (
+          <SurpriseGift
+            streakDays={streakDays}
+            onClaim={handleSurpriseClaim}
+            onClose={() => setShowSurpriseGift(null)}
+          />
+        )}
+        {showClanLobby && (
+          <LazyClanLobby userNick={user.account_id} onClose={() => setShowClanLobby(false)} />
+        )}
       </Suspense>
 
-      {pendingMilestone && <MilestoneBurst milestone={pendingMilestone} totalExpEarned={highWaterRef.current} onComplete={() => setPendingMilestone(null)} />}
-      {pendingLevelUp && <LevelUpCelebration oldLevel={pendingLevelUp.oldLevel} newLevel={pendingLevelUp.newLevel} totalExpEarned={highWaterRef.current} streakDays={user.progress?.streakDays} onClose={() => setPendingLevelUp(null)} />}
+      {pendingMilestone && (
+        <MilestoneBurst
+          milestone={pendingMilestone}
+          totalExpEarned={highWaterRef.current}
+          onComplete={() => setPendingMilestone(null)}
+        />
+      )}
+      {pendingLevelUp && (
+        <LevelUpCelebration
+          oldLevel={pendingLevelUp.oldLevel}
+          newLevel={pendingLevelUp.newLevel}
+          totalExpEarned={highWaterRef.current}
+          streakDays={user.progress?.streakDays}
+          onClose={() => setPendingLevelUp(null)}
+        />
+      )}
       <AchievementPopup />
     </StudentAppShell>
   );

@@ -60,6 +60,16 @@ interface EmailStatus {
   fromConfigured: boolean;
   notificationRecipientConfigured: boolean;
   publicAppUrlConfigured: boolean;
+  webhookConfigured: boolean;
+  outbox?: {
+    queued: number;
+    retrying: number;
+    exhausted: number;
+    accepted: number;
+    delivered: number;
+    bounced: number;
+    sending: number;
+  };
 }
 
 export function SystemPanel() {
@@ -240,9 +250,8 @@ export function SystemPanel() {
       {/* Transactional email diagnostics */}
       <Card className="rounded-[28px] p-6">
         <SectionHeading
-          eyebrow="Transactional Email"
-          title="Kiểm tra gửi email end-to-end"
-          subtitle="Trạng thái chỉ hiển thị cấu hình có/không, không bao giờ trả API key về trình duyệt."
+          title="Email giao dịch"
+          subtitle="Theo dõi cấu hình, hàng đợi và kết quả do nhà cung cấp xác nhận."
           action={
             <Badge tone={emailStatus?.configured ? "success" : "warning"}>
               <Mail className="h-3.5 w-3.5" />
@@ -253,8 +262,31 @@ export function SystemPanel() {
           }
         />
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {emailStatus?.outbox && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              ["Đang chờ", emailStatus.outbox.queued + emailStatus.outbox.sending],
+              ["Đang thử lại", emailStatus.outbox.retrying],
+              ["Đã tiếp nhận", emailStatus.outbox.accepted],
+              ["Đã phát", emailStatus.outbox.delivered],
+              ["Bị trả lại", emailStatus.outbox.bounced],
+              ["Hết lượt thử", emailStatus.outbox.exhausted],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-[10px] border border-slate-200 p-3">
+                <p className="text-xs text-slate-500">{label}</p>
+                <p className="mt-2 font-mono text-xl font-semibold text-slate-950">{value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          “Đã tiếp nhận” nghĩa là nhà cung cấp đã nhận yêu cầu; chỉ webhook giao hàng mới chuyển
+          email sang “Đã phát”.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <EmailConfigFlag label="API provider" enabled={Boolean(emailStatus?.configured)} />
+          <EmailConfigFlag label="Webhook giao hàng" enabled={Boolean(emailStatus?.webhookConfigured)} />
           <EmailConfigFlag label="Địa chỉ gửi" enabled={Boolean(emailStatus?.fromConfigured)} />
           <EmailConfigFlag
             label="Email nhận đơn"

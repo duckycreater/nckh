@@ -16,10 +16,12 @@ import {
   UsersRound,
   X,
   Coins,
+  Bell,
 } from "lucide-react";
 import type { User } from "../types";
 import { cn } from "../lib/ui";
 import { hasAppCriticalActivity } from "../services/appUpdateManager";
+import { getAuthHeaders } from "../lib/auth";
 
 interface StudentAppShellProps {
   user: User;
@@ -34,6 +36,16 @@ type NavItem = {
   mobile?: boolean;
   emphasis?: boolean;
 };
+
+interface AppNotification {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  relatedId?: string;
+  readAt: number | null;
+  createdAt: number;
+}
 
 const primaryNavigation: NavItem[] = [
   { path: "/home", labelKey: "lab.nav.home", icon: Home, mobile: true },
@@ -59,8 +71,66 @@ export function StudentAppShell({ user, onLogout, children }: StudentAppShellPro
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [notificationsOpen, setNotificationsOpen] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<AppNotification[]>([]);
+  const [notificationsError, setNotificationsError] = React.useState(false);
+  const notificationsRef = React.useRef<HTMLDivElement>(null);
+
+  const loadNotifications = React.useCallback(async () => {
+    try {
+      const response = await fetch("/api/notifications", { headers: getAuthHeaders() });
+      const payload = (await response.json().catch(() => null)) as {
+        notifications?: AppNotification[];
+      } | null;
+      if (!response.ok || !payload?.notifications) throw new Error();
+      setNotifications(payload.notifications);
+      setNotificationsError(false);
+    } catch {
+      setNotificationsError(true);
+    }
+  }, []);
 
   React.useEffect(() => setMobileMenuOpen(false), [location.pathname]);
+  React.useEffect(() => {
+    void loadNotifications();
+    const onFocus = () => void loadNotifications();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadNotifications]);
+  React.useEffect(() => {
+    if (!notificationsOpen) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
+      if (
+        event instanceof MouseEvent &&
+        notificationsRef.current?.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setNotificationsOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [notificationsOpen]);
+
+  const markNotificationRead = async (notification: AppNotification) => {
+    if (notification.readAt) return;
+    const response = await fetch(
+      "/api/notifications/" + encodeURIComponent(notification.id) + "/read",
+      { method: "PATCH", headers: getAuthHeaders() },
+    );
+    if (response.ok) {
+      setNotifications((current) =>
+        current.map((item) =>
+          item.id === notification.id ? { ...item, readAt: Date.now() } : item,
+        ),
+      );
+    }
+  };
 
   const goTo = (path: string) => {
     if (path === location.pathname) return;
@@ -154,6 +224,73 @@ export function StudentAppShell({ user, onLogout, children }: StudentAppShellPro
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative" ref={notificationsRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotificationsOpen((current) => !current);
+                  if (!notificationsOpen) void loadNotifications();
+                }}
+                aria-label="Thông báo"
+                aria-expanded={notificationsOpen}
+                className="relative grid h-10 w-10 place-items-center rounded-[8px] border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-secondary)]"
+              >
+                <Bell size={17} />
+                {notifications.some((item) => !item.readAt) && (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500" />
+                )}
+              </button>
+              {notificationsOpen && (
+                <div
+                  role="menu"
+                  aria-label="Thông báo gần đây"
+                  className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-[10px] border border-[var(--border-strong)] bg-[var(--surface)] shadow-lg"
+                >
+                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+                    <p className="text-sm font-semibold text-[var(--graphite)]">Thông báo</p>
+                    <button
+                      type="button"
+                      onClick={() => void loadNotifications()}
+                      className="text-xs font-semibold text-[var(--primary)]"
+                    >
+                      Làm mới
+                    </button>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notificationsError ? (
+                      <p className="p-4 text-sm text-red-700">Không tải được thông báo.</p>
+                    ) : notifications.length === 0 ? (
+                      <p className="p-4 text-sm text-[var(--text-muted)]">Chưa có thông báo mới.</p>
+                    ) : (
+                      notifications.slice(0, 20).map((notification) => (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => void markNotificationRead(notification)}
+                          className={
+                            "block w-full border-b border-[var(--border-subtle)] px-4 py-3 text-left last:border-0 " +
+                            (notification.readAt
+                              ? "bg-[var(--surface)]"
+                              : "bg-[var(--primary-soft)]")
+                          }
+                        >
+                          <span className="block text-sm font-semibold text-[var(--graphite)]">
+                            {notification.title}
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">
+                            {notification.body}
+                          </span>
+                          <span className="mt-1 block text-[10px] text-[var(--text-muted)]">
+                            {new Date(notification.createdAt).toLocaleString("vi-VN")}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="hidden items-center gap-2 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-3 py-2 sm:flex">
               <Coins size={15} className="text-[var(--primary)]" />
               <span className="font-telemetry text-xs font-semibold text-[var(--graphite)]">{user.points.toLocaleString("vi-VN")}</span>

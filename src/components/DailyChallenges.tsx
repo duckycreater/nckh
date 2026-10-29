@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, Zap, Flame } from "lucide-react";
+import { CheckCircle2, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserProgress } from "../types";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,7 @@ import { getDailyChallengeIds } from "../lib/dailyChallenges";
 interface Props {
   userId: string;
   progress?: UserProgress;
-  onRefresh?: (progress?: any) => void;
+  onRefresh?: (progress?: UserProgress) => void;
 }
 
 const CHALLENGE_POOL = [
@@ -137,6 +137,10 @@ export function DailyChallenges({ userId, progress, onRefresh }: Props) {
       });
       const result = await response.json();
       if (!response.ok || !result.success) return;
+      if (result.verificationRequired) {
+        showToast(result.message || "Hoạt động đã được ghi nhận và đang chờ xác nhận.", 0);
+        return;
+      }
 
       const nextCompleted = Array.isArray(result.progress?.challengesCompleted)
         ? result.progress.challengesCompleted
@@ -170,7 +174,9 @@ export function DailyChallenges({ userId, progress, onRefresh }: Props) {
             exit={{ opacity: 0 }}
             className="mx-4 mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2"
           >
-            <span className="text-amber-500 font-bold text-sm">+{toast.points} điểm</span>
+            {toast.points > 0 && (
+              <span className="text-amber-500 font-bold text-sm">+{toast.points} điểm</span>
+            )}
             <span className="text-xs text-amber-700">{toast.text}</span>
           </motion.div>
         )}

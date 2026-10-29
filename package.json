@@ -32,6 +32,7 @@
     "format": "prettier --write --no-error-on-unmatched-pattern \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\"",
     "format:check": "prettier --check --no-error-on-unmatched-pattern \"src/**/*.ts\" \"src/**/*.tsx\" \"server/**/*.ts\" \"tests/**/*.ts\" \"tests/**/*.tsx\"",
     "migrate:material-cards": "node scripts/migrate-material-cards-v2.mjs",
+    "migrate:profiles": "tsx scripts/backfill-profile-standardization.ts",
     "test:load": "node scripts/load-smoke.mjs"
   },
   "engines": {

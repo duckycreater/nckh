@@ -1,4 +1,5 @@
-export const MATERIAL_CARD_RULESET_VERSION = "material-cards-v1";
+export const MATERIAL_CARD_RULESET_VERSION = "material-cards-v2";
+export const MATERIAL_MATCH_RULESET_VERSION = "material-processing-v2";
 export const MATERIAL_KNOWLEDGE_VERSION = "vn-waste-basics-v1";
 export const MATERIAL_CARD_CREATE_COST = 50;
 
@@ -75,24 +76,47 @@ export interface MaterialCard {
 }
 
 export type SortingAction = "recycle" | "compost" | "special_collection" | "residual";
+export type ProcessingAction = "clean" | "dry" | "protect";
 
 export interface MaterialScenarioObject {
   id: string;
   label: string;
   category: WasteCategory;
   condition?: "clean" | "dirty" | "wet" | "broken";
+  transportCost?: 1 | 2;
 }
 
 export interface MaterialMatchRound {
   index: number;
   objects: MaterialScenarioObject[];
-  actionBudget: 3;
+  actionBudget: number;
+  transportBudget: number;
+}
+
+export interface MatchRoundEvaluation {
+  score: number;
+  safety: number;
+  safetyMax: number;
+  correctness: number;
+  correctnessMax: number;
+  efficiency: number;
+  actionsUsed: number;
+  actionBudget: number;
+  transportUsed: number;
+  transportBudget: number;
+  log: string[];
 }
 
 export interface MatchSubmission {
   roundIndex: number;
-  choices: Array<{ objectId: string; action: SortingAction }>;
+  choices: Array<{
+    objectId: string;
+    action: SortingAction;
+    steps?: ProcessingAction[];
+  }>;
   abilityCardId?: string;
+  abilityTargetId?: string;
+  evaluation?: MatchRoundEvaluation;
 }
 
 export interface MatchDeckCard {
@@ -104,6 +128,7 @@ export interface MatchDeckCard {
 
 export interface MatchState {
   id: string;
+  rulesetVersion: string;
   playerId: string;
   opponentId: string | "practice-bot";
   mode: "practice" | "asynchronous";
@@ -117,6 +142,7 @@ export interface MatchState {
   opponentScore: number;
   result: "win" | "loss" | "draw" | null;
   ratingDelta: number;
+  opponentRatingDelta?: number;
   createdAt: number;
   expiresAt: number;
 }
@@ -141,24 +167,84 @@ const LABELS: Record<MaterialPropertyId, string> = {
   material_code_visible: "Nhìn thấy ký hiệu vật liệu",
 };
 
-const LIBRARY_PROPERTIES: Record<WasteCategory, MaterialPropertyId[]> = {
-  plastic: ["recyclable", "compactable"],
-  paper: ["recyclable", "compactable", "moisture_sensitive"],
-  glass: ["recyclable", "brittle"],
-  metal: ["recyclable", "compactable", "recoverable_material"],
-  organic: ["compostable"],
-  hazard: ["separate_collection"],
-};
-
 export function deriveMaterialProperties(input: ObservedMaterialInput): MaterialProperty[] {
   const observed = new Set(input.observedConditions);
-  const properties: MaterialProperty[] = LIBRARY_PROPERTIES[input.category].map((id) => ({
-    id,
-    label: LABELS[id],
-    value: true,
-    source: "material_library",
-    evidence: `Quy tắc xử lý cho nhóm ${input.category}; cần tuân theo hướng dẫn thu gom tại địa phương.`,
-  }));
+  const library = (
+    id: MaterialPropertyId,
+    value: boolean | null,
+    evidence: string,
+    source: MaterialPropertySource = "material_library",
+  ): MaterialProperty => ({ id, label: LABELS[id], value, source, evidence });
+  let properties: MaterialProperty[];
+  switch (input.category) {
+    case "plastic":
+      properties = [
+        library(
+          "recyclable",
+          observed.has("material_code_visible") ? true : null,
+          observed.has("material_code_visible")
+            ? "Ký hiệu vật liệu nhìn thấy trong ảnh; vẫn cần đối chiếu tuyến tiếp nhận tại địa phương."
+            : "Chưa thấy ký hiệu nhựa hoặc hồ sơ vật liệu cụ thể để xác nhận tuyến tái chế.",
+          observed.has("material_code_visible") ? "material_library" : "unknown",
+        ),
+        library(
+          "compactable",
+          observed.has("dirty") ? null : true,
+          observed.has("dirty")
+            ? "Vật thể bẩn cần làm sạch trước khi đánh giá khả năng ép gọn."
+            : "Bao bì nhựa rỗng thông thường có thể giảm thể tích; không áp dụng cho bình chịu áp.",
+          observed.has("dirty") ? "unknown" : "material_library",
+        ),
+      ];
+      break;
+    case "paper": {
+      const contaminated = observed.has("wet") || observed.has("dirty");
+      properties = [
+        library("moisture_sensitive", true, "Sợi giấy giảm chất lượng khi ướt hoặc nhiễm bẩn."),
+        library(
+          "recyclable",
+          contaminated ? false : true,
+          contaminated
+            ? "Dấu hiệu ướt hoặc bẩn làm vật thể không phù hợp với tuyến giấy thông thường."
+            : "Giấy khô, sạch thường phù hợp tuyến thu hồi giấy.",
+        ),
+        library(
+          "compactable",
+          contaminated ? false : true,
+          contaminated ? "Không ép gọn giấy đang ướt hoặc bẩn." : "Giấy khô có thể làm phẳng để giảm thể tích.",
+        ),
+      ];
+      break;
+    }
+    case "glass":
+      properties = [
+        library("recyclable", true, "Thủy tinh bao bì thường có tuyến thu hồi riêng tại địa phương."),
+        library("brittle", true, "Thủy tinh có tính giòn và cần bảo vệ khi vỡ."),
+      ];
+      break;
+    case "metal":
+      properties = [
+        library("recyclable", true, "Kim loại bao bì thường có thể đưa vào tuyến thu hồi vật liệu."),
+        library("recoverable_material", true, "Kim loại có giá trị thu hồi; không suy ra tính từ chỉ từ ảnh."),
+        library(
+          "compactable",
+          null,
+          "Chưa đủ bằng chứng về kết cấu hoặc áp suất bên trong để xác nhận có thể nén.",
+          "unknown",
+        ),
+      ];
+      break;
+    case "organic":
+      properties = [
+        library("compostable", true, "Phần hữu cơ không lẫn bao bì có thể phù hợp quy trình ủ."),
+      ];
+      break;
+    case "hazard":
+      properties = [
+        library("separate_collection", true, "Vật thể nguy hại cần được cách ly và chuyển tới điểm thu gom phù hợp."),
+      ];
+      break;
+  }
   for (const id of ["dirty", "wet", "broken", "transparent", "material_code_visible"] as const) {
     if (!observed.has(id)) continue;
     properties.push({
@@ -216,10 +302,10 @@ function categoryAbilities(
           basedOn: ["recoverable_material"],
         },
         active: {
-          name: "Nén kiện",
-          description: "Giảm một đơn vị tài nguyên vận chuyển.",
-          rule: "Không dùng cho bình chịu áp hoặc vật thể nguy hiểm.",
-          basedOn: ["compactable"],
+          name: "Thu hồi đúng tuyến",
+          description: "Tăng hiệu quả khi đưa vật thể vào tuyến thu hồi kim loại.",
+          rule: "Dùng một lần mỗi vòng cho kim loại được phân luồng tái chế; không suy ra tính từ.",
+          basedOn: ["recoverable_material"],
         },
       };
     case "organic":

@@ -32,7 +32,12 @@ test("auth, material cards, rewards navigation and retired Campaign route work e
 
   await page.locator("#reg-name").fill("Browser QA");
   await page.locator("#reg-full-name").fill("Nguyễn Minh QA");
-  await page.locator("#reg-class").selectOption("10");
+  const firstClassId = await page
+    .locator('#reg-class option:not([value=""])')
+    .first()
+    .getAttribute("value");
+  expect(firstClassId).toBeTruthy();
+  await page.locator("#reg-class").selectOption(firstClassId!);
   await page.locator("#reg-nick").fill(nickname);
   await page.locator("#reg-email").fill(`${nickname}@example.test`);
   await page.locator("#reg-pass").fill(password);

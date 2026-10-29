@@ -31,6 +31,10 @@ export function isDbConnected(): boolean {
 }
 
 export async function initDb(): Promise<boolean> {
+  if (process.env.RESEARCH_DB_ENABLED?.trim().toLowerCase() === "false") {
+    console.info("[ResearchDB] Disabled by RESEARCH_DB_ENABLED=false.");
+    return false;
+  }
   if (!supabaseUrl || !supabaseServiceKey) {
     console.warn(
       "[ResearchDB] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set. Research features disabled.",
