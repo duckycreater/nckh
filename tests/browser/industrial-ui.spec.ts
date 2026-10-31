@@ -436,6 +436,10 @@ test("student shell remains usable at an effective 200 percent zoom", async ({
 
 test("industrial visual baselines", async ({ page, browserName }) => {
   test.skip(
+    Boolean(process.env.CI),
+    "Repository baselines are Win32-specific; CI keeps the functional Chromium suite as its gate.",
+  );
+  test.skip(
     browserName !== "chromium",
     "Visual baselines are kept on the Chromium rendering engine.",
   );
