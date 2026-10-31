@@ -17,3 +17,7 @@ services:
         value: production
       - key: BMO_MODEL_HMAC_SECRET
         generateValue: true
+      # Must match Pi 5. Render deliberately prompts for this secret instead
+      # of reading a credential committed to the repository.
+      - key: BMO_ROBOT_SHARED_SECRET
+        sync: false

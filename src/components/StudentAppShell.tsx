@@ -26,6 +26,7 @@ import { getAuthHeaders } from "../lib/auth";
 interface StudentAppShellProps {
   user: User;
   onLogout: () => void;
+  onUserUpdate?: (user: Partial<User>) => void;
   children: React.ReactNode;
 }
 
@@ -66,7 +67,7 @@ function isActive(pathname: string, path: string) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-export function StudentAppShell({ user, onLogout, children }: StudentAppShellProps) {
+export function StudentAppShell({ user, onLogout, onUserUpdate, children }: StudentAppShellProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,13 +91,41 @@ export function StudentAppShell({ user, onLogout, children }: StudentAppShellPro
     }
   }, []);
 
+  const refreshRobotBalance = React.useCallback(async () => {
+    if (!onUserUpdate) return;
+    try {
+      const response = await fetch(`/api/user/${encodeURIComponent(user.account_id)}`, {
+        headers: getAuthHeaders(),
+      });
+      const payload = await response.json().catch(() => null);
+      if (response.ok && Number.isFinite(Number(payload?.points))) {
+        onUserUpdate({
+          points: Number(payload.points),
+          totalExpEarned: Number(payload.totalExpEarned ?? payload.total_exp_earned ?? user.totalExpEarned),
+        });
+      }
+    } catch {
+      // Notifications remain durable on the server; a later poll will recover.
+    }
+  }, [onUserUpdate, user.account_id, user.totalExpEarned]);
+
   React.useEffect(() => setMobileMenuOpen(false), [location.pathname]);
   React.useEffect(() => {
-    void loadNotifications();
-    const onFocus = () => void loadNotifications();
+    const refresh = () => {
+      void loadNotifications();
+      void refreshRobotBalance();
+    };
+    refresh();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 5_000);
+    const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [loadNotifications]);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadNotifications, refreshRobotBalance]);
   React.useEffect(() => {
     if (!notificationsOpen) return;
     const close = (event: MouseEvent | KeyboardEvent) => {

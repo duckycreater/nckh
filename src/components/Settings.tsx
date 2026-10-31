@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../lib/i18n";
-import { ArrowRight, Check, FlaskConical, Globe, LockKeyhole, Search, Shield, X } from "lucide-react";
+import { ArrowRight, Bot, Check, FlaskConical, Globe, LockKeyhole, Search, Shield, X } from "lucide-react";
 import { ContributeToDataset } from "./ContributeToDataset";
 import { PrivacyBudgetMeter } from "./PrivacyBudgetMeter";
 import { AuditTimeline } from "./AuditTimeline";
@@ -21,7 +21,7 @@ interface SettingsProps {
 export function Settings({ user, onUpdate }: SettingsProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<
-    "appearance" | "name" | "password" | "language" | "privacy"
+    "appearance" | "name" | "password" | "robot" | "language" | "privacy"
   >("appearance");
   const [lang, setLang] = useState<LanguageCode>(getCurrentLanguage());
   const [savingPref, setSavingPref] = useState(false);
@@ -40,6 +40,11 @@ export function Settings({ user, onUpdate }: SettingsProps) {
   const [confirmPass, setConfirmPass] = useState("");
   const [passMsg, setPassMsg] = useState("");
   const [passErr, setPassErr] = useState("");
+  const [robotPin, setRobotPin] = useState("");
+  const [robotPinConfirm, setRobotPinConfirm] = useState("");
+  const [robotPinMsg, setRobotPinMsg] = useState("");
+  const [robotPinErr, setRobotPinErr] = useState("");
+  const [savingRobotPin, setSavingRobotPin] = useState(false);
 
   const purchased = user.progress?.purchased || [];
   const hasPurchased = (id: string) => purchased.includes(id) || purchased.includes(Number(id));
@@ -158,6 +163,41 @@ export function Settings({ user, onUpdate }: SettingsProps) {
     }
   };
 
+  const handleRobotPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRobotPinErr("");
+    setRobotPinMsg("");
+    if (!/^\d{6}$/.test(robotPin)) {
+      setRobotPinErr("PIN robot phải gồm đúng 6 chữ số.");
+      return;
+    }
+    if (/^(\d)\1{5}$/.test(robotPin)) {
+      setRobotPinErr("Không dùng cùng một chữ số lặp lại 6 lần.");
+      return;
+    }
+    if (robotPin !== robotPinConfirm) {
+      setRobotPinErr("PIN xác nhận không khớp.");
+      return;
+    }
+    setSavingRobotPin(true);
+    try {
+      const response = await fetch("/api/me/robot-pin", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ pin: robotPin }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Không thể lưu PIN robot.");
+      setRobotPin("");
+      setRobotPinConfirm("");
+      setRobotPinMsg("Đã đặt PIN robot. PIN không được hiển thị hoặc lưu trong nhật ký.");
+    } catch (error) {
+      setRobotPinErr(error instanceof Error ? error.message : "Lỗi kết nối.");
+    } finally {
+      setSavingRobotPin(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Tab navigation */}
@@ -179,6 +219,14 @@ export function Settings({ user, onUpdate }: SettingsProps) {
           onClick={() => setActiveTab("password")}
         >
           {t("settings.password")}
+        </TabButton>
+        <TabButton
+          active={activeTab === "robot"}
+          onClick={() => setActiveTab("robot")}
+          className="flex items-center justify-center gap-1.5"
+        >
+          <Bot size={15} />
+          <span>PIN robot</span>
         </TabButton>
         <TabButton
           active={activeTab === "language"}
@@ -410,6 +458,62 @@ export function Settings({ user, onUpdate }: SettingsProps) {
               className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800"
             >
               Đổi Mật Khẩu
+            </button>
+          </form>
+        </div>
+      )}
+
+      {activeTab === "robot" && (
+        <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-6 md:p-8">
+          <div className="mb-6 flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[9px] bg-[var(--primary-soft)] text-[var(--primary)]">
+              <Bot size={20} />
+            </span>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">PIN xác nhận tại BMO</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Dùng ID tài khoản <strong>{user.account_id}</strong> và PIN này khi robot không đọc được phù hiệu.
+              </p>
+            </div>
+          </div>
+          {robotPinErr && <p className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{robotPinErr}</p>}
+          {robotPinMsg && <p className="mb-4 rounded bg-emerald-50 p-3 text-sm text-emerald-700">{robotPinMsg}</p>}
+          <form onSubmit={handleRobotPin} className="space-y-4">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-gray-700">PIN mới gồm 6 số</span>
+              <input
+                inputMode="numeric"
+                autoComplete="new-password"
+                maxLength={6}
+                required
+                value={robotPin}
+                onChange={(event) => setRobotPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="w-full rounded-md border-0 px-3 py-2 font-mono tracking-[0.35em] text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
+                type="password"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-gray-700">Nhập lại PIN</span>
+              <input
+                inputMode="numeric"
+                autoComplete="new-password"
+                maxLength={6}
+                required
+                value={robotPinConfirm}
+                onChange={(event) => setRobotPinConfirm(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="w-full rounded-md border-0 px-3 py-2 font-mono tracking-[0.35em] text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
+                type="password"
+              />
+            </label>
+            <p className="text-xs text-gray-500">
+              Robot khóa nhập trong 15 phút sau 5 lần sai. PIN được băm trên server và không nằm trong evidence.
+            </p>
+            <button
+              type="submit"
+              disabled={savingRobotPin}
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+            >
+              {savingRobotPin ? "Đang lưu..." : "Đặt hoặc đổi PIN"}
             </button>
           </form>
         </div>

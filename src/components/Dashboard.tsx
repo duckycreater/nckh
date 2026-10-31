@@ -284,7 +284,7 @@ export function Dashboard({ user, onLogout, onUpdateUser }: DashboardProps) {
   }, [streakDays, lastGiftMilestone]);
 
   return (
-    <StudentAppShell user={user} onLogout={onLogout}>
+    <StudentAppShell user={user} onLogout={onLogout} onUserUpdate={onUpdateUser}>
       <div className="page-container">
         {user.canEarnPoints === false && (
           <div

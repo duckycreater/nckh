@@ -156,6 +156,14 @@ import {
   RedemptionError,
   type RedemptionStatus,
 } from "../server/services/redemptions.js";
+import {
+  RobotEventRequestSchema,
+  RobotIdentityRequestSchema,
+  identityTokenHash,
+  robotPayloadHash,
+  robotScore,
+  verifyRobotRequest,
+} from "../server/services/robotProtocol.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -710,6 +718,8 @@ interface User {
   points: number;
   /** Lifetime progression currency. Spending points must never reduce this. */
   totalExpEarned?: number;
+  /** Monotonic guard against stale profile/progress writes overwriting points. */
+  pointsVersion?: number;
   hasPlayed: boolean;
   account_id: string;
   role?: string;
@@ -728,6 +738,8 @@ interface User {
   scanRewardHistory?: ScanRewardEntry[];
   redemptionRequests?: RedemptionRequest[];
   passwordResetNonce?: string;
+  robotPinHash?: string;
+  robotPinUpdatedAt?: number;
 }
 
 function normalizeProgressCards(progress: UserProgress): boolean {
@@ -878,7 +890,8 @@ async function commitPointMutation(input: {
       const newPoints = Math.max(0, oldPoints + requestedDelta);
       const appliedDelta = newPoints - oldPoints;
       const totalExpEarned = (user.totalExpEarned || 0) + (appliedDelta > 0 ? appliedDelta : 0);
-      transaction.update(userRef, { points: newPoints, totalExpEarned });
+      const pointsVersion = Math.max(0, Math.trunc(Number(user.pointsVersion) || 0)) + 1;
+      transaction.update(userRef, { points: newPoints, totalExpEarned, pointsVersion });
       transaction.create(transactionRef, {
         id: transactionId,
         accountId: user.account_id,
@@ -1315,8 +1328,30 @@ async function saveUser(user: User, isNew: boolean = false): Promise<void> {
   const normNick = user.nick.toLowerCase();
   if (db) {
     try {
-      // Always use merge to never accidentally delete existing fields like progress
-      await db.collection("users").doc(normNick).set(user, { merge: true });
+      const ref = db.collection("users").doc(normNick);
+      await db.runTransaction(async (transaction) => {
+        const currentSnapshot = await transaction.get(ref);
+        if (!currentSnapshot.exists) {
+          user.pointsVersion = Math.max(0, Math.trunc(Number(user.pointsVersion) || 0));
+          transaction.set(ref, user, { merge: true });
+          return;
+        }
+        const current = normalizeUserEconomy(currentSnapshot.data() as User);
+        const storedVersion = Math.max(0, Math.trunc(Number(current.pointsVersion) || 0));
+        const incomingVersion = Math.max(0, Math.trunc(Number(user.pointsVersion) || 0));
+        if (incomingVersion !== storedVersion) {
+          // Another transaction changed the balance after this object was read.
+          // Persist profile fields but carry the authoritative economy forward.
+          user.points = current.points;
+          user.totalExpEarned = current.totalExpEarned;
+          user.pointsVersion = storedVersion;
+        } else {
+          const economyChanged =
+            user.points !== current.points || user.totalExpEarned !== current.totalExpEarned;
+          user.pointsVersion = storedVersion + (economyChanged ? 1 : 0);
+        }
+        transaction.set(ref, user, { merge: true });
+      });
     } catch (e) {
       console.error(`[saveUser] Failed to save ${normNick} to Firestore:`, e?.message || e);
       throw e;
@@ -1342,11 +1377,27 @@ async function saveUserAndProgress(
   normalizeProgressCards(progress);
   const normalizedNickname = nickname.toLowerCase();
   if (db) {
-    const batch = db.batch();
-    batch.set(db.collection("users").doc(normalizedNickname), user, { merge: true });
-    batch.set(db.collection("user_progress").doc(normalizedNickname), progress, { merge: true });
     try {
-      await batch.commit();
+      const userRef = db.collection("users").doc(normalizedNickname);
+      const progressRef = db.collection("user_progress").doc(normalizedNickname);
+      await db.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(userRef);
+        if (!snapshot.exists) throw new Error(`Cannot save progress: user ${nickname} was not found`);
+        const current = normalizeUserEconomy(snapshot.data() as User);
+        const storedVersion = Math.max(0, Math.trunc(Number(current.pointsVersion) || 0));
+        const incomingVersion = Math.max(0, Math.trunc(Number(user.pointsVersion) || 0));
+        if (incomingVersion !== storedVersion) {
+          user.points = current.points;
+          user.totalExpEarned = current.totalExpEarned;
+          user.pointsVersion = storedVersion;
+        } else {
+          const economyChanged =
+            user.points !== current.points || user.totalExpEarned !== current.totalExpEarned;
+          user.pointsVersion = storedVersion + (economyChanged ? 1 : 0);
+        }
+        transaction.set(userRef, user, { merge: true });
+        transaction.set(progressRef, progress, { merge: true });
+      });
       runInBackground("user-progress-profile-sync", async () => {
         await syncUserResearchProfile(user);
       });
@@ -1539,82 +1590,380 @@ function getGroqClient() {
   return groqClient;
 }
 
-// 1. Robot Webhook
-// Layer 2.2 — replace the hardcoded shared-secret "BMO_ROBOT_2025" with a
-// constant-time HMAC-signed request that includes a timestamp window. The
-// secret lives in `BMO_ROBOT_SHARED_SECRET` (env var) and is documented in
-// `.env.example`. This blocks replay attacks: an attacker who copies a
-// captured signature can't reuse it after the 5-minute window closes.
-app.post("/api/robot", async (req, res) => {
-  try {
-    const sharedSecret = process.env.BMO_ROBOT_SHARED_SECRET;
-    if (!sharedSecret) {
-      console.error("[robot] BMO_ROBOT_SHARED_SECRET is not set");
-      return res.status(503).json({ result: "error", message: "Robot endpoint not configured" });
-    }
-    const { nickname, key, ts, sig } = req.body ?? {};
-    if (!nickname || typeof nickname !== "string") {
-      return res.status(400).json({ result: "error", message: "Thiếu nickname" });
-    }
-    // Legacy path: callers that still send the shared secret as `key` get
-    // a deprecation warning but are accepted for one minor release so the
-    // on-device firmware doesn't break mid-pilot.
-    let legacyOk = false;
-    if (typeof key === "string" && key === sharedSecret) {
-      legacyOk = true;
-      console.warn(
-        `[robot] deprecated legacy-secret call for ${nickname}; please update firmware to HMAC`,
-      );
-    }
-    let hmacOk = false;
-    if (typeof ts === "number" && typeof sig === "string") {
-      const skewMs = Math.abs(Date.now() - ts);
-      if (skewMs <= 5 * 60 * 1000) {
-        const expected = crypto
-          .createHmac("sha256", sharedSecret)
-          .update(`${nickname}:${ts}`)
-          .digest("hex");
-        // constant-time compare to prevent timing attacks
-        const a = Buffer.from(expected, "hex");
-        const b = Buffer.from(sig, "hex");
-        if (a.length === b.length) {
-          hmacOk = crypto.timingSafeEqual(a, b);
-        }
-      }
-    }
-    if (!legacyOk && !hmacOk) {
-      return res.status(401).json({ result: "error", message: "Sai mã bảo mật" });
-    }
+// ─── Robot v2: session-bound identity + exactly-once verified disposal ──────
+const robotNonceCache = new Map<string, number>();
 
-    const user = await getUser(nickname);
-    if (user) {
-      if (!pointEligibility(user).canEarnPoints) {
-        return res.status(403).json({
-          result: "error",
-          code: "profile_verification_required",
-          message: "Hồ sơ cần được xác minh trước khi nhận điểm.",
-        });
-      }
-      applyEarnedPoints(user, 10);
-      await saveUser(user);
-      writeGoogleSheetsLog(
-        "1xqrjBMynOYuqGbvmBbuEHXFWZT0ZpwQE6Uy2N7tkr-Q",
-        nickname,
-        "Robot cộng 10 điểm",
-        10,
-      );
-      res.json({
-        result: "success",
-        nickname: user.nick,
-        new_points: user.points,
+async function requireRobotV2(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
+  const secret = process.env.BMO_ROBOT_SHARED_SECRET?.trim();
+  if (!secret || secret.length < 24) {
+    return res.status(503).json({ error: "Robot v2 chưa được cấu hình.", code: "robot_unconfigured" });
+  }
+  const checked = verifyRobotRequest({
+    secret,
+    method: req.method,
+    path: req.path,
+    timestamp: String(req.headers["x-bmo-timestamp"] || ""),
+    nonce: String(req.headers["x-bmo-nonce"] || ""),
+    signature: String(req.headers["x-bmo-signature"] || ""),
+    body: req.body ?? {},
+  });
+  if (!checked.ok) {
+    return res.status(401).json({ error: "Chữ ký robot không hợp lệ.", code: checked.reason });
+  }
+  const nonceId = crypto
+    .createHash("sha256")
+    .update(`${String(req.body?.device_id || "unknown")}:${checked.nonce}`)
+    .digest("hex");
+  try {
+    if (db) {
+      await db.collection("robot_nonces").doc(nonceId).create({
+        nonce: checked.nonce,
+        timestampMs: checked.timestampMs,
+        expiresAt: checked.timestampMs + 10 * 60_000,
+        createdAt: Date.now(),
       });
     } else {
-      res.json({ result: "error", message: "Không tìm thấy user" });
+      const now = Date.now();
+      for (const [key, expiry] of robotNonceCache) if (expiry < now) robotNonceCache.delete(key);
+      if (robotNonceCache.has(nonceId)) throw new Error("NONCE_REPLAY");
+      robotNonceCache.set(nonceId, checked.timestampMs + 10 * 60_000);
     }
-  } catch (e: any) {
-    res.json({ result: "error", message: e.toString() });
+  } catch (error) {
+    const code = (error as { code?: number | string }).code;
+    if (code === 6 || code === "6" || (error as Error).message === "NONCE_REPLAY") {
+      return res.status(409).json({ error: "Yêu cầu robot đã được dùng.", code: "nonce_replay" });
+    }
+    throw error;
+  }
+  (req as any).robotSecret = secret;
+  next();
+}
+
+async function findBadgeUsers(studentName: string, className: string): Promise<User[]> {
+  const normalizedName = normalizeStudentName(studentName);
+  const normalizedClass = className.replace(/\s+/g, "").toUpperCase();
+  if (db) {
+    const [byGrade, byClassId] = await Promise.all([
+      db.collection("users").where("classGrade", "==", normalizedClass).get(),
+      db.collection("users").where("classId", "==", normalizedClass).get(),
+    ]);
+    const unique = new Map([...byGrade.docs, ...byClassId.docs].map((document) => [document.id, document]));
+    return [...unique.values()]
+      .map((document) => normalizeUserEconomy(document.data() as User))
+      .filter((user) => normalizeStudentName(user.fullName || user.name) === normalizedName);
+  }
+  return users.filter(
+    (user) =>
+      (user.classGrade || "").replace(/\s+/g, "").toUpperCase() === normalizedClass &&
+      normalizeStudentName(user.fullName || user.name) === normalizedName,
+  );
+}
+
+async function pinAttemptState(accountId: string, deviceId: string): Promise<{
+  locked: boolean;
+  retryAfterSeconds: number;
+}> {
+  if (!db) return { locked: false, retryAfterSeconds: 0 };
+  const id = crypto.createHash("sha256").update(`${accountId}:${deviceId}`).digest("hex");
+  const snapshot = await db.collection("robot_pin_attempts").doc(id).get();
+  const value = snapshot.data() as { count?: number; windowStartedAt?: number } | undefined;
+  const elapsed = Date.now() - Number(value?.windowStartedAt || 0);
+  if (!value || elapsed >= 15 * 60_000 || Number(value.count || 0) < 5) {
+    return { locked: false, retryAfterSeconds: 0 };
+  }
+  return { locked: true, retryAfterSeconds: Math.ceil((15 * 60_000 - elapsed) / 1000) };
+}
+
+async function recordPinAttempt(accountId: string, deviceId: string, successful: boolean) {
+  if (!db) return;
+  const id = crypto.createHash("sha256").update(`${accountId}:${deviceId}`).digest("hex");
+  const ref = db.collection("robot_pin_attempts").doc(id);
+  if (successful) {
+    await ref.delete().catch(() => undefined);
+    return;
+  }
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const now = Date.now();
+    const previous = snapshot.data() as { count?: number; windowStartedAt?: number } | undefined;
+    const reset = !previous || now - Number(previous.windowStartedAt || 0) >= 15 * 60_000;
+    transaction.set(ref, {
+      accountId,
+      deviceId,
+      count: reset ? 1 : Number(previous?.count || 0) + 1,
+      windowStartedAt: reset ? now : previous?.windowStartedAt,
+      updatedAt: now,
+    });
+  });
+}
+
+app.put("/api/me/robot-pin", requireAuth, async (req, res) => {
+  const pin = String(req.body?.pin || "");
+  if (!/^\d{6}$/.test(pin) || /^(\d)\1{5}$/.test(pin)) {
+    return res.status(400).json({
+      error: "PIN phải gồm 6 số và không được lặp cùng một chữ số.",
+      code: "invalid_robot_pin",
+    });
+  }
+  const user = await getUser(String((req as any).userNick || ""));
+  if (!user) return res.status(404).json({ error: "Không tìm thấy tài khoản." });
+  user.robotPinHash = await hashPassword(pin);
+  user.robotPinUpdatedAt = Date.now();
+  await saveUser(user);
+  res.json({ success: true, robot_pin_configured: true, updated_at: user.robotPinUpdatedAt });
+});
+
+app.post("/api/robot/v2/identity", requireRobotV2, async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Danh tính robot cần Firestore." });
+  const parsed = RobotIdentityRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Dữ liệu danh tính không hợp lệ.", details: parsed.error.issues });
+  }
+  const body = parsed.data;
+  let user: User | undefined;
+  if (body.method === "badge") {
+    const badge = body.badge!;
+    const age = Date.now() - badge.observed_at_ms;
+    if (age < -2_000 || age > 15_000 || badge.confidence < 0.6) {
+      return res.status(409).json({ error: "Kết quả phù hiệu đã cũ hoặc chưa đủ chắc chắn.", code: "stale_badge" });
+    }
+    const candidates = await findBadgeUsers(badge.student_name, badge.class_name);
+    if (candidates.length !== 1) {
+      return res.status(409).json({
+        error: candidates.length ? "Phù hiệu trùng tên — hãy nhập ID/PIN." : "Không khớp tài khoản — hãy nhập ID/PIN.",
+        code: candidates.length ? "ambiguous_badge" : "badge_not_found",
+      });
+    }
+    user = candidates[0];
+  } else {
+    user = await getUser(body.account_id!);
+    if (!user || !user.robotPinHash) {
+      await recordPinAttempt(body.account_id!, body.device_id, false);
+      return res.status(401).json({ error: "ID hoặc PIN robot không đúng.", code: "invalid_robot_pin" });
+    }
+    const state = await pinAttemptState(user.account_id, body.device_id);
+    if (state.locked) {
+      res.setHeader("Retry-After", String(state.retryAfterSeconds));
+      return res.status(429).json({ error: "Đã nhập sai quá nhiều lần.", code: "robot_pin_locked" });
+    }
+    const valid = await verifyPassword(body.pin!, user.robotPinHash);
+    await recordPinAttempt(user.account_id, body.device_id, valid);
+    if (!valid) {
+      return res.status(401).json({ error: "ID hoặc PIN robot không đúng.", code: "invalid_robot_pin" });
+    }
+  }
+  if (!user || user.disabled || isUserDisabled(user.nick)) {
+    return res.status(403).json({ error: "Tài khoản không hoạt động.", code: "account_disabled" });
+  }
+  const payloadHash = robotPayloadHash(body);
+  const secret = String((req as any).robotSecret);
+  const identityToken = crypto
+    .createHmac("sha256", secret)
+    .update(`identity:${body.session_id}:${payloadHash}`)
+    .digest("hex");
+  const ref = db.collection("robot_identity_sessions").doc(body.session_id);
+  const now = Date.now();
+  const expiresAt = now + 3 * 60_000;
+  const record = await db.runTransaction(async (transaction) => {
+    const existing = await transaction.get(ref);
+    if (existing.exists) {
+      const current = existing.data()!;
+      if (current.payloadHash !== payloadHash || current.deviceId !== body.device_id) {
+        throw new Error("IDENTITY_SESSION_CONFLICT");
+      }
+      return current;
+    }
+    const value = {
+      sessionId: body.session_id,
+      deviceId: body.device_id,
+      accountId: user!.account_id,
+      nickname: user!.nick.toLowerCase(),
+      fullName: user!.fullName || user!.name,
+      className: user!.classGrade || user!.classId || "",
+      method: body.method,
+      payloadHash,
+      identityTokenHash: identityTokenHash(identityToken),
+      canEarnPoints: pointEligibility(user!).canEarnPoints,
+      createdAt: now,
+      expiresAt,
+    };
+    transaction.create(ref, value);
+    return value;
+  }).catch((error) => {
+    if ((error as Error).message === "IDENTITY_SESSION_CONFLICT") return null;
+    throw error;
+  });
+  if (!record) return res.status(409).json({ error: "Phiên đã gắn với danh tính khác.", code: "identity_session_conflict" });
+  res.json({
+    success: true,
+    session_id: body.session_id,
+    identity_token: identityToken,
+    account_id: record.accountId,
+    nickname: record.nickname,
+    full_name: record.fullName,
+    class_name: record.className,
+    can_earn_points: record.canEarnPoints,
+    point_eligibility_reason: record.canEarnPoints ? null : "profile_verification_required",
+    expires_at: record.expiresAt,
+  });
+});
+
+app.post("/api/robot/v2/events", requireRobotV2, async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Ghi điểm robot cần Firestore." });
+  const parsed = RobotEventRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Sự kiện robot không hợp lệ.", details: parsed.error.issues });
+  }
+  const event = parsed.data;
+  const { identity_token: _identityToken, ...storedEvent } = event;
+  const bodyHash = robotPayloadHash(event);
+  const eventRef = db.collection("robot_events").doc(event.event_id);
+  const sessionRef = db.collection("robot_identity_sessions").doc(event.session_id);
+  try {
+    const receipt = await db.runTransaction(async (transaction) => {
+      const [existing, sessionSnapshot] = await Promise.all([
+        transaction.get(eventRef),
+        transaction.get(sessionRef),
+      ]);
+      if (existing.exists) {
+        const current = existing.data()!;
+        if (current.bodyHash !== bodyHash) throw new Error("EVENT_ID_CONFLICT");
+        return current.receipt;
+      }
+      if (!sessionSnapshot.exists) throw new Error("IDENTITY_SESSION_NOT_FOUND");
+      const session = sessionSnapshot.data()!;
+      if (session.deviceId !== event.device_id) throw new Error("DEVICE_MISMATCH");
+      if (session.completedEventId && session.completedEventId !== event.event_id) {
+        throw new Error("SESSION_ALREADY_COMPLETED");
+      }
+      if (identityTokenHash(event.identity_token) !== session.identityTokenHash) {
+        throw new Error("IDENTITY_TOKEN_INVALID");
+      }
+      if (event.completed_at_ms < event.observed_at_ms || event.completed_at_ms - event.observed_at_ms > 60_000) {
+        throw new Error("INVALID_EVENT_TIMELINE");
+      }
+      // Delivery may happen much later after an offline period. Validate when
+      // the physical event happened, not when its durable outbox finally sent.
+      if (event.observed_at_ms < Number(session.createdAt || 0) - 5_000 || event.completed_at_ms > Number(session.expiresAt || 0) + 45_000) {
+        throw new Error("IDENTITY_SESSION_EXPIRED");
+      }
+      const userRef = db!.collection("users").doc(String(session.nickname));
+      const userSnapshot = await transaction.get(userRef);
+      if (!userSnapshot.exists) throw new Error("USER_NOT_FOUND");
+      const user = normalizeUserEconomy(userSnapshot.data() as User);
+      const eligible = pointEligibility(user).canEarnPoints && !user.disabled;
+      const pointsApplied = robotScore(event, eligible);
+      const balanceBefore = user.points;
+      const balanceAfter = balanceBefore + pointsApplied;
+      const totalExpEarned = (user.totalExpEarned || 0) + pointsApplied;
+      const correct = event.decision === "confirmed" && event.actual_bin === event.waste_category;
+      const receiptId = `robot_${event.event_id}`;
+      const receipt = {
+        receipt_id: receiptId,
+        event_id: event.event_id,
+        session_id: event.session_id,
+        account_id: user.account_id,
+        nickname: user.nick,
+        decision: event.decision,
+        correct,
+        points_applied: pointsApplied,
+        balance_after: balanceAfter,
+        can_earn_points: eligible,
+        point_eligibility_reason: eligible ? null : "profile_verification_required",
+        committed_at: Date.now(),
+      };
+      if (pointsApplied > 0) {
+        const pointsVersion = Math.max(0, Math.trunc(Number(user.pointsVersion) || 0)) + 1;
+        transaction.update(userRef, { points: balanceAfter, totalExpEarned, pointsVersion });
+        transaction.create(db!.collection("point_transactions").doc(receiptId), {
+          id: receiptId,
+          accountId: user.account_id,
+          nickname: user.nick.toLowerCase(),
+          type: "earn",
+          source: "bmo_robot_verified_disposal",
+          reason: `Bỏ đúng ${event.waste_name} vào thùng ${event.actual_bin}`,
+          amount: pointsApplied,
+          balanceBefore,
+          balanceAfter,
+          totalExpEarned,
+          idempotencyKey: event.event_id,
+          createdAt: receipt.committed_at,
+        });
+      }
+      const notificationId = `robot_event_${event.event_id}`;
+      transaction.create(db!.collection("notifications").doc(notificationId), {
+        id: notificationId,
+        userId: user.account_id,
+        kind: pointsApplied > 0 ? "robot_reward" : "robot_disposal",
+        type: pointsApplied > 0 ? "robot_reward" : "robot_disposal",
+        title: pointsApplied > 0 ? "BMO đã cộng 10 điểm" : "BMO đã ghi nhận lượt bỏ rác",
+        body: pointsApplied > 0
+          ? `${event.waste_name}: đúng thùng ${event.actual_bin}.`
+          : correct
+            ? `${event.waste_name}: hồ sơ chưa đủ điều kiện nhận điểm.`
+            : `${event.waste_name}: chưa xác nhận đúng thùng, không cộng điểm.`,
+        message: pointsApplied > 0
+          ? `${event.waste_name}: đúng thùng ${event.actual_bin}.`
+          : correct
+            ? `${event.waste_name}: hồ sơ chưa đủ điều kiện nhận điểm.`
+            : `${event.waste_name}: chưa xác nhận đúng thùng, không cộng điểm.`,
+        createdAt: receipt.committed_at,
+        readAt: null,
+        eventId: event.event_id,
+      });
+      transaction.create(eventRef, {
+        ...storedEvent,
+        accountId: user.account_id,
+        nickname: user.nick.toLowerCase(),
+        bodyHash,
+        receipt,
+        createdAt: receipt.committed_at,
+      });
+      transaction.set(db!.collection("supabase_outbox").doc(receiptId), {
+        id: receiptId,
+        kind: "robot_event",
+        payload: { ...storedEvent, account_id: user.account_id, points_applied: pointsApplied },
+        state: "pending",
+        attempts: 0,
+        createdAt: receipt.committed_at,
+      });
+      transaction.update(sessionRef, { completedEventId: event.event_id, completedAt: receipt.committed_at });
+      return receipt;
+    });
+    res.json({ success: true, receipt });
+  } catch (error) {
+    const code = (error as Error).message;
+    const status = ["EVENT_ID_CONFLICT", "SESSION_ALREADY_COMPLETED"].includes(code)
+      ? 409
+      : ["IDENTITY_SESSION_NOT_FOUND", "USER_NOT_FOUND"].includes(code)
+        ? 404
+        : 401;
+    res.status(status).json({ error: "Không thể ghi nhận sự kiện robot.", code: code.toLowerCase() });
   }
 });
+
+app.get("/api/robot/v2/events/:eventId", requireRobotV2, async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Dịch vụ robot chưa sẵn sàng." });
+  const eventId = getRouteParam(req.params.eventId);
+  const snapshot = await db.collection("robot_events").doc(eventId).get();
+  if (!snapshot.exists) return res.status(404).json({ error: "Chưa có biên nhận.", code: "event_not_found" });
+  const value = snapshot.data()!;
+  res.json({ success: true, receipt: value.receipt });
+});
+
+// The old endpoint trusted only a nickname and could award points without
+// disposal evidence. Keep a deliberate tombstone so stale firmware fails safe.
+app.post("/api/robot", (_req, res) =>
+  res.status(410).json({
+    result: "error",
+    code: "legacy_robot_endpoint_retired",
+    message: "Hãy cập nhật robot sang giao thức v2.",
+  }),
+);
 
 // 2. Auth and school profile APIs
 app.get("/api/classes", async (_req, res) => {
