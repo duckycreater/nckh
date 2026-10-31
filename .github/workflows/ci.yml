@@ -147,7 +147,10 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run production browser flows
-        run: npm run test:browser
+        # This job intentionally installs Chromium only. Explicitly select the
+        # matching Playwright project so CI does not try to launch Firefox and
+        # WebKit binaries that were never installed.
+        run: npm run test:browser -- --project=chromium
 
       - name: Upload browser diagnostics
         if: failure()
