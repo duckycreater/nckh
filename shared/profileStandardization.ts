@@ -14,6 +14,14 @@ export interface PointEligibilityProfile {
   profileVerificationStatus?: ProfileVerificationStatus | null;
 }
 
+export interface MutableProfileVerification {
+  profileVerificationStatus?: ProfileVerificationStatus;
+  profileUpdatedAt?: number;
+  profileRejectionReason?: string;
+  profileVerifiedAt?: number;
+  profileVerifiedBy?: string;
+}
+
 export function normalizeStudentName(value: unknown): string {
   if (typeof value !== "string") return "";
   return value.normalize("NFC").trim().replace(/\s+/g, " ");
@@ -44,4 +52,34 @@ export function requiresVerifiedProfile(profile: PointEligibilityProfile): boole
 
 export function canProfileEarnPoints(profile: PointEligibilityProfile): boolean {
   return !requiresVerifiedProfile(profile) || profile.profileVerificationStatus === "verified";
+}
+
+/**
+ * Applies an administrator decision without leaving `undefined` properties on
+ * the persisted object. Firestore rejects explicit undefined values, so fields
+ * that do not belong to the selected state must be deleted instead.
+ */
+export function applyProfileVerificationDecision<T extends MutableProfileVerification>(
+  profile: T,
+  decision: "verified" | "rejected",
+  options: {
+    updatedAt: number;
+    verifiedBy: string;
+    rejectionReason?: string;
+  },
+): T {
+  profile.profileVerificationStatus = decision;
+  profile.profileUpdatedAt = options.updatedAt;
+
+  if (decision === "verified") {
+    profile.profileVerifiedAt = options.updatedAt;
+    profile.profileVerifiedBy = options.verifiedBy;
+    delete profile.profileRejectionReason;
+  } else {
+    profile.profileRejectionReason = options.rejectionReason || "Thông tin chưa khớp.";
+    delete profile.profileVerifiedAt;
+    delete profile.profileVerifiedBy;
+  }
+
+  return profile;
 }

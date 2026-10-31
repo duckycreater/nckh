@@ -1,5 +1,8 @@
 import type { SchoolClass } from "../../shared/school";
-import type { ProfileVerificationStatus } from "../../shared/profileStandardization";
+import {
+  isProfileVerificationStatus,
+  type ProfileVerificationStatus,
+} from "../../shared/profileStandardization";
 
 export interface ResearchProfileSnapshot {
   accountId: string;
@@ -30,11 +33,50 @@ export interface ProfileVerificationSnapshot {
 
 let verificationTableAvailable: boolean | null = null;
 let schoolClassesTableAvailable: boolean | null = null;
+const verificationCache = new Map<
+  string,
+  { value: ProfileVerificationSnapshot | null; expiresAt: number }
+>();
+const VERIFICATION_CACHE_MS = 60_000;
+
+function cacheVerification(value: ProfileVerificationSnapshot | null, accountId: string): void {
+  verificationCache.set(accountId, {
+    value,
+    expiresAt: Date.now() + VERIFICATION_CACHE_MS,
+  });
+}
+
+function verificationFromRecord(
+  accountId: string,
+  record: Record<string, unknown> | null,
+): ProfileVerificationSnapshot | null {
+  if (!record || !isProfileVerificationStatus(record.status ?? record.profile_verification_status)) {
+    return null;
+  }
+  return {
+    accountId,
+    fullName: String(record.submitted_full_name ?? record.full_name ?? "") || null,
+    classId: String(record.class_id ?? "") || null,
+    classGrade: String(record.class_grade ?? "") || null,
+    status: (record.status ?? record.profile_verification_status) as ProfileVerificationStatus,
+    rejectionReason: String(record.rejection_reason ?? "") || null,
+    submittedAt: (record.submitted_at as string | null | undefined) ?? null,
+    verifiedAt: (record.verified_at as string | null | undefined) ?? null,
+    verifiedBy: String(record.verified_by ?? "") || null,
+  };
+}
 
 function supabaseConfig(): { url: string; key: string } | null {
   const url = process.env.SUPABASE_URL?.trim().replace(/\/$/, "");
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   return url && key ? { url, key } : null;
+}
+
+export function isProfileVerificationStoreConfigured(): boolean {
+  return (
+    supabaseConfig() !== null &&
+    process.env.RESEARCH_DB_ENABLED?.trim().toLowerCase() !== "false"
+  );
 }
 
 function asIso(value: number | string | null | undefined): string | null {
@@ -185,13 +227,68 @@ export async function syncProfileVerification(
         },
       ]);
       verificationTableAvailable = true;
+      if (saved) cacheVerification(verification, verification.accountId);
       return saved;
     } catch (error) {
       if (!String(error).includes("PGRST205")) throw error;
       verificationTableAvailable = false;
     }
   }
-  return syncLegacyProfileSnapshot(verification.accountId, metadata, "profile_verification_status");
+  const saved = await syncLegacyProfileSnapshot(
+    verification.accountId,
+    metadata,
+    "profile_verification_status",
+  );
+  if (saved) cacheVerification(verification, verification.accountId);
+  return saved;
+}
+
+/**
+ * Reads the authoritative verification decision from Supabase. New installs
+ * use the normalized table; deployments that have not run the migration yet
+ * continue to work through the append-only behavioral event fallback.
+ */
+export async function readProfileVerification(
+  accountId: string,
+): Promise<ProfileVerificationSnapshot | null> {
+  const normalizedAccountId = accountId.trim();
+  if (!normalizedAccountId) return null;
+  if (!isProfileVerificationStoreConfigured()) return null;
+  const cached = verificationCache.get(normalizedAccountId);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const config = supabaseConfig();
+  if (!config) return null;
+
+  if (verificationTableAvailable !== false) {
+    const query = new URLSearchParams({
+      select:
+        "submitted_full_name,class_id,class_grade,status,rejection_reason,submitted_at,verified_at,verified_by",
+      user_id: `eq.${normalizedAccountId}`,
+      limit: "1",
+    });
+    const response = await fetch(
+      `${config.url}/rest/v1/student_profile_verifications?${query}`,
+      { headers: { apikey: config.key, Authorization: `Bearer ${config.key}` } },
+    );
+    if (response.ok) {
+      verificationTableAvailable = true;
+      const rows = (await response.json()) as Array<Record<string, unknown>>;
+      const value = verificationFromRecord(normalizedAccountId, rows[0] ?? null);
+      cacheVerification(value, normalizedAccountId);
+      return value;
+    }
+    const detail = (await response.text()).slice(0, 500);
+    if (response.status !== 404 || !detail.includes("PGRST205")) {
+      throw new Error(`Supabase verification read failed (${response.status}): ${detail}`);
+    }
+    verificationTableAvailable = false;
+  }
+
+  const legacy = await latestProfileSnapshot(normalizedAccountId, "profile_verification_status");
+  const value = verificationFromRecord(normalizedAccountId, legacy);
+  cacheVerification(value, normalizedAccountId);
+  return value;
 }
 
 export async function syncSchoolClasses(classes: SchoolClass[]): Promise<boolean> {

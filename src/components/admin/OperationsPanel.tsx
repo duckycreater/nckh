@@ -145,7 +145,10 @@ export function OperationsPanel() {
   ) => {
     setBusyId("profile:" + student.accountId);
     try {
-      await adminRequest(
+      const result = await adminRequest<{
+        status: "verified" | "rejected";
+        canEarnPoints: boolean;
+      }>(
         "/api/admin/users/" + encodeURIComponent(student.accountId) + "/profile-verification",
         {
           method: "PATCH",
@@ -155,12 +158,22 @@ export function OperationsPanel() {
           }),
         },
       );
+      setStudents((current) =>
+        current.map((candidate) =>
+          candidate.accountId === student.accountId
+            ? {
+                ...candidate,
+                profileVerificationStatus: result.status,
+                canEarnPoints: result.canEarnPoints,
+              }
+            : candidate,
+        ),
+      );
       showToast(
         status === "verified" ? "Đã xác minh hồ sơ" : "Đã yêu cầu chỉnh sửa",
         student.fullName || student.displayName,
         "success",
       );
-      await load();
     } catch (cause) {
       showToast("Không thể cập nhật hồ sơ", (cause as Error).message, "error");
     } finally {

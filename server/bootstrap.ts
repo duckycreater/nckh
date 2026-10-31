@@ -119,12 +119,15 @@ import { resolveGameplayRewardClaim } from "../src/lib/gameplayRewards.js";
 import { parseRedeemInfo, type RedeemInfo } from "../src/lib/redemption.js";
 import { normalizeCardOwnership } from "../src/lib/cardOwnership.js";
 import {
+  applyProfileVerificationDecision,
   canProfileEarnPoints,
   isGradeEightClass,
   normalizeStudentName,
   type ProfileVerificationStatus,
 } from "../shared/profileStandardization.js";
 import {
+  isProfileVerificationStoreConfigured,
+  readProfileVerification,
   syncProfileVerification,
   syncResearchProfile,
   syncSchoolClasses,
@@ -1185,6 +1188,10 @@ async function getUser(nick: string): Promise<User | undefined> {
       const doc = await db.collection("users").doc(normNick).get();
       if (doc.exists) {
         const user = doc.data() as User;
+        const verification = isGradeEightClass(user.classGrade)
+          ? await readProfileVerification(user.account_id).catch(() => null)
+          : null;
+        if (verification) user.profileVerificationStatus = verification.status;
         return normalizeUserEconomy(user);
       }
     }
@@ -1194,14 +1201,26 @@ async function getUser(nick: string): Promise<User | undefined> {
         .where("account_id", "==", normNick)
         .limit(1)
         .get();
-      if (!result.empty) return normalizeUserEconomy(result.docs[0].data() as User);
+      if (!result.empty) {
+        const user = result.docs[0].data() as User;
+        const verification = isGradeEightClass(user.classGrade)
+          ? await readProfileVerification(user.account_id).catch(() => null)
+          : null;
+        if (verification) user.profileVerificationStatus = verification.status;
+        return normalizeUserEconomy(user);
+      }
     }
   }
   const user = users.find(
     (candidate) =>
       candidate.nick.toLowerCase() === normNick || candidate.account_id?.toLowerCase() === normNick,
   );
-  return user ? normalizeUserEconomy(user) : undefined;
+  if (!user) return undefined;
+  const verification = isGradeEightClass(user.classGrade)
+    ? await readProfileVerification(user.account_id).catch(() => null)
+    : null;
+  if (verification) user.profileVerificationStatus = verification.status;
+  return normalizeUserEconomy(user);
 }
 
 async function getUserFromToken(token: string): Promise<User | undefined> {
@@ -2103,16 +2122,14 @@ app.patch("/api/admin/users/:accountId/profile-verification", requireAdmin, asyn
     }
     const adminNick = String((req as typeof req & { userNick?: string }).userNick || "admin");
     const updatedAt = Date.now();
-    user.profileVerificationStatus = status;
-    user.profileUpdatedAt = updatedAt;
-    user.profileRejectionReason =
-      status === "rejected" ? rejectionReason || "Thông tin chưa khớp." : undefined;
-    user.profileVerifiedAt = status === "verified" ? updatedAt : undefined;
-    user.profileVerifiedBy = status === "verified" ? adminNick : undefined;
-    await saveUser(user);
-    runInBackground("admin-profile-verification", async () => {
-      await syncUserResearchProfile(user);
-      await syncProfileVerification({
+    applyProfileVerificationDecision(user, status, {
+      updatedAt,
+      verifiedBy: adminNick,
+      rejectionReason,
+    });
+    const supabaseVerificationEnabled = isProfileVerificationStoreConfigured();
+    if (supabaseVerificationEnabled) {
+      const verificationSaved = await syncProfileVerification({
         accountId: user.account_id,
         fullName: user.fullName,
         classId: user.classId,
@@ -2123,11 +2140,32 @@ app.patch("/api/admin/users/:accountId/profile-verification", requireAdmin, asyn
         verifiedAt: user.profileVerifiedAt,
         verifiedBy: user.profileVerifiedBy,
       });
-    });
+      if (!verificationSaved) {
+        return res.status(503).json({ error: "Kho xác minh Supabase chưa sẵn sàng." });
+      }
+    }
+    let firestoreMirrorSaved = true;
+    try {
+      await saveUser(user);
+    } catch (mirrorError) {
+      if (!supabaseVerificationEnabled) throw mirrorError;
+      firestoreMirrorSaved = false;
+      console.warn(
+        "[profile-verification] Firestore mirror deferred; Supabase remains authoritative:",
+        (mirrorError as Error).message,
+      );
+    }
+    if (firestoreMirrorSaved) {
+      runInBackground("admin-profile-research-sync", async () => {
+        await syncUserResearchProfile(user);
+      });
+    }
     return res.json({
       success: true,
       accountId: user.account_id,
       status,
+      source: supabaseVerificationEnabled ? "supabase" : "local",
+      firestoreMirrorSaved,
       ...publicProfileStatus(user),
     });
   } catch (error) {
@@ -2924,11 +2962,8 @@ app.post("/api/profile/meta", requireAuth, async (req, res) => {
     delete user.profileVerifiedAt;
     delete user.profileVerifiedBy;
     delete user.profileRejectionReason;
-    await saveUser(user);
-
-    runInBackground("profile-meta-research", async () => {
-      await syncUserResearchProfile(user);
-      await syncProfileVerification({
+    if (isProfileVerificationStoreConfigured()) {
+      const verificationSaved = await syncProfileVerification({
         accountId: user.account_id,
         fullName: user.fullName,
         classId: user.classId,
@@ -2936,6 +2971,16 @@ app.post("/api/profile/meta", requireAuth, async (req, res) => {
         status: user.profileVerificationStatus || "unverified",
         submittedAt: user.profileUpdatedAt,
       });
+      if (!verificationSaved) {
+        return res
+          .status(503)
+          .json({ success: false, message: "Không thể lưu hồ sơ xác minh lúc này." });
+      }
+    }
+    await saveUser(user);
+
+    runInBackground("profile-meta-research", async () => {
+      await syncUserResearchProfile(user);
     });
 
     return res.json({
@@ -2963,16 +3008,25 @@ app.post("/api/profile/meta/skip", requireAuth, async (req, res) => {
     user.profileUpdatedAt = Date.now();
     delete user.profileVerifiedAt;
     delete user.profileVerifiedBy;
-    await saveUser(user);
-    runInBackground("profile-skip-research", async () => {
-      await syncUserResearchProfile(user);
-      await syncProfileVerification({
+    delete user.profileRejectionReason;
+    if (isProfileVerificationStoreConfigured()) {
+      const verificationSaved = await syncProfileVerification({
         accountId: user.account_id,
         fullName: user.fullName,
         classId: user.classId,
         classGrade: user.classGrade,
         status: "skipped",
+        submittedAt: user.profileUpdatedAt,
       });
+      if (!verificationSaved) {
+        return res
+          .status(503)
+          .json({ success: false, message: "Không thể lưu lựa chọn lúc này." });
+      }
+    }
+    await saveUser(user);
+    runInBackground("profile-skip-research", async () => {
+      await syncUserResearchProfile(user);
     });
     return res.json({
       success: true,

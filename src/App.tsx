@@ -150,6 +150,45 @@ export default function App() {
   // Phase 2: bootstrap on-device trainer + auto-pull global model updates.
   const userAccountId = user?.userId || user?.account_id;
   useEffect(() => {
+    if (!userAccountId || !getAuthToken()) return;
+    let cancelled = false;
+
+    const refreshProfileStatus = async () => {
+      try {
+        const response = await fetch(`/api/user/${encodeURIComponent(userAccountId)}`, {
+          headers: getAuthHeaders(),
+        });
+        if (!response.ok) return;
+        const fresh = (await response.json()) as Partial<User>;
+        if (cancelled) return;
+        setUser((current) => {
+          if (!current) return current;
+          const next = { ...current, ...fresh };
+          localStorage.setItem("user_session", JSON.stringify(next));
+          return next;
+        });
+      } catch {
+        // Keep the cached profile available while offline. The next focus or
+        // interval tick will reconcile the Supabase verification state.
+      }
+    };
+
+    const handleFocus = () => void refreshProfileStatus();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void refreshProfileStatus();
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    const interval = window.setInterval(() => void refreshProfileStatus(), 60_000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.clearInterval(interval);
+    };
+  }, [userAccountId]);
+
+  useEffect(() => {
     if (!userAccountId) return;
     let cancelled = false;
     (async () => {

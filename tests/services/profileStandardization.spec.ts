@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { defaultSchoolClasses } from "../../shared/school";
 import {
+  applyProfileVerificationDecision,
   canProfileEarnPoints,
   isGradeEightClass,
   normalizeStudentName,
@@ -35,5 +36,33 @@ describe("profile standardization", () => {
       canProfileEarnPoints({ classGrade: "10A1", profileVerificationStatus: "unverified" }),
       true,
     );
+  });
+
+  it("removes fields that do not belong to the selected verification state", () => {
+    const profile = {
+      profileVerificationStatus: "rejected" as const,
+      profileUpdatedAt: 1,
+      profileRejectionReason: "Tên chưa khớp",
+      profileVerifiedAt: 1,
+      profileVerifiedBy: "old-admin",
+    };
+    applyProfileVerificationDecision(profile, "verified", {
+      updatedAt: 2,
+      verifiedBy: "admin",
+    });
+    assert.equal(profile.profileVerificationStatus, "verified");
+    assert.equal(profile.profileVerifiedAt, 2);
+    assert.equal(profile.profileVerifiedBy, "admin");
+    assert.equal("profileRejectionReason" in profile, false);
+
+    applyProfileVerificationDecision(profile, "rejected", {
+      updatedAt: 3,
+      verifiedBy: "admin",
+      rejectionReason: "Sai lớp",
+    });
+    assert.equal(profile.profileVerificationStatus, "rejected");
+    assert.equal(profile.profileRejectionReason, "Sai lớp");
+    assert.equal("profileVerifiedAt" in profile, false);
+    assert.equal("profileVerifiedBy" in profile, false);
   });
 });
