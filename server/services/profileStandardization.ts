@@ -174,6 +174,9 @@ async function syncLegacyProfileSnapshot(
 }
 
 export async function syncResearchProfile(profile: ResearchProfileSnapshot): Promise<boolean> {
+  if (!profile.accountId?.trim()) {
+    throw new Error("Cannot sync a research profile without a stable account id");
+  }
   const lastActive = new Date().toISOString();
   await upsert("research_users", "user_id", [
     {
@@ -200,6 +203,9 @@ export async function syncResearchProfile(profile: ResearchProfileSnapshot): Pro
 export async function syncProfileVerification(
   verification: ProfileVerificationSnapshot,
 ): Promise<boolean> {
+  if (!verification.accountId?.trim()) {
+    throw new Error("Cannot sync profile verification without a stable account id");
+  }
   const metadata = {
     full_name: verification.fullName || null,
     class_id: verification.classId || null,

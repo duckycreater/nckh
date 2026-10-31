@@ -167,6 +167,7 @@ import {
   robotScore,
   verifyRobotRequest,
 } from "../server/services/robotProtocol.js";
+import { ensureAccountId, legacyAccountId } from "../server/services/accountIdentity.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -777,6 +778,7 @@ function normalizeProgressCards(progress: UserProgress): boolean {
 }
 
 function normalizeUserEconomy(user: User): User {
+  ensureAccountId(user);
   const points = Math.max(0, Math.trunc(Number(user.points) || 0));
   const storedLifetime = Math.max(0, Math.trunc(Number(user.totalExpEarned) || 0));
   user.points = points;
@@ -1179,7 +1181,7 @@ async function logRewardTransaction(
 
 async function getUser(nick: string): Promise<User | undefined> {
   const normNick = (nick || "").trim().toLowerCase();
-  const isAccountId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+  const isAccountId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     normNick,
   );
   if (!isValidNickname(normNick) && !isAccountId) return undefined;
@@ -1188,6 +1190,9 @@ async function getUser(nick: string): Promise<User | undefined> {
       const doc = await db.collection("users").doc(normNick).get();
       if (doc.exists) {
         const user = doc.data() as User;
+        if (ensureAccountId(user)) {
+          await doc.ref.set({ account_id: user.account_id }, { merge: true });
+        }
         const verification = isGradeEightClass(user.classGrade)
           ? await readProfileVerification(user.account_id).catch(() => null)
           : null;
@@ -1209,6 +1214,23 @@ async function getUser(nick: string): Promise<User | undefined> {
         if (verification) user.profileVerificationStatus = verification.status;
         return normalizeUserEconomy(user);
       }
+      // Transitional fallback for pre-account_id documents. The deterministic
+      // mapping avoids ambiguity and the successful match is repaired in place.
+      const legacySnapshot = await db.collection("users").get();
+      const legacyDocument = legacySnapshot.docs.find((document) => {
+        const candidate = document.data() as User;
+        return candidate.nick && legacyAccountId(candidate.nick) === normNick;
+      });
+      if (legacyDocument) {
+        const user = legacyDocument.data() as User;
+        ensureAccountId(user);
+        await legacyDocument.ref.set({ account_id: user.account_id }, { merge: true });
+        const verification = isGradeEightClass(user.classGrade)
+          ? await readProfileVerification(user.account_id).catch(() => null)
+          : null;
+        if (verification) user.profileVerificationStatus = verification.status;
+        return normalizeUserEconomy(user);
+      }
     }
   }
   const user = users.find(
@@ -1216,6 +1238,7 @@ async function getUser(nick: string): Promise<User | undefined> {
       candidate.nick.toLowerCase() === normNick || candidate.account_id?.toLowerCase() === normNick,
   );
   if (!user) return undefined;
+  if (ensureAccountId(user)) saveData();
   const verification = isGradeEightClass(user.classGrade)
     ? await readProfileVerification(user.account_id).catch(() => null)
     : null;
@@ -1532,12 +1555,26 @@ async function creditScanReward(
 async function getAllUsers(): Promise<User[]> {
   if (db) {
     const snap = await db.collection("users").get();
-    return snap.docs
-      .map((document) => document.data() as User)
-      .filter((user) => isValidNickname(user.nick))
-      .map(normalizeUserEconomy);
+    const normalized: User[] = [];
+    const identityRepairs: Promise<unknown>[] = [];
+    for (const document of snap.docs) {
+      const user = document.data() as User;
+      if (!isValidNickname(user.nick)) continue;
+      if (ensureAccountId(user)) {
+        identityRepairs.push(document.ref.set({ account_id: user.account_id }, { merge: true }));
+      }
+      normalized.push(normalizeUserEconomy(user));
+    }
+    if (identityRepairs.length > 0) await Promise.all(identityRepairs);
+    return normalized;
   }
-  return users.map(normalizeUserEconomy);
+  let repaired = false;
+  const normalized = users.map((user) => {
+    repaired = ensureAccountId(user) || repaired;
+    return normalizeUserEconomy(user);
+  });
+  if (repaired) saveData();
+  return normalized;
 }
 
 async function findUserByIdentifier(identifier: string): Promise<User | undefined> {

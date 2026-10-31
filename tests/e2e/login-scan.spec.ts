@@ -95,6 +95,17 @@ before(async () => {
             shards: 9,
           },
         },
+        {
+          name: "Legacy Identity",
+          nick: "legacy_identity",
+          pass: "LegacyPass1!",
+          points: 25,
+          hasPlayed: false,
+          role: "user",
+          fullName: "Legacy Identity Student",
+          classId: TEST_CLASS.id,
+          classGrade: TEST_CLASS.name,
+        },
       ],
     }),
     "utf8",
@@ -142,6 +153,27 @@ describe("E2E: login → scan garbage", () => {
     expect(r.status === 200 || r.status === 503).toBeTruthy();
     const body = await r.json();
     expect(typeof body.ok === "boolean" || body.error).toBeTruthy();
+  });
+  it("repairs a legacy account without account_id during login", async (t) => {
+    if (!booted) return t.skip();
+    const login = await fetch(url("/api/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        login_nickname: "legacy_identity",
+        login_password: "LegacyPass1!",
+      }),
+    });
+    expect(login.status).toBe(200);
+    const body = await login.json();
+    expect(body.success).toBe(true);
+    expect(body.user_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    const profile = await fetch(url(`/api/user/${body.user_id}`), {
+      headers: { Authorization: `Bearer ${body.token}` },
+    });
+    expect(profile.status).toBe(200);
   });
   it("GET /api/models returns a model list", async (t) => {
     if (!booted) return t.skip();
