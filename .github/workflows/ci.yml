@@ -212,7 +212,11 @@ jobs:
 
       - name: Run API contract smoke
         env:
-          NODE_ENV: production
+          # The compiled production bundle is exercised, but the CI runner has
+          # no production Firebase credential. Test mode deliberately enables
+          # the ephemeral store instead of weakening the server's production
+          # fail-closed startup guard.
+          NODE_ENV: test
           RESEARCH_DB_ENABLED: "false"
           ADMIN_API_KEY: ci-admin-key
         run: npm run smoke -- --no-build
