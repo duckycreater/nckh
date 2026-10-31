@@ -10,7 +10,10 @@ services:
     buildCommand: npm ci --include=dev --legacy-peer-deps && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
-    autoDeployTrigger: checksPass
+    # This repository has no hosted CI status checks. Waiting for checks would
+    # leave production pinned to an old commit indefinitely; local test/build
+    # gates run before each push instead.
+    autoDeployTrigger: commit
     maxShutdownDelaySeconds: 30
     envVars:
       - key: NODE_ENV
