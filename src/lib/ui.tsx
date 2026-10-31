@@ -1,14 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  AlertCircle,
-  ArrowRight,
-  Inbox,
-  Loader2,
-  Sparkles,
-  WifiOff,
-  X,
-} from "lucide-react";
+import { AlertCircle, ArrowRight, Inbox, Loader2, Sparkles, WifiOff, X } from "lucide-react";
 import { toUserMessage } from "./userFacingError";
 
 export interface ApiState<T> {
@@ -73,8 +65,7 @@ export function Button({
       "border-[var(--graphite)] bg-[var(--graphite)] text-white hover:bg-[var(--graphite-soft)]",
     ghost:
       "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--graphite)] hover:text-[var(--graphite)]",
-    danger:
-      "border-[var(--danger)] bg-[var(--danger)] text-white hover:brightness-95",
+    danger: "border-[var(--danger)] bg-[var(--danger)] text-white hover:brightness-95",
     soft: "border-[var(--primary-border)] bg-[var(--primary-soft)] text-[var(--primary-strong)] hover:bg-[var(--primary-soft-strong)]",
   } as const;
   const sizes = {
@@ -188,7 +179,10 @@ export function FieldLabel({
   ...props
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
-    <label className={cn("mb-2 block text-xs font-semibold text-[var(--text-secondary)]", className)} {...props}>
+    <label
+      className={cn("mb-2 block text-xs font-semibold text-[var(--text-secondary)]", className)}
+      {...props}
+    >
       {children}
     </label>
   );
@@ -225,11 +219,7 @@ export function Badge({
 
 export const StatusBadge = Badge;
 
-export function Tabs({
-  className = "",
-  children,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+export function Tabs({ className = "", children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
@@ -241,15 +231,18 @@ export function Tabs({
       {...props}
       onKeyDown={(event) => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)'));
+        const tabs = Array.from(
+          event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)'),
+        );
         if (!tabs.length) return;
         event.preventDefault();
         const current = Math.max(0, tabs.indexOf(document.activeElement as HTMLButtonElement));
-        const nextIndex = event.key === "Home"
-          ? 0
-          : event.key === "End"
-            ? tabs.length - 1
-            : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+        const nextIndex =
+          event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? tabs.length - 1
+              : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
         tabs[nextIndex]?.focus();
         tabs[nextIndex]?.click();
       }}
@@ -304,7 +297,8 @@ export function ModalShell({
   returnFocusRef.current = returnFocus;
 
   useEffect(() => {
-    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -313,7 +307,10 @@ export function ModalShell({
         dialogRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ) ?? [],
-      ).filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+      ).filter(
+        (element) =>
+          !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true",
+      );
 
     const focusTarget = getFocusable()[0] ?? dialogRef.current;
     window.requestAnimationFrame(() => focusTarget?.focus());
@@ -397,7 +394,9 @@ export function ModalHeader({
         <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-[var(--graphite)] sm:text-2xl">
           {title}
         </h2>
-        {subtitle && <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{subtitle}</p>}
+        {subtitle && (
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{subtitle}</p>
+        )}
       </div>
       {onClose && (
         <button
@@ -495,7 +494,10 @@ export function LoadingSpinner({
   subtitle?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center" role="status">
+    <div
+      className="flex flex-col items-center justify-center gap-3 py-10 text-center"
+      role="status"
+    >
       <div className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-[var(--primary-border)] bg-[var(--primary-soft)] text-[var(--primary)]">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
@@ -534,9 +536,20 @@ export function EmptyState({
   );
 }
 
-export function DataTable({ className = "", children }: { className?: string; children: React.ReactNode }) {
+export function DataTable({
+  className = "",
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className={cn("overflow-x-auto rounded-[14px] border border-[var(--border-subtle)]", className)}>
+    <div
+      className={cn(
+        "overflow-x-auto rounded-[14px] border border-[var(--border-subtle)]",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -557,7 +570,12 @@ export function AppScreenShell({
 }) {
   return (
     <div className="page-container">
-      <PageHeader eyebrow={badge ? undefined : "BMO Material Lab"} title={title} subtitle={subtitle} action={action} />
+      <PageHeader
+        eyebrow={badge ? undefined : "BMO Material Lab"}
+        title={title}
+        subtitle={subtitle}
+        action={action}
+      />
       {badge && <div className="-mt-4">{badge}</div>}
       {children}
     </div>

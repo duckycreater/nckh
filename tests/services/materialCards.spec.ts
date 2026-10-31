@@ -140,7 +140,12 @@ describe("material card transaction", () => {
       actionBudget: 5,
       transportBudget: 3,
       objects: [
-        { id: "wet-paper", label: "Giấy ướt", category: "paper" as const, condition: "wet" as const },
+        {
+          id: "wet-paper",
+          label: "Giấy ướt",
+          category: "paper" as const,
+          condition: "wet" as const,
+        },
         { id: "plastic", label: "Chai", category: "plastic" as const, condition: "clean" as const },
         { id: "metal", label: "Lon", category: "metal" as const, condition: "clean" as const },
       ],

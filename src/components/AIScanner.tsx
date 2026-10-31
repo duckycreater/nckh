@@ -78,7 +78,10 @@ const SOURCE_LABEL = {
   unknown: "Chưa xác định",
 };
 
-const VERDICT_GUIDANCE: Record<Exclude<ScanAnalysis["verdict"], "single_waste">, { title: string; description: string }> = {
+const VERDICT_GUIDANCE: Record<
+  Exclude<ScanAnalysis["verdict"], "single_waste">,
+  { title: string; description: string }
+> = {
   not_waste: {
     title: "Không phát hiện một vật thể rác",
     description: "Chụp lại một vật thể cần phân loại, đặt riêng trên nền rõ và đủ sáng.",
@@ -180,7 +183,7 @@ export function AIScanner({
 
   useEffect(() => {
     const hasUncommittedImage = Boolean(
-      image && (!response && !localPreview || response?.cardPreview && !createdCard),
+      image && ((!response && !localPreview) || (response?.cardPreview && !createdCard)),
     );
     setAppCriticalActivity("material-scan", scanning || creating || hasUncommittedImage);
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -474,7 +477,11 @@ export function AIScanner({
         <ModalHeader
           title={t("lab.scanner.dialogTitle")}
           subtitle={t("lab.scanner.dialogSubtitle")}
-          badge={<Badge tone={online ? "success" : "warning"}>{online ? t("lab.scanner.online") : t("lab.scanner.offline")}</Badge>}
+          badge={
+            <Badge tone={online ? "success" : "warning"}>
+              {online ? t("lab.scanner.online") : t("lab.scanner.offline")}
+            </Badge>
+          }
           onClose={onClose}
         />
       )}
@@ -539,7 +546,9 @@ export function AIScanner({
           </Button>
 
           <details className="mt-4 border-t border-white/10 pt-3 text-xs leading-5 text-slate-400">
-            <summary className="cursor-pointer font-semibold text-slate-300">{t("lab.scanner.imageDetails")}</summary>
+            <summary className="cursor-pointer font-semibold text-slate-300">
+              {t("lab.scanner.imageDetails")}
+            </summary>
             <p className="mt-2">{t("lab.scanner.imageDetailsBody")}</p>
           </details>
 
@@ -573,7 +582,9 @@ export function AIScanner({
             <div className="flex min-h-52 flex-col items-center justify-center rounded-[14px] border border-dashed border-slate-300 bg-white p-8 text-center">
               <ImageIcon size={28} className="text-slate-400" />
               <h3 className="mt-4 font-semibold text-slate-950">{t("lab.scanner.emptyTitle")}</h3>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">{t("lab.scanner.emptyDescription")}</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
+                {t("lab.scanner.emptyDescription")}
+              </p>
             </div>
           )}
 
@@ -616,8 +627,15 @@ export function AIScanner({
                 {!scanResult.eligibleForCard && scanResult.verdict !== "single_waste" && (
                   <div className="mt-4 rounded-[10px] border border-amber-200 bg-amber-50 p-4 text-amber-950">
                     <p className="font-semibold">{VERDICT_GUIDANCE[scanResult.verdict].title}</p>
-                    <p className="mt-1 text-sm leading-6">{VERDICT_GUIDANCE[scanResult.verdict].description}</p>
-                    <Button variant="ghost" size="sm" className="mt-3 border-amber-300 bg-amber-50" onClick={() => fileInput.current?.click()}>
+                    <p className="mt-1 text-sm leading-6">
+                      {VERDICT_GUIDANCE[scanResult.verdict].description}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3 border-amber-300 bg-amber-50"
+                      onClick={() => fileInput.current?.click()}
+                    >
                       <Upload size={14} /> Chọn ảnh khác
                     </Button>
                   </div>
@@ -648,7 +666,9 @@ export function AIScanner({
                         className="min-h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm"
                         aria-label="Lý do báo kết quả sai"
                       >
-                        <option value="classification_incorrect">Nhận diện sai vật thể hoặc vật liệu</option>
+                        <option value="classification_incorrect">
+                          Nhận diện sai vật thể hoặc vật liệu
+                        </option>
                         <option value="properties_incorrect">Thuộc tính chưa chính xác</option>
                         <option value="disposal_incorrect">Hướng xử lý chưa phù hợp</option>
                       </select>
@@ -708,7 +728,9 @@ export function AIScanner({
               {cardPreview && (
                 <div className="overflow-hidden rounded-[14px] border border-slate-800 bg-slate-950 text-white">
                   <div className="border-b border-white/10 p-5">
-                    <p className="text-xs font-semibold text-cyan-300">{t("lab.scanner.cardPreview")}</p>
+                    <p className="text-xs font-semibold text-cyan-300">
+                      {t("lab.scanner.cardPreview")}
+                    </p>
                     <h4 className="mt-2 text-xl font-semibold">{cardPreview.objectName}</h4>
                   </div>
                   <div className="grid gap-3 p-5 sm:grid-cols-2">
@@ -738,7 +760,11 @@ export function AIScanner({
                       <p className="text-xs text-slate-400">{t("lab.scanner.price")}</p>
                       <p className="text-xl font-black">{cardPreview.cost} điểm</p>
                       <p className="mt-1 text-xs text-slate-400">
-                        {t("lab.scanner.balanceAfter", { points: Math.max(0, user.points - cardPreview.cost).toLocaleString("vi-VN") })}
+                        {t("lab.scanner.balanceAfter", {
+                          points: Math.max(0, user.points - cardPreview.cost).toLocaleString(
+                            "vi-VN",
+                          ),
+                        })}
                       </p>
                     </div>
                     <Button
@@ -758,10 +784,22 @@ export function AIScanner({
                     </Button>
                   </div>
                   <details className="border-t border-white/10 px-5 py-4 text-xs text-slate-400">
-                    <summary className="cursor-pointer font-semibold text-slate-300">{t("lab.scanner.technicalDetails")}</summary>
+                    <summary className="cursor-pointer font-semibold text-slate-300">
+                      {t("lab.scanner.technicalDetails")}
+                    </summary>
                     <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-                      <div><dt>{t("lab.scanner.ruleset")}</dt><dd className="font-telemetry mt-1 text-slate-200">{cardPreview.rulesetVersion}</dd></div>
-                      <div><dt>{t("lab.scanner.scanId")}</dt><dd className="font-telemetry mt-1 break-all text-slate-200">{scanResult.scanId}</dd></div>
+                      <div>
+                        <dt>{t("lab.scanner.ruleset")}</dt>
+                        <dd className="font-telemetry mt-1 text-slate-200">
+                          {cardPreview.rulesetVersion}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{t("lab.scanner.scanId")}</dt>
+                        <dd className="font-telemetry mt-1 break-all text-slate-200">
+                          {scanResult.scanId}
+                        </dd>
+                      </div>
                     </dl>
                   </details>
                 </div>
@@ -865,11 +903,7 @@ export function AIScanner({
   if (mode === "page") return scannerContent;
 
   return (
-    <ModalShell
-      onClose={onClose}
-      title="Quét vật thể"
-      className="max-w-6xl overflow-hidden p-0"
-    >
+    <ModalShell onClose={onClose} title="Quét vật thể" className="max-w-6xl overflow-hidden p-0">
       {scannerContent}
     </ModalShell>
   );

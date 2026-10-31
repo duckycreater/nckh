@@ -25,7 +25,11 @@ export function AppUpdateNotice() {
     >
       <div className="flex items-start gap-3">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] border border-white/15 bg-white/[0.06] text-[var(--signal)]">
-          {update.applying ? <RefreshCw className="animate-spin" size={18} /> : <ShieldCheck size={18} />}
+          {update.applying ? (
+            <RefreshCw className="animate-spin" size={18} />
+          ) : (
+            <ShieldCheck size={18} />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">{t("lab.update.title")}</p>

@@ -98,7 +98,9 @@ function CollectionCard({
   compareSelected: boolean;
   onToggleCompare: () => void;
 }) {
-  const visibleProperties = card.properties.filter((property) => property.value === true).slice(0, 2);
+  const visibleProperties = card.properties
+    .filter((property) => property.value === true)
+    .slice(0, 2);
   return (
     <article className="overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] transition-colors hover:border-[var(--border-strong)]">
       <div className="relative">
@@ -131,12 +133,20 @@ function CollectionCard({
         </p>
         <div className="mt-4 flex min-h-7 flex-wrap gap-1.5">
           {visibleProperties.map((property) => (
-            <Badge key={property.id} tone={property.source === "visual_observation" ? "accent" : "default"}>
+            <Badge
+              key={property.id}
+              tone={property.source === "visual_observation" ? "accent" : "default"}
+            >
               {property.label}
             </Badge>
           ))}
         </div>
-        <Button onClick={(event) => onOpen(event.currentTarget)} variant="ghost" size="sm" className="mt-4 w-full">
+        <Button
+          onClick={(event) => onOpen(event.currentTarget)}
+          variant="ghost"
+          size="sm"
+          className="mt-4 w-full"
+        >
           Xem hộ chiếu <ChevronRight size={15} />
         </Button>
       </div>
@@ -144,42 +154,88 @@ function CollectionCard({
   );
 }
 
-function CardDetail({ card, onClose, returnFocus }: { card: MaterialCard; onClose: () => void; returnFocus: HTMLElement | null }) {
+function CardDetail({
+  card,
+  onClose,
+  returnFocus,
+}: {
+  card: MaterialCard;
+  onClose: () => void;
+  returnFocus: HTMLElement | null;
+}) {
   return (
-    <ModalShell onClose={onClose} returnFocus={returnFocus} title={`Hộ chiếu ${card.objectName}`} className="max-h-[calc(100dvh-2rem)] max-w-4xl overflow-y-auto">
-      <ModalHeader title={card.objectName} subtitle={`${MATERIAL_LABELS[card.category]} · ${new Date(card.createdAt).toLocaleDateString("vi-VN")}`} onClose={onClose} />
+    <ModalShell
+      onClose={onClose}
+      returnFocus={returnFocus}
+      title={`Hộ chiếu ${card.objectName}`}
+      className="max-h-[calc(100dvh-2rem)] max-w-4xl overflow-y-auto"
+    >
+      <ModalHeader
+        title={card.objectName}
+        subtitle={`${MATERIAL_LABELS[card.category]} · ${new Date(card.createdAt).toLocaleDateString("vi-VN")}`}
+        onClose={onClose}
+      />
       <div className="grid gap-0 md:grid-cols-[0.85fr_1.15fr]">
         <CardImage card={card} />
         <div className="space-y-5 p-5 sm:p-6">
           <section>
             <h3 className="text-sm font-semibold text-[var(--graphite)]">Thuộc tính</h3>
             <ul className="mt-3 space-y-3">
-              {card.properties.filter((property) => property.value === true).map((property) => (
-                <li key={property.id} className="border-b border-[var(--border-subtle)] pb-3 text-sm last:border-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <strong>{property.label}</strong>
-                    <Badge>{property.source === "visual_observation" ? "Quan sát từ ảnh" : property.source === "material_library" ? "Thư viện vật liệu" : "Chưa xác định"}</Badge>
-                  </div>
-                  <p className="mt-1 leading-6 text-[var(--text-muted)]">{property.evidence}</p>
-                </li>
-              ))}
+              {card.properties
+                .filter((property) => property.value === true)
+                .map((property) => (
+                  <li
+                    key={property.id}
+                    className="border-b border-[var(--border-subtle)] pb-3 text-sm last:border-0"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <strong>{property.label}</strong>
+                      <Badge>
+                        {property.source === "visual_observation"
+                          ? "Quan sát từ ảnh"
+                          : property.source === "material_library"
+                            ? "Thư viện vật liệu"
+                            : "Chưa xác định"}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 leading-6 text-[var(--text-muted)]">{property.evidence}</p>
+                  </li>
+                ))}
             </ul>
           </section>
           <section className="grid gap-3 sm:grid-cols-2">
-            {[{ label: "Nội tại", ability: card.passive }, { label: "Chủ động", ability: card.active }].map(({ label, ability }) => (
-              <div key={label} className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4">
+            {[
+              { label: "Nội tại", ability: card.passive },
+              { label: "Chủ động", ability: card.active },
+            ].map(({ label, ability }) => (
+              <div
+                key={label}
+                className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4"
+              >
                 <p className="text-xs font-semibold text-[var(--text-muted)]">{label}</p>
                 <p className="mt-2 font-semibold text-[var(--graphite)]">{ability.name}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{ability.description}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                  {ability.description}
+                </p>
                 <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{ability.rule}</p>
               </div>
             ))}
           </section>
           <details className="border-t border-[var(--border-subtle)] pt-4 text-xs text-[var(--text-muted)]">
-            <summary className="cursor-pointer font-semibold text-[var(--text-secondary)]">Thông tin chi tiết</summary>
+            <summary className="cursor-pointer font-semibold text-[var(--text-secondary)]">
+              Thông tin chi tiết
+            </summary>
             <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-              <div><dt>Phiên bản quy tắc</dt><dd className="font-telemetry mt-1 text-[var(--graphite)]">{card.rulesetVersion}</dd></div>
-              <div><dt>Mã hộ chiếu</dt><dd className="font-telemetry mt-1 break-all text-[var(--graphite)]">{card.id}</dd></div>
+              <div>
+                <dt>Phiên bản quy tắc</dt>
+                <dd className="font-telemetry mt-1 text-[var(--graphite)]">
+                  {card.rulesetVersion}
+                </dd>
+              </div>
+              <div>
+                <dt>Mã hộ chiếu</dt>
+                <dd className="font-telemetry mt-1 break-all text-[var(--graphite)]">{card.id}</dd>
+              </div>
             </dl>
           </details>
         </div>
@@ -188,13 +244,7 @@ function CardDetail({ card, onClose, returnFocus }: { card: MaterialCard; onClos
   );
 }
 
-function ComparePassports({
-  cards,
-  onClose,
-}: {
-  cards: MaterialCard[];
-  onClose: () => void;
-}) {
+function ComparePassports({ cards, onClose }: { cards: MaterialCard[]; onClose: () => void }) {
   const properties = Array.from(
     new Map(
       cards
@@ -536,7 +586,9 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="font-black text-slate-950">Trận của bạn</h3>
-                <p className="mt-1 text-sm text-slate-500">Tiếp tục lời mời và trận đang chơi sau khi tải lại trang.</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Tiếp tục lời mời và trận đang chơi sau khi tải lại trang.
+                </p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => void loadMatches()}>
                 <RefreshCw size={15} /> Làm mới
@@ -568,64 +620,67 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
           </div>
         )}
         <div className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-[14px] border border-slate-200 bg-white p-6">
-          <Gamepad2 className="text-cyan-600" />
-          <h3 className="mt-4 text-xl font-black text-slate-950">Luyện tập 5 vòng</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Mỗi vòng có năm lượt xử lý và ba đơn vị vận chuyển. An toàn được ưu tiên trước độ chính
-            xác và hiệu quả. Bộ mẫu chỉ dùng trong luyện tập, không ghi thành sở hữu.
-          </p>
-          <Button className="mt-5 w-full" onClick={() => void create("practice")} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" size={16} /> : null}Bắt đầu với máy
-          </Button>
-        </div>
-        <div className="rounded-[14px] border border-slate-800 bg-slate-950 p-6 text-white">
-          <Swords className="text-cyan-300" />
-          <h3 className="mt-4 text-xl font-black">Đối kháng bất đồng bộ</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
-            Hai người giải cùng bộ tình huống. Trận hết hạn sau 24 giờ; điểm xếp hạng tách khỏi điểm
-            đổi quà.
-          </p>
-          <input
-            value={opponent}
-            onChange={(event) => setOpponent(event.target.value)}
-            placeholder="Tài khoản đối thủ"
-            className="mt-4 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm outline-none focus:border-cyan-400"
-          />
-          <Button
-            className="mt-3 w-full"
-            onClick={() => void create("asynchronous")}
-            disabled={busy || deck.length !== 3}
-          >
-            Tạo lời mời · {deck.length}/3 thẻ
-          </Button>
-          <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
-            <span className="h-px flex-1 bg-white/10" />
-            HOẶC VÀO TRẬN
-            <span className="h-px flex-1 bg-white/10" />
-          </div>
-          <div className="flex gap-2">
-            <input
-              value={joinCode}
-              onChange={(event) => setJoinCode(event.target.value)}
-              placeholder="Mã trận được gửi"
-              className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm outline-none focus:border-cyan-400"
-            />
-            <Button
-              variant="ghost"
-              className="border border-white/15 bg-white/10 text-white"
-              onClick={() => void join()}
-              disabled={busy || deck.length !== 3}
-            >
-              Vào
+          <div className="rounded-[14px] border border-slate-200 bg-white p-6">
+            <Gamepad2 className="text-cyan-600" />
+            <h3 className="mt-4 text-xl font-black text-slate-950">Luyện tập 5 vòng</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Mỗi vòng có năm lượt xử lý và ba đơn vị vận chuyển. An toàn được ưu tiên trước độ
+              chính xác và hiệu quả. Bộ mẫu chỉ dùng trong luyện tập, không ghi thành sở hữu.
+            </p>
+            <Button className="mt-5 w-full" onClick={() => void create("practice")} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" size={16} /> : null}Bắt đầu với máy
             </Button>
           </div>
-        </div>
-        {error && (
-          <p role="alert" className="lg:col-span-2 rounded-[10px] bg-red-50 p-4 text-sm text-red-800">
-            {error}
-          </p>
-        )}
+          <div className="rounded-[14px] border border-slate-800 bg-slate-950 p-6 text-white">
+            <Swords className="text-cyan-300" />
+            <h3 className="mt-4 text-xl font-black">Đối kháng bất đồng bộ</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Hai người giải cùng bộ tình huống. Trận hết hạn sau 24 giờ; điểm xếp hạng tách khỏi
+              điểm đổi quà.
+            </p>
+            <input
+              value={opponent}
+              onChange={(event) => setOpponent(event.target.value)}
+              placeholder="Tài khoản đối thủ"
+              className="mt-4 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm outline-none focus:border-cyan-400"
+            />
+            <Button
+              className="mt-3 w-full"
+              onClick={() => void create("asynchronous")}
+              disabled={busy || deck.length !== 3}
+            >
+              Tạo lời mời · {deck.length}/3 thẻ
+            </Button>
+            <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
+              <span className="h-px flex-1 bg-white/10" />
+              HOẶC VÀO TRẬN
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={joinCode}
+                onChange={(event) => setJoinCode(event.target.value)}
+                placeholder="Mã trận được gửi"
+                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm outline-none focus:border-cyan-400"
+              />
+              <Button
+                variant="ghost"
+                className="border border-white/15 bg-white/10 text-white"
+                onClick={() => void join()}
+                disabled={busy || deck.length !== 3}
+              >
+                Vào
+              </Button>
+            </div>
+          </div>
+          {error && (
+            <p
+              role="alert"
+              className="lg:col-span-2 rounded-[10px] bg-red-50 p-4 text-sm text-red-800"
+            >
+              {error}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -731,7 +786,10 @@ function Battle({ deck, actorNick }: { deck: string[]; actorNick: string }) {
           </div>
           <div className="mt-6 grid gap-3 lg:grid-cols-3">
             {round.objects.map((object: MaterialScenarioObject) => (
-              <div key={object.id} className="rounded-[10px] border border-slate-200 bg-slate-50 p-4">
+              <div
+                key={object.id}
+                className="rounded-[10px] border border-slate-200 bg-slate-50 p-4"
+              >
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
                   {object.condition === "dirty"
                     ? "Dính bẩn"
@@ -938,18 +996,26 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
           ))}
         </Tabs>
         <div className="flex shrink-0 items-center gap-4 text-xs text-[var(--text-muted)]">
-          {section === "battle" && <span><strong className="font-telemetry text-[var(--graphite)]">{selectedCards.length}/3</strong> thẻ đã chọn</span>}
+          {section === "battle" && (
+            <span>
+              <strong className="font-telemetry text-[var(--graphite)]">
+                {selectedCards.length}/3
+              </strong>{" "}
+              thẻ đã chọn
+            </span>
+          )}
         </div>
       </div>
-      {error && (
-        <ErrorRetry message={error} onRetry={() => void load(false)} />
-      )}
+      {error && <ErrorRetry message={error} onRetry={() => void load(false)} />}
       {!error && section === "collection" && (
         <>
           {(cards.length > 0 || hasActiveFilter) && (
             <div className="grid gap-3 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-3 lg:grid-cols-[minmax(15rem,1fr)_auto]">
               <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={16} />
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                  size={16}
+                />
                 <span className="sr-only">Tìm hộ chiếu vật liệu</span>
                 <input
                   value={search}
@@ -960,22 +1026,37 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
               </label>
               <label className="sm:hidden">
                 <span className="sr-only">Lọc theo vật liệu</span>
-                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as "all" | WasteCategory)} className="min-h-11 w-full rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-ring)]">
+                <select
+                  value={categoryFilter}
+                  onChange={(event) =>
+                    setCategoryFilter(event.target.value as "all" | WasteCategory)
+                  }
+                  className="min-h-11 w-full rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-ring)]"
+                >
                   <option value="all">Tất cả vật liệu</option>
-                  {(Object.keys(CATEGORY) as WasteCategory[]).map((category) => <option key={category} value={category}>{CATEGORY[category].label}</option>)}
+                  {(Object.keys(CATEGORY) as WasteCategory[]).map((category) => (
+                    <option key={category} value={category}>
+                      {CATEGORY[category].label}
+                    </option>
+                  ))}
                 </select>
               </label>
-              <div className="thin-scrollbar hidden gap-1 overflow-x-auto sm:flex" aria-label="Lọc theo vật liệu">
-                {(["all", ...Object.keys(CATEGORY)] as Array<"all" | WasteCategory>).map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => setCategoryFilter(category)}
-                    className={`min-h-11 shrink-0 rounded-[6px] border px-3 py-2 text-xs font-semibold transition-colors ${categoryFilter === category ? "border-[var(--graphite)] bg-[var(--graphite)] text-white" : "border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--border-strong)]"}`}
-                  >
-                    {category === "all" ? "Tất cả" : CATEGORY[category].label}
-                  </button>
-                ))}
+              <div
+                className="thin-scrollbar hidden gap-1 overflow-x-auto sm:flex"
+                aria-label="Lọc theo vật liệu"
+              >
+                {(["all", ...Object.keys(CATEGORY)] as Array<"all" | WasteCategory>).map(
+                  (category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setCategoryFilter(category)}
+                      className={`min-h-11 shrink-0 rounded-[6px] border px-3 py-2 text-xs font-semibold transition-colors ${categoryFilter === category ? "border-[var(--graphite)] bg-[var(--graphite)] text-white" : "border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--border-strong)]"}`}
+                    >
+                      {category === "all" ? "Tất cả" : CATEGORY[category].label}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
           )}
@@ -1038,10 +1119,7 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
               Tải thêm
             </Button>
           )}
-          <Button
-            onClick={onScan}
-            className="w-full sm:ml-auto sm:w-auto"
-          >
+          <Button onClick={onScan} className="w-full sm:ml-auto sm:w-auto">
             <ScanLine size={17} /> Quét rác
           </Button>
         </>
@@ -1052,16 +1130,34 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
           {cards.length > 0 && (
             <section className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
               <div className="flex items-center justify-between gap-3">
-                <div><h3 className="font-semibold text-[var(--graphite)]">Chọn bộ ba thẻ</h3><p className="mt-1 text-sm text-[var(--text-muted)]">Bộ thẻ này được dùng khi tạo hoặc tham gia trận đối kháng.</p></div>
-                <span className="font-telemetry text-sm font-semibold">{selectedCards.length}/3</span>
+                <div>
+                  <h3 className="font-semibold text-[var(--graphite)]">Chọn bộ ba thẻ</h3>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                    Bộ thẻ này được dùng khi tạo hoặc tham gia trận đối kháng.
+                  </p>
+                </div>
+                <span className="font-telemetry text-sm font-semibold">
+                  {selectedCards.length}/3
+                </span>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {cards.map((card) => {
                   const selected = deck.includes(card.id);
                   return (
-                    <button key={card.id} type="button" onClick={() => toggle(card.id)} aria-pressed={selected} className={`flex min-h-16 items-center gap-3 rounded-[10px] border p-2 text-left ${selected ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--border-subtle)] bg-[var(--surface)]"}`}>
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => toggle(card.id)}
+                      aria-pressed={selected}
+                      className={`flex min-h-16 items-center gap-3 rounded-[10px] border p-2 text-left ${selected ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--border-subtle)] bg-[var(--surface)]"}`}
+                    >
                       <CardImage card={card} compact />
-                      <span className="min-w-0"><strong className="block truncate text-sm">{card.objectName}</strong><span className="mt-1 block text-xs text-[var(--text-muted)]">{MATERIAL_LABELS[card.category]}</span></span>
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm">{card.objectName}</strong>
+                        <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                          {MATERIAL_LABELS[card.category]}
+                        </span>
+                      </span>
                     </button>
                   );
                 })}
@@ -1071,7 +1167,13 @@ export function MaterialCards({ actorNick, refreshKey = 0, onScan }: MaterialCar
           <Battle deck={selectedCards} actorNick={actorNick} />
         </div>
       )}
-      {selectedCard && <CardDetail card={selectedCard} returnFocus={detailTrigger} onClose={() => setSelectedCard(null)} />}
+      {selectedCard && (
+        <CardDetail
+          card={selectedCard}
+          returnFocus={detailTrigger}
+          onClose={() => setSelectedCard(null)}
+        />
+      )}
       {compareOpen && (
         <ComparePassports cards={compareCards} onClose={() => setCompareOpen(false)} />
       )}

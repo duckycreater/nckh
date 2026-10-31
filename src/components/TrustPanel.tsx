@@ -56,7 +56,9 @@ export function TrustPanel() {
     <Card padding="lg">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-[8px] bg-[var(--surface-muted)] text-[var(--primary)]"><Database size={19} /></span>
+          <span className="grid h-10 w-10 place-items-center rounded-[8px] bg-[var(--surface-muted)] text-[var(--primary)]">
+            <Database size={19} />
+          </span>
           <div>
             <h2 className="text-lg font-semibold">Trạng thái dữ liệu nghiên cứu</h2>
           </div>
@@ -84,22 +86,36 @@ export function TrustPanel() {
         />
         <EvidenceRow
           label="Ngân sách riêng tư công bố"
-          value={latestRound?.dp_epsilon != null ? `ε ${latestRound.dp_epsilon.toFixed(2)}` : "Chưa có dữ liệu"}
+          value={
+            latestRound?.dp_epsilon != null
+              ? `ε ${latestRound.dp_epsilon.toFixed(2)}`
+              : "Chưa có dữ liệu"
+          }
           available={latestRound?.dp_epsilon != null}
         />
       </dl>
-
     </Card>
   );
 }
 
-function EvidenceRow({ label, value, available }: { label: string; value: string; available: boolean }) {
+function EvidenceRow({
+  label,
+  value,
+  available,
+}: {
+  label: string;
+  value: string;
+  available: boolean;
+}) {
   const Icon = available ? CheckCircle2 : CircleDashed;
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-4 py-3">
       <dt className="text-xs text-[var(--text-muted)]">{label}</dt>
       <dd className="font-telemetry flex items-center gap-2 text-right text-xs font-semibold text-[var(--graphite)]">
-        <Icon size={13} className={available ? "text-[var(--primary)]" : "text-[var(--text-muted)]"} />
+        <Icon
+          size={13}
+          className={available ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}
+        />
         {value}
       </dd>
     </div>

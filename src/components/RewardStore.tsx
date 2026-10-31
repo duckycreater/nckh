@@ -57,19 +57,30 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
   };
 
   const items = activeTab === "avatar" ? PROFILE_AVATARS : PROFILE_FRAMES;
-  const materialCycle: WasteCategory[] = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
+  const materialCycle: WasteCategory[] = [
+    "plastic",
+    "paper",
+    "glass",
+    "metal",
+    "organic",
+    "hazard",
+  ];
 
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight text-[var(--graphite)]">Tùy chỉnh hồ sơ</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-[var(--graphite)]">
+              Tùy chỉnh hồ sơ
+            </h2>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               Mở khóa avatar và khung hồ sơ để cá nhân hóa tài khoản của bạn.
             </p>
           </div>
-          <span className="font-telemetry rounded-[6px] border border-[var(--primary-border)] bg-[var(--primary-soft)] px-2.5 py-1.5 text-xs text-[var(--primary-strong)]">{points.toLocaleString("vi-VN")} điểm</span>
+          <span className="font-telemetry rounded-[6px] border border-[var(--primary-border)] bg-[var(--primary-soft)] px-2.5 py-1.5 text-xs text-[var(--primary-strong)]">
+            {points.toLocaleString("vi-VN")} điểm
+          </span>
         </div>
       </div>
 
@@ -116,13 +127,21 @@ export function RewardStore({ points, progress, onRefresh }: Props) {
                   </div>
 
                   {activeTab === "avatar" ? (
-                    <div data-material={materialCycle[index % materialCycle.length]} className={`material-pattern material-${materialCycle[index % materialCycle.length]} relative mb-3 mt-2 h-24 w-24 overflow-hidden rounded-[10px] border border-[var(--border-subtle)] p-2 text-white`}>
-                      <MaterialFingerprint category={materialCycle[index % materialCycle.length]} seed={item.id} />
+                    <div
+                      data-material={materialCycle[index % materialCycle.length]}
+                      className={`material-pattern material-${materialCycle[index % materialCycle.length]} relative mb-3 mt-2 h-24 w-24 overflow-hidden rounded-[10px] border border-[var(--border-subtle)] p-2 text-white`}
+                    >
+                      <MaterialFingerprint
+                        category={materialCycle[index % materialCycle.length]}
+                        seed={item.id}
+                      />
                     </div>
                   ) : (
                     <div
                       className={`mb-3 mt-2 grid h-20 w-20 place-items-center rounded-[10px] border-2 border-[var(--primary)] bg-[var(--surface-muted)] ${String((item as (typeof PROFILE_FRAMES)[number]).previewClass)}`}
-                    ><Palette size={22} className="text-[var(--primary)]" /></div>
+                    >
+                      <Palette size={22} className="text-[var(--primary)]" />
+                    </div>
                   )}
 
                   <div>

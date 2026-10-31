@@ -112,7 +112,10 @@ test("production worker installs and removes caches from an older deployment", a
   browser,
   baseURL,
 }, testInfo) => {
-  test.skip(testInfo.project.name !== "chromium", "One real Chromium worker profile is sufficient.");
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "One real Chromium worker profile is sufficient.",
+  );
   test.setTimeout(60_000);
   expect(baseURL).toBeTruthy();
 

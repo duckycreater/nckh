@@ -1,7 +1,12 @@
 import crypto from "node:crypto";
 import { z } from "zod";
 
-const Id = z.string().trim().min(8).max(160).regex(/^[A-Za-z0-9._:-]+$/);
+const Id = z
+  .string()
+  .trim()
+  .min(8)
+  .max(160)
+  .regex(/^[A-Za-z0-9._:-]+$/);
 const TimestampMs = z.number().int().positive();
 
 export const RobotIdentityRequestSchema = z
@@ -20,7 +25,10 @@ export const RobotIdentityRequestSchema = z
       })
       .optional(),
     account_id: z.string().trim().min(4).max(100).optional(),
-    pin: z.string().regex(/^\d{6}$/).optional(),
+    pin: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional(),
   })
   .superRefine((value, context) => {
     if (value.method === "badge" && !value.badge) {

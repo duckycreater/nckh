@@ -41,8 +41,8 @@ export function MaterialFingerprint({
   const marks = useMemo(() => {
     const hash = hashSeed(`${category}:${seed || "sample"}`);
     return Array.from({ length: 7 }, (_, index) => ({
-      x: 18 + ((hash >> (index % 8)) + index * 19) % 64,
-      y: 18 + ((hash >> ((index + 3) % 12)) + index * 13) % 64,
+      x: 18 + (((hash >> (index % 8)) + index * 19) % 64),
+      y: 18 + (((hash >> ((index + 3) % 12)) + index * 13) % 64),
       size: 3 + ((hash >> ((index + 5) % 16)) % 7),
     }));
   }, [category, seed]);

@@ -34,9 +34,7 @@ function event(overrides: Record<string, unknown> = {}) {
 
 describe("robotProtocol", () => {
   it("canonicalizes object keys before signing", () => {
-    expect(stableJson({ b: 2, a: { d: 4, c: 3 } })).toBe(
-      '{"a":{"c":3,"d":4},"b":2}',
-    );
+    expect(stableJson({ b: 2, a: { d: 4, c: 3 } })).toBe('{"a":{"c":3,"d":4},"b":2}');
     expect(robotPayloadHash({ a: 1, b: 2 })).toBe(robotPayloadHash({ b: 2, a: 1 }));
   });
 
@@ -82,7 +80,14 @@ describe("robotProtocol", () => {
     const body = event();
     const timestamp = "1800000010000";
     const nonce = "nonce-00000000000002";
-    const signature = signRobotRequest(secret, "POST", "/api/robot/v2/events", timestamp, nonce, body);
+    const signature = signRobotRequest(
+      secret,
+      "POST",
+      "/api/robot/v2/events",
+      timestamp,
+      nonce,
+      body,
+    );
     expect(
       verifyRobotRequest({
         secret,

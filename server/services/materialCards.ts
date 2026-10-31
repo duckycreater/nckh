@@ -529,7 +529,10 @@ function evaluateLegacySubmission(
   if (submission.abilityCardId) {
     const abilityCard = deck.find((card) => card.id === submission.abilityCardId);
     if (!abilityCard) {
-      throw new MaterialCardError("invalid_submission", "Kỹ năng không thuộc bộ thẻ của người chơi.");
+      throw new MaterialCardError(
+        "invalid_submission",
+        "Kỹ năng không thuộc bộ thẻ của người chơi.",
+      );
     }
     const applicable = round.objects.some((object) => {
       const choice = submission.choices.find((candidate) => candidate.objectId === object.id);
@@ -539,7 +542,8 @@ function evaluateLegacySubmission(
       ) {
         return false;
       }
-      if (abilityCard.category === "paper") return !["wet", "dirty"].includes(object.condition ?? "");
+      if (abilityCard.category === "paper")
+        return !["wet", "dirty"].includes(object.condition ?? "");
       if (abilityCard.category === "plastic") return object.condition !== "dirty";
       if (abilityCard.category === "glass") return object.condition === "broken";
       if (abilityCard.category === "organic") return object.condition === "dirty";
@@ -564,7 +568,10 @@ function evaluateLegacySubmission(
 }
 
 function botSubmission(round: MaterialMatchRound, matchId: string): MatchSubmission {
-  const digest = crypto.createHash("sha256").update(matchId + ":" + round.index).digest()[0];
+  const digest = crypto
+    .createHash("sha256")
+    .update(matchId + ":" + round.index)
+    .digest()[0];
   const choices = round.objects.map((object, index) => {
     const steps: ProcessingAction[] = [];
     if (object.condition === "dirty") steps.push("clean");
@@ -770,13 +777,18 @@ export async function listMaterialMatches(actorId: string): Promise<MatchState[]
     }
     matches = [...unique.values()];
     const expired = matches.filter(
-      (match) => match.status !== "completed" && match.status !== "expired" && match.expiresAt <= Date.now(),
+      (match) =>
+        match.status !== "completed" && match.status !== "expired" && match.expiresAt <= Date.now(),
     );
     if (expired.length > 0) {
       const batch = db.batch();
       for (const match of expired) {
         match.status = "expired";
-        batch.set(db.collection("material_matches").doc(match.id), { status: "expired" }, { merge: true });
+        batch.set(
+          db.collection("material_matches").doc(match.id),
+          { status: "expired" },
+          { merge: true },
+        );
       }
       await batch.commit();
     }
@@ -886,11 +898,7 @@ function applySubmission(
   if (submissions.some((item) => item.roundIndex === submission.roundIndex)) return state;
   const evaluation =
     state.rulesetVersion === MATERIAL_MATCH_RULESET_VERSION
-      ? evaluateSubmission(
-          round,
-          submission,
-          isPlayer ? state.playerDeck : state.opponentDeck,
-        )
+      ? evaluateSubmission(round, submission, isPlayer ? state.playerDeck : state.opponentDeck)
       : evaluateLegacySubmission(
           round,
           submission,

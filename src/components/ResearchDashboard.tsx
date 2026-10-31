@@ -75,9 +75,7 @@ export const ResearchDashboard: React.FC<ResearchDashboardProps> = ({
       } catch {
         if (!cancelled) {
           setSummary((current) => (current?.provenance === "synthetic" ? current : null));
-          setLoadError(
-            "Chưa có dữ liệu nghiên cứu cho khoảng thời gian này.",
-          );
+          setLoadError("Chưa có dữ liệu nghiên cứu cho khoảng thời gian này.");
           setLoading(false);
         }
       }

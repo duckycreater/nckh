@@ -175,8 +175,8 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
                       {redemption.reward.name}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {new Date(redemption.createdAt).toLocaleString("vi-VN")} ·{" "}
-                      {redemption.cost} điểm
+                      {new Date(redemption.createdAt).toLocaleString("vi-VN")} · {redemption.cost}{" "}
+                      điểm
                     </p>
                   </div>
                   <Badge
@@ -214,9 +214,7 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
             </div>
             <div className="text-lg font-black text-red-600">-{summary.totalSpent}</div>
           </div>
-          <div
-            className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-center"
-          >
+          <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-center">
             <div className="mb-1 flex items-center justify-center gap-1">
               {summary.netChange > 0 ? (
                 <TrendingUp size={14} className="text-blue-500" />
@@ -241,89 +239,93 @@ export function RewardHistory({ userId, currentBalance, refreshKey = 0 }: Reward
         </div>
       )}
 
-      {!error && <div className="mb-4 flex gap-2 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-1">
-        {(
-          [
-            { id: "all", label: "Tất cả" },
-            { id: "earn", label: "Kiếm điểm" },
-            { id: "spend", label: "Tiêu điểm" },
-          ] as const
-        ).map((f) => (
-          <TabButton
-            key={f.id}
-            active={filter === f.id}
-            onClick={() => {
-              setFilter(f.id);
-              setShowAll(false);
-            }}
-            className="flex-1 justify-center py-2.5"
-          >
-            {f.label}
-          </TabButton>
-        ))}
-      </div>}
+      {!error && (
+        <div className="mb-4 flex gap-2 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-1">
+          {(
+            [
+              { id: "all", label: "Tất cả" },
+              { id: "earn", label: "Kiếm điểm" },
+              { id: "spend", label: "Tiêu điểm" },
+            ] as const
+          ).map((f) => (
+            <TabButton
+              key={f.id}
+              active={filter === f.id}
+              onClick={() => {
+                setFilter(f.id);
+                setShowAll(false);
+              }}
+              className="flex-1 justify-center py-2.5"
+            >
+              {f.label}
+            </TabButton>
+          ))}
+        </div>
+      )}
 
-      {!error && (loading ? (
-        <LoadingSpinner message="Đang tải lịch sử điểm..." />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="Chưa có giao dịch nào"
-          subtitle="Điểm thưởng và chi tiêu của bạn sẽ hiển thị tại đây."
-        />
-      ) : (
-        <>
-          <div className="space-y-2">
-            {displayTransactions.map((tx, i) => (
-              <div
-                key={tx.id ?? `tx-${i}`}
-                className="flex items-center justify-between rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)]"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[8px] ${tx.transaction_type === "earn" ? "bg-emerald-100" : tx.transaction_type === "spend" ? "bg-red-100" : "bg-slate-100"}`}
-                  >
-                    {tx.transaction_type === "earn" ? (
-                      <TrendingUp size={14} className="text-emerald-600" />
-                    ) : tx.transaction_type === "spend" ? (
-                      <TrendingDown size={14} className="text-red-600" />
-                    ) : (
-                      <Minus size={14} className="text-slate-600" />
+      {!error &&
+        (loading ? (
+          <LoadingSpinner message="Đang tải lịch sử điểm..." />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            title="Chưa có giao dịch nào"
+            subtitle="Điểm thưởng và chi tiêu của bạn sẽ hiển thị tại đây."
+          />
+        ) : (
+          <>
+            <div className="space-y-2">
+              {displayTransactions.map((tx, i) => (
+                <div
+                  key={tx.id ?? `tx-${i}`}
+                  className="flex items-center justify-between rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)]"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[8px] ${tx.transaction_type === "earn" ? "bg-emerald-100" : tx.transaction_type === "spend" ? "bg-red-100" : "bg-slate-100"}`}
+                    >
+                      {tx.transaction_type === "earn" ? (
+                        <TrendingUp size={14} className="text-emerald-600" />
+                      ) : tx.transaction_type === "spend" ? (
+                        <TrendingDown size={14} className="text-red-600" />
+                      ) : (
+                        <Minus size={14} className="text-slate-600" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-slate-800">
+                        {tx.reason ||
+                          (tx.transaction_type === "earn" ? "Điểm thưởng" : "Tiêu điểm")}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                        {tx.source && SOURCE_ICONS[tx.source]}
+                        {tx.source && <span className="capitalize">{tx.source}</span>}
+                        {tx.multiplier > 1 && <Badge tone="warning">×{tx.multiplier}</Badge>}
+                        <span>{formatRelativeTime(tx.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-2 flex flex-shrink-0 flex-col items-end">
+                    <div
+                      className={`text-sm font-black ${tx.transaction_type === "earn" ? "text-emerald-600" : "text-red-600"}`}
+                    >
+                      {tx.transaction_type === "earn" ? "+" : "-"}
+                      {Math.abs(tx.amount)}
+                    </div>
+                    {tx.points_balance !== null && (
+                      <div className="text-[10px] text-slate-400">Còn {tx.points_balance}</div>
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-slate-800">
-                      {tx.reason || (tx.transaction_type === "earn" ? "Điểm thưởng" : "Tiêu điểm")}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
-                      {tx.source && SOURCE_ICONS[tx.source]}
-                      {tx.source && <span className="capitalize">{tx.source}</span>}
-                      {tx.multiplier > 1 && <Badge tone="warning">×{tx.multiplier}</Badge>}
-                      <span>{formatRelativeTime(tx.created_at)}</span>
-                    </div>
-                  </div>
                 </div>
-                <div className="ml-2 flex flex-shrink-0 flex-col items-end">
-                  <div
-                    className={`text-sm font-black ${tx.transaction_type === "earn" ? "text-emerald-600" : "text-red-600"}`}
-                  >
-                    {tx.transaction_type === "earn" ? "+" : "-"}
-                    {Math.abs(tx.amount)}
-                  </div>
-                  {tx.points_balance !== null && (
-                    <div className="text-[10px] text-slate-400">Còn {tx.points_balance}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          {hiddenCount > 0 && (
-            <Button onClick={() => setShowAll(!showAll)} variant="ghost" className="mt-4 w-full">
-              {showAll ? "Thu gọn" : `Xem thêm ${hiddenCount} giao dịch`}
-            </Button>
-          )}
-        </>
-      ))}
+            {hiddenCount > 0 && (
+              <Button onClick={() => setShowAll(!showAll)} variant="ghost" className="mt-4 w-full">
+                {showAll ? "Thu gọn" : `Xem thêm ${hiddenCount} giao dịch`}
+              </Button>
+            )}
+          </>
+        ))}
     </Card>
   );
 }

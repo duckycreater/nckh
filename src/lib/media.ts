@@ -1,7 +1,4 @@
-const ALLOWED_REMOTE_IMAGE_HOSTS = new Set([
-  "res.cloudinary.com",
-  "images.unsplash.com",
-]);
+const ALLOWED_REMOTE_IMAGE_HOSTS = new Set(["res.cloudinary.com", "images.unsplash.com"]);
 
 /** Keep rendered image sources aligned with the app's CSP and offline fallback. */
 export function isDisplayableImageUrl(value: string | null | undefined): value is string {

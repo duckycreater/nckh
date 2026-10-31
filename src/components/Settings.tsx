@@ -2,7 +2,17 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { User } from "../types";
 import { changeLanguage, getCurrentLanguage, LANGUAGES, LanguageCode } from "../lib/i18n";
-import { ArrowRight, Bot, Check, FlaskConical, Globe, LockKeyhole, Search, Shield, X } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  Check,
+  FlaskConical,
+  Globe,
+  LockKeyhole,
+  Search,
+  Shield,
+  X,
+} from "lucide-react";
 import { ContributeToDataset } from "./ContributeToDataset";
 import { PrivacyBudgetMeter } from "./PrivacyBudgetMeter";
 import { AuditTimeline } from "./AuditTimeline";
@@ -48,7 +58,14 @@ export function Settings({ user, onUpdate }: SettingsProps) {
 
   const purchased = user.progress?.purchased || [];
   const hasPurchased = (id: string) => purchased.includes(id) || purchased.includes(Number(id));
-  const materialCycle: WasteCategory[] = ["plastic", "paper", "glass", "metal", "organic", "hazard"];
+  const materialCycle: WasteCategory[] = [
+    "plastic",
+    "paper",
+    "glass",
+    "metal",
+    "organic",
+    "hazard",
+  ];
 
   useEffect(() => {
     setSelectedAvatar(user.selectedAvatar || "");
@@ -202,22 +219,13 @@ export function Settings({ user, onUpdate }: SettingsProps) {
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Tab navigation */}
       <Tabs className="thin-scrollbar">
-        <TabButton
-          active={activeTab === "appearance"}
-          onClick={() => setActiveTab("appearance")}
-        >
+        <TabButton active={activeTab === "appearance"} onClick={() => setActiveTab("appearance")}>
           {t("settings.display")}
         </TabButton>
-        <TabButton
-          active={activeTab === "name"}
-          onClick={() => setActiveTab("name")}
-        >
+        <TabButton active={activeTab === "name"} onClick={() => setActiveTab("name")}>
           {t("settings.displayName")}
         </TabButton>
-        <TabButton
-          active={activeTab === "password"}
-          onClick={() => setActiveTab("password")}
-        >
+        <TabButton active={activeTab === "password"} onClick={() => setActiveTab("password")}>
           {t("settings.password")}
         </TabButton>
         <TabButton
@@ -281,8 +289,14 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                         <Check size={13} aria-label="Đang chọn" />
                       </span>
                     )}
-                    <span data-material={materialCycle[index % materialCycle.length]} className={`material-pattern material-${materialCycle[index % materialCycle.length]} h-16 w-16 overflow-hidden rounded-[8px] border border-[var(--border-subtle)] p-1 text-white`}>
-                      <MaterialFingerprint category={materialCycle[index % materialCycle.length]} seed={av.id} />
+                    <span
+                      data-material={materialCycle[index % materialCycle.length]}
+                      className={`material-pattern material-${materialCycle[index % materialCycle.length]} h-16 w-16 overflow-hidden rounded-[8px] border border-[var(--border-subtle)] p-1 text-white`}
+                    >
+                      <MaterialFingerprint
+                        category={materialCycle[index % materialCycle.length]}
+                        seed={av.id}
+                      />
                     </span>
                     <span className="text-xs font-bold text-gray-700 text-center">{av.name}</span>
                   </button>
@@ -472,12 +486,17 @@ export function Settings({ user, onUpdate }: SettingsProps) {
             <div>
               <h3 className="text-xl font-bold text-gray-900">PIN xác nhận tại BMO</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Dùng ID tài khoản <strong>{user.account_id}</strong> và PIN này khi robot không đọc được phù hiệu.
+                Dùng ID tài khoản <strong>{user.account_id}</strong> và PIN này khi robot không đọc
+                được phù hiệu.
               </p>
             </div>
           </div>
-          {robotPinErr && <p className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{robotPinErr}</p>}
-          {robotPinMsg && <p className="mb-4 rounded bg-emerald-50 p-3 text-sm text-emerald-700">{robotPinMsg}</p>}
+          {robotPinErr && (
+            <p className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{robotPinErr}</p>
+          )}
+          {robotPinMsg && (
+            <p className="mb-4 rounded bg-emerald-50 p-3 text-sm text-emerald-700">{robotPinMsg}</p>
+          )}
           <form onSubmit={handleRobotPin} className="space-y-4">
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-gray-700">PIN mới gồm 6 số</span>
@@ -500,13 +519,16 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                 maxLength={6}
                 required
                 value={robotPinConfirm}
-                onChange={(event) => setRobotPinConfirm(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(event) =>
+                  setRobotPinConfirm(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 className="w-full rounded-md border-0 px-3 py-2 font-mono tracking-[0.35em] text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-emerald-600"
                 type="password"
               />
             </label>
             <p className="text-xs text-gray-500">
-              Robot khóa nhập trong 15 phút sau 5 lần sai. PIN được băm trên server và không nằm trong evidence.
+              Robot khóa nhập trong 15 phút sau 5 lần sai. PIN được băm trên server và không nằm
+              trong evidence.
             </p>
             <button
               type="submit"
@@ -539,7 +561,9 @@ export function Settings({ user, onUpdate }: SettingsProps) {
                       : "border-gray-200 bg-gray-50 hover:border-gray-300"
                   }`}
                 >
-                  <span className="font-telemetry grid h-9 w-11 place-items-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface)] text-[11px] font-semibold uppercase text-[var(--text-muted)]">{language.code}</span>
+                  <span className="font-telemetry grid h-9 w-11 place-items-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface)] text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                    {language.code}
+                  </span>
                   <div className="text-left">
                     <div className="font-bold text-gray-900">{language.label}</div>
                   </div>
@@ -615,7 +639,9 @@ function PrivacyTabContent({ user }: { user: User }) {
       <div className="rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-5">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h4 className="mb-1 flex items-center gap-2 text-sm font-bold text-emerald-900"><FlaskConical size={16} /> Đóng góp cho Khoa học Mở</h4>
+            <h4 className="mb-1 flex items-center gap-2 text-sm font-bold text-emerald-900">
+              <FlaskConical size={16} /> Đóng góp cho Khoa học Mở
+            </h4>
             <p className="text-xs text-emerald-800/80">
               Cho phép ảnh phân loại rác của bạn được đưa vào TDN-Waste-World — dataset mở phục vụ
               nghiên cứu toàn cầu.
@@ -664,7 +690,9 @@ function PrivacyTabContent({ user }: { user: User }) {
 
       {/* Privacy guarantees */}
       <div className="space-y-2">
-        <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900"><Shield size={16} className="text-[var(--primary)]" /> Cam kết của chúng tôi</h4>
+        <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900">
+          <Shield size={16} className="text-[var(--primary)]" /> Cam kết của chúng tôi
+        </h4>
         <ul className="text-xs text-gray-600 space-y-1.5 ml-4 list-disc">
           <li>Ảnh được xóa EXIF (GPS, model camera, timestamp) trước khi upload</li>
           <li>
@@ -686,7 +714,12 @@ function PrivacyTabContent({ user }: { user: User }) {
         className="flex w-full items-center gap-3 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3 text-left text-sm font-semibold text-[var(--graphite)] transition-colors hover:border-[var(--border-strong)]"
       >
         <Search size={17} className="text-[var(--primary)]" />
-        <span className="flex-1">Xem Trung tâm Quyền riêng tư<span className="block text-[10px] font-normal opacity-70">BMO đã học gì từ bạn? Model version? DP ε/δ?</span></span>
+        <span className="flex-1">
+          Xem Trung tâm Quyền riêng tư
+          <span className="block text-[10px] font-normal opacity-70">
+            BMO đã học gì từ bạn? Model version? DP ε/δ?
+          </span>
+        </span>
         <ArrowRight size={16} />
       </button>
 

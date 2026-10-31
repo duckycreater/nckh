@@ -121,7 +121,11 @@ export async function createRedemption(input: {
     };
     const nextBalance = balance - cost;
     transaction.update(userRef, { points: nextBalance });
-    transaction.set(progressRef, { crafted: FieldValue.arrayUnion(input.reward.id) }, { merge: true });
+    transaction.set(
+      progressRef,
+      { crafted: FieldValue.arrayUnion(input.reward.id) },
+      { merge: true },
+    );
     transaction.create(redemptionRef, redemption);
     transaction.create(db.collection("point_transactions").doc(`redeem_${id}`), {
       id: `redeem_${id}`,
@@ -191,7 +195,8 @@ export async function updateRedemptionStatus(
     if (nextStatus === "cancelled" && !current.refundedAt) {
       const userRef = db.collection("users").doc(current.ownerNick);
       const userSnapshot = await transaction.get(userRef);
-      if (!userSnapshot.exists) throw new RedemptionError("user_not_found", "Không tìm thấy tài khoản.");
+      if (!userSnapshot.exists)
+        throw new RedemptionError("user_not_found", "Không tìm thấy tài khoản.");
       const balance = Math.max(0, Math.trunc(Number(userSnapshot.data()?.points) || 0));
       const nextBalance = balance + current.cost;
       transaction.update(userRef, { points: nextBalance });

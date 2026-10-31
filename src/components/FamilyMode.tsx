@@ -148,14 +148,22 @@ export function FamilyMode({ user: _user, isOpen, onClose, mode = "modal" }: Pro
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={mode === "page" ? "relative" : "fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-3"}
+        className={
+          mode === "page"
+            ? "relative"
+            : "fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-3"
+        }
         onClick={mode === "modal" ? onClose : undefined}
       >
         <motion.div
           initial={{ scale: 0.95, y: 10 }}
           animate={{ scale: 1, y: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className={mode === "page" ? "relative w-full overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)]" : "relative w-full max-w-2xl overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[var(--shadow-medium)]"}
+          className={
+            mode === "page"
+              ? "relative w-full overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)]"
+              : "relative w-full max-w-2xl overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[var(--shadow-medium)]"
+          }
         >
           <div className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] px-5 py-4">
             <div className="flex items-center justify-between">
@@ -164,16 +172,16 @@ export function FamilyMode({ user: _user, isOpen, onClose, mode = "modal" }: Pro
                   <Users size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-[var(--graphite)]">
-                    Family Mode
-                  </h3>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Phân loại rác cùng gia đình
-                  </p>
+                  <h3 className="text-base font-semibold text-[var(--graphite)]">Family Mode</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Phân loại rác cùng gia đình</p>
                 </div>
               </div>
               {mode === "modal" && (
-                <button onClick={onClose} aria-label="Đóng chế độ gia đình" className="rounded-[6px] p-1.5 hover:bg-slate-200">
+                <button
+                  onClick={onClose}
+                  aria-label="Đóng chế độ gia đình"
+                  className="rounded-[6px] p-1.5 hover:bg-slate-200"
+                >
                   <X size={18} />
                 </button>
               )}
@@ -187,7 +195,9 @@ export function FamilyMode({ user: _user, isOpen, onClose, mode = "modal" }: Pro
               <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-10 text-center">
                 <AlertCircle size={28} className="text-amber-600" aria-hidden="true" />
                 <div>
-                  <p className="font-semibold text-[var(--graphite)]">Không thể tải dữ liệu gia đình</p>
+                  <p className="font-semibold text-[var(--graphite)]">
+                    Không thể tải dữ liệu gia đình
+                  </p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{loadError}</p>
                 </div>
                 <button
@@ -456,7 +466,10 @@ function MembersTab({ members }: { members: FamilyMember[] }) {
               key={m.userId}
               className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
             >
-              <div className="material-pattern material-organic flex h-9 w-9 items-center justify-center rounded-[8px] border border-[var(--border-strong)] text-sm font-semibold text-white" data-material="organic">
+              <div
+                className="material-pattern material-organic flex h-9 w-9 items-center justify-center rounded-[8px] border border-[var(--border-strong)] text-sm font-semibold text-white"
+                data-material="organic"
+              >
                 {m.userId.slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -527,7 +540,9 @@ function ChallengesTab({
             className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
           >
             <div className="flex items-start gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] bg-[var(--primary-soft)] text-[var(--primary)]"><TypeIcon size={17} /></div>
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] bg-[var(--primary-soft)] text-[var(--primary)]">
+                <TypeIcon size={17} />
+              </div>
               <div className="flex-1">
                 <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
                   {c.title}

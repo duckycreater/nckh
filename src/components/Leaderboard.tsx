@@ -2,7 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, EmptyState, ErrorRetry, SkeletonRow, TabButton } from "../lib/ui";
 import { formatNumber } from "../lib/format";
-import { CalendarDays, Medal, Minus, TrendingUp, TrendingDown, Trophy, UsersRound } from "lucide-react";
+import {
+  CalendarDays,
+  Medal,
+  Minus,
+  TrendingUp,
+  TrendingDown,
+  Trophy,
+  UsersRound,
+} from "lucide-react";
 
 interface LeaderboardEntry {
   name: string;
@@ -111,7 +119,6 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
     };
     fetchBoard();
   }, [refreshTrigger, refetchKey, activeTab, t]);
-
 
   const rankedUsers = React.useMemo(() => {
     if (activeTab === "clans") return [];
@@ -242,7 +249,9 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
                 className={`relative flex h-10 w-10 items-center justify-center rounded-full text-lg ${isCurrent ? "ring-4 ring-amber-300" : ""}`}
               >
                 <div className={`absolute inset-0 rounded-[8px] border ${PODIUM_BG[pos]}`} />
-                <span className="font-telemetry relative z-10 text-sm font-semibold text-white">{String(pos + 1).padStart(2, "0")}</span>
+                <span className="font-telemetry relative z-10 text-sm font-semibold text-white">
+                  {String(pos + 1).padStart(2, "0")}
+                </span>
               </div>
               <div className={`relative mt-1.5 ${PODIUM_NAME_TOP[pos]} flex flex-col items-center`}>
                 <p
@@ -316,18 +325,18 @@ export function Leaderboard({ refreshTrigger, currentUser, onUserClick }: Props)
           {LB_TABS.map((tab) => {
             const Icon = tab.icon;
             return (
-            <TabButton
-              key={tab.key}
-              active={activeTab === tab.key}
-              onClick={() => {
-                setActiveTab(tab.key);
-                setRefetchKey((k) => k + 1);
-              }}
-              className="shrink-0 gap-1.5 whitespace-nowrap px-4 py-2"
-            >
-              <Icon size={15} />
-              <span>{tab.label}</span>
-            </TabButton>
+              <TabButton
+                key={tab.key}
+                active={activeTab === tab.key}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setRefetchKey((k) => k + 1);
+                }}
+                className="shrink-0 gap-1.5 whitespace-nowrap px-4 py-2"
+              >
+                <Icon size={15} />
+                <span>{tab.label}</span>
+              </TabButton>
             );
           })}
         </div>

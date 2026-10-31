@@ -33,7 +33,8 @@ function ensureActivityCoordination() {
   activityChannel.addEventListener("message", (event) => {
     const message = event.data as { tabId?: unknown; active?: unknown; timestamp?: unknown };
     if (typeof message.tabId !== "string" || message.tabId === tabId) return;
-    if (message.active === true) remoteActivity.set(message.tabId, Number(message.timestamp) || Date.now());
+    if (message.active === true)
+      remoteActivity.set(message.tabId, Number(message.timestamp) || Date.now());
     else remoteActivity.delete(message.tabId);
     updateDeferredState();
   });
@@ -180,7 +181,11 @@ export async function installAppUpdateManager(): Promise<void> {
     registration.addEventListener("updatefound", () => {
       const installing = registration?.installing;
       installing?.addEventListener("statechange", () => {
-        if (installing.state === "installed" && navigator.serviceWorker.controller && registration) {
+        if (
+          installing.state === "installed" &&
+          navigator.serviceWorker.controller &&
+          registration
+        ) {
           announceUpdate(registration);
         }
       });

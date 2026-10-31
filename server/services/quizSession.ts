@@ -33,11 +33,7 @@ export function buildQuizEditionId(
 }
 
 export function buildQuizSessionId(accountId: string, editionId: string): string {
-  return crypto
-    .createHash("sha256")
-    .update(`${accountId}:${editionId}`)
-    .digest("hex")
-    .slice(0, 40);
+  return crypto.createHash("sha256").update(`${accountId}:${editionId}`).digest("hex").slice(0, 40);
 }
 
 export function gradeQuizSession(

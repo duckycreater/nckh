@@ -1382,7 +1382,8 @@ async function saveUserAndProgress(
       const progressRef = db.collection("user_progress").doc(normalizedNickname);
       await db.runTransaction(async (transaction) => {
         const snapshot = await transaction.get(userRef);
-        if (!snapshot.exists) throw new Error(`Cannot save progress: user ${nickname} was not found`);
+        if (!snapshot.exists)
+          throw new Error(`Cannot save progress: user ${nickname} was not found`);
         const current = normalizeUserEconomy(snapshot.data() as User);
         const storedVersion = Math.max(0, Math.trunc(Number(current.pointsVersion) || 0));
         const incomingVersion = Math.max(0, Math.trunc(Number(user.pointsVersion) || 0));
@@ -1600,7 +1601,9 @@ async function requireRobotV2(
 ) {
   const secret = process.env.BMO_ROBOT_SHARED_SECRET?.trim();
   if (!secret || secret.length < 24) {
-    return res.status(503).json({ error: "Robot v2 chưa được cấu hình.", code: "robot_unconfigured" });
+    return res
+      .status(503)
+      .json({ error: "Robot v2 chưa được cấu hình.", code: "robot_unconfigured" });
   }
   const checked = verifyRobotRequest({
     secret,
@@ -1620,12 +1623,15 @@ async function requireRobotV2(
     .digest("hex");
   try {
     if (db) {
-      await db.collection("robot_nonces").doc(nonceId).create({
-        nonce: checked.nonce,
-        timestampMs: checked.timestampMs,
-        expiresAt: checked.timestampMs + 10 * 60_000,
-        createdAt: Date.now(),
-      });
+      await db
+        .collection("robot_nonces")
+        .doc(nonceId)
+        .create({
+          nonce: checked.nonce,
+          timestampMs: checked.timestampMs,
+          expiresAt: checked.timestampMs + 10 * 60_000,
+          createdAt: Date.now(),
+        });
     } else {
       const now = Date.now();
       for (const [key, expiry] of robotNonceCache) if (expiry < now) robotNonceCache.delete(key);
@@ -1651,7 +1657,9 @@ async function findBadgeUsers(studentName: string, className: string): Promise<U
       db.collection("users").where("classGrade", "==", normalizedClass).get(),
       db.collection("users").where("classId", "==", normalizedClass).get(),
     ]);
-    const unique = new Map([...byGrade.docs, ...byClassId.docs].map((document) => [document.id, document]));
+    const unique = new Map(
+      [...byGrade.docs, ...byClassId.docs].map((document) => [document.id, document]),
+    );
     return [...unique.values()]
       .map((document) => normalizeUserEconomy(document.data() as User))
       .filter((user) => normalizeStudentName(user.fullName || user.name) === normalizedName);
@@ -1663,7 +1671,10 @@ async function findBadgeUsers(studentName: string, className: string): Promise<U
   );
 }
 
-async function pinAttemptState(accountId: string, deviceId: string): Promise<{
+async function pinAttemptState(
+  accountId: string,
+  deviceId: string,
+): Promise<{
   locked: boolean;
   retryAfterSeconds: number;
 }> {
@@ -1721,7 +1732,9 @@ app.post("/api/robot/v2/identity", requireRobotV2, async (req, res) => {
   if (!db) return res.status(503).json({ error: "Danh tính robot cần Firestore." });
   const parsed = RobotIdentityRequestSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Dữ liệu danh tính không hợp lệ.", details: parsed.error.issues });
+    return res
+      .status(400)
+      .json({ error: "Dữ liệu danh tính không hợp lệ.", details: parsed.error.issues });
   }
   const body = parsed.data;
   let user: User | undefined;
@@ -1729,12 +1742,16 @@ app.post("/api/robot/v2/identity", requireRobotV2, async (req, res) => {
     const badge = body.badge!;
     const age = Date.now() - badge.observed_at_ms;
     if (age < -2_000 || age > 15_000 || badge.confidence < 0.6) {
-      return res.status(409).json({ error: "Kết quả phù hiệu đã cũ hoặc chưa đủ chắc chắn.", code: "stale_badge" });
+      return res
+        .status(409)
+        .json({ error: "Kết quả phù hiệu đã cũ hoặc chưa đủ chắc chắn.", code: "stale_badge" });
     }
     const candidates = await findBadgeUsers(badge.student_name, badge.class_name);
     if (candidates.length !== 1) {
       return res.status(409).json({
-        error: candidates.length ? "Phù hiệu trùng tên — hãy nhập ID/PIN." : "Không khớp tài khoản — hãy nhập ID/PIN.",
+        error: candidates.length
+          ? "Phù hiệu trùng tên — hãy nhập ID/PIN."
+          : "Không khớp tài khoản — hãy nhập ID/PIN.",
         code: candidates.length ? "ambiguous_badge" : "badge_not_found",
       });
     }
@@ -1743,17 +1760,23 @@ app.post("/api/robot/v2/identity", requireRobotV2, async (req, res) => {
     user = await getUser(body.account_id!);
     if (!user || !user.robotPinHash) {
       await recordPinAttempt(body.account_id!, body.device_id, false);
-      return res.status(401).json({ error: "ID hoặc PIN robot không đúng.", code: "invalid_robot_pin" });
+      return res
+        .status(401)
+        .json({ error: "ID hoặc PIN robot không đúng.", code: "invalid_robot_pin" });
     }
     const state = await pinAttemptState(user.account_id, body.device_id);
     if (state.locked) {
       res.setHeader("Retry-After", String(state.retryAfterSeconds));
-      return res.status(429).json({ error: "Đã nhập sai quá nhiều lần.", code: "robot_pin_locked" });
+      return res
+        .status(429)
+        .json({ error: "Đã nhập sai quá nhiều lần.", code: "robot_pin_locked" });
     }
     const valid = await verifyPassword(body.pin!, user.robotPinHash);
     await recordPinAttempt(user.account_id, body.device_id, valid);
     if (!valid) {
-      return res.status(401).json({ error: "ID hoặc PIN robot không đúng.", code: "invalid_robot_pin" });
+      return res
+        .status(401)
+        .json({ error: "ID hoặc PIN robot không đúng.", code: "invalid_robot_pin" });
     }
   }
   if (!user || user.disabled || isUserDisabled(user.nick)) {
@@ -1768,36 +1791,41 @@ app.post("/api/robot/v2/identity", requireRobotV2, async (req, res) => {
   const ref = db.collection("robot_identity_sessions").doc(body.session_id);
   const now = Date.now();
   const expiresAt = now + 3 * 60_000;
-  const record = await db.runTransaction(async (transaction) => {
-    const existing = await transaction.get(ref);
-    if (existing.exists) {
-      const current = existing.data()!;
-      if (current.payloadHash !== payloadHash || current.deviceId !== body.device_id) {
-        throw new Error("IDENTITY_SESSION_CONFLICT");
+  const record = await db
+    .runTransaction(async (transaction) => {
+      const existing = await transaction.get(ref);
+      if (existing.exists) {
+        const current = existing.data()!;
+        if (current.payloadHash !== payloadHash || current.deviceId !== body.device_id) {
+          throw new Error("IDENTITY_SESSION_CONFLICT");
+        }
+        return current;
       }
-      return current;
-    }
-    const value = {
-      sessionId: body.session_id,
-      deviceId: body.device_id,
-      accountId: user!.account_id,
-      nickname: user!.nick.toLowerCase(),
-      fullName: user!.fullName || user!.name,
-      className: user!.classGrade || user!.classId || "",
-      method: body.method,
-      payloadHash,
-      identityTokenHash: identityTokenHash(identityToken),
-      canEarnPoints: pointEligibility(user!).canEarnPoints,
-      createdAt: now,
-      expiresAt,
-    };
-    transaction.create(ref, value);
-    return value;
-  }).catch((error) => {
-    if ((error as Error).message === "IDENTITY_SESSION_CONFLICT") return null;
-    throw error;
-  });
-  if (!record) return res.status(409).json({ error: "Phiên đã gắn với danh tính khác.", code: "identity_session_conflict" });
+      const value = {
+        sessionId: body.session_id,
+        deviceId: body.device_id,
+        accountId: user!.account_id,
+        nickname: user!.nick.toLowerCase(),
+        fullName: user!.fullName || user!.name,
+        className: user!.classGrade || user!.classId || "",
+        method: body.method,
+        payloadHash,
+        identityTokenHash: identityTokenHash(identityToken),
+        canEarnPoints: pointEligibility(user!).canEarnPoints,
+        createdAt: now,
+        expiresAt,
+      };
+      transaction.create(ref, value);
+      return value;
+    })
+    .catch((error) => {
+      if ((error as Error).message === "IDENTITY_SESSION_CONFLICT") return null;
+      throw error;
+    });
+  if (!record)
+    return res
+      .status(409)
+      .json({ error: "Phiên đã gắn với danh tính khác.", code: "identity_session_conflict" });
   res.json({
     success: true,
     session_id: body.session_id,
@@ -1816,7 +1844,9 @@ app.post("/api/robot/v2/events", requireRobotV2, async (req, res) => {
   if (!db) return res.status(503).json({ error: "Ghi điểm robot cần Firestore." });
   const parsed = RobotEventRequestSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Sự kiện robot không hợp lệ.", details: parsed.error.issues });
+    return res
+      .status(400)
+      .json({ error: "Sự kiện robot không hợp lệ.", details: parsed.error.issues });
   }
   const event = parsed.data;
   const { identity_token: _identityToken, ...storedEvent } = event;
@@ -1843,12 +1873,18 @@ app.post("/api/robot/v2/events", requireRobotV2, async (req, res) => {
       if (identityTokenHash(event.identity_token) !== session.identityTokenHash) {
         throw new Error("IDENTITY_TOKEN_INVALID");
       }
-      if (event.completed_at_ms < event.observed_at_ms || event.completed_at_ms - event.observed_at_ms > 60_000) {
+      if (
+        event.completed_at_ms < event.observed_at_ms ||
+        event.completed_at_ms - event.observed_at_ms > 60_000
+      ) {
         throw new Error("INVALID_EVENT_TIMELINE");
       }
       // Delivery may happen much later after an offline period. Validate when
       // the physical event happened, not when its durable outbox finally sent.
-      if (event.observed_at_ms < Number(session.createdAt || 0) - 5_000 || event.completed_at_ms > Number(session.expiresAt || 0) + 45_000) {
+      if (
+        event.observed_at_ms < Number(session.createdAt || 0) - 5_000 ||
+        event.completed_at_ms > Number(session.expiresAt || 0) + 45_000
+      ) {
         throw new Error("IDENTITY_SESSION_EXPIRED");
       }
       const userRef = db!.collection("users").doc(String(session.nickname));
@@ -1901,16 +1937,18 @@ app.post("/api/robot/v2/events", requireRobotV2, async (req, res) => {
         kind: pointsApplied > 0 ? "robot_reward" : "robot_disposal",
         type: pointsApplied > 0 ? "robot_reward" : "robot_disposal",
         title: pointsApplied > 0 ? "BMO đã cộng 10 điểm" : "BMO đã ghi nhận lượt bỏ rác",
-        body: pointsApplied > 0
-          ? `${event.waste_name}: đúng thùng ${event.actual_bin}.`
-          : correct
-            ? `${event.waste_name}: hồ sơ chưa đủ điều kiện nhận điểm.`
-            : `${event.waste_name}: chưa xác nhận đúng thùng, không cộng điểm.`,
-        message: pointsApplied > 0
-          ? `${event.waste_name}: đúng thùng ${event.actual_bin}.`
-          : correct
-            ? `${event.waste_name}: hồ sơ chưa đủ điều kiện nhận điểm.`
-            : `${event.waste_name}: chưa xác nhận đúng thùng, không cộng điểm.`,
+        body:
+          pointsApplied > 0
+            ? `${event.waste_name}: đúng thùng ${event.actual_bin}.`
+            : correct
+              ? `${event.waste_name}: hồ sơ chưa đủ điều kiện nhận điểm.`
+              : `${event.waste_name}: chưa xác nhận đúng thùng, không cộng điểm.`,
+        message:
+          pointsApplied > 0
+            ? `${event.waste_name}: đúng thùng ${event.actual_bin}.`
+            : correct
+              ? `${event.waste_name}: hồ sơ chưa đủ điều kiện nhận điểm.`
+              : `${event.waste_name}: chưa xác nhận đúng thùng, không cộng điểm.`,
         createdAt: receipt.committed_at,
         readAt: null,
         eventId: event.event_id,
@@ -1931,7 +1969,10 @@ app.post("/api/robot/v2/events", requireRobotV2, async (req, res) => {
         attempts: 0,
         createdAt: receipt.committed_at,
       });
-      transaction.update(sessionRef, { completedEventId: event.event_id, completedAt: receipt.committed_at });
+      transaction.update(sessionRef, {
+        completedEventId: event.event_id,
+        completedAt: receipt.committed_at,
+      });
       return receipt;
     });
     res.json({ success: true, receipt });
@@ -1942,7 +1983,9 @@ app.post("/api/robot/v2/events", requireRobotV2, async (req, res) => {
       : ["IDENTITY_SESSION_NOT_FOUND", "USER_NOT_FOUND"].includes(code)
         ? 404
         : 401;
-    res.status(status).json({ error: "Không thể ghi nhận sự kiện robot.", code: code.toLowerCase() });
+    res
+      .status(status)
+      .json({ error: "Không thể ghi nhận sự kiện robot.", code: code.toLowerCase() });
   }
 });
 
@@ -1950,7 +1993,8 @@ app.get("/api/robot/v2/events/:eventId", requireRobotV2, async (req, res) => {
   if (!db) return res.status(503).json({ error: "Dịch vụ robot chưa sẵn sàng." });
   const eventId = getRouteParam(req.params.eventId);
   const snapshot = await db.collection("robot_events").doc(eventId).get();
-  if (!snapshot.exists) return res.status(404).json({ error: "Chưa có biên nhận.", code: "event_not_found" });
+  if (!snapshot.exists)
+    return res.status(404).json({ error: "Chưa có biên nhận.", code: "event_not_found" });
   const value = snapshot.data()!;
   res.json({ success: true, receipt: value.receipt });
 });

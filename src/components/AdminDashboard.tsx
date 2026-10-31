@@ -469,17 +469,22 @@ export function AdminDashboard({ user, onLogout }: Props) {
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/research")}>
-              <Activity className="h-4 w-4" /> <span className="hidden sm:inline">{t("admin.tabs.research")}</span>
+              <Activity className="h-4 w-4" />{" "}
+              <span className="hidden sm:inline">{t("admin.tabs.research")}</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={onLogout}>
-              <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">{t("admin.logout", "Đăng xuất")}</span>
+              <LogOut className="h-4 w-4" />{" "}
+              <span className="hidden sm:inline">{t("admin.logout", "Đăng xuất")}</span>
             </Button>
           </div>
         </div>
 
         {/* ── Nav tabs ── */}
         <Card className="overflow-hidden p-1.5">
-          <Tabs className="thin-scrollbar border-0 bg-transparent p-0" aria-label="Điều hướng quản trị">
+          <Tabs
+            className="thin-scrollbar border-0 bg-transparent p-0"
+            aria-label="Điều hướng quản trị"
+          >
             {tabs.map((tab) => (
               <TabButton
                 key={tab.id}
@@ -518,7 +523,9 @@ export function AdminDashboard({ user, onLogout }: Props) {
                 ].map((item) => (
                   <Card key={item.label} className="p-5">
                     <Badge tone={item.tone}>{item.label}</Badge>
-                    <p className="font-telemetry mt-4 text-3xl font-semibold text-slate-900">{item.value}</p>
+                    <p className="font-telemetry mt-4 text-3xl font-semibold text-slate-900">
+                      {item.value}
+                    </p>
                   </Card>
                 ))}
               </div>
@@ -526,7 +533,7 @@ export function AdminDashboard({ user, onLogout }: Props) {
               <Card className="p-6">
                 <SectionHeading
                   title="Thao tác nhanh"
-                subtitle="Làm mới dữ liệu, cập nhật phần thưởng và đồng bộ nguồn ngoài."
+                  subtitle="Làm mới dữ liệu, cập nhật phần thưởng và đồng bộ nguồn ngoài."
                 />
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <Button onClick={fetchRewards} variant="secondary">
@@ -562,7 +569,9 @@ export function AdminDashboard({ user, onLogout }: Props) {
                     className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3"
                   >
                     <dt className="text-sm text-[var(--text-muted)]">{label}</dt>
-                    <dd className="font-telemetry text-sm font-semibold text-[var(--graphite)]">{value}</dd>
+                    <dd className="font-telemetry text-sm font-semibold text-[var(--graphite)]">
+                      {value}
+                    </dd>
                   </div>
                 ))}
               </dl>

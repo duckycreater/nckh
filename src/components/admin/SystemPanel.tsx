@@ -286,7 +286,10 @@ export function SystemPanel() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <EmailConfigFlag label="API provider" enabled={Boolean(emailStatus?.configured)} />
-          <EmailConfigFlag label="Webhook giao hàng" enabled={Boolean(emailStatus?.webhookConfigured)} />
+          <EmailConfigFlag
+            label="Webhook giao hàng"
+            enabled={Boolean(emailStatus?.webhookConfigured)}
+          />
           <EmailConfigFlag label="Địa chỉ gửi" enabled={Boolean(emailStatus?.fromConfigured)} />
           <EmailConfigFlag
             label="Email nhận đơn"

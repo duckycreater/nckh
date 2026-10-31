@@ -172,9 +172,17 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
           >
             <div className="fixed inset-0 -z-10 bg-slate-950/55" />
             <Card className="max-w-sm w-full p-8 text-center">
-              <CheckCircle2 className="mx-auto mb-4 text-[var(--primary)]" size={42} strokeWidth={1.5} />
-              <p className="font-telemetry text-[10px] font-semibold tracking-[0.16em] text-[var(--primary)]">GIAO DỊCH ĐÃ GHI NHẬN</p>
-              <h3 className="mb-2 mt-2 text-2xl font-semibold text-[var(--graphite)]">Đổi quà thành công</h3>
+              <CheckCircle2
+                className="mx-auto mb-4 text-[var(--primary)]"
+                size={42}
+                strokeWidth={1.5}
+              />
+              <p className="font-telemetry text-[10px] font-semibold tracking-[0.16em] text-[var(--primary)]">
+                GIAO DỊCH ĐÃ GHI NHẬN
+              </p>
+              <h3 className="mb-2 mt-2 text-2xl font-semibold text-[var(--graphite)]">
+                Đổi quà thành công
+              </h3>
               <p className="font-semibold text-[var(--graphite)]">{successItem}</p>
               <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
                 Yêu cầu giao quà đã được ghi nhận và đang chờ xử lý.
@@ -274,7 +282,9 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
 
                       <div className="flex flex-1 flex-col justify-between py-1">
                         <div>
-                          <h4 className="text-base font-semibold text-[var(--graphite)]">{recipe.name}</h4>
+                          <h4 className="text-base font-semibold text-[var(--graphite)]">
+                            {recipe.name}
+                          </h4>
                           <p className="mt-1 text-sm leading-relaxed text-[var(--text-muted)]">
                             {recipe.desc}
                           </p>
@@ -314,7 +324,11 @@ export function CraftingStation({ points, progress, onRefresh }: Props) {
                           variant={canAfford ? "primary" : "ghost"}
                         >
                           <Handshake size={14} />
-                          {canAfford ? (hasPreviousRequest ? "Đổi thêm" : "Đổi ngay") : "Chưa đủ điểm"}
+                          {canAfford
+                            ? hasPreviousRequest
+                              ? "Đổi thêm"
+                              : "Đổi ngay"
+                            : "Chưa đủ điểm"}
                         </Button>
                       )}
                     </div>

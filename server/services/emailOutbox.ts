@@ -7,13 +7,7 @@ import {
   type TransactionalEmail,
 } from "./emailDelivery.js";
 
-export type OutboxStatus =
-  | "queued"
-  | "sending"
-  | "accepted"
-  | "delivered"
-  | "bounced"
-  | "failed";
+export type OutboxStatus = "queued" | "sending" | "accepted" | "delivered" | "bounced" | "failed";
 
 export interface EmailOutboxDocument {
   id: string;
